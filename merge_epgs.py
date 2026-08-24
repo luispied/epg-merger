@@ -11,7 +11,8 @@ def load_epg_urls():
     try:
         with open('epg_urls.json', 'r') as f:
             config = json.load(f)
-            return config.get('urls', [])
+            urls = config.get('urls', [])
+            return [u for u in urls if not u.lstrip().startswith('#')]
     except FileNotFoundError:
         print("❌ Error: epg_urls.json no encontrado")
         return []
