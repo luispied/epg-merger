@@ -27,18 +27,12 @@ jobs:
     - name: Merge EPGs
       run: python merge_epgs.py
     
-    - name: Commit and push
+    - name: Publish release asset
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        FILE_SIZE_BYTES=$(stat -c%s merged.xml.gz)
-        MAX_GITHUB_FILE_SIZE_BYTES=100000000
-
-        if [ "$FILE_SIZE_BYTES" -gt "$MAX_GITHUB_FILE_SIZE_BYTES" ]; then
-          echo "⚠️ merged.xml.gz is larger than 100 MB (${FILE_SIZE_BYTES} bytes). Skipping commit/push."
-          exit 0
+        TAG=latest
+        if ! gh release view "$TAG" >/dev/null 2>&1; then
+          gh release create "$TAG" --title "EPG mergeado (auto)" --notes "Se actualiza automáticamente en cada corrida del workflow."
         fi
-
-        git config user.name "EPG Bot"
-        git config user.email "bot@github.com"
-        git add merged.xml.gz
-        git commit -m "Update EPG - $(date)" || echo "No changes"
-        git push
+        gh release upload "$TAG" merged.xml.gz --clobber
