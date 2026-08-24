@@ -29,6 +29,14 @@ jobs:
     
     - name: Commit and push
       run: |
+        FILE_SIZE_BYTES=$(stat -c%s merged.xml.gz)
+        MAX_GITHUB_FILE_SIZE_BYTES=100000000
+
+        if [ "$FILE_SIZE_BYTES" -gt "$MAX_GITHUB_FILE_SIZE_BYTES" ]; then
+          echo "⚠️ merged.xml.gz is larger than 100 MB (${FILE_SIZE_BYTES} bytes). Skipping commit/push."
+          exit 0
+        fi
+
         git config user.name "EPG Bot"
         git config user.email "bot@github.com"
         git add merged.xml.gz
