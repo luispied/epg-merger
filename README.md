@@ -22,5 +22,5 @@ El workflow `.github/workflows/merge-epgs.yml` permite ejecutar el merge de form
 Usa esta URL fija en tu reproductor (TiviMate, etc.) — siempre apunta a la última versión generada:
 
 ```text
-https://github.com/tu-usuario/epg-merger/releases/download/latest/merged.xml.gz
+https://github.com/luispied/epg-merger/releases/download/latest/merged.xml.gz
 ```
