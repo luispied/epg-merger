@@ -5,6 +5,9 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   merge:
     runs-on: ubuntu-latest
@@ -24,9 +27,10 @@ jobs:
     - name: Merge EPGs
       run: python merge_epgs.py
     
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: .
-        include_files: merged.xml.gz
+    - name: Commit and push
+      run: |
+        git config user.name "EPG Bot"
+        git config user.email "bot@github.com"
+        git add merged.xml.gz
+        git commit -m "Update EPG - $(date)" || echo "No changes"
+        git push
