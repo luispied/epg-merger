@@ -9,7 +9,7 @@ pip install -r requirements.txt
 python merge_epgs.py
 ```
 
-Edita `/home/runner/work/epg-merger/epg-merger/epg_urls.json` y añade o ajusta tus URLs.
+Edita `/home/runner/work/epg-merger/epg-merger/epg_urls.json` y añade el resto de tus URLs en `urls`.
 
 ## GitHub Actions
 
