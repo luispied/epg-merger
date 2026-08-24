@@ -1,0 +1,39 @@
+name: Merge EPGs
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Merge EPGs
+        run: python merge_epgs.py
+
+      - name: Commit y push
+        run: |
+          git config user.name "EPG Bot"
+          git config user.email "epg-bot@github.com"
+          git add merged.xml.gz
+          if ! git diff --cached --quiet; then
+            git commit -m "Update EPG - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          else
+            echo "No changes"
+          fi
