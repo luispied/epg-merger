@@ -6,11 +6,83 @@ from lxml import etree
 from datetime import datetime
 from collections import defaultdict
 
-# TUS 82 URLs AQUÍ (en orden de prioridad)
+# URLs EPG (en orden de prioridad)
 EPG_URLS = [
+    "https://epgshare01.online/epgshare01/epg_ripper_AR1.xml.gz",
+    "https://open-epg.com/files/argentina.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_BEIN1.xml.gz",
+    "https://open-epg.com/files/bolivia1.xml.gz",
+    "https://open-epg.com/files/bolivia2.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz",
+    "https://open-epg.com/files/canada.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_CL1.xml.gz",
+    "https://open-epg.com/files/colombia1.xml.gz",
+    "https://open-epg.com/files/colombia2.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_CR1.xml.gz",
+    "https://open-epg.com/files/costarica1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz",
+    "https://open-epg.com/files/germany.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DIRECTVSPORTS1.xml.gz",
+    "https://epg.programadordx.cl/mdiaz/gratis.xml",
+    "https://epgshare01.online/epgshare01/epg_ripper_EC1.xml.gz",
+    "https://open-epg.com/files/ecuador1.xml.gz",
     "https://epgshare01.online/epgshare01/epg_ripper_ES1.xml.gz",
-    "https://open-epg.com/epg/es.xml",
-    # ... agrega las 82 URLs ...
+    "https://open-epg.com/files/spain1.xml.gz",
+    "https://open-epg.com/files/spain2.xml.gz",
+    "https://open-epg.com/files/spain3.xml.gz",
+    "https://open-epg.com/files/spain4.xml.gz",
+    "https://open-epg.com/files/spain5.xml.gz",
+    "https://open-epg.com/files/spain6.xml.gz",
+    "https://open-epg.com/files/spain7.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_IT1.xml.gz",
+    "https://open-epg.com/files/italy1.xml.gz",
+    "https://open-epg.com/files/italy2.xml.gz",
+    "https://open-epg.com/files/italy3.xml.gz",
+    "https://open-epg.com/files/italy4.xml.gz",
+    "https://open-epg.com/files/italy5.xml.gz",
+    "https://open-epg.com/files/italy6.xml.gz",
+    "https://open-epg.com/files/italy7.xml.gz",
+    "https://open-epg.com/files/italy8.xml.gz",
+    "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/Latino_guide.xml.gz",
+    "https://raw.githubusercontent.com/davidmuma/EPG_dobleM/master/guiatv_sincolor.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz",
+    "https://open-epg.com/files/mexico1.xml.gz",
+    "https://open-epg.com/files/mexico2.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PA1.xml.gz",
+    "https://open-epg.com/files/paraguay1.xml.gz",
+    "https://open-epg.com/files/paraguay2.xml.gz",
+    "https://open-epg.com/files/panama1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PE1.xml.gz",
+    "https://open-epg.com/files/peru.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PEACOCK1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PT1.xml.gz",
+    "https://open-epg.com/files/portugal1.xml.gz",
+    "https://open-epg.com/files/portugal2.xml.gz",
+    "https://open-epg.com/files/sports1.xml.gz",
+    "https://open-epg.com/files/sports4.xml.gz",
+    "https://open-epg.com/files/sports5.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz",
+    "https://open-epg.com/files/unitedkingdom.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz",
+    "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_local_guide.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz",
+    "https://open-epg.com/files/unitedstates1.xml.gz",
+    "https://open-epg.com/files/unitedstates2.xml.gz",
+    "https://open-epg.com/files/unitedstates3.xml.gz",
+    "https://open-epg.com/files/unitedstates4.xml.gz",
+    "https://open-epg.com/files/unitedstates5.xml.gz",
+    "https://open-epg.com/files/unitedstates6.xml.gz",
+    "https://open-epg.com/files/unitedstates7.xml.gz",
+    "https://open-epg.com/files/unitedstates8.xml.gz",
+    "https://open-epg.com/files/unitedstates9.xml.gz",
+    "https://open-epg.com/files/unitedstates10.xml.gz",
+    "https://open-epg.com/files/unitedstates11.xml.gz",
+    "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz",
+    "https://open-epg.com/files/uruguay.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_UY1.xml.gz",
 ]
 
 def download_epg(url):
@@ -107,44 +179,6 @@ def merge_epgs():
     print(f"\n✅ EPG mergead exitosamente!")
     print(f"📁 Archivo: merged.xml.gz")
     print(f"🔗 URL: https://luispied.github.io/epg-merger/merged.xml.gz")
-
-if __name__ == "__main__":
-    merge_epgs()        print(f"Descargando {url}...")
-        data = download_epg(url)
-        if not data:
-            continue
-
-        try:
-            tree = etree.fromstring(data)
-            for channel in tree.findall("channel"):
-                channel_id = channel.get("id")
-                if channel_id and channel_id not in channels:
-                    channels[channel_id] = channel
-
-            for programme in tree.findall("programme"):
-                programmes.append(programme)
-        except Exception as exc:
-            print(f"Error parseando {url}: {exc}")
-
-    for channel in channels.values():
-        root.append(channel)
-
-    for programme in programmes:
-        root.append(programme)
-
-    output = etree.tostring(
-        root,
-        encoding="utf-8",
-        xml_declaration=True,
-        pretty_print=True,
-    )
-
-    with gzip.open(OUTPUT_PATH, "wb") as output_file:
-        output_file.write(output)
-
-    print(f"✅ EPG mergeado exitosamente: {OUTPUT_PATH}")
-    print(f"📊 Canales: {len(channels)}, Programas: {len(programmes)}")
-
 
 if __name__ == "__main__":
     merge_epgs()
