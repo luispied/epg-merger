@@ -47,7 +47,10 @@ def merge_epgs():
     print(f"📋 Encontradas {len(EPG_URLS)} URLs de EPG")
     print("-" * 60)
 
-    root = etree.Element('tv')
+    root = etree.Element('tv', attrib={
+        'generator-info-name': 'epg-merger',
+        'generator-info-url': 'https://github.com/luispied/epg-merger',
+    })
     channels = {}
     all_programmes = []
     programmes_by_channel = defaultdict(list)
@@ -121,7 +124,8 @@ def merge_epgs():
             root.append(programme)
 
     # Guarda comprimido
-    output = etree.tostring(root, encoding='utf-8', xml_declaration=True, pretty_print=True)
+    body = etree.tostring(root, encoding='utf-8', xml_declaration=False, pretty_print=True)
+    output = b'<?xml version="1.0" encoding="UTF-8" ?>\n' + body
 
     with gzip.open('merged.xml.gz', 'wb') as f:
         f.write(output)
