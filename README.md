@@ -14,6 +14,7 @@ Edita `/home/runner/work/epg-merger/epg-merger/epg_urls.json` y añade el resto 
 ## GitHub Actions
 
 El workflow `.github/workflows/merge-epgs.yml` permite ejecutar el merge de forma manual (`workflow_dispatch`) y diaria a las `02:00 UTC`.
+Si `merged.xml.gz` supera los 100 MB (límite de archivos de GitHub), el workflow omite el commit/push para evitar un fallo del job.
 
 ## GitHub Pages
 
