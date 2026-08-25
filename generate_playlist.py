@@ -23,7 +23,9 @@ FILTERED_EPG_PATH = 'my_epg.xml.gz'
 PRIORITY_SECTION = 'ENGLISH'
 PRIORITY_EPG_URL = 'https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz'
 
-SUFFIXES = ('hd', 'fhd', 'uhd', '4k', 'sd', 'hevc')
+# "en" es la etiqueta de idioma inglés que el proveedor agrega a cada canal ENGLISH (ej. "TBS -EN").
+# "es" ya se filtraba antes al ser también el código de país de España (ver COUNTRY_NAME_TOKENS).
+SUFFIXES = ('hd', 'fhd', 'uhd', '4k', 'sd', 'hevc', 'en')
 
 
 def _strip_accents(text):
@@ -371,13 +373,21 @@ def generate():
             priority_index = None
 
         channel_id = match_channel(name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index)
+        if not channel_id:
+            # Xtream trae su propio "epg_channel_id" (una adivinanza del proveedor, sin
+            # verificar). Solo sirve si de verdad existe en nuestro EPG con datos reales —
+            # si no, sería un tvg-id colgado que no aparece en my_epg.xml.gz.
+            candidate = stream.get('epg_channel_id')
+            if candidate and candidate in channels_by_id:
+                channel_id = candidate
+
         if channel_id:
             matched_ids.add(channel_id)
             tvg_id = channel_id
             logo = channels_by_id.get(channel_id) or stream.get('stream_icon', '')
         else:
             unmatched.append(name)
-            tvg_id = stream.get('epg_channel_id') or name
+            tvg_id = name
             logo = stream.get('stream_icon', '')
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
