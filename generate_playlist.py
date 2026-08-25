@@ -33,6 +33,54 @@ def _m3u_attr(value):
     return (value or '').replace('"', "'").replace('\n', ' ').replace('\r', ' ')
 
 
+# Cuántas coincidencias alternativas mostrar como entradas extra en el M3U cuando un canal
+# tiene varios EPG posibles (ej. "E!" existe para 17 países/feeds distintos) — sin este tope,
+# un solo canal ambiguo podría inflar la playlist con decenas de entradas.
+MAX_ALT_ENTRIES = 4
+
+
+# Muchos feeds de EE.UU. duplicados por región (East/West/Pacific) comparten el mismo país
+# (.us) — sin esto, dos alternativas realmente distintas se verían idénticas como "(US)".
+REGION_HINT_RE = re.compile(r'\b(east|west|pacific|mountain|central)\b', re.IGNORECASE)
+
+
+def _detect_region_hint(*texts):
+    for text in texts:
+        if not text:
+            continue
+        m = REGION_HINT_RE.search(text)
+        if m:
+            return m.group(1).capitalize()
+    return None
+
+
+def _labeled_candidates(channel_ids, channel_country, channel_region):
+    """Etiqueta cada channel_id de la lista; si dos quedan con la misma etiqueta (ej. dos
+    entradas ".us" sin feed regional detectado), se les agrega un fragmento del channel_id
+    para que sigan siendo distinguibles entre sí en la playlist."""
+    labels = [_epg_source_label(cid, channel_country, channel_region) for cid in channel_ids]
+    repeated = {label for label in labels if labels.count(label) > 1}
+    return [
+        (cid, f"{label} · {cid[:20]}" if label in repeated else label)
+        for cid, label in zip(channel_ids, labels)
+    ]
+
+
+def _epg_source_label(channel_id, channel_country, channel_region):
+    """De dónde salió el EPG asignado, para mostrar entre paréntesis: país + feed regional si
+    se pudieron detectar (ej. "US East" vs "US Pacific"), o si no, algo identificable del
+    propio channel_id (la URL/fuente original no se conserva más allá de esto una vez mergeada)."""
+    country = channel_country.get(channel_id)
+    region = channel_region.get(channel_id)
+    if country and region:
+        return f"{country.upper()} {region}"
+    if country:
+        return country.upper()
+    if region:
+        return region
+    return channel_id[:24]
+
+
 def _strip_accents(text):
     text = unicodedata.normalize('NFKD', text)
     return ''.join(c for c in text if not unicodedata.combining(c))
@@ -255,12 +303,17 @@ def fetch_priority_us_index(timeout=30):
 
 def build_epg_index(epg_root):
     """channels_by_id: channel_id -> icon_src
-    name_to_id: nombre_normalizado -> channel_id (global, para categorías sin país detectado)
-    name_to_id_by_country: código_país -> {nombre_normalizado: channel_id} (según sufijo del channel_id)
+    channel_country: channel_id -> código de país (o None)
+    channel_region: channel_id -> feed regional detectado (East/West/Pacific/..., o None)
+    name_to_ids: nombre_normalizado -> [channel_id, ...] (todas las coincidencias, en orden de
+        aparición), global, para categorías sin país detectado
+    name_to_ids_by_country: código_país -> {nombre_normalizado: [channel_id, ...]}
     """
     channels_by_id = {}
-    name_to_id = {}
-    name_to_id_by_country = {}
+    channel_country = {}
+    channel_region = {}
+    name_to_ids = {}
+    name_to_ids_by_country = {}
 
     for channel in epg_root.findall('channel'):
         channel_id = channel.get('id')
@@ -277,52 +330,60 @@ def build_epg_index(epg_root):
         # El sufijo del channel_id manda si existe; si no, se busca el país en los display-names
         # (prefijo "XX | " o token suelto), útil para ids sin sufijo como "613" o "BOLIVISION.bo".
         country = suffix_match.group(1) if suffix_match else detect_country(*display_names)
+        channel_country[channel_id] = country
+        channel_region[channel_id] = _detect_region_hint(channel_id, *display_names)
 
         for name_text in display_names:
             normalized = normalize_name(name_text)
             if not normalized:
                 continue
-            if normalized not in name_to_id:
-                name_to_id[normalized] = channel_id
+            ids = name_to_ids.setdefault(normalized, [])
+            if channel_id not in ids:
+                ids.append(channel_id)
             if country:
-                country_index = name_to_id_by_country.setdefault(country, {})
-                if normalized not in country_index:
-                    country_index[normalized] = channel_id
+                country_ids = name_to_ids_by_country.setdefault(country, {}).setdefault(normalized, [])
+                if channel_id not in country_ids:
+                    country_ids.append(channel_id)
 
-    return channels_by_id, name_to_id, name_to_id_by_country
+    return channels_by_id, channel_country, channel_region, name_to_ids, name_to_ids_by_country
 
 
-def match_channel(xtream_name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index=None):
+def match_channel(xtream_name, overrides, name_to_ids, name_to_ids_by_country, country_code, priority_index=None):
+    """Devuelve (channel_id_elegido, [todos_los_candidatos]). El elegido es siempre el primero
+    de la lista; el resto son otras coincidencias válidas para el mismo nombre, por si el
+    matcheo automático no fue el correcto (ej. otro país o otro feed regional)."""
     if xtream_name in overrides:
-        return overrides[xtream_name]
+        return overrides[xtream_name], [overrides[xtream_name]]
 
     normalized = normalize_name(xtream_name)
     # Candidatos a probar en orden: el nombre tal cual y, si termina en " 1" (ej. "espn 1"),
     # también sin el número — muchas fuentes EPG listan el canal principal sin numerar.
-    candidates = [normalized]
+    name_candidates = [normalized]
     if normalized.endswith(' 1'):
-        candidates.append(normalized[:-2])
+        name_candidates.append(normalized[:-2])
 
     if priority_index:
-        for candidate in candidates:
+        for candidate in name_candidates:
             if candidate in priority_index:
-                return priority_index[candidate]
+                return priority_index[candidate], [priority_index[candidate]]
 
-    if country_code and country_code in name_to_id_by_country:
+    if country_code and country_code in name_to_ids_by_country:
         # Hay canales indexados para ese país: matchea solo contra ellos, para no
         # confundir p.ej. "Canal 26" de Argentina con uno homónimo de Chile.
-        country_index = name_to_id_by_country[country_code]
-        for candidate in candidates:
-            if candidate in country_index:
-                return country_index[candidate]
-        return None
+        country_index = name_to_ids_by_country[country_code]
+        for candidate in name_candidates:
+            ids = country_index.get(candidate)
+            if ids:
+                return ids[0], ids
+        return None, []
 
     # Sin país detectado, o sin ningún canal de ese país en el EPG (cobertura cero):
     # el índice global es la única opción disponible.
-    for candidate in candidates:
-        if candidate in name_to_id:
-            return name_to_id[candidate]
-    return None
+    for candidate in name_candidates:
+        ids = name_to_ids.get(candidate)
+        if ids:
+            return ids[0], ids
+    return None, []
 
 
 def generate():
@@ -343,7 +404,7 @@ def generate():
     with gzip.open(MERGED_EPG_PATH, 'rb') as f:
         epg_root = etree.fromstring(f.read())
 
-    channels_by_id, name_to_id, name_to_id_by_country = build_epg_index(epg_root)
+    channels_by_id, channel_country, channel_region, name_to_ids, name_to_ids_by_country = build_epg_index(epg_root)
 
     # Igual que con epg_channel_id más abajo: un override que apunte a un channel_id que no
     # existe en el EPG sería un tvg-id colgado, así que se valida antes de confiar en él.
@@ -367,7 +428,8 @@ def generate():
     section_display_order, raw_rules = load_sections_config()
     section_rules = [(rule['section'], _make_rule_matcher(rule)) for rule in raw_rules]
 
-    matched_ids = set()
+    matched_ids = set()  # todos los channel_id que quedan en my_epg.xml.gz (principal + alternativas)
+    matched_stream_count = 0  # cuántos canales de Xtream encontraron al menos un match (para las stats)
     unmatched = []
     entries = []  # (section_order, category_order, index_original, líneas m3u)
     section_order = {name: i for i, name in enumerate(section_display_order)}
@@ -407,7 +469,9 @@ def generate():
             country_code = detect_country(name) or category_country_code
             priority_index = None
 
-        channel_id = match_channel(name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index)
+        channel_id, candidates = match_channel(
+            name, overrides, name_to_ids, name_to_ids_by_country, country_code, priority_index,
+        )
         if not channel_id:
             # Xtream trae su propio "epg_channel_id" (una adivinanza del proveedor, sin
             # verificar). Solo sirve si de verdad existe en nuestro EPG con datos reales —
@@ -415,30 +479,47 @@ def generate():
             candidate = stream.get('epg_channel_id')
             if candidate and candidate in channels_by_id:
                 channel_id = candidate
+                candidates = [candidate]
 
-        if channel_id:
-            matched_ids.add(channel_id)
-            tvg_id = channel_id
-            logo = channels_by_id.get(channel_id) or stream.get('stream_icon', '')
-        else:
-            unmatched.append(name)
-            tvg_id = name
-            logo = stream.get('stream_icon', '')
-
-        stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
         if category_is_divider and section:
             # Separador mapeado a una sección conocida: va primero, como encabezado.
             cat_order = -1
         else:
             cat_order = category_first_seen.setdefault(category, len(category_first_seen))
 
-        entries.append((
-            section_order.get(section, no_section_order),
-            cat_order,
-            i,
-            f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(name)}" '
-            f'tvg-logo="{_m3u_attr(logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(name)}\n{stream_url}',
-        ))
+        stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
+
+        if channel_id:
+            matched_ids.add(channel_id)
+            matched_stream_count += 1
+            # El EPG de cada opción queda anotado entre paréntesis (país + feed regional si se
+            # detectaron, o si no, algo identificable del channel_id) para que se vea a simple
+            # vista de dónde salió — sin esto, canales con el mismo nombre pero EPG de
+            # países/feeds distintos serían indistinguibles en la lista.
+            shown_ids = [channel_id] + candidates[1:1 + MAX_ALT_ENTRIES]
+            labeled = _labeled_candidates(shown_ids, channel_country, channel_region)
+
+            for shown_id, label in labeled:
+                if shown_id != channel_id:
+                    matched_ids.add(shown_id)  # las alternativas también deben quedar en my_epg.xml.gz
+                shown_logo = channels_by_id.get(shown_id) or stream.get('stream_icon', '')
+                shown_name = f"{name} ({label})"
+                entries.append((
+                    section_order.get(section, no_section_order),
+                    cat_order,
+                    i,
+                    f'#EXTINF:-1 tvg-id="{_m3u_attr(shown_id)}" tvg-name="{_m3u_attr(shown_name)}" '
+                    f'tvg-logo="{_m3u_attr(shown_logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(shown_name)}\n{stream_url}',
+                ))
+        else:
+            unmatched.append(name)
+            entries.append((
+                section_order.get(section, no_section_order),
+                cat_order,
+                i,
+                f'#EXTINF:-1 tvg-id="{_m3u_attr(name)}" tvg-name="{_m3u_attr(name)}" '
+                f'tvg-logo="{_m3u_attr(stream.get("stream_icon", ""))}" group-title="{_m3u_attr(category)}",{_m3u_attr(name)}\n{stream_url}',
+            ))
 
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
@@ -460,11 +541,13 @@ def generate():
         f.write(output)
 
     print(f"\n📊 Canales de Xtream: {len(live_streams)}")
-    print(f"   Con EPG matcheado: {len(matched_ids)}")
+    print(f"   Con EPG matcheado: {matched_stream_count}")
     print(f"   Sin EPG (revisar xtream_channel_map.json si aplica): {len(unmatched)}")
     if unmatched:
         preview = ', '.join(unmatched[:15])
         print(f"   Ejemplos sin match: {preview}")
+    if len(matched_ids) > matched_stream_count:
+        print(f"   Entradas EPG alternativas agregadas al M3U: {len(matched_ids) - matched_stream_count}")
     print(f"✅ {PLAYLIST_PATH} y {FILTERED_EPG_PATH} generados")
 
 

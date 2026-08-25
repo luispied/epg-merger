@@ -66,6 +66,10 @@ El matching es por nombre normalizado (sin acentos/mayúsculas/sufijos como HD, 
 }
 ```
 
+### Cuando un canal tiene varios EPG posibles
+
+Muchos nombres de canal (ej. "E!", "TBS") existen varias veces en el EPG mergeado — un feed distinto por país, o variantes regionales de EE.UU. (East/West/Pacific). El script elige uno automáticamente, pero **también agrega hasta 4 alternativas como entradas extra en `playlist.m3u8`**, mismo stream, cada una etiquetada entre paréntesis con el país + feed regional si se detectaron (ej. `"TBS -EN (US East)"` vs `"TBS -EN (US Pacific)"`), o si no, el propio `channel_id` (y si dos alternativas quedarían con la misma etiqueta, ej. dos ".us" sin feed detectado, se les agrega un fragmento del `channel_id` para poder distinguirlas). Si la elección automática no es la correcta, buscá esas alternativas en la lista de tu reproductor y quedate con la que sí tenga la programación correcta; para que la elección quede fija, agregá un override en `xtream_channel_map.json` con el `channel_id` de la alternativa correcta.
+
 ### Orden y agrupación de categorías
 
 `playlist_sections.json` agrupa las ~99 categorías de Xtream en secciones ("paraguas") y define en qué orden aparecen en `playlist.m3u8`. Es editable sin tocar Python:
