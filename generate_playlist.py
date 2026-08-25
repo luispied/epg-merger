@@ -9,7 +9,7 @@ import unicodedata
 
 from lxml import etree
 
-from xtream_client import XtreamError, build_stream_url, get_live_streams
+from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
@@ -92,6 +92,9 @@ def generate():
         print(f"❌ No se pudo obtener la lista de canales de Xtream: {e}")
         return
 
+    categories = get_live_categories(active_server, username, password)
+    print(f"📂 Categorías encontradas: {len(categories)}")
+
     with gzip.open(MERGED_EPG_PATH, 'rb') as f:
         epg_root = etree.fromstring(f.read())
 
@@ -105,7 +108,7 @@ def generate():
     for stream in live_streams:
         name = stream.get('name', '')
         stream_id = stream.get('stream_id')
-        category = stream.get('category_name', 'General')
+        category = categories.get(str(stream.get('category_id')), 'General')
         container_ext = stream.get('container_extension', 'm3u8')
 
         channel_id = match_channel(name, overrides, name_to_id)
