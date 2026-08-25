@@ -47,7 +47,6 @@ def merge_epgs():
         'generator-info-url': 'https://github.com/luispied/epg-merger',
     })
     channels = {}
-    all_programmes = []
     programmes_by_channel = defaultdict(list)
 
     # Descarga y procesa cada EPG
@@ -86,7 +85,6 @@ def merge_epgs():
             for programme in tree.findall('programme'):
                 channel_id = programme.get('channel')
                 programmes_by_channel[channel_id].append(programme)
-                all_programmes.append(programme)
 
         except Exception as e:
             print(f"❌ Error parseando: {e}")
@@ -99,25 +97,26 @@ def merge_epgs():
         if len(programmes_by_channel.get(cid, [])) > 0
     }
 
-    duplicados_eliminados = len(channels) - len(valid_channels)
+    canales_sin_programacion = len(channels) - len(valid_channels)
+    total_programas = sum(len(p) for p in programmes_by_channel.values())
 
     print("\n" + "-" * 60)
     print("📊 ESTADÍSTICAS:")
     print(f"   URLs procesadas: {len(EPG_URLS)}")
     print(f"   Canales encontrados: {len(channels)}")
     print(f"   Canales con data: {len(valid_channels)}")
-    print(f"   Duplicados eliminados: {duplicados_eliminados}")
-    print(f"   Programas totales: {len(all_programmes)}")
+    print(f"   Canales sin programación: {canales_sin_programacion}")
+    print(f"   Programas totales: {total_programas}")
     print("-" * 60)
 
     # Construye XML final
     for channel_id, channel_elem in sorted(valid_channels.items()):
         root.append(channel_elem)
 
-    # Agrega programas de canales válidos
-    valid_channel_ids = set(valid_channels.keys())
-    for programme in all_programmes:
-        if programme.get('channel') in valid_channel_ids:
+    # Agrega programas de canales válidos, ya agrupados por canal (sin volver a
+    # escanear todos los programas de todas las fuentes)
+    for channel_id in valid_channels:
+        for programme in programmes_by_channel[channel_id]:
             root.append(programme)
 
     # Guarda comprimido
