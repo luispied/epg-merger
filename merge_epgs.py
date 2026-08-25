@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 import gzip
 import json
+import os
 from lxml import etree
 from collections import defaultdict
 
-from epg_http import download_epg
-
-# generate_playlist.py necesita esta fuente específica para matchear la sección ENGLISH.
-# Ya es una de las URLs de epg_urls.json, así que en vez de descargarla otra vez ahí, se
-# cachea acá tal cual se baja (evita duplicar ~15MB de descarga en cada corrida).
-PRIORITY_EPG_URL = 'https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz'
-PRIORITY_EPG_CACHE_PATH = 'priority_us_epg_cache.xml'
+from epg_http import PRIORITY_EPG_CACHE_PATH, PRIORITY_EPG_URL, download_epg
 
 
 def load_epg_urls():
@@ -41,6 +36,12 @@ def merge_epgs():
     print(f"📋 Encontradas {len(EPG_URLS)} URLs de EPG")
     print("-" * 60)
 
+    # Si la fuente prioritaria quedó deshabilitada (comentada en epg_urls.json), no la vamos a
+    # descargar en este loop — se borra cualquier caché vieja para que generate_playlist.py no
+    # reutilice datos obsoletos de una corrida anterior en la que sí estaba activa.
+    if PRIORITY_EPG_URL not in EPG_URLS and os.path.exists(PRIORITY_EPG_CACHE_PATH):
+        os.remove(PRIORITY_EPG_CACHE_PATH)
+
     root = etree.Element('tv', attrib={
         'generator-info-name': 'epg-merger',
         'generator-info-url': 'https://github.com/luispied/epg-merger',
@@ -58,8 +59,13 @@ def merge_epgs():
             continue
 
         if url == PRIORITY_EPG_URL:
-            with open(PRIORITY_EPG_CACHE_PATH, 'wb') as f:
-                f.write(data)
+            try:
+                with open(PRIORITY_EPG_CACHE_PATH, 'wb') as f:
+                    f.write(data)
+            except OSError as e:
+                # No debe interrumpir el merge de las demás fuentes: generate_playlist.py
+                # simplemente descargará esta URL de nuevo si la caché no quedó escrita.
+                print(f"⚠️  No se pudo cachear la fuente prioritaria: {e}")
 
         try:
             tree = etree.fromstring(data)

@@ -9,8 +9,7 @@ import unicodedata
 
 from lxml import etree
 
-from epg_http import download_epg
-from merge_epgs import PRIORITY_EPG_CACHE_PATH, PRIORITY_EPG_URL
+from epg_http import PRIORITY_EPG_CACHE_PATH, PRIORITY_EPG_URL, download_epg
 from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
@@ -375,12 +374,27 @@ def generate():
     no_section_order = len(section_display_order)  # categorías sin sección van al final
     category_first_seen = {}
 
+    # classify_section/is_divider_category/flag_to_country_code solo dependen de `category`
+    # (~99 valores únicos), no de cada canal (~3000+) — se calculan una vez por categoría.
+    category_info_cache = {}
+
+    def category_info(category):
+        info = category_info_cache.get(category)
+        if info is None:
+            info = (
+                classify_section(category, section_rules),
+                is_divider_category(category),
+                flag_to_country_code(category),
+            )
+            category_info_cache[category] = info
+        return info
+
     for i, stream in enumerate(live_streams):
         category = categories.get(str(stream.get('category_id')), 'General')
         name = stream.get('name', '')
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
-        section = classify_section(category, section_rules)
+        section, category_is_divider, category_country_code = category_info(category)
 
         if section == PRIORITY_SECTION:
             # Toda la sección ENGLISH es contenido de EE.UU. por definición, aunque el nombre
@@ -390,7 +404,7 @@ def generate():
         else:
             # Prioridad: país detectado en el propio nombre del canal (más específico, ej. "ESPN 1
             # ARG" dentro de la categoría genérica "ESPN") y si no hay, el de la bandera de la categoría.
-            country_code = detect_country(name) or flag_to_country_code(category)
+            country_code = detect_country(name) or category_country_code
             priority_index = None
 
         channel_id = match_channel(name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index)
@@ -412,7 +426,7 @@ def generate():
             logo = stream.get('stream_icon', '')
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
-        if is_divider_category(category) and section:
+        if category_is_divider and section:
             # Separador mapeado a una sección conocida: va primero, como encabezado.
             cat_order = -1
         else:
