@@ -499,17 +499,23 @@ def generate():
             shown_ids = [channel_id] + candidates[1:1 + MAX_ALT_ENTRIES]
             labeled = _labeled_candidates(shown_ids, channel_country, channel_region)
 
-            for shown_id, label in labeled:
+            for alt_index, (shown_id, label) in enumerate(labeled):
                 if shown_id != channel_id:
                     matched_ids.add(shown_id)  # las alternativas también deben quedar en my_epg.xml.gz
                 shown_logo = channels_by_id.get(shown_id) or stream.get('stream_icon', '')
                 shown_name = f"{name} ({label})"
+                # Las alternativas apuntan al mismo stream que la principal — algunos
+                # reproductores (TiviMate incluido) descartan silenciosamente una entrada de
+                # M3U si la URL es idéntica a otra ya importada, aunque tvg-id/nombre difieran.
+                # Un parámetro inofensivo al final (que Xtream ignora) alcanza para que cada
+                # alternativa se importe como canal separado.
+                shown_url = stream_url if alt_index == 0 else f"{stream_url}?alt={alt_index}"
                 entries.append((
                     section_order.get(section, no_section_order),
                     cat_order,
                     i,
                     f'#EXTINF:-1 tvg-id="{_m3u_attr(shown_id)}" tvg-name="{_m3u_attr(shown_name)}" '
-                    f'tvg-logo="{_m3u_attr(shown_logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(shown_name)}\n{stream_url}',
+                    f'tvg-logo="{_m3u_attr(shown_logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(shown_name)}\n{shown_url}',
                 ))
         else:
             unmatched.append(name)
