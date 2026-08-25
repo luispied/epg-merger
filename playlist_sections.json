@@ -4,8 +4,8 @@
   "rules": [
     { "section": "PPV EVENTS", "starts_with": ["ppv"] },
     { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it"] },
-    { "section": "ENGLISH", "starts_with": ["usa"] },
-    { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento"] },
+    { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"] },
+    { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"] },
     { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"] },
     { "section": "PAÍSES", "country_flag": true }
   ]
