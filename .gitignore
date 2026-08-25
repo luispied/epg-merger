@@ -3,4 +3,5 @@ __pycache__/
 merged.xml.gz
 my_epg.xml.gz
 playlist.m3u8
+priority_us_epg_cache.xml
 .env

@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-import requests
 import gzip
 import json
 from lxml import etree
 from collections import defaultdict
+
+from epg_http import download_epg
+
+# generate_playlist.py necesita esta fuente específica para matchear la sección ENGLISH.
+# Ya es una de las URLs de epg_urls.json, así que en vez de descargarla otra vez ahí, se
+# cachea acá tal cual se baja (evita duplicar ~15MB de descarga en cada corrida).
+PRIORITY_EPG_URL = 'https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz'
+PRIORITY_EPG_CACHE_PATH = 'priority_us_epg_cache.xml'
 
 
 def load_epg_urls():
@@ -19,20 +26,6 @@ def load_epg_urls():
     except json.JSONDecodeError:
         print("❌ Error: epg_urls.json inválido")
         return []
-
-
-def download_epg(url):
-    """Descarga un EPG (soporta .gz)"""
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-
-        if url.endswith('.gz'):
-            return gzip.decompress(response.content)
-        return response.content
-    except Exception as e:
-        print(f"❌ Error descargando {url}: {e}")
-        return None
 
 
 def merge_epgs():
@@ -64,6 +57,10 @@ def merge_epgs():
         if not data:
             continue
 
+        if url == PRIORITY_EPG_URL:
+            with open(PRIORITY_EPG_CACHE_PATH, 'wb') as f:
+                f.write(data)
+
         try:
             tree = etree.fromstring(data)
 
@@ -73,12 +70,11 @@ def merge_epgs():
                 if not channel_id:
                     continue
 
-                if channel_id in channels:
-                    existing_channel, existing_count, existing_index = channels[channel_id]
-                    if url_index < existing_index:
-                        channels[channel_id] = (channel, existing_count, url_index)
-                else:
-                    channels[channel_id] = (channel, 0, url_index)
+                # Entre duplicados, se queda con la versión de la fuente más prioritaria
+                # (url_index más bajo). El conteo de programas se calcula después, en un
+                # solo lugar, para no arrastrar un valor que acá siempre sería 0.
+                if channel_id not in channels or url_index < channels[channel_id][1]:
+                    channels[channel_id] = (channel, url_index)
 
             # Recolecta programas
             for programme in tree.findall('programme'):
@@ -90,17 +86,11 @@ def merge_epgs():
             print(f"❌ Error parseando: {e}")
             continue
 
-    # Actualiza contador de programas
-    for channel_id in channels:
-        channel_elem, _, url_index = channels[channel_id]
-        program_count = len(programmes_by_channel.get(channel_id, []))
-        channels[channel_id] = (channel_elem, program_count, url_index)
-
     # Filtra canales válidos (con data)
     valid_channels = {
-        cid: (ch, count, idx)
-        for cid, (ch, count, idx) in channels.items()
-        if count > 0
+        cid: channel_elem
+        for cid, (channel_elem, _) in channels.items()
+        if len(programmes_by_channel.get(cid, [])) > 0
     }
 
     duplicados_eliminados = len(channels) - len(valid_channels)
@@ -115,7 +105,7 @@ def merge_epgs():
     print("-" * 60)
 
     # Construye XML final
-    for channel_id, (channel_elem, count, _) in sorted(valid_channels.items()):
+    for channel_id, channel_elem in sorted(valid_channels.items()):
         root.append(channel_elem)
 
     # Agrega programas de canales válidos

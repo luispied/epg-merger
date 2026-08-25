@@ -7,9 +7,10 @@ import os
 import re
 import unicodedata
 
-import requests
 from lxml import etree
 
+from epg_http import download_epg
+from merge_epgs import PRIORITY_EPG_CACHE_PATH, PRIORITY_EPG_URL
 from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
@@ -21,11 +22,16 @@ FILTERED_EPG_PATH = 'my_epg.xml.gz'
 # Sección cuyos canales deben matchear primero contra esta fuente EPG específica de EE.UU.
 # (pedido del usuario), y solo si no matchea ahí, caer al índice general de 'us'.
 PRIORITY_SECTION = 'ENGLISH'
-PRIORITY_EPG_URL = 'https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz'
 
 # "en" es la etiqueta de idioma inglés que el proveedor agrega a cada canal ENGLISH (ej. "TBS -EN").
 # "es" ya se filtraba antes al ser también el código de país de España (ver COUNTRY_NAME_TOKENS).
 SUFFIXES = ('hd', 'fhd', 'uhd', '4k', 'sd', 'hevc', 'en')
+
+
+def _m3u_attr(value):
+    """Sanitiza un valor para un atributo M3U entre comillas dobles. El formato M3U no tiene
+    mecanismo de escape estándar, así que un '\"' literal rompería el parseo del reproductor."""
+    return (value or '').replace('"', "'").replace('\n', ' ').replace('\r', ' ')
 
 
 def _strip_accents(text):
@@ -212,15 +218,22 @@ def load_channel_map():
 
 
 def fetch_priority_us_index(timeout=30):
-    """Descarga la fuente EPG de EE.UU. prioritaria (acidjesuz/US_guide) y arma su propio
-    índice nombre -> channel_id, para que los canales ENGLISH matcheen ahí primero."""
+    """Arma el índice nombre -> channel_id de la fuente EPG de EE.UU. prioritaria (acidjesuz/US_guide),
+    para que los canales ENGLISH matcheen ahí primero. merge_epgs.py ya descarga esa misma URL como
+    parte de sus 75 fuentes y la deja cacheada en PRIORITY_EPG_CACHE_PATH — se reutiliza ese archivo
+    en vez de descargarla de nuevo; si no está (ej. el usuario la comentó en epg_urls.json), se
+    descarga acá como respaldo."""
     try:
-        response = requests.get(PRIORITY_EPG_URL, timeout=timeout)
-        response.raise_for_status()
-        data = gzip.decompress(response.content) if PRIORITY_EPG_URL.endswith('.gz') else response.content
+        if os.path.exists(PRIORITY_EPG_CACHE_PATH):
+            with open(PRIORITY_EPG_CACHE_PATH, 'rb') as f:
+                data = f.read()
+        else:
+            data = download_epg(PRIORITY_EPG_URL, timeout=timeout)
+        if not data:
+            raise ValueError("sin datos")
         root = etree.fromstring(data)
     except Exception as e:
-        print(f"⚠️  No se pudo descargar la fuente EPG prioritaria de EE.UU. ({e}); se usa solo el índice general")
+        print(f"⚠️  No se pudo obtener la fuente EPG prioritaria de EE.UU. ({e}); se usa solo el índice general")
         return {}
 
     index = {}
@@ -332,7 +345,15 @@ def generate():
         epg_root = etree.fromstring(f.read())
 
     channels_by_id, name_to_id, name_to_id_by_country = build_epg_index(epg_root)
-    overrides = load_channel_map()
+
+    # Igual que con epg_channel_id más abajo: un override que apunte a un channel_id que no
+    # existe en el EPG sería un tvg-id colgado, así que se valida antes de confiar en él.
+    overrides_raw = load_channel_map()
+    invalid_overrides = [name for name, cid in overrides_raw.items() if cid not in channels_by_id]
+    if invalid_overrides:
+        preview = ', '.join(invalid_overrides[:5])
+        print(f"⚠️  {len(invalid_overrides)} override(s) en {CHANNEL_MAP_PATH} apuntan a un channel_id inexistente en el EPG, se ignoran: {preview}")
+    overrides = {name: cid for name, cid in overrides_raw.items() if cid in channels_by_id}
 
     # merge_epgs.py descarta canales sin programas: solo sirve como prioritario un channel_id
     # que de verdad haya sobrevivido y esté en merged.xml.gz (si no, matchearía en falso contra
@@ -401,8 +422,8 @@ def generate():
             section_order.get(section, no_section_order),
             cat_order,
             i,
-            f'#EXTINF:-1 tvg-id="{tvg_id}" tvg-name="{name}" tvg-logo="{logo}" '
-            f'group-title="{category}",{name}\n{stream_url}',
+            f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(name)}" '
+            f'tvg-logo="{_m3u_attr(logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(name)}\n{stream_url}',
         ))
 
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
