@@ -33,9 +33,9 @@ def _m3u_attr(value):
     return (value or '').replace('"', "'").replace('\n', ' ').replace('\r', ' ')
 
 
-# Cuántas coincidencias alternativas mostrar como entradas extra en el M3U cuando un canal
-# tiene varios EPG posibles (ej. "E!" existe para 17 países/feeds distintos) — sin este tope,
-# un solo canal ambiguo podría inflar la playlist con decenas de entradas.
+# Cuántos candidatos alternativos incluir (con display-name anotado) en my_epg.xml.gz cuando
+# un canal tiene varios EPG posibles (ej. "E!" existe para 17 países/feeds distintos) — sin
+# este tope, un solo canal ambiguo podría inflar el EPG filtrado con decenas de candidatos.
 MAX_ALT_ENTRIES = 4
 
 
@@ -61,9 +61,26 @@ def _labeled_candidates(channel_ids, channel_country, channel_region):
     labels = [_epg_source_label(cid, channel_country, channel_region) for cid in channel_ids]
     repeated = {label for label in labels if labels.count(label) > 1}
     return [
-        (cid, f"{label} · {cid[:20]}" if label in repeated else label)
+        (cid, f"{label} · {_shorten_id(cid, 20)}" if label in repeated else label)
         for cid, label in zip(channel_ids, labels)
     ]
+
+
+# Estas fuentes son exclusivamente de EE.UU., aunque su channel_id no traiga sufijo de país
+# (".us") ni texto "East/Pacific/..." que channel_country/channel_region puedan detectar.
+_KNOWN_US_ID_SUFFIXES = ('schedulesdirect.org', 'gracenote.com')
+
+
+def _shorten_id(channel_id, max_len=24):
+    """Recorta un channel_id largo sin partirlo a la mitad de una palabra (ej. no dejar
+    "...schedulesdire" colgando) — corta en el último '.' o espacio antes del límite."""
+    if len(channel_id) <= max_len:
+        return channel_id
+    cut = channel_id[:max_len]
+    last_sep = max(cut.rfind('.'), cut.rfind(' '))
+    if last_sep > 8:  # no cortar tan corto que la etiqueta quede sin info útil
+        cut = cut[:last_sep]
+    return cut + '…'
 
 
 def _epg_source_label(channel_id, channel_country, channel_region):
@@ -72,13 +89,15 @@ def _epg_source_label(channel_id, channel_country, channel_region):
     propio channel_id (la URL/fuente original no se conserva más allá de esto una vez mergeada)."""
     country = channel_country.get(channel_id)
     region = channel_region.get(channel_id)
+    if not country and channel_id.endswith(_KNOWN_US_ID_SUFFIXES):
+        country = 'us'
     if country and region:
         return f"{country.upper()} {region}"
     if country:
         return country.upper()
     if region:
         return region
-    return channel_id[:24]
+    return _shorten_id(channel_id)
 
 
 def _strip_accents(text):
@@ -430,6 +449,7 @@ def generate():
 
     matched_ids = set()  # todos los channel_id que quedan en my_epg.xml.gz (principal + alternativas)
     matched_stream_count = 0  # cuántos canales de Xtream encontraron al menos un match (para las stats)
+    channel_display_labels = {}  # channel_id -> etiqueta a anotar en su display-name en my_epg.xml.gz
     unmatched = []
     entries = []  # (section_order, category_order, index_original, líneas m3u)
     section_order = {name: i for i, name in enumerate(section_display_order)}
@@ -492,31 +512,27 @@ def generate():
         if channel_id:
             matched_ids.add(channel_id)
             matched_stream_count += 1
-            # El EPG de cada opción queda anotado entre paréntesis (país + feed regional si se
-            # detectaron, o si no, algo identificable del channel_id) para que se vea a simple
-            # vista de dónde salió — sin esto, canales con el mismo nombre pero EPG de
-            # países/feeds distintos serían indistinguibles en la lista.
-            shown_ids = [channel_id] + candidates[1:1 + MAX_ALT_ENTRIES]
-            labeled = _labeled_candidates(shown_ids, channel_country, channel_region)
+            logo = channels_by_id.get(channel_id) or stream.get('stream_icon', '')
 
-            for alt_index, (shown_id, label) in enumerate(labeled):
-                if shown_id != channel_id:
-                    matched_ids.add(shown_id)  # las alternativas también deben quedar en my_epg.xml.gz
-                shown_logo = channels_by_id.get(shown_id) or stream.get('stream_icon', '')
-                shown_name = f"{name} ({label})"
-                # Las alternativas apuntan al mismo stream que la principal — algunos
-                # reproductores (TiviMate incluido) descartan silenciosamente una entrada de
-                # M3U si la URL es idéntica a otra ya importada, aunque tvg-id/nombre difieran.
-                # Un parámetro inofensivo al final (que Xtream ignora) alcanza para que cada
-                # alternativa se importe como canal separado.
-                shown_url = stream_url if alt_index == 0 else f"{stream_url}?alt={alt_index}"
-                entries.append((
-                    section_order.get(section, no_section_order),
-                    cat_order,
-                    i,
-                    f'#EXTINF:-1 tvg-id="{_m3u_attr(shown_id)}" tvg-name="{_m3u_attr(shown_name)}" '
-                    f'tvg-logo="{_m3u_attr(shown_logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(shown_name)}\n{shown_url}',
-                ))
+            # Cuando hay más de un candidato posible, todos (el elegido + hasta
+            # MAX_ALT_ENTRIES alternativas) quedan en my_epg.xml.gz con su display-name
+            # anotado (país/región/id) — no como entradas extra acá en el M3U, sino para que
+            # se puedan buscar y elegir a mano con la función "Seleccionar EPG" del
+            # reproductor, que busca en toda la guía cargada. Si no hay ambigüedad, se deja
+            # el display-name original tal cual (sin agregar ruido a canales ya resueltos bien).
+            shown_ids = [channel_id] + candidates[1:1 + MAX_ALT_ENTRIES]
+            if len(shown_ids) > 1:
+                for shown_id, label in _labeled_candidates(shown_ids, channel_country, channel_region):
+                    matched_ids.add(shown_id)
+                    channel_display_labels[shown_id] = label
+
+            entries.append((
+                section_order.get(section, no_section_order),
+                cat_order,
+                i,
+                f'#EXTINF:-1 tvg-id="{_m3u_attr(channel_id)}" tvg-name="{_m3u_attr(name)}" '
+                f'tvg-logo="{_m3u_attr(logo)}" group-title="{_m3u_attr(category)}",{_m3u_attr(name)}\n{stream_url}',
+            ))
         else:
             unmatched.append(name)
             entries.append((
@@ -535,8 +551,18 @@ def generate():
 
     filtered_root = etree.Element('tv', attrib=dict(epg_root.attrib))
     for channel in epg_root.findall('channel'):
-        if channel.get('id') in matched_ids:
-            filtered_root.append(channel)
+        channel_id = channel.get('id')
+        if channel_id not in matched_ids:
+            continue
+        label = channel_display_labels.get(channel_id)
+        if label:
+            # Se anota el país/región/id en el propio display-name del canal (no en el M3U):
+            # así se ve al buscar manualmente con "Seleccionar EPG" en el reproductor, que
+            # busca sobre toda la guía cargada, sin depender de que el M3U tenga duplicados.
+            first_display_name = channel.find('display-name')
+            if first_display_name is not None:
+                first_display_name.text = f"{first_display_name.text or ''} ({label})".strip()
+        filtered_root.append(channel)
     for programme in epg_root.findall('programme'):
         if programme.get('channel') in matched_ids:
             filtered_root.append(programme)
@@ -553,7 +579,7 @@ def generate():
         preview = ', '.join(unmatched[:15])
         print(f"   Ejemplos sin match: {preview}")
     if len(matched_ids) > matched_stream_count:
-        print(f"   Entradas EPG alternativas agregadas al M3U: {len(matched_ids) - matched_stream_count}")
+        print(f"   Alternativas de EPG agregadas a {FILTERED_EPG_PATH} (usá \"Seleccionar EPG\" en tu reproductor para elegir manualmente): {len(matched_ids) - matched_stream_count}")
     print(f"✅ {PLAYLIST_PATH} y {FILTERED_EPG_PATH} generados")
 
 
