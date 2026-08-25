@@ -171,15 +171,27 @@ def match_channel(xtream_name, overrides, name_to_id, name_to_id_by_country, cou
         return overrides[xtream_name]
 
     normalized = normalize_name(xtream_name)
+    # Candidatos a probar en orden: el nombre tal cual y, si termina en " 1" (ej. "espn 1"),
+    # también sin el número — muchas fuentes EPG listan el canal principal sin numerar.
+    candidates = [normalized]
+    if normalized.endswith(' 1'):
+        candidates.append(normalized[:-2])
 
     if country_code and country_code in name_to_id_by_country:
         # Hay canales indexados para ese país: matchea solo contra ellos, para no
         # confundir p.ej. "Canal 26" de Argentina con uno homónimo de Chile.
-        return name_to_id_by_country[country_code].get(normalized)
+        country_index = name_to_id_by_country[country_code]
+        for candidate in candidates:
+            if candidate in country_index:
+                return country_index[candidate]
+        return None
 
     # Sin país detectado, o sin ningún canal de ese país en el EPG (cobertura cero):
     # el índice global es la única opción disponible.
-    return name_to_id.get(normalized)
+    for candidate in candidates:
+        if candidate in name_to_id:
+            return name_to_id[candidate]
+    return None
 
 
 def generate():
