@@ -13,10 +13,17 @@ from xtream_client import XtreamError, build_stream_url, get_live_categories, ge
 
 MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
+SECTIONS_CONFIG_PATH = 'playlist_sections.json'
 PLAYLIST_PATH = 'playlist.m3u8'
 FILTERED_EPG_PATH = 'my_epg.xml.gz'
 
 SUFFIXES = ('hd', 'fhd', 'uhd', '4k', 'sd', 'hevc')
+
+
+def _strip_accents(text):
+    text = unicodedata.normalize('NFKD', text)
+    return ''.join(c for c in text if not unicodedata.combining(c))
+
 
 # Prefijo de código de país que algunos proveedores anteponen: "PE | ", "CL| ", "B| " (1 a 3 letras + "|")
 COUNTRY_PREFIX_RE = re.compile(r'^[A-Za-z]{1,3}\s*\|\s*')
@@ -59,6 +66,80 @@ COUNTRY_NAME_TOKEN_RE = re.compile(
 )
 
 
+# Categorías "separador" decorativas que el proveedor usa como divisores visuales en su propio
+# panel (ej. "▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆", con un único canal placeholder tipo "** PPV Events **").
+# Se conservan (el usuario las usa para orientarse), pero se reubican como encabezado al
+# principio de la sección real que les corresponde.
+DIVIDER_CATEGORY_RE = re.compile(r'[▆░▒▓█]')
+
+
+def is_divider_category(category):
+    return bool(DIVIDER_CATEGORY_RE.search(category))
+
+
+def _divider_key(category):
+    """'▆▆▆ＤＥＰＯＲＴＥＳ ▆▆▆' -> 'deportes' (des-fullwidth + solo alfanumérico)."""
+    text = unicodedata.normalize('NFKC', category)
+    text = _strip_accents(text).lower()
+    return re.sub(r'[^a-z0-9]', '', text)
+
+
+DIVIDER_SECTION_MAP = {
+    _divider_key('PPV EVENTS'): 'PPV EVENTS',
+    _divider_key('PAISES'): 'PAÍSES',
+    _divider_key('DEPORTES'): 'DEPORTES',
+    _divider_key('ENGLISH'): 'ENGLISH',
+    _divider_key('ESPAÑOL'): 'ESPAÑOL',
+    _divider_key('LATINOS USA'): 'LATINOS USA',
+}
+
+
+def _strip_category_label(category):
+    """Quita emoji/símbolos iniciales de una categoría para comparar el texto: '🏈 ESPN' -> 'espn'."""
+    text = _strip_accents(category).lower()
+    text = re.sub(r'^[^a-z0-9]+', '', text)
+    return text.strip()
+
+
+def load_sections_config():
+    """Carga playlist_sections.json: orden de secciones + reglas de clasificación."""
+    try:
+        with open(SECTIONS_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"⚠️  No se pudo leer {SECTIONS_CONFIG_PATH} ({e}); no se agruparán categorías en secciones")
+        return [], []
+    return config.get('order', []), config.get('rules', [])
+
+
+def _make_rule_matcher(rule):
+    starts_with = tuple(rule.get('starts_with', []))
+    equals = set(rule.get('equals', []))
+    country_flag = rule.get('country_flag', False)
+
+    def matcher(cat, label):
+        if starts_with and label.startswith(starts_with):
+            return True
+        if equals and label in equals:
+            return True
+        if country_flag and flag_to_country_code(cat) is not None:
+            return True
+        return False
+
+    return matcher
+
+
+def classify_section(category, section_rules):
+    if is_divider_category(category):
+        return DIVIDER_SECTION_MAP.get(_divider_key(category))  # None si es un separador sin sección mapeada (ADULTS, 24/7)
+
+    label = _strip_category_label(category)
+    for section_name, matcher in section_rules:
+        if matcher(category, label):
+            return section_name
+    return None  # sin sección: se agrupan al final, en orden de aparición original
+
+
 def flag_to_country_code(text):
     """Extrae el código de país (2 letras, ya alineado con el sufijo de channel_id) del emoji de bandera."""
     codepoints = [ord(c) for c in text]
@@ -68,11 +149,6 @@ def flag_to_country_code(text):
             code = chr(a - 0x1F1E6 + ord('a')) + chr(b - 0x1F1E6 + ord('a'))
             return COUNTRY_CODE_ALIASES.get(code, code)
     return None
-
-
-def _strip_accents(text):
-    text = unicodedata.normalize('NFKD', text)
-    return ''.join(c for c in text if not unicodedata.combining(c))
 
 
 def detect_country(*texts):
@@ -215,14 +291,20 @@ def generate():
     channels_by_id, name_to_id, name_to_id_by_country = build_epg_index(epg_root)
     overrides = load_channel_map()
 
-    matched_ids = set()
-    playlist_lines = ['#EXTM3U']
-    unmatched = []
+    section_display_order, raw_rules = load_sections_config()
+    section_rules = [(rule['section'], _make_rule_matcher(rule)) for rule in raw_rules]
 
-    for stream in live_streams:
+    matched_ids = set()
+    unmatched = []
+    entries = []  # (section_order, category_order, index_original, líneas m3u)
+    section_order = {name: i for i, name in enumerate(section_display_order)}
+    no_section_order = len(section_display_order)  # categorías sin sección van al final
+    category_first_seen = {}
+
+    for i, stream in enumerate(live_streams):
+        category = categories.get(str(stream.get('category_id')), 'General')
         name = stream.get('name', '')
         stream_id = stream.get('stream_id')
-        category = categories.get(str(stream.get('category_id')), 'General')
         container_ext = stream.get('container_extension', 'm3u8')
         # Prioridad: país detectado en el propio nombre del canal (más específico, ej. "ESPN 1 ARG"
         # dentro de la categoría genérica "ESPN") y si no hay, el de la bandera de la categoría.
@@ -239,13 +321,24 @@ def generate():
             logo = stream.get('stream_icon', '')
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
+        section = classify_section(category, section_rules)
+        if is_divider_category(category) and section:
+            # Separador mapeado a una sección conocida: va primero, como encabezado.
+            cat_order = -1
+        else:
+            cat_order = category_first_seen.setdefault(category, len(category_first_seen))
 
-        playlist_lines.append(
+        entries.append((
+            section_order.get(section, no_section_order),
+            cat_order,
+            i,
             f'#EXTINF:-1 tvg-id="{tvg_id}" tvg-name="{name}" tvg-logo="{logo}" '
-            f'group-title="{category}",{name}'
-        )
-        playlist_lines.append(stream_url)
+            f'group-title="{category}",{name}\n{stream_url}',
+        ))
 
+    entries.sort(key=lambda e: (e[0], e[1], e[2]))
+
+    playlist_lines = ['#EXTM3U'] + [e[3] for e in entries]
     with open(PLAYLIST_PATH, 'w', encoding='utf-8') as f:
         f.write('\n'.join(playlist_lines) + '\n')
 

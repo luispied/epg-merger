@@ -1,0 +1,12 @@
+{
+  "_comment": "Agrupa las categorías de Xtream en secciones y define el orden en que aparecen en playlist.m3u8. 'order' es el orden real de despliegue. 'rules' se evalúan de arriba hacia abajo (la primera que matchee una categoría gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (lista de prefijos, sin emoji/acentos/mayúsculas), 'equals' (lista de nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoría con emoji de bandera de país).",
+  "order": ["PPV EVENTS", "PAÍSES", "DEPORTES", "ENGLISH", "ESPAÑOL", "LATINOS USA"],
+  "rules": [
+    { "section": "PPV EVENTS", "starts_with": ["ppv"] },
+    { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it"] },
+    { "section": "ENGLISH", "starts_with": ["usa"] },
+    { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento"] },
+    { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"] },
+    { "section": "PAÍSES", "country_flag": true }
+  ]
+}
