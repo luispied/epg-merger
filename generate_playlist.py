@@ -7,6 +7,7 @@ import os
 import re
 import unicodedata
 
+import requests
 from lxml import etree
 
 from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams
@@ -16,6 +17,11 @@ CHANNEL_MAP_PATH = 'xtream_channel_map.json'
 SECTIONS_CONFIG_PATH = 'playlist_sections.json'
 PLAYLIST_PATH = 'playlist.m3u8'
 FILTERED_EPG_PATH = 'my_epg.xml.gz'
+
+# Sección cuyos canales deben matchear primero contra esta fuente EPG específica de EE.UU.
+# (pedido del usuario), y solo si no matchea ahí, caer al índice general de 'us'.
+PRIORITY_SECTION = 'ENGLISH'
+PRIORITY_EPG_URL = 'https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz'
 
 SUFFIXES = ('hd', 'fhd', 'uhd', '4k', 'sd', 'hevc')
 
@@ -203,6 +209,36 @@ def load_channel_map():
         return {}
 
 
+def fetch_priority_us_index(timeout=30):
+    """Descarga la fuente EPG de EE.UU. prioritaria (acidjesuz/US_guide) y arma su propio
+    índice nombre -> channel_id, para que los canales ENGLISH matcheen ahí primero."""
+    try:
+        response = requests.get(PRIORITY_EPG_URL, timeout=timeout)
+        response.raise_for_status()
+        data = gzip.decompress(response.content) if PRIORITY_EPG_URL.endswith('.gz') else response.content
+        root = etree.fromstring(data)
+    except Exception as e:
+        print(f"⚠️  No se pudo descargar la fuente EPG prioritaria de EE.UU. ({e}); se usa solo el índice general")
+        return {}
+
+    index = {}
+    for channel in root.findall('channel'):
+        channel_id = channel.get('id')
+        if not channel_id:
+            continue
+        for display_name in channel.findall('display-name'):
+            text = display_name.text or ''
+            # Descarta display-names tipo "2.1" (solo el número de canal, sin nombre real)
+            if re.fullmatch(r'[\d.]+', text.strip()):
+                continue
+            normalized = normalize_name(text)
+            if normalized and normalized not in index:
+                index[normalized] = channel_id
+
+    print(f"🇺🇸 Fuente EPG prioritaria de EE.UU.: {len(index)} nombres indexados de {len(root.findall('channel'))} canales")
+    return index
+
+
 def build_epg_index(epg_root):
     """channels_by_id: channel_id -> icon_src
     name_to_id: nombre_normalizado -> channel_id (global, para categorías sin país detectado)
@@ -242,7 +278,7 @@ def build_epg_index(epg_root):
     return channels_by_id, name_to_id, name_to_id_by_country
 
 
-def match_channel(xtream_name, overrides, name_to_id, name_to_id_by_country, country_code):
+def match_channel(xtream_name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index=None):
     if xtream_name in overrides:
         return overrides[xtream_name]
 
@@ -252,6 +288,11 @@ def match_channel(xtream_name, overrides, name_to_id, name_to_id_by_country, cou
     candidates = [normalized]
     if normalized.endswith(' 1'):
         candidates.append(normalized[:-2])
+
+    if priority_index:
+        for candidate in candidates:
+            if candidate in priority_index:
+                return priority_index[candidate]
 
     if country_code and country_code in name_to_id_by_country:
         # Hay canales indexados para ese país: matchea solo contra ellos, para no
@@ -291,6 +332,16 @@ def generate():
     channels_by_id, name_to_id, name_to_id_by_country = build_epg_index(epg_root)
     overrides = load_channel_map()
 
+    # merge_epgs.py descarta canales sin programas: solo sirve como prioritario un channel_id
+    # que de verdad haya sobrevivido y esté en merged.xml.gz (si no, matchearía en falso contra
+    # un canal sin datos reales).
+    priority_us_index_raw = fetch_priority_us_index()
+    priority_us_index = {
+        name: cid for name, cid in priority_us_index_raw.items() if cid in channels_by_id
+    }
+    if priority_us_index_raw:
+        print(f"   ({len(priority_us_index)}/{len(priority_us_index_raw)} sobreviven en merged.xml.gz)")
+
     section_display_order, raw_rules = load_sections_config()
     section_rules = [(rule['section'], _make_rule_matcher(rule)) for rule in raw_rules]
 
@@ -306,11 +357,20 @@ def generate():
         name = stream.get('name', '')
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
-        # Prioridad: país detectado en el propio nombre del canal (más específico, ej. "ESPN 1 ARG"
-        # dentro de la categoría genérica "ESPN") y si no hay, el de la bandera de la categoría.
-        country_code = detect_country(name) or flag_to_country_code(category)
+        section = classify_section(category, section_rules)
 
-        channel_id = match_channel(name, overrides, name_to_id, name_to_id_by_country, country_code)
+        if section == PRIORITY_SECTION:
+            # Toda la sección ENGLISH es contenido de EE.UU. por definición, aunque el nombre
+            # del canal no diga "USA" explícitamente (ej. "Movie Channels").
+            country_code = 'us'
+            priority_index = priority_us_index
+        else:
+            # Prioridad: país detectado en el propio nombre del canal (más específico, ej. "ESPN 1
+            # ARG" dentro de la categoría genérica "ESPN") y si no hay, el de la bandera de la categoría.
+            country_code = detect_country(name) or flag_to_country_code(category)
+            priority_index = None
+
+        channel_id = match_channel(name, overrides, name_to_id, name_to_id_by_country, country_code, priority_index)
         if channel_id:
             matched_ids.add(channel_id)
             tvg_id = channel_id
@@ -321,7 +381,6 @@ def generate():
             logo = stream.get('stream_icon', '')
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
-        section = classify_section(category, section_rules)
         if is_divider_category(category) and section:
             # Separador mapeado a una sección conocida: va primero, como encabezado.
             cat_order = -1
