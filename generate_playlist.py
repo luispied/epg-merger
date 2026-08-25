@@ -559,9 +559,11 @@ def generate():
             # Se anota el país/región/id en el propio display-name del canal (no en el M3U):
             # así se ve al buscar manualmente con "Seleccionar EPG" en el reproductor, que
             # busca sobre toda la guía cargada, sin depender de que el M3U tenga duplicados.
+            # Va al PRINCIPIO del texto (no al final) para que no quede cortado si la fila
+            # del reproductor trunca nombres largos por el lado derecho.
             first_display_name = channel.find('display-name')
             if first_display_name is not None:
-                first_display_name.text = f"{first_display_name.text or ''} ({label})".strip()
+                first_display_name.text = f"[{label}] {first_display_name.text or ''}".strip()
         filtered_root.append(channel)
     for programme in epg_root.findall('programme'):
         if programme.get('channel') in matched_ids:
