@@ -260,6 +260,12 @@ def normalize_name(name):
     # Los tokens de país (arg, chi, mx...) ya se usan por separado para elegir el índice
     # por país (ver detect_country); se excluyen acá para no bloquear el match por texto.
     tokens = [t for t in name.split() if t not in SUFFIXES and t not in COUNTRY_NAME_TOKENS]
+    # "tv"/"television" solo se quita si es la ÚLTIMA palabra (ej. "E! Entertainment
+    # Television" -> "e entertainment", igual que la versión sin sufijo de otras fuentes).
+    # No se filtra en cualquier posición como los demás SUFFIXES porque "tv" es parte del
+    # nombre real de muchos canales cuando NO va al final (ej. "TV Land", "TV One").
+    if tokens and tokens[-1] in ('tv', 'television'):
+        tokens = tokens[:-1]
     return ' '.join(tokens)
 
 
