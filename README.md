@@ -66,6 +66,15 @@ El matching es por nombre normalizado (sin acentos/mayúsculas/sufijos como HD, 
 }
 ```
 
+### Orden y agrupación de categorías
+
+`playlist_sections.json` agrupa las ~99 categorías de Xtream en secciones ("paraguas") y define en qué orden aparecen en `playlist.m3u8`. Es editable sin tocar Python:
+
+- `order`: orden real de despliegue de las secciones.
+- `rules`: se evalúan de arriba hacia abajo (la primera que matchee una categoría gana) — no tiene que coincidir con `order`. Tipos: `starts_with` (prefijos), `equals` (nombres exactos) y `country_flag: true` (cualquier categoría con emoji de bandera de país). Los nombres de categoría se comparan sin emoji/acentos/mayúsculas (`"🏈 ESPN"` → `"espn"`).
+- Las categorías "separador" decorativas del proveedor (ej. `▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆`) se conservan como encabezado al principio de su sección.
+- Las categorías que no matchean ninguna regla van al final, en su orden original.
+
 ### URLs finales
 
 ```text
