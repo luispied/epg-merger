@@ -425,11 +425,18 @@ def match_channel(xtream_name, overrides, name_to_ids, name_to_ids_by_country, c
     if normalized.endswith(' 1'):
         name_candidates.append(normalized[:-2])
 
+    priority_pick = None
     if priority_index:
         for candidate in name_candidates:
             if candidate in priority_index:
-                return priority_index[candidate], [priority_index[candidate]]
+                priority_pick = priority_index[candidate]
+                break
 
+    # Candidatos "amplios" del índice por país (o global si no hay país) — se calculan
+    # SIEMPRE, incluso cuando ya hay un priority_pick confiable, para poder ofrecerlos como
+    # alternativas. Antes, un match en priority_index cortaba acá mismo y nunca llegaban a
+    # verse alternativas para ningún canal de la sección ENGLISH.
+    broad_ids = []
     if country_code and country_code in name_to_ids_by_country:
         # Hay canales indexados para ese país: matchea solo contra ellos, para no
         # confundir p.ej. "Canal 26" de Argentina con uno homónimo de Chile.
@@ -437,15 +444,24 @@ def match_channel(xtream_name, overrides, name_to_ids, name_to_ids_by_country, c
         for candidate in name_candidates:
             ids = country_index.get(candidate)
             if ids:
-                return ids[0], ids
-        return None, []
+                broad_ids = ids
+                break
+    else:
+        # Sin país detectado, o sin ningún canal de ese país en el EPG (cobertura cero):
+        # el índice global es la única opción disponible.
+        for candidate in name_candidates:
+            ids = name_to_ids.get(candidate)
+            if ids:
+                broad_ids = ids
+                break
 
-    # Sin país detectado, o sin ningún canal de ese país en el EPG (cobertura cero):
-    # el índice global es la única opción disponible.
-    for candidate in name_candidates:
-        ids = name_to_ids.get(candidate)
-        if ids:
-            return ids[0], ids
+    if priority_pick:
+        combined = [priority_pick] + [cid for cid in broad_ids if cid != priority_pick]
+        return priority_pick, combined
+
+    if broad_ids:
+        return broad_ids[0], broad_ids
+
     return None, []
 
 
