@@ -1,89 +1,172 @@
 # epg-merger
 
-Script y workflow para descargar varios archivos EPG, fusionarlos y publicar `merged.xml.gz` como asset de un GitHub Release.
+Fusiona varias fuentes EPG en una sola guía y, cruzándola con la lista real de canales de un
+proveedor Xtream Codes, genera una playlist por persona con el `tvg-id` correcto en cada canal.
+
+## Cómo está partido el trabajo
+
+| Etapa | Qué produce | ¿Depende de quién sos? |
+|---|---|---|
+| `merge_epgs.py` | `merged.xml.gz` — las 75 fuentes fusionadas y deduplicadas | no |
+| `generate_playlist.py` | `out/<perfil>/{playlist.m3u8, epg.xml.gz, match_report.json}` | solo en las credenciales |
+| `publish_playlists.py` | publica cada playlist en su gist secreto | sí |
+
+La parte cara —fusionar las fuentes y decidir qué `tvg-id` le corresponde a cada canal— es
+idéntica para todo el mundo y se hace **una sola vez**. Lo único que cambia entre personas son
+el usuario y la contraseña que van dentro de la URL del stream.
 
 ## Uso local
 
 ```bash
 pip install -r requirements.txt
 python merge_epgs.py
+python generate_playlist.py
+python -m pytest tests/ -q
 ```
 
-Edita `epg_urls.json` y añade el resto de tus URLs en `urls`.
+## Fuentes EPG (`epg_urls.json`)
 
-## GitHub Actions
+```json
+{ "id": "acidjesuz-us", "url": "https://.../US_guide.xml.gz", "country": "us" }
+```
 
-El workflow `.github/workflows/merge-epgs.yml` permite ejecutar el merge de forma manual (`workflow_dispatch`) y diaria a las `02:00 UTC`.
+- **`id`** identifica la fuente y queda estampado en cada canal de `merged.xml.gz` como
+  atributo `source`. Así `playlist_sections.json` puede preferir fuentes concretas por sección
+  sin volver a descargar ni re-parsear nada, y las etiquetas de las alternativas muestran la
+  procedencia real en vez de adivinarla desde el `channel_id`.
+- **`country`** (opcional) es el país que cubre la fuente. Omitirlo significa multi-país.
+- **`priority`** (opcional, menor = mejor) por defecto es la posición en la lista: ante un canal
+  duplicado gana la fuente que aparece primero.
+- Para deshabilitar una fuente sin borrarla, anteponé `#` a su `url`.
 
-`merged.xml.gz` (~140 MB) ya supera el límite de 100 MB por archivo que impone git en un commit normal, así que **no se commitea al repositorio**: cada corrida lo sube como asset del release `latest`, reemplazando la versión anterior (`gh release upload --clobber`). Así se evita tanto el límite de tamaño como las cuotas de ancho de banda de Git LFS.
+El formato viejo (`"urls": ["...", "..."]`) sigue funcionando: el `id` se deriva del nombre de
+archivo y la prioridad es la posición.
 
-## Consumir el EPG generado
+### Deduplicación
 
-Usa esta URL fija en tu reproductor (TiviMate, etc.) — siempre apunta a la última versión generada:
+Un canal presente en varias fuentes (los 7 archivos de España comparten decenas de
+`channel_id`) tomaba antes la programación de **todas**, quedando repetida y solapada en la
+guía. Ahora los programas se deduplican por `(canal, start)`: ante colisión gana la fuente más
+prioritaria, y los horarios que ésa no cubre los siguen aportando las demás, así deduplicar no
+cuesta días de guía.
+
+## Cómo se matchea un canal con su EPG
+
+El nombre del canal se descompone en **núcleo + señales** en vez de irle borrando pedazos:
+
+| Nombre en Xtream | Núcleo | Señales |
+|---|---|---|
+| `TBS -EN` | `tbs` | idioma `en` → se prefieren fuentes de EE.UU./UK/Canadá |
+| `Warner TV Costa Rica` | `warner tv` | país `cr` |
+| `ESPN 1 ARG` | `espn 1` | país `ar` |
+| `TBS East HD` | `tbs` | región `east`, calidad `hd` |
+
+Después se puntúa cada candidato por **solapamiento de tokens pesado por IDF**: los tokens que
+aparecen en miles de canales (`tv`, `channel`, `hd`) pesan casi nada por su propia estadística,
+y los raros (`warner`, `laff`) pesan mucho. Eso reemplaza a la lista manual de sufijos a
+ignorar y hace que `"E! Entertainment Television"` matchee `"E! Entertainment"` sin necesidad
+de mutilar el nombre, y que `"TV Land"` conserve su `TV`.
+
+Sobre ese puntaje base ajustan las demás señales: fuente preferida por la sección, país
+(coincidir suma, diferir penaliza fuerte), región y prioridad de fuente como desempate.
+
+Cada corrida deja un **`out/<perfil>/match_report.json`** con el candidato elegido, su puntaje,
+el motivo y las alternativas descartadas. No contiene URLs de stream, así que se puede guardar
+y diffear entre corridas para ver si un cambio de heurística mejoró o empeoró el matching.
+
+### Overrides manuales
+
+Si un canal no encuentra su EPG, agregalo a `xtream_channel_map.json`:
+
+```json
+{ "overrides": { "Nombre exacto del canal en Xtream": "channel_id-del-merged.xml.gz" } }
+```
+
+### Cuando un canal tiene varios EPG posibles
+
+Muchos nombres (`"E!"`, `"TBS"`) existen varias veces en el EPG: un feed por país, o variantes
+regionales de EE.UU. Se elige el de mayor puntaje para la playlist (una sola entrada por canal)
+y se incluyen hasta 4 alternativas en el `epg.xml.gz` del perfil, **ordenadas por confianza**,
+cada una con su `display-name` anotado al principio entre corchetes (`"[US East] TBS"`).
+
+Va al principio y no al final para que la etiqueta no quede cortada si el reproductor trunca
+los nombres largos. Para elegir otra, usá **"Seleccionar EPG"** en tu reproductor (TiviMate:
+mantener presionado el canal → Editar → EPG) y, para que la elección quede fija, agregá el
+override correspondiente.
+
+## Orden y agrupación de categorías (`playlist_sections.json`)
+
+- `order`: orden real de despliegue de las secciones.
+- `rules`: se evalúan de arriba hacia abajo (la primera que matchee gana). Tipos: `starts_with`,
+  `equals` y `country_flag: true`. Los nombres se comparan sin emoji/acentos/mayúsculas.
+- `epg` (opcional) declara contra qué fuentes conviene matchear esa sección:
+
+```json
+{ "section": "ENGLISH", "starts_with": ["usa"],
+  "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] } }
+```
+
+- Las categorías "separador" del proveedor (`▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆`) se conservan como
+  encabezado de su sección; las que no matchean ninguna regla van al final.
+
+## Varias personas con el mismo proveedor
+
+Un único secret **`XTREAM_PROFILES`** con un JSON. Agregar a alguien es editar ese secret; el
+workflow no se toca.
+
+```json
+[
+  { "name": "luis", "servers": ["http://s1:8080", "http://s2:8080"],
+    "username": "u1", "password": "p1", "gist_id": "abc123" },
+  { "name": "juan", "servers": ["http://s1:8080"],
+    "username": "u2", "password": "p2", "gist_id": "def456" }
+]
+```
+
+`servers` acepta varios en orden de preferencia: si el primero no responde, se prueba el
+siguiente. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de siempre
+(`XTREAM_USERNAME`, `XTREAM_PASSWORD`, `XTREAM_SERVERS`) como un perfil llamado `default`.
+
+### Dónde termina cada archivo
+
+| Artefacto | Destino | ¿Lleva credenciales? |
+|---|---|---|
+| `merged.xml.gz` | release público `latest` | no |
+| `epg-<perfil>.xml.gz` | release público `latest` | no |
+| `playlist-<perfil>.m3u8` | **gist secreto** de esa persona | **sí** |
+
+La playlist lleva usuario y contraseña dentro de **cada URL de stream**, así que no puede ir a
+un release público. Va a un gist secreto, cuya URL raw no pide autenticación y funciona
+directo en TiviMate:
+
+```text
+https://gist.githubusercontent.com/<usuario>/<gist_id>/raw/playlist.m3u8
+```
+
+> **Modelo de amenaza**: "secreto" en un gist significa *inadivinable*, no privado — quien
+> tenga la URL ve el contenido. Es el mismo modelo que las credenciales viviendo dentro de la
+> URL del stream, y una mejora grande frente a un asset de release público e indexable, pero
+> no es cifrado.
+
+Hace falta un secret **`GIST_TOKEN`**: un PAT con scope `gist`. El `GITHUB_TOKEN` del workflow
+no sirve, no tiene permiso sobre gists. Sin ese secret, las playlists quedan solo en `out/`.
+
+### EPG compartido
+
+Quien no use este flujo puede consumir directamente la guía completa:
 
 ```text
 https://github.com/luispied/epg-merger/releases/download/latest/merged.xml.gz
 ```
 
-## Integración con tu proveedor Xtream Codes (opcional)
+`merged.xml.gz` pesa ~134 MB, por encima del límite de 100 MB por archivo que impone git en un
+commit normal, así que **no se commitea**: cada corrida lo sube como asset del release `latest`
+reemplazando la versión anterior (`--clobber`). Así se evitan tanto el límite de tamaño como
+las cuotas de ancho de banda de Git LFS.
 
-Si tu proveedor IPTV usa la API Xtream Codes, el workflow puede cruzar **tu lista real de canales contratados** con el EPG generado, produciendo:
+## Workflow
 
-- `playlist.m3u8`: lista de canales lista para TiviMate, con `tvg-id` apuntando al EPG correcto.
-- `my_epg.xml.gz`: subconjunto de `merged.xml.gz` acotado solo a tus canales (mucho más liviano que el EPG completo).
-
-### Configurar credenciales (Secrets, no en el repo)
-
-El repo es público, así que las credenciales **nunca** van en un archivo versionado. Configúralas en **Settings → Secrets and variables → Actions → New repository secret**:
-
-| Secret | Ejemplo |
-|---|---|
-| `XTREAM_USERNAME` | `mi_usuario` |
-| `XTREAM_PASSWORD` | `mi_contraseña` |
-| `XTREAM_SERVERS` | `http://servidor1.com:8080,http://servidor2.com:8080,http://servidor3.com:8080` |
-
-`XTREAM_SERVERS` acepta hasta 3 (o más) servidores separados por coma, en orden de preferencia. Si el primero no responde, el script prueba automáticamente el siguiente (failover). Si estos 3 Secrets no están configurados, el workflow simplemente omite este paso y sigue generando `merged.xml.gz` como siempre.
-
-### Uso local
-
-```bash
-export XTREAM_USERNAME=mi_usuario
-export XTREAM_PASSWORD=mi_contraseña
-export XTREAM_SERVERS="http://servidor1.com:8080,http://servidor2.com:8080"
-python merge_epgs.py       # genera merged.xml.gz primero
-python generate_playlist.py
-```
-
-### Canales sin match automático
-
-El matching es por nombre normalizado (sin acentos/mayúsculas/sufijos como HD, 4K, "TV"/"Television" al final, etc.). Además, para cadenas de nicho de EE.UU./Canadá con pocas afiliadas locales (≤10, ej. Laff, Bounce, Cozi — no aplica a ABC/CBS/NBC/FOX/PBS que tienen cientos), se reconoce el formato típico `"Cadena (CALLSIGN) Ciudad, Estado"` (ej. `"Laff (WUOA) Birmingham, AL"`) y se ofrece como alternativa de la cadena a secas. Si algún canal de tu lista no encuentra EPG automáticamente, el script lo lista al final de la corrida — agrégalo a `xtream_channel_map.json`:
-
-```json
-{
-  "overrides": {
-    "Nombre exacto del canal en Xtream": "channel_id-del-merged.xml.gz"
-  }
-}
-```
-
-### Cuando un canal tiene varios EPG posibles
-
-Muchos nombres de canal (ej. "E!", "TBS") existen varias veces en el EPG mergeado — un feed distinto por país, o variantes regionales de EE.UU. (East/West/Pacific). El script elige uno automáticamente para `playlist.m3u8` (una sola entrada por canal, sin duplicados), pero **también incluye hasta 4 alternativas en `my_epg.xml.gz`**, cada una con su `display-name` anotado **al principio** entre corchetes — país + feed regional si se detectaron (ej. `"[US East] TBS"` vs `"[US Pacific] TBS"`), o si no, el propio `channel_id` (y si dos alternativas quedarían con la misma etiqueta, ej. dos ".us" sin feed detectado, se les agrega un fragmento del `channel_id` para poder distinguirlas). Va al principio y no al final para que la etiqueta no quede cortada si el reproductor trunca nombres largos por el lado derecho.
-
-Si la elección automática no es la correcta, usá la función **"Seleccionar EPG"** de tu reproductor (en TiviMate: mantener presionado el canal → Editar → EPG) — busca sobre toda la guía cargada, así que vas a poder encontrar las alternativas anotadas por su nombre y elegir la que sí tenga la programación correcta. Para que la elección quede fija en la próxima corrida (en vez de tener que repetirlo cada vez), agregá un override en `xtream_channel_map.json` con el `channel_id` de la alternativa correcta.
-
-### Orden y agrupación de categorías
-
-`playlist_sections.json` agrupa las ~99 categorías de Xtream en secciones ("paraguas") y define en qué orden aparecen en `playlist.m3u8`. Es editable sin tocar Python:
-
-- `order`: orden real de despliegue de las secciones.
-- `rules`: se evalúan de arriba hacia abajo (la primera que matchee una categoría gana) — no tiene que coincidir con `order`. Tipos: `starts_with` (prefijos), `equals` (nombres exactos) y `country_flag: true` (cualquier categoría con emoji de bandera de país). Los nombres de categoría se comparan sin emoji/acentos/mayúsculas (`"🏈 ESPN"` → `"espn"`).
-- Las categorías "separador" decorativas del proveedor (ej. `▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆`) se conservan como encabezado al principio de su sección.
-- Las categorías que no matchean ninguna regla van al final, en su orden original.
-
-### URLs finales
-
-```text
-https://github.com/luispied/epg-merger/releases/download/latest/playlist.m3u8
-https://github.com/luispied/epg-merger/releases/download/latest/my_epg.xml.gz
-```
+`.github/workflows/merge-epgs.yml` corre a diario a las 02:00 UTC y también a mano
+(`workflow_dispatch`). Los pasos son: tests → merge → playlists por perfil → publicación de los
+artefactos públicos al release → publicación de las playlists a los gists → subida de los
+`match_report.json` como artifact.

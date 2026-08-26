@@ -1,0 +1,46 @@
+{
+  "_comment": "Tablas de datos del matching de nombres de canal. 'country_tokens' mapea texto que aparece dentro del nombre (una o varias palabras) al codigo de pais tal como lo usan los channel_id de las fuentes EPG. 'language_tokens' reconoce el sufijo de idioma que el proveedor agrega al final del nombre (ej. 'TBS -EN'); ese idioma se traduce a paises probables via 'language_countries', que sirve para preferir fuentes de esos paises cuando el nombre no dice el pais explicitamente. 'quality_tokens' y 'region_tokens' se extraen del nombre como senales aparte en vez de descartarse.",
+
+  "country_code_aliases": { "gb": "uk" },
+
+  "country_tokens": {
+    "arg": "ar", "ar": "ar", "argentina": "ar",
+    "chi": "cl", "cl": "cl", "chile": "cl",
+    "per": "pe", "pe": "pe", "peru": "pe",
+    "mex": "mx", "mx": "mx", "mexico": "mx",
+    "col": "co", "co": "co", "colombia": "co",
+    "ecu": "ec", "ec": "ec", "ecuador": "ec",
+    "bol": "bo", "bo": "bo", "bolivia": "bo",
+    "usa": "us", "us": "us", "estados unidos": "us",
+    "pan": "pa", "panama": "pa",
+    "cri": "cr", "cr": "cr", "costa rica": "cr", "costarica": "cr",
+    "par": "py", "py": "py", "paraguay": "py",
+    "uru": "uy", "uy": "uy", "uruguay": "uy",
+    "esp": "es", "es": "es", "espana": "es",
+    "puerto rico": "pr",
+    "republica dominicana": "do", "dominicana": "do",
+    "el salvador": "sv",
+    "guatemala": "gt",
+    "honduras": "hn",
+    "nicaragua": "ni",
+    "venezuela": "ve",
+    "brasil": "br", "brazil": "br",
+    "portugal": "pt",
+    "italia": "it", "italy": "it",
+    "alemania": "de", "germany": "de",
+    "reino unido": "uk", "uk": "uk",
+    "canada": "ca"
+  },
+
+  "language_tokens": { "en": "en", "eng": "en" },
+
+  "language_countries": {
+    "en": ["us", "uk", "ca"],
+    "es": ["es", "mx", "ar", "cl", "co", "pe", "uy", "py", "bo", "ec", "cr", "pa", "ve", "do", "gt"],
+    "pt": ["pt", "br"]
+  },
+
+  "quality_tokens": ["hd", "fhd", "uhd", "4k", "sd", "hevc", "hq"],
+
+  "region_tokens": ["east", "west", "pacific", "mountain", "central"]
+}
