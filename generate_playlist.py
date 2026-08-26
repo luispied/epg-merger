@@ -55,16 +55,35 @@ def _detect_region_hint(*texts):
     return None
 
 
-def _labeled_candidates(channel_ids, channel_country, channel_region):
+def _pick_display_name(display_names):
+    """El display-name más descriptivo de un canal, para usar como desambiguador legible en
+    vez del channel_id crudo. Muchas fuentes listan variantes redundantes con el número de
+    canal como prefijo (ej. "Laff", "247 Laff", "247") — se descartan esas antes de elegir
+    la más larga, para no terminar prefiriendo "247 Laff" sobre el "Laff" limpio."""
+    real_names = [t.strip() for t in display_names if t and not t.strip().isdigit()]
+    if not real_names:
+        return None
+    clean = [
+        name for name in real_names
+        if not (m := re.match(r'^\d+\s+(.+)$', name)) or m.group(1) not in real_names
+    ]
+    return max(clean or real_names, key=len)
+
+
+def _labeled_candidates(channel_ids, channel_country, channel_region, channel_display_name):
     """Etiqueta cada channel_id de la lista; si dos quedan con la misma etiqueta (ej. dos
-    entradas ".us" sin feed regional detectado), se les agrega un fragmento del channel_id
-    para que sigan siendo distinguibles entre sí en la playlist."""
+    entradas ".us" sin feed regional detectado), se les agrega un fragmento distintivo para
+    que sigan siendo distinguibles entre sí — preferentemente del propio nombre del canal
+    (más legible), y si no hay nombre disponible, del channel_id crudo."""
     labels = [_epg_source_label(cid, channel_country, channel_region) for cid in channel_ids]
     repeated = {label for label in labels if labels.count(label) > 1}
-    return [
-        (cid, f"{label} · {_shorten_id(cid, 20)}" if label in repeated else label)
-        for cid, label in zip(channel_ids, labels)
-    ]
+    result = []
+    for cid, label in zip(channel_ids, labels):
+        if label in repeated:
+            hint = channel_display_name.get(cid) or cid
+            label = f"{label} · {_shorten_id(hint, 20)}"
+        result.append((cid, label))
+    return result
 
 
 # Estas fuentes son exclusivamente de EE.UU., aunque su channel_id no traiga sufijo de país
@@ -341,6 +360,8 @@ def build_epg_index(epg_root):
     """channels_by_id: channel_id -> icon_src
     channel_country: channel_id -> código de país (o None)
     channel_region: channel_id -> feed regional detectado (East/West/Pacific/..., o None)
+    channel_display_name: channel_id -> display-name más descriptivo (para desambiguar en vez
+        de mostrar el channel_id crudo)
     name_to_ids: nombre_normalizado -> [channel_id, ...] (todas las coincidencias, en orden de
         aparición), global, para categorías sin país detectado
     name_to_ids_by_country: código_país -> {nombre_normalizado: [channel_id, ...]}
@@ -348,6 +369,7 @@ def build_epg_index(epg_root):
     channels_by_id = {}
     channel_country = {}
     channel_region = {}
+    channel_display_name = {}
     name_to_ids = {}
     name_to_ids_by_country = {}
     affiliate_candidates = defaultdict(list)  # nombre_de_cadena_normalizado -> [channel_id, ...]
@@ -362,6 +384,10 @@ def build_epg_index(epg_root):
         channels_by_id[channel_id] = icon_src
 
         display_names = [dn.text for dn in channel.findall('display-name')]
+
+        display_name_pick = _pick_display_name(display_names)
+        if display_name_pick:
+            channel_display_name[channel_id] = display_name_pick
 
         suffix_match = CHANNEL_ID_SUFFIX_RE.search(channel_id)
         # El sufijo del channel_id manda si existe; si no, se busca el país en los display-names
@@ -408,7 +434,7 @@ def build_epg_index(epg_root):
                 if channel_id not in country_ids:
                     country_ids.append(channel_id)
 
-    return channels_by_id, channel_country, channel_region, name_to_ids, name_to_ids_by_country
+    return channels_by_id, channel_country, channel_region, channel_display_name, name_to_ids, name_to_ids_by_country
 
 
 def match_channel(xtream_name, overrides, name_to_ids, name_to_ids_by_country, country_code, priority_index=None):
@@ -483,7 +509,7 @@ def generate():
     with gzip.open(MERGED_EPG_PATH, 'rb') as f:
         epg_root = etree.fromstring(f.read())
 
-    channels_by_id, channel_country, channel_region, name_to_ids, name_to_ids_by_country = build_epg_index(epg_root)
+    channels_by_id, channel_country, channel_region, channel_display_name, name_to_ids, name_to_ids_by_country = build_epg_index(epg_root)
 
     # Igual que con epg_channel_id más abajo: un override que apunte a un channel_id que no
     # existe en el EPG sería un tvg-id colgado, así que se valida antes de confiar en él.
@@ -582,7 +608,7 @@ def generate():
             # el display-name original tal cual (sin agregar ruido a canales ya resueltos bien).
             shown_ids = [channel_id] + candidates[1:1 + MAX_ALT_ENTRIES]
             if len(shown_ids) > 1:
-                for shown_id, label in _labeled_candidates(shown_ids, channel_country, channel_region):
+                for shown_id, label in _labeled_candidates(shown_ids, channel_country, channel_region, channel_display_name):
                     matched_ids.add(shown_id)
                     channel_display_labels[shown_id] = label
 
