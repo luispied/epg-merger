@@ -56,7 +56,7 @@ python generate_playlist.py
 
 ### Canales sin match automático
 
-El matching es por nombre normalizado (sin acentos/mayúsculas/sufijos como HD, 4K, "TV"/"Television" al final, etc.). Si algún canal de tu lista no encuentra EPG automáticamente, el script lo lista al final de la corrida — agrégalo a `xtream_channel_map.json`:
+El matching es por nombre normalizado (sin acentos/mayúsculas/sufijos como HD, 4K, "TV"/"Television" al final, etc.). Además, para cadenas de nicho de EE.UU./Canadá con pocas afiliadas locales (≤10, ej. Laff, Bounce, Cozi — no aplica a ABC/CBS/NBC/FOX/PBS que tienen cientos), se reconoce el formato típico `"Cadena (CALLSIGN) Ciudad, Estado"` (ej. `"Laff (WUOA) Birmingham, AL"`) y se ofrece como alternativa de la cadena a secas. Si algún canal de tu lista no encuentra EPG automáticamente, el script lo lista al final de la corrida — agrégalo a `xtream_channel_map.json`:
 
 ```json
 {
