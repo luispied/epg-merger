@@ -21,27 +21,61 @@ jobs:
         python-version: '3.11'
 
     - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+      run: pip install -r requirements.txt
+
+    - name: Run tests
+      run: python -m pytest tests/ -q
 
     - name: Merge EPGs
       run: python merge_epgs.py
 
-    - name: Generate Xtream playlist
+    # Genera, por cada perfil de XTREAM_PROFILES, su out/<perfil>/{playlist.m3u8,epg.xml.gz,match_report.json}.
+    # El JSON con las credenciales nunca se expande en el shell: lo lee el propio Python.
+    - name: Generate playlists
       env:
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
         XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
         XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
         XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+        XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
       run: python generate_playlist.py
 
-    - name: Publish release asset
+    # Al release público solo van artefactos SIN credenciales adentro. Las playlists llevan
+    # usuario y contraseña dentro de cada URL de stream, así que van a un gist secreto por
+    # persona (paso siguiente) y nunca acá.
+    - name: Publish public assets
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         TAG=latest
         if ! gh release view "$TAG" >/dev/null 2>&1; then
-          gh release create "$TAG" --title "EPG mergeado (auto)" --notes "Se actualiza automáticamente en cada corrida del workflow."
+          gh release create "$TAG" --title "EPG mergeado (auto)" \
+            --notes "Se actualiza automáticamente en cada corrida del workflow."
         fi
         gh release upload "$TAG" merged.xml.gz --clobber
-        [ -f playlist.m3u8 ] && gh release upload "$TAG" playlist.m3u8 --clobber || true
-        [ -f my_epg.xml.gz ] && gh release upload "$TAG" my_epg.xml.gz --clobber || true
+        for dir in out/*/; do
+          [ -f "$dir/epg.xml.gz" ] || continue
+          name=$(basename "$dir")
+          cp "$dir/epg.xml.gz" "epg-$name.xml.gz"
+          gh release upload "$TAG" "epg-$name.xml.gz" --clobber
+        done
+
+    # No-op si falta GIST_TOKEN: el script lo avisa y sale sin error.
+    - name: Publish playlists to secret gists
+      env:
+        GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
+        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
+        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
+        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+        XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
+      run: python publish_playlists.py
+
+    # El reporte de matching no lleva URLs de stream, así que es seguro guardarlo; sirve para
+    # diffear la calidad del matching entre corridas.
+    - name: Upload match reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: match-reports
+        path: out/*/match_report.json
+        if-no-files-found: ignore

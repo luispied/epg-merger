@@ -1,12 +1,14 @@
 {
-  "_comment": "Agrupa las categorías de Xtream en secciones y define el orden en que aparecen en playlist.m3u8. 'order' es el orden real de despliegue. 'rules' se evalúan de arriba hacia abajo (la primera que matchee una categoría gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (lista de prefijos, sin emoji/acentos/mayúsculas), 'equals' (lista de nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoría con emoji de bandera de país).",
+  "_comment": "Agrupa las categorias de Xtream en secciones y define el orden en que aparecen en la playlist. 'order' es el orden real de despliegue. 'rules' se evaluan de arriba hacia abajo (la primera que matchee una categoria gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (prefijos, sin emoji/acentos/mayusculas), 'equals' (nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoria con emoji de bandera). La clave opcional 'epg' declara contra que fuentes EPG conviene matchear los canales de esa seccion: 'country' fuerza un pais y 'prefer_sources' lista ids de epg_urls.json que se prefieren ante un empate.",
   "order": ["PPV EVENTS", "PAÍSES", "DEPORTES", "ENGLISH", "ESPAÑOL", "LATINOS USA"],
   "rules": [
     { "section": "PPV EVENTS", "starts_with": ["ppv"] },
     { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it"] },
-    { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"] },
+    { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"],
+      "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] } },
     { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"] },
-    { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"] },
+    { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"],
+      "epg": { "country": "us" } },
     { "section": "PAÍSES", "country_flag": true }
   ]
 }
