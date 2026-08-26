@@ -55,6 +55,21 @@ def _detect_region_hint(*texts):
     return None
 
 
+def _epg_channel_id_is_plausible(xtream_normalized, target_channel_id, channel_display_name):
+    """El "epg_channel_id" que trae Xtream es una adivinanza del proveedor, no verificada por
+    nombre — a veces apunta a un channel_id real pero de un canal totalmente distinto (ej.
+    un id "por defecto" que el panel de Xtream le pone a canales sin EPG real, y que
+    coincide con el de "Warner TV Costa Rica" para una docena de canales sin relación).
+    Se exige que compartan al menos una palabra de 3+ letras con el nombre real del canal
+    apuntado, como chequeo mínimo de que no sea una adivinanza completamente ajena."""
+    target_name = channel_display_name.get(target_channel_id)
+    if not target_name:
+        return True  # sin nombre para comparar: no se puede verificar, se mantiene el comportamiento anterior
+    target_tokens = {t for t in normalize_name(target_name).split() if len(t) >= 3}
+    xtream_tokens = {t for t in xtream_normalized.split() if len(t) >= 3}
+    return bool(target_tokens & xtream_tokens)
+
+
 def _pick_display_name(display_names):
     """El display-name más descriptivo de un canal, para usar como desambiguador legible en
     vez del channel_id crudo. Muchas fuentes listan variantes redundantes con el número de
@@ -581,9 +596,17 @@ def generate():
         if not channel_id:
             # Xtream trae su propio "epg_channel_id" (una adivinanza del proveedor, sin
             # verificar). Solo sirve si de verdad existe en nuestro EPG con datos reales —
-            # si no, sería un tvg-id colgado que no aparece en my_epg.xml.gz.
+            # si no, sería un tvg-id colgado que no aparece en my_epg.xml.gz — Y además el
+            # nombre del canal apuntado tiene que guardar alguna relación con el de Xtream:
+            # el proveedor a veces pone el mismo id "por defecto" en canales sin EPG real,
+            # sin ninguna relación con el contenido real (ej. varios canales de Costa Rica
+            # sin EPG apuntando todos a "Warner TV Costa Rica").
             candidate = stream.get('epg_channel_id')
-            if candidate and candidate in channels_by_id:
+            if (
+                candidate
+                and candidate in channels_by_id
+                and _epg_channel_id_is_plausible(normalize_name(name), candidate, channel_display_name)
+            ):
                 channel_id = candidate
                 candidates = [candidate]
 
