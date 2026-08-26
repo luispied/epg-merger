@@ -6,6 +6,7 @@ import json
 import os
 import re
 import unicodedata
+from collections import defaultdict
 
 from lxml import etree
 
@@ -110,6 +111,16 @@ COUNTRY_PREFIX_RE = re.compile(r'^[A-Za-z]{1,3}\s*\|\s*')
 
 # El channel_id de las fuentes EPG casi siempre termina en el código de país: "Canal.5.mx", "TNT.ar"
 CHANNEL_ID_SUFFIX_RE = re.compile(r'\.([a-z]{2})$')
+
+# Formato típico de las fuentes de EE.UU. (Schedules Direct/Gracenote) para afiliadas locales:
+# "Laff (WUOA) Birmingham, AL HD" — cadena + call sign entre paréntesis + "Ciudad, Estado".
+# Se usa para reconocer que "Laff (WUOA) Birmingham, AL" es la misma cadena que "Laff" a secas.
+US_AFFILIATE_RE = re.compile(r'^(?P<network>.+?)\s*\([A-Z]{3,5}\)\s*[A-Za-z .\-]+,\s*[A-Z]{2}\b')
+
+# Redes con más afiliadas que esto (ABC/CBS/NBC/FOX/PBS tienen cientos, uno por mercado local)
+# no se alias-ean: no tiene sentido ofrecer 200 mercados como "alternativas" de un canal
+# nacional genérico. Solo aplica a cadenas de nicho con pocos feeds regionales (ej. Laff, Bounce).
+MAX_AFFILIATES_FOR_ALIAS = 10
 
 
 # El sufijo de los channel_id de las fuentes EPG no siempre es ISO-3166 estricto
@@ -339,6 +350,7 @@ def build_epg_index(epg_root):
     channel_region = {}
     name_to_ids = {}
     name_to_ids_by_country = {}
+    affiliate_candidates = defaultdict(list)  # nombre_de_cadena_normalizado -> [channel_id, ...]
 
     for channel in epg_root.findall('channel'):
         channel_id = channel.get('id')
@@ -367,6 +379,32 @@ def build_epg_index(epg_root):
                 ids.append(channel_id)
             if country:
                 country_ids = name_to_ids_by_country.setdefault(country, {}).setdefault(normalized, [])
+                if channel_id not in country_ids:
+                    country_ids.append(channel_id)
+
+            # "Laff (WUOA) Birmingham, AL HD" -> también es candidato de "laff", la cadena
+            # a secas — pero solo se confirma como alias más abajo si la cadena tiene pocas
+            # afiliadas (si no, sería ABC/CBS/NBC con cientos de mercados locales).
+            affiliate_match = US_AFFILIATE_RE.match(name_text)
+            if affiliate_match:
+                network_key = normalize_name(affiliate_match.group('network'))
+                if network_key:
+                    affiliate_candidates[network_key].append(channel_id)
+
+    # Solo se registra el alias de cadena para afiliadas de nicho (pocos mercados) — para las
+    # grandes cadenas nacionales, cada afiliado es un mercado local distinto, no una
+    # "alternativa" razonable del canal genérico.
+    for network_key, cids in affiliate_candidates.items():
+        unique_cids = list(dict.fromkeys(cids))
+        if len(unique_cids) > MAX_AFFILIATES_FOR_ALIAS:
+            continue
+        for channel_id in unique_cids:
+            ids = name_to_ids.setdefault(network_key, [])
+            if channel_id not in ids:
+                ids.append(channel_id)
+            country = channel_country.get(channel_id)
+            if country:
+                country_ids = name_to_ids_by_country.setdefault(country, {}).setdefault(network_key, [])
                 if channel_id not in country_ids:
                     country_ids.append(channel_id)
 
