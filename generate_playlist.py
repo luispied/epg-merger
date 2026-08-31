@@ -219,7 +219,6 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
 
     section_order = {s: i for i, s in enumerate(section_display_order)}
     no_section_order = len(section_display_order)  # categorías sin sección van al final
-    category_first_seen = {}
 
     # classify_section/is_divider_category/flag_to_country_code solo dependen de `category`
     # (~99 valores únicos), no de cada canal (~3000+): se calculan una vez por categoría.
@@ -229,11 +228,17 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         info = category_info_cache.get(category)
         if info is None:
             section = classify_section(category, section_rules)
+            is_divider = is_divider_category(category)
+            # Una categoría divisor con sección mapeada va primero como encabezado (0, ''); el
+            # resto se ordena alfabéticamente dentro de su sección por el mismo texto ya
+            # normalizado que usan las reglas de matcheo, sin depender del orden del proveedor.
+            sort_key = (0, '') if (is_divider and section) else (1, _strip_category_label(category))
             info = (
                 section,
-                is_divider_category(category),
+                is_divider,
                 flag_to_country_code(category),
                 section_epg.get(section, {}),
+                sort_key,
             )
             category_info_cache[category] = info
         return info
@@ -243,7 +248,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         channel_name = stream.get('name', '')
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
-        section, category_is_divider, category_country, epg_config = category_info(category)
+        section, category_is_divider, category_country, epg_config, cat_order = category_info(category)
 
         parsed = parse_channel_name(channel_name, index.rules)
         channel_id, reason, score, ranked = match_channel(
@@ -260,9 +265,6 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
                 plausibility = index.best_name_score(parsed, candidate)
                 if plausibility >= PLAUSIBLE_MIN:
                     channel_id, reason, score = candidate, 'xtream_epg_id', plausibility
-
-        cat_order = -1 if (category_is_divider and section) else \
-            category_first_seen.setdefault(category, len(category_first_seen))
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
         alternatives = [
