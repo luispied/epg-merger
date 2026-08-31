@@ -108,14 +108,21 @@ override correspondiente.
 
 - Las categorías "separador" del proveedor (`▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆`) se conservan como
   encabezado de su sección; las que no matchean ninguna regla van al final.
-- `category_order` (opcional) fija el orden de las categorías dentro de la sección: una lista
-  con el texto de cada categoría en el orden deseado. Se compara ignorando emoji, acentos y
-  mayúsculas (igual que `starts_with`/`equals`), así que si el proveedor cambia el emoji de una
-  categoría (`🏈 ESPN` → `⚽️ ESPN`) el orden se sigue respetando sin tener que editar nada. Una
-  categoría nueva que matchee la sección pero no esté en la lista se agrega al final, ordenada
-  alfabéticamente junto a las demás categorías nuevas. Sin `category_order`, toda la sección se
-  ordena alfabéticamente. Si el proveedor agrega una categoría realmente nueva (no un cambio de
-  emoji de una existente), aparece al final hasta que se la agregue acá a mano.
+- `category_order` (opcional) fija el orden de las categorías dentro de la sección: un objeto
+  `{ "nombre de categoría": número }`, menor número va primero.
+
+  ```json
+  { "section": "DEPORTES", "category_order": { "ESPN": 10, "FOX Sports": 20, "Deportes": 30 } }
+  ```
+
+  Los números van de a 10 para poder insertar una categoría nueva en el medio (ej. `15` entre
+  `10` y `20`) cambiando un solo número, en vez de mover líneas en una lista. Se compara
+  ignorando emoji, acentos y mayúsculas (igual que `starts_with`/`equals`), así que si el
+  proveedor cambia el emoji de una categoría (`🏈 ESPN` → `⚽️ ESPN`) el orden se sigue
+  respetando sin tener que editar nada. Una categoría nueva que matchee la sección pero no esté
+  en el objeto se agrega al final, ordenada alfabéticamente junto a las demás categorías
+  nuevas. Sin `category_order`, toda la sección se ordena alfabéticamente. El formato viejo
+  (una lista, donde la posición es el orden) también se sigue aceptando.
 
 ## Varias personas con el mismo proveedor
 

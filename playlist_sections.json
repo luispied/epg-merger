@@ -1,64 +1,113 @@
 {
-  "_comment": "Agrupa las categorias de Xtream en secciones y define el orden en que aparecen en la playlist. 'order' es el orden real de despliegue de las secciones. 'rules' se evaluan de arriba hacia abajo (la primera que matchee una categoria gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (prefijos, sin emoji/acentos/mayusculas), 'equals' (nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoria con emoji de bandera). La clave opcional 'epg' declara contra que fuentes EPG conviene matchear los canales de esa seccion: 'country' fuerza un pais y 'prefer_sources' lista ids de epg_urls.json que se prefieren ante un empate. La clave opcional 'category_order' fija el orden de las categorias dentro de la seccion: una lista con el texto de cada categoria en el orden deseado, comparado ignorando emoji/acentos/mayusculas (igual que 'starts_with'/'equals'), asi que un cambio de emoji del proveedor no rompe el orden. Una categoria nueva que matchee la seccion pero no este en esta lista se agrega al final, ordenada alfabeticamente junto a las demas categorias nuevas.",
+  "_comment": "Agrupa las categorias de Xtream en secciones y define el orden en que aparecen en la playlist. 'order' es el orden real de despliegue de las secciones. 'rules' se evaluan de arriba hacia abajo (la primera que matchee una categoria gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (prefijos, sin emoji/acentos/mayusculas), 'equals' (nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoria con emoji de bandera). La clave opcional 'epg' declara contra que fuentes EPG conviene matchear los canales de esa seccion: 'country' fuerza un pais y 'prefer_sources' lista ids de epg_urls.json que se prefieren ante un empate. La clave opcional 'category_order' fija el orden de las categorias dentro de la seccion: un objeto {\"nombre de categoria\": numero}, menor numero va primero. Los numeros van de a 10 para poder insertar una categoria nueva en el medio (ej. 15 entre 10 y 20) sin tener que renumerar el resto. Se compara ignorando emoji/acentos/mayusculas (igual que 'starts_with'/'equals'), asi que un cambio de emoji del proveedor no rompe el orden. Una categoria nueva que matchee la seccion pero no este en este objeto se agrega al final, ordenada alfabeticamente junto a las demas categorias nuevas.",
   "order": ["ESPAÑOL", "PAÍSES", "ENGLISH", "DEPORTES", "PPV EVENTS", "LATINOS USA", "24/7"],
   "rules": [
     { "section": "PPV EVENTS", "starts_with": ["ppv"],
-      "category_order": [
-        "PPV Eventos del dia", "PPV Futbol", "PPV Racing", "PPV NBA", "PPV NFL",
-        "PPV Futbol Europeo", "PPV Futbol Bundesliga", "PPV Futbol Inglaterra",
-        "PPV Futbol Serie A", "PPV Futbol LaLiga", "PPV Futbol Sudamerica",
-        "PPV DAZN", "PPV ESPN Plus", 
-        "PPV Eventos",
-        "PPV Eventos Deportivos", 
-        "PPV Eventos Directos",
-        "PPV Arab Sports", 
-        "PPV Futbol CONCACAF", 
-        "PPV Futbol Conmebol",
-        "PPV Futbol Ecuador",   
-        "PPV Futbol Liga MX", 
-        "PPV Futbol Ligue 1", 
-        "PPV Futbol MLS",
-        "PPV Box y Luchas", 
-        "PPV Golf", 
-        "PPV Tennis", 
-        "PPV Peacock Events", 
-        "PPV Sky Sports",
-        "PPV VIX",
-        "PPV LIDOM", 
-        "PPV LMB", 
-        "PPV MLB", 
-        "PPV MMA",
-        "PPV NCAA" 
-      ] },
+      "category_order": {
+        "PPV Eventos del dia": 10,
+        "PPV Futbol": 20,
+        "PPV Racing": 30,
+        "PPV NBA": 40,
+        "PPV NFL": 50,
+        "PPV Futbol Europeo": 60,
+        "PPV Futbol Bundesliga": 70,
+        "PPV Futbol Inglaterra": 80,
+        "PPV Futbol Serie A": 90,
+        "PPV Futbol LaLiga": 100,
+        "PPV Futbol Sudamerica": 110,
+        "PPV DAZN": 120,
+        "PPV ESPN Plus": 130,
+        "PPV Eventos": 140,
+        "PPV Eventos Deportivos": 150,
+        "PPV Eventos Directos": 160,
+        "PPV Arab Sports": 170,
+        "PPV Futbol CONCACAF": 180,
+        "PPV Futbol Conmebol": 190,
+        "PPV Futbol Ecuador": 200,
+        "PPV Futbol Liga MX": 210,
+        "PPV Futbol Ligue 1": 220,
+        "PPV Futbol MLS": 230,
+        "PPV Box y Luchas": 240,
+        "PPV Golf": 250,
+        "PPV Tennis": 260,
+        "PPV Peacock Events": 270,
+        "PPV Sky Sports": 280,
+        "PPV VIX": 290,
+        "PPV LIDOM": 300,
+        "PPV LMB": 310,
+        "PPV MLB": 320,
+        "PPV MMA": 330,
+        "PPV NCAA": 340
+      } },
     { "section": "24/7", "starts_with": ["24 7"],
-      "category_order": [
-        "📼 24 7 Channels", "📼 24 7 Cinema", "📼 24 7 Infantil", "📼 24 7 Novelas", "📼 24 7 Peliculas"
-      ] },
+      "category_order": {
+        "📼 24 7 Channels": 10,
+        "📼 24 7 Cinema": 20,
+        "📼 24 7 Infantil": 30,
+        "📼 24 7 Novelas": 40,
+        "📼 24 7 Peliculas": 50
+      } },
     { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it", "fox sports"],
-      "category_order": [
-        "⚽️  Deportes", "⚽️ Deportes Premium", "⚽️ ESPN",
-        "⚾︎ FOX Sports", "🏈 Sports", "🏈 Sports Networks", "⚽️ Deportes PT BR IT", "🏈 Sports Networks"
-      ] },
+      "category_order": {
+        "Deportes": 10,
+        "Deportes Premium": 20,
+        "ESPN": 30,
+        "FOX Sports": 40,
+        "Sports": 50,
+        "Sports Networks": 60,
+        "Deportes PT BR IT": 70
+      } },
     { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"],
       "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] },
-      "category_order": [
-        "🎥 Movie Channels", "🇺🇸 USA Networks", "🇺🇸 USA Prime Time"
-      ] },
+      "category_order": {
+        "Movie Channels": 10,
+        "USA Networks": 20,
+        "USA Prime Time": 30
+      } },
     { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"],
-      "category_order": [
-        "🌿 Cultura", "📺 Entretenimiento", "🎥 Peliculas", "🚀 Infantil", "🚀 Kids", "🎧 Music", "📣 News", "📣 Noticias"
-      ] },
+      "category_order": {
+        "Cultura": 10,
+        "Entretenimiento": 20,
+        "Peliculas": 30,
+        "Infantil": 40,
+        "Kids": 50,
+        "Music": 60,
+        "News": 70,
+        "Noticias": 80
+      } },
     { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"],
       "epg": { "country": "us" },
-      "category_order": [
-        "🔥 Latinos", "🔥 Telemundo", "🔥 Unimas", "🔥 Univision"
-      ] },
+      "category_order": {
+        "Latinos": 10,
+        "Telemundo": 20,
+        "Unimas": 30,
+        "Univision": 40
+      } },
     { "section": "PAÍSES", "country_flag": true,
-      "category_order": [
-        "🇦🇷 Argentina", "🇧🇴 Bolivia", "🇧🇷 Brasil", "🇨🇦 Canada", "🇨🇱 Chile", "🇨🇴 Colombia",
-        "🇨🇷 Costa Rica", "🇨🇺 Cuba", "🇪🇨 Ecuador", "🇸🇻 El Salvador", "🇪🇸 España", "🇬🇹 Guatemala",
-        "🇭🇳 Honduras", "🇲🇽 Mexico", "🇳🇮 Nicaragua", "🇵🇦 Panama", "🇵🇾 Paraguay", "🇵🇪 Perú",
-        "🇵🇹 Portugal", "🇵🇷 Puerto Rico", "🇩🇴 Rep Dominicana", "🇺🇾 Uruguay", "🇻🇪 Venezuela"
-      ] }
+      "category_order": {
+        "Argentina": 10,
+        "Bolivia": 20,
+        "Brasil": 30,
+        "Canada": 40,
+        "Chile": 50,
+        "Colombia": 60,
+        "Costa Rica": 70,
+        "Cuba": 80,
+        "Ecuador": 90,
+        "El Salvador": 100,
+        "España": 110,
+        "Guatemala": 120,
+        "Honduras": 130,
+        "Mexico": 140,
+        "Nicaragua": 150,
+        "Panama": 160,
+        "Paraguay": 170,
+        "Perú": 180,
+        "Portugal": 190,
+        "Puerto Rico": 200,
+        "Rep Dominicana": 210,
+        "Uruguay": 220,
+        "Venezuela": 230
+      } }
   ]
 }
