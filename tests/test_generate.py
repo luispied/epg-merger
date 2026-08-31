@@ -295,6 +295,30 @@ def test_category_order_ignora_emoji_acentos_y_mayusculas(tmp_path, monkeypatch)
     assert grupos == ['🎥 USA Zeta', '🏈 USA Alfa']
 
 
+def test_separador_de_seccion_no_se_matchea_contra_el_epg(proyecto, monkeypatch):
+    """Bug real: el placeholder "== 24 /7 Only ==" y un canal real "COCINA 24/7" matcheaban los
+    dos, por puntaje débil, al mismo channel_id ("CBS News 24/7.us") — dos entradas del M3U
+    con el mismo tvg-id, y TiviMate esconde una de las dos. La categoría divisor nunca debe
+    entrar al matcher: acá se prueba con un nombre que matchearía fuerte (TBS) para confirmar
+    que ni así se le asigna un channel_id."""
+    streams = [
+        {'stream_id': 1, 'name': 'TBS', 'category_id': 'div'},  # matchearía fuerte si se probara
+        {'stream_id': 2, 'name': 'TBS', 'category_id': 'real'},
+    ]
+    categories = {'div': '▆▆▆Divisor▆▆▆', 'real': 'Real'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    tvg_ids = [l.split('tvg-id="')[1].split('"')[0] for l in playlist.splitlines()
+               if l.startswith('#EXTINF')]
+    assert len(tvg_ids) == len(set(tvg_ids)), f"tvg-id duplicado entre entradas: {tvg_ids}"
+    assert any(tid.startswith('TBS.') for tid in tvg_ids), "el canal real sí debe matchear contra el EPG"
+
+
 def test_alternativa_ambigua_queda_etiquetada(proyecto, monkeypatch):
     """TBS existe en dos países: la alternativa entra en la guía con su país entre corchetes."""
     _correr(monkeypatch, PERFILES[:1])

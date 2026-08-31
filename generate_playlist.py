@@ -298,21 +298,31 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         container_ext = stream.get('container_extension', 'm3u8')
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
 
-        parsed = parse_channel_name(channel_name, index.rules)
-        channel_id, reason, score, ranked = match_channel(
-            channel_name, parsed, index, overrides, epg_config, category_country,
-        )
+        if category_is_divider:
+            # El placeholder que el proveedor usa como separador visual ("== 24 /7 Only ==")
+            # no es un canal real: matchearlo contra el EPG solo arriesga un falso positivo de
+            # bajo puntaje que termine compartiendo tvg-id con un canal real (pasó con "COCINA
+            # 24/7", que un match débil por los tokens "24"/"7" mandó al mismo channel_id que
+            # este separador — y varios reproductores, TiviMate confirmado, esconden uno de los
+            # dos cuando dos entradas comparten tvg-id).
+            channel_id, reason, score, ranked = None, None, 0.0, []
+        else:
+            parsed = parse_channel_name(channel_name, index.rules)
+            channel_id, reason, score, ranked = match_channel(
+                channel_name, parsed, index, overrides, epg_config, category_country,
+            )
 
-        if not channel_id:
-            # Xtream trae su propio "epg_channel_id", que es una adivinanza del proveedor sin
-            # verificar: a veces es el mismo id "por defecto" para una docena de canales sin
-            # relación entre sí. Solo se acepta si el canal apuntado existe en nuestro EPG y
-            # además su nombre real tiene algo que ver con el del canal de Xtream.
-            candidate = stream.get('epg_channel_id')
-            if candidate and candidate in index:
-                plausibility = index.best_name_score(parsed, candidate)
-                if plausibility >= PLAUSIBLE_MIN:
-                    channel_id, reason, score = candidate, 'xtream_epg_id', plausibility
+            if not channel_id:
+                # Xtream trae su propio "epg_channel_id", que es una adivinanza del proveedor
+                # sin verificar: a veces es el mismo id "por defecto" para una docena de
+                # canales sin relación entre sí. Solo se acepta si el canal apuntado existe en
+                # nuestro EPG y además su nombre real tiene algo que ver con el del canal de
+                # Xtream.
+                candidate = stream.get('epg_channel_id')
+                if candidate and candidate in index:
+                    plausibility = index.best_name_score(parsed, candidate)
+                    if plausibility >= PLAUSIBLE_MIN:
+                        channel_id, reason, score = candidate, 'xtream_epg_id', plausibility
 
         stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
         alternatives = [
@@ -338,7 +348,10 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
 
             tvg_id = channel_id
         else:
-            unmatched.append(channel_name)
+            # Los separadores decorativos nunca tienen EPG a propósito (ver arriba): no cuentan
+            # como canales sin matchear, sería ruido en el reporte.
+            if not category_is_divider:
+                unmatched.append(channel_name)
             tvg_id = channel_name
 
         entries.append((
