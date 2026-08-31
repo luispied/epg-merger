@@ -188,6 +188,16 @@ def _m3u_attr(value):
     return (value or '').replace('"', "'").replace('\n', ' ').replace('\r', ' ')
 
 
+# Confirmado con TiviMate: una categoría del proveedor que trae '/' en el nombre (normal o de
+# ancho completo '／', como el separador "▆▆▆２４／７▆▆▆") no se muestra en absoluto — varios
+# reproductores tratan '/' en group-title como separador de subcategorías anidadas.
+GROUP_TITLE_SLASH_RE = re.compile(r'[/／∕⁄]')
+
+
+def _safe_group_title(category):
+    return GROUP_TITLE_SLASH_RE.sub('-', category)
+
+
 def load_channel_map(path=CHANNEL_MAP_PATH):
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -328,7 +338,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
             i,
             f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(channel_name)}" '
             f'tvg-logo="{_m3u_attr(logo)}" '
-            f'group-title="{_m3u_attr(category)}",{_m3u_attr(channel_name)}\n{stream_url}',
+            f'group-title="{_m3u_attr(_safe_group_title(category))}",{_m3u_attr(channel_name)}\n{stream_url}',
         ))
 
         # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.

@@ -310,6 +310,35 @@ def test_categoria_divisor_24_7_se_agrupa_en_su_seccion():
     assert generate_playlist.classify_section('▆▆▆24 7▆▆▆', []) == '24/7'
 
 
+def test_group_title_sin_barra_confirmado_tivimate_la_esconde():
+    """TiviMate no muestra ninguna categoría cuyo group-title tenga una barra, normal o de
+    ancho completo (probado a mano); se reemplaza por un guion antes de publicar."""
+    assert generate_playlist._safe_group_title('▆▆▆２４／７▆▆▆') == '▆▆▆２４-７▆▆▆'
+    assert generate_playlist._safe_group_title('Acción/Aventura') == 'Acción-Aventura'
+    assert generate_playlist._safe_group_title('PPV Futbol') == 'PPV Futbol'
+
+
+def test_la_playlist_no_lleva_barras_en_group_title(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(SECTIONS), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'Canal Alfa', 'category_id': 'usa'}]
+    categories = {'usa': 'USA Acción／Aventura'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(tmp_path, 'luis')
+    assert 'USA Acción／Aventura' not in playlist
+    assert 'USA Acción-Aventura' in playlist
+
+
 def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     monkeypatch.delenv('XTREAM_PROFILES', raising=False)
     generate_playlist.generate()
