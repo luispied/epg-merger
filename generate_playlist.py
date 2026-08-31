@@ -85,7 +85,11 @@ def load_sections_config(path=SECTIONS_CONFIG_PATH):
         if 'epg' in rule and section not in section_epg:
             section_epg[section] = rule['epg']
         if 'category_order' in rule and section not in category_order:
-            category_order[section] = {cat: i for i, cat in enumerate(rule['category_order'])}
+            # Se ignora el emoji/acentos/mayúsculas al comparar, igual que las reglas de
+            # matcheo: así "🏈 ESPN" y "⚽️ ESPN" caen en la misma posición de la lista.
+            category_order[section] = {
+                _strip_category_label(cat): i for i, cat in enumerate(rule['category_order'])
+            }
     return config.get('order', []), matchers, section_epg, category_order
 
 
@@ -235,7 +239,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
             # Si la sección declaró 'category_order', se respeta esa posición exacta (1, i).
             # Una categoría nueva del proveedor que no esté en esa lista, o si la sección no
             # declaró orden, se ordena alfabéticamente y va al final de las que sí están listadas.
-            explicit_pos = category_order.get(section, {}).get(category)
+            explicit_pos = category_order.get(section, {}).get(_strip_category_label(category))
             if is_divider and section:
                 sort_key = (0,)
             elif explicit_pos is not None:
