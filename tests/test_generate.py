@@ -159,6 +159,11 @@ def test_alternativa_ambigua_queda_etiquetada(proyecto, monkeypatch):
     assert '[US] TBS' in nombres
 
 
+def test_categoria_divisor_24_7_se_agrupa_en_su_seccion():
+    assert generate_playlist.classify_section('▆▆▆24/7▆▆▆', []) == '24/7'
+    assert generate_playlist.classify_section('▆▆▆24 7▆▆▆', []) == '24/7'
+
+
 def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     monkeypatch.delenv('XTREAM_PROFILES', raising=False)
     generate_playlist.generate()

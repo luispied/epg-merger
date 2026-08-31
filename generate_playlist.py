@@ -57,6 +57,7 @@ DIVIDER_SECTION_MAP = {
     _divider_key('ENGLISH'): 'ENGLISH',
     _divider_key('ESPAÑOL'): 'ESPAÑOL',
     _divider_key('LATINOS USA'): 'LATINOS USA',
+    _divider_key('24/7'): '24/7',
 }
 
 
@@ -105,7 +106,7 @@ def _make_rule_matcher(rule):
 
 def classify_section(category, section_rules):
     if is_divider_category(category):
-        return DIVIDER_SECTION_MAP.get(_divider_key(category))  # None si no está mapeado (ADULTS, 24/7)
+        return DIVIDER_SECTION_MAP.get(_divider_key(category))  # None si no está mapeado (ej. ADULTS)
 
     label = _strip_category_label(category)
     for section_name, matcher in section_rules:
