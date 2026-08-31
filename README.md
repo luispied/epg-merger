@@ -96,7 +96,13 @@ override correspondiente.
 
 ## Orden y agrupación de categorías (`playlist_sections.json`)
 
-- `order`: orden real de despliegue de las secciones.
+- `order`: orden real de despliegue de las secciones. Mismo formato que `category_order` (ver
+  más abajo): un objeto `{ "sección": número }`, menor número va primero — o una lista, donde
+  la posición es el orden.
+
+  ```json
+  "order": { "ESPAÑOL": 10, "PAÍSES": 20, "ENGLISH": 30, "DEPORTES": 40 }
+  ```
 - `rules`: se evalúan de arriba hacia abajo (la primera que matchee gana). Tipos: `starts_with`,
   `equals` y `country_flag: true`. Los nombres se comparan sin emoji/acentos/mayúsculas.
 - `epg` (opcional) declara contra qué fuentes conviene matchear esa sección:

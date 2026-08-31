@@ -68,6 +68,14 @@ def _strip_category_label(category):
     return text.strip()
 
 
+def _ordered_names(raw):
+    """Acepta una lista (la posición es el orden) o un objeto {"nombre": número} (menor número
+    va primero) y devuelve siempre la lista de nombres ya ordenada."""
+    if isinstance(raw, dict):
+        return [name for name, _ in sorted(raw.items(), key=lambda kv: kv[1])]
+    return list(raw)
+
+
 def load_sections_config(path=SECTIONS_CONFIG_PATH):
     """Devuelve (orden_de_secciones, matchers, config_epg_por_seccion, orden_de_categorias)."""
     try:
@@ -98,7 +106,7 @@ def load_sections_config(path=SECTIONS_CONFIG_PATH):
                 category_order[section] = {
                     _strip_category_label(cat): i for i, cat in enumerate(raw_order)
                 }
-    return config.get('order', []), matchers, section_epg, category_order
+    return _ordered_names(config.get('order', [])), matchers, section_epg, category_order
 
 
 def _make_rule_matcher(rule):
