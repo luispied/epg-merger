@@ -123,16 +123,22 @@ Un único secret **`XTREAM_PROFILES`** con un JSON. Agregar a alguien es editar 
 workflow no se toca.
 
 ```json
-[
-  { "name": "luis", "servers": ["http://s1:8080", "http://s2:8080"],
-    "username": "u1", "password": "p1", "gist_id": "abc123" },
-  { "name": "juan", "servers": ["http://s1:8080"],
-    "username": "u2", "password": "p2", "gist_id": "def456" }
-]
+{
+  "servers": ["http://s1:8080", "http://s2:8080"],
+  "profiles": [
+    { "name": "luis", "username": "u1", "password": "p1", "gist_id": "abc123" },
+    { "name": "juan", "username": "u2", "password": "p2", "gist_id": "def456" }
+  ]
+}
 ```
 
-`servers` acepta varios en orden de preferencia: si el primero no responde, se prueba el
-siguiente. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de siempre
+`servers` es el balanceador del proveedor: una lista compartida por todos los perfiles, en
+orden de preferencia (si el primero no responde, se prueba el siguiente). Un perfil puede traer
+su propia lista `servers` si necesita servidores distintos a los del resto; en ese caso la
+propia tiene prioridad sobre la compartida.
+
+El formato viejo (una lista plana de perfiles, cada uno con su propio `servers`) sigue
+funcionando. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de siempre
 (`XTREAM_USERNAME`, `XTREAM_PASSWORD`, `XTREAM_SERVERS`) como un perfil llamado `default`.
 
 ### Dónde termina cada archivo
@@ -141,11 +147,12 @@ siguiente. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de siemp
 |---|---|---|
 | `merged.xml.gz` | release público `latest` | no |
 | `epg-<perfil>.xml.gz` | release público `latest` | no |
-| `playlist-<perfil>.m3u8` | **gist secreto** de esa persona | **sí** |
+| `playlist.m3u8` | **gist secreto** propio de cada persona | **sí** |
 
 La playlist lleva usuario y contraseña dentro de **cada URL de stream**, así que no puede ir a
-un release público. Va a un gist secreto, cuya URL raw no pide autenticación y funciona
-directo en TiviMate:
+un release público. Va a un gist secreto por persona — el archivo dentro del gist siempre se
+llama `playlist.m3u8` (lo que distingue a cada perfil es el gist en sí, no el nombre del
+archivo) —, cuya URL raw no pide autenticación y funciona directo en TiviMate:
 
 ```text
 https://gist.githubusercontent.com/<usuario>/<gist_id>/raw/playlist.m3u8
@@ -174,7 +181,7 @@ las cuotas de ancho de banda de Git LFS.
 
 ## Workflow
 
-`.github/workflows/merge-epgs.yml` corre a diario a las 02:00 UTC y también a mano
+`.github/workflows/merge-epgs.yml` corre a diario a las 16:00 UTC y también a mano
 (`workflow_dispatch`). Los pasos son: tests → merge → playlists por perfil → publicación de los
 artefactos públicos al release → publicación de las playlists a los gists → subida de los
 `match_report.json` como artifact.
