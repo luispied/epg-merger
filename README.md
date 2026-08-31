@@ -108,6 +108,13 @@ override correspondiente.
 
 - Las categorías "separador" del proveedor (`▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆`) se conservan como
   encabezado de su sección; las que no matchean ninguna regla van al final.
+- `category_order` (opcional) fija el orden de las categorías dentro de la sección: una lista
+  con el nombre **exacto** de cada categoría tal cual la devuelve Xtream (con su emoji), en el
+  orden deseado. Una categoría nueva del proveedor que matchee la sección pero no esté en la
+  lista se agrega al final, ordenada alfabéticamente junto a las demás categorías nuevas. Sin
+  `category_order`, toda la sección se ordena alfabéticamente. Hay que mantener esta lista al
+  día con lo que devuelve Xtream para poder reordenarla — si el proveedor renombra o agrega una
+  categoría, aparece al final hasta que se la agregue acá a mano.
 
 ## Varias personas con el mismo proveedor
 

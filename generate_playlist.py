@@ -69,22 +69,24 @@ def _strip_category_label(category):
 
 
 def load_sections_config(path=SECTIONS_CONFIG_PATH):
-    """Devuelve (orden_de_secciones, matchers, config_epg_por_seccion)."""
+    """Devuelve (orden_de_secciones, matchers, config_epg_por_seccion, orden_de_categorias)."""
     try:
         with open(path, 'r', encoding='utf-8') as f:
             config = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"⚠️  No se pudo leer {path} ({e}); no se agruparán categorías en secciones")
-        return [], [], {}
+        return [], [], {}, {}
 
-    matchers, section_epg = [], {}
+    matchers, section_epg, category_order = [], {}, {}
     for rule in config.get('rules', []):
         section = rule['section']
         matchers.append((section, _make_rule_matcher(rule)))
         # Si varias reglas apuntan a la misma sección, manda la primera que declare 'epg'.
         if 'epg' in rule and section not in section_epg:
             section_epg[section] = rule['epg']
-    return config.get('order', []), matchers, section_epg
+        if 'category_order' in rule and section not in category_order:
+            category_order[section] = {cat: i for i, cat in enumerate(rule['category_order'])}
+    return config.get('order', []), matchers, section_epg, category_order
 
 
 def _make_rule_matcher(rule):
@@ -196,7 +198,7 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
 
 def generate_for_profile(profile, index, epg_root, sections, overrides):
     """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats."""
-    section_display_order, section_rules, section_epg = sections
+    section_display_order, section_rules, section_epg, category_order = sections
     name = profile['name']
     username, password = profile['username'], profile['password']
 
@@ -229,10 +231,17 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         if info is None:
             section = classify_section(category, section_rules)
             is_divider = is_divider_category(category)
-            # Una categoría divisor con sección mapeada va primero como encabezado (0, ''); el
-            # resto se ordena alfabéticamente dentro de su sección por el mismo texto ya
-            # normalizado que usan las reglas de matcheo, sin depender del orden del proveedor.
-            sort_key = (0, '') if (is_divider and section) else (1, _strip_category_label(category))
+            # Una categoría divisor con sección mapeada va primero como encabezado (0,).
+            # Si la sección declaró 'category_order', se respeta esa posición exacta (1, i).
+            # Una categoría nueva del proveedor que no esté en esa lista, o si la sección no
+            # declaró orden, se ordena alfabéticamente y va al final de las que sí están listadas.
+            explicit_pos = category_order.get(section, {}).get(category)
+            if is_divider and section:
+                sort_key = (0,)
+            elif explicit_pos is not None:
+                sort_key = (1, explicit_pos)
+            else:
+                sort_key = (2, _strip_category_label(category))
             info = (
                 section,
                 is_divider,

@@ -1,15 +1,47 @@
 {
-  "_comment": "Agrupa las categorias de Xtream en secciones y define el orden en que aparecen en la playlist. 'order' es el orden real de despliegue. 'rules' se evaluan de arriba hacia abajo (la primera que matchee una categoria gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (prefijos, sin emoji/acentos/mayusculas), 'equals' (nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoria con emoji de bandera). La clave opcional 'epg' declara contra que fuentes EPG conviene matchear los canales de esa seccion: 'country' fuerza un pais y 'prefer_sources' lista ids de epg_urls.json que se prefieren ante un empate.",
+  "_comment": "Agrupa las categorias de Xtream en secciones y define el orden en que aparecen en la playlist. 'order' es el orden real de despliegue de las secciones. 'rules' se evaluan de arriba hacia abajo (la primera que matchee una categoria gana) y NO tiene que coincidir con 'order'. Tipos de regla: 'starts_with' (prefijos, sin emoji/acentos/mayusculas), 'equals' (nombres exactos, mismo formato) y 'country_flag' (true = cualquier categoria con emoji de bandera). La clave opcional 'epg' declara contra que fuentes EPG conviene matchear los canales de esa seccion: 'country' fuerza un pais y 'prefer_sources' lista ids de epg_urls.json que se prefieren ante un empate. La clave opcional 'category_order' fija el orden de las categorias dentro de la seccion: es una lista con el nombre EXACTO de cada categoria tal cual la devuelve Xtream (con su emoji), en el orden deseado. Una categoria nueva del proveedor que matchee la seccion pero no este en esta lista se agrega al final, ordenada alfabeticamente junto a las demas categorias nuevas. Hay que mantener esta lista al dia con lo que devuelve Xtream para poder reordenarla.",
   "order": ["ESPAÑOL", "PAÍSES", "ENGLISH", "DEPORTES", "PPV EVENTS", "LATINOS USA", "24/7"],
   "rules": [
-    { "section": "PPV EVENTS", "starts_with": ["ppv"] },
-    { "section": "24/7", "starts_with": ["24 7"] },
-    { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it", "fox sports"] },
+    { "section": "PPV EVENTS", "starts_with": ["ppv"],
+      "category_order": [
+        "PPV Arab Sports", "PPV Box y Luchas", "PPV DAZN", "PPV ESPN Plus",
+        "PPV Eventos", "PPV Eventos del dia", "PPV Eventos Deportivos", "PPV Eventos Directos",
+        "PPV Futbol", "PPV Futbol Bundesliga", "PPV Futbol CONCACAF", "PPV Futbol Conmebol",
+        "PPV Futbol Ecuador", "PPV Futbol Europeo", "PPV Futbol Inglaterra", "PPV Futbol LaLiga",
+        "PPV Futbol Liga MX", "PPV Futbol Ligue 1", "PPV Futbol MLS", "PPV Futbol Serie A",
+        "PPV Futbol Sudamerica", "PPV Golf", "PPV LIDOM", "PPV LMB", "PPV MLB", "PPV MMA",
+        "PPV NBA", "PPV NCAA", "PPV NFL", "PPV Peacock Events", "PPV Racing", "PPV Sky Sports",
+        "PPV Tennis", "PPV VIX"
+      ] },
+    { "section": "24/7", "starts_with": ["24 7"],
+      "category_order": [
+        "📼 24 7 Channels", "📼 24 7 Cinema", "📼 24 7 Infantil", "📼 24 7 Novelas", "📼 24 7 Peliculas"
+      ] },
+    { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it", "fox sports"],
+      "category_order": [
+        "🏈 Deportes", "🏈 Deportes Premium", "🏈 Deportes PT BR IT", "🏈 ESPN",
+        "⚾︎ FOX Sports", "🏈 Sports", "Sports Networks", "🏈 Sports Networks"
+      ] },
     { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"],
-      "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] } },
-    { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"] },
+      "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] },
+      "category_order": [
+        "🎥 Movie Channels", "🇺🇸 USA Networks", "🇺🇸 USA Prime Time"
+      ] },
+    { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"],
+      "category_order": [
+        "🌿 Cultura", "📺 Entretenimiento", "🚀 Infantil", "🚀 Kids", "🎧 Music", "📣 News", "📣 Noticias", "🎥 Peliculas"
+      ] },
     { "section": "LATINOS USA", "equals": ["telemundo", "univision", "unimas", "latinos"],
-      "epg": { "country": "us" } },
-    { "section": "PAÍSES", "country_flag": true }
+      "epg": { "country": "us" },
+      "category_order": [
+        "🔥 Latinos", "🔥 Telemundo", "🔥 Unimas", "🔥 Univision"
+      ] },
+    { "section": "PAÍSES", "country_flag": true,
+      "category_order": [
+        "🇦🇷 Argentina", "🇧🇴 Bolivia", "🇧🇷 Brasil", "🇨🇦 Canada", "🇨🇱 Chile", "🇨🇴 Colombia",
+        "🇨🇷 Costa Rica", "🇨🇺 Cuba", "🇪🇨 Ecuador", "🇸🇻 El Salvador", "🇪🇸 España", "🇬🇹 Guatemala",
+        "🇭🇳 Honduras", "🇲🇽 Mexico", "🇳🇮 Nicaragua", "🇵🇦 Panama", "🇵🇾 Paraguay", "🇵🇪 Perú",
+        "🇵🇹 Portugal", "🇵🇷 Puerto Rico", "🇩🇴 Rep Dominicana", "🇺🇾 Uruguay", "🇻🇪 Venezuela"
+      ] }
   ]
 }
