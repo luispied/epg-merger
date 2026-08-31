@@ -149,6 +149,33 @@ def test_las_secciones_ordenan_la_playlist(proyecto, monkeypatch):
     assert grupos[0] == 'USA ENTERTAINMENT', "ENGLISH va antes que PAÍSES según 'order'"
 
 
+def test_las_categorias_se_ordenan_alfabeticamente_dentro_de_la_seccion(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(SECTIONS), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [
+        {'stream_id': 1, 'name': 'Canal Z', 'category_id': 'z'},
+        {'stream_id': 2, 'name': 'Canal A', 'category_id': 'a'},
+        {'stream_id': 3, 'name': 'Canal M', 'category_id': 'm'},
+    ]
+    # A propósito en un orden distinto al alfabético, para probar que no se respeta el orden
+    # en que el proveedor las devuelve sino el alfabético de sus nombres.
+    categories = {'z': 'USA Zeta', 'a': 'USA Alfa', 'm': 'USA Eme'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    lineas = [l for l in _playlist(tmp_path, 'luis').splitlines() if l.startswith('#EXTINF')]
+    grupos = [l.split('group-title="')[1].split('"')[0] for l in lineas]
+    assert grupos == ['USA Alfa', 'USA Eme', 'USA Zeta']
+
+
 def test_alternativa_ambigua_queda_etiquetada(proyecto, monkeypatch):
     """TBS existe en dos países: la alternativa entra en la guía con su país entre corchetes."""
     _correr(monkeypatch, PERFILES[:1])
