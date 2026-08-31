@@ -7,7 +7,7 @@ from lxml import etree
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from channel_names import detect_country, flag_to_country_code, parse_channel_name
+from channel_names import detect_country, flag_to_country_code, parse_channel_name, strip_display_prefix
 from epg_index import EpgIndex, pick_display_name
 
 
@@ -60,6 +60,35 @@ def test_prefijo_de_pais_del_proveedor():
     p = parse_channel_name('PE | Latina')
     assert p.country == 'pe'
     assert p.core == ('latina',)
+
+
+@pytest.mark.parametrize('nombre,limpio,pais', [
+    ('UY| Canal 10', 'Canal 10', 'uy'),
+    ('PT| RTP 1', 'RTP 1', 'pt'),
+    ('ES: La 1', 'La 1', 'es'),
+    ('CL|TVN', 'TVN', 'cl'),
+    ('BR| Globo', 'Globo', 'br'),
+    ('AR| Telefe', 'Telefe', 'ar'),
+    ('USA| CBS', 'CBS', 'us'),
+    ('E| Entertainment', 'Entertainment', None),
+    ('S| Somos', 'Somos', None),
+    ('D| Discovery', 'Discovery', None),
+    ('EVENTS 01: Box Estelar', 'Box Estelar', None),
+    ('EVENTS 12:UFC 300', 'UFC 300', None),
+    ('24P Suspenso', 'Suspenso', None),
+    ('24H Cinema', 'Cinema', None),
+])
+def test_prefijo_visible_se_saca_del_nombre(nombre, limpio, pais):
+    clean, country = strip_display_prefix(nombre)
+    assert clean == limpio
+    assert country == pais
+
+
+def test_prefijo_visible_no_toca_nombres_sin_prefijo():
+    assert strip_display_prefix('ESPN') == ('ESPN', None)
+    assert strip_display_prefix('USA Network') == ('USA Network', None), \
+        "sin separador '|' o ':' no es el prefijo, es el nombre real del canal"
+    assert strip_display_prefix('') == ('', None)
 
 
 def test_calidad_y_region_son_senales_aparte():

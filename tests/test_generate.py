@@ -342,6 +342,54 @@ def test_group_title_sin_barra_confirmado_tivimate_la_esconde():
     assert generate_playlist._safe_group_title('PPV Futbol') == 'PPV Futbol'
 
 
+def test_prefijo_del_proveedor_se_saca_del_nombre_mostrado(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {'order': ['ENGLISH'], 'rules': [{'section': 'ENGLISH', 'starts_with': ['usa']}]}
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'USA| TBS', 'category_id': 'us'}]
+    categories = {'us': 'USA Entertainment'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(tmp_path, 'luis')
+    assert 'USA| TBS' not in playlist
+    assert 'tvg-name="TBS"' in playlist
+    assert 'tvg-id="TBS.us"' in playlist, \
+        "el país que decía el prefijo (us) debe seguir ayudando al match aunque se saque del nombre"
+
+
+def test_override_sigue_usando_el_nombre_crudo_con_prefijo(tmp_path, monkeypatch):
+    """Los overrides de xtream_channel_map.json se configuran copiando el nombre tal cual
+    aparece en Xtream (con su prefijo); recortar el nombre para mostrar no debe romperlos."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {'order': ['ENGLISH'], 'rules': [{'section': 'ENGLISH', 'starts_with': ['usa']}]}
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text(
+        json.dumps({'overrides': {'USA| TBS': 'Warner.cr'}}), encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'USA| TBS', 'category_id': 'us'}]
+    categories = {'us': 'USA Entertainment'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(tmp_path, 'luis')
+    assert 'tvg-id="Warner.cr"' in playlist
+
+
 def test_la_playlist_no_lleva_barras_en_group_title(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')

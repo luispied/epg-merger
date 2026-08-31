@@ -15,7 +15,7 @@ import unicodedata
 
 from lxml import etree
 
-from channel_names import flag_to_country_code, parse_channel_name, strip_accents
+from channel_names import flag_to_country_code, parse_channel_name, strip_accents, strip_display_prefix
 from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
@@ -293,10 +293,16 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
 
     for i, stream in enumerate(live_streams):
         category = categories.get(str(stream.get('category_id')), 'General')
-        channel_name = stream.get('name', '')
+        raw_name = stream.get('name', '')
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
+
+        # Se saca el prefijo que antepone el proveedor (código de país, número de evento) del
+        # nombre que se muestra y del que se matchea — pero los overrides de
+        # xtream_channel_map.json siguen buscándose por el nombre CRUDO, tal como aparece en
+        # Xtream, que es lo que la persona que configura el override tiene copiado del panel.
+        channel_name, prefix_country = strip_display_prefix(raw_name, index.rules)
 
         if category_is_divider:
             # El placeholder que el proveedor usa como separador visual ("== 24 /7 Only ==")
@@ -309,7 +315,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         else:
             parsed = parse_channel_name(channel_name, index.rules)
             channel_id, reason, score, ranked = match_channel(
-                channel_name, parsed, index, overrides, epg_config, category_country,
+                raw_name, parsed, index, overrides, epg_config, prefix_country or category_country,
             )
 
             if not channel_id:
@@ -365,7 +371,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
 
         # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.
         report.append({
-            'xtream_name': channel_name,
+            'xtream_name': raw_name,
             'category': category,
             'section': section,
             'chosen': channel_id,
