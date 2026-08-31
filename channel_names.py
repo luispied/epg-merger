@@ -23,6 +23,22 @@ ParsedName = namedtuple('ParsedName', 'core country language region quality raw'
 # Prefijo de código de país que algunos proveedores anteponen: "PE | ", "CL| ", "B| ".
 COUNTRY_PREFIX_RE = re.compile(r'^[A-Za-z]{1,3}\s*\|\s*')
 
+# Prefijos concretos que el proveedor antepone al nombre visible del canal y que no aportan
+# nada al verlo en el reproductor: código de país + '|' o ':' ("UY| ", "ES: "), número de
+# evento ("EVENTS 01: ") y "24" + una letra de la categoría del canal ("24P "). A diferencia de
+# COUNTRY_PREFIX_RE (que es deliberadamente laxo porque solo ajusta el puntaje interno), esta
+# lista es explícita: recortar el nombre que ve la persona es más arriesgado que ajustar un
+# puntaje, así que solo se tocan los prefijos confirmados en vez de adivinar por forma.
+_DISPLAY_PREFIX_CODES = ('UY', 'PT', 'ES', 'CL', 'BR', 'AR', 'USA', 'E', 'S', 'D')
+DISPLAY_PREFIX_RE = re.compile(
+    r'^(?:'
+    r'EVENTS\s+\d+\s*:\s*'
+    r'|24[A-Za-z]\s+'
+    r'|(?P<code>' + '|'.join(_DISPLAY_PREFIX_CODES) + r')\s*[|:]\s*'
+    r')',
+    re.IGNORECASE,
+)
+
 
 def strip_accents(text):
     text = unicodedata.normalize('NFKD', text)
@@ -128,6 +144,22 @@ def parse_channel_name(raw, r=None):
             core.append(token)
 
     return ParsedName(tuple(core), country, language, region, tuple(quality), raw)
+
+
+def strip_display_prefix(name, r=None):
+    """Saca el prefijo que el proveedor antepone al nombre visible del canal (ver
+    DISPLAY_PREFIX_RE). A diferencia de parse_channel_name, conserva mayúsculas y acentos: es
+    para mostrar, no para tokenizar. Devuelve (nombre_limpio, país si el prefijo lo dice)."""
+    r = r or rules()
+    if not name:
+        return name, None
+    m = DISPLAY_PREFIX_RE.match(name)
+    if not m:
+        return name, None
+    code = m.group('code')
+    country = r.country_of(code.lower()) if code else None
+    clean = name[m.end():].strip()
+    return (clean or name), country
 
 
 def flag_to_country_code(text, r=None):
