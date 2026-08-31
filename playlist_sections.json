@@ -3,7 +3,7 @@
   "order": ["PPV EVENTS", "PAÍSES", "DEPORTES", "ENGLISH", "ESPAÑOL", "LATINOS USA"],
   "rules": [
     { "section": "PPV EVENTS", "starts_with": ["ppv"] },
-    { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it"] },
+    { "section": "DEPORTES", "equals": ["sports", "sports networks", "espn", "deportes", "deportes premium", "tigo sports", "deportes pt br it", "fox sports"] },
     { "section": "ENGLISH", "starts_with": ["usa"], "equals": ["movie channels"],
       "epg": { "country": "us", "prefer_sources": ["acidjesuz-us"] } },
     { "section": "ESPAÑOL", "equals": ["cultura", "infantil", "peliculas", "noticias", "entretenimiento", "music", "news", "kids"] },
