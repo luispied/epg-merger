@@ -57,6 +57,29 @@ def test_json_invalido_no_genera_nada(capsys):
     assert 'válido' in capsys.readouterr().out
 
 
+def test_servidores_compartidos_entre_perfiles():
+    p = load_profiles({'XTREAM_PROFILES': '''{
+        "servers": ["http://a:8080", "http://b:8080"],
+        "profiles": [
+            {"name": "luis", "username": "u1", "password": "p1"},
+            {"name": "paola", "username": "u2", "password": "p2"}
+        ]
+    }'''})
+    assert [x['name'] for x in p] == ['luis', 'paola']
+    assert p[0]['servers'] == ['http://a:8080', 'http://b:8080']
+    assert p[1]['servers'] == ['http://a:8080', 'http://b:8080']
+
+
+def test_servidor_propio_del_perfil_tiene_prioridad_sobre_el_compartido():
+    p = load_profiles({'XTREAM_PROFILES': '''{
+        "servers": ["http://compartido:8080"],
+        "profiles": [
+            {"name": "luis", "servers": ["http://propio:8080"], "username": "u1", "password": "p1"}
+        ]
+    }'''})
+    assert p[0]['servers'] == ['http://propio:8080']
+
+
 def test_gist_id_en_el_perfil_default():
     """Con un solo usuario no hace falta migrar a XTREAM_PROFILES para publicar en un gist."""
     p = load_profiles({'XTREAM_USERNAME': 'u', 'XTREAM_PASSWORD': 'p',
