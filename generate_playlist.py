@@ -60,6 +60,13 @@ DIVIDER_SECTION_MAP = {
     _divider_key('24/7'): '24/7',
 }
 
+# El proveedor nombra el separador de esta sección con dígitos de ancho completo y una barra
+# ("▆▆▆２４／７▆▆▆"): se prueba si un texto simple, sin caracteres especiales, se muestra mejor
+# en los reproductores que el decorativo original.
+DIVIDER_DISPLAY_OVERRIDE = {
+    '24/7': '24 7',
+}
+
 
 def _strip_category_label(category):
     """Quita emoji/símbolos iniciales para comparar el texto: '🏈 ESPN' -> 'espn'."""
@@ -272,12 +279,14 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
                 sort_key = (1, explicit_pos)
             else:
                 sort_key = (2, _strip_category_label(category))
+            display_category = DIVIDER_DISPLAY_OVERRIDE.get(section, category) if is_divider else category
             info = (
                 section,
                 is_divider,
                 flag_to_country_code(category),
                 section_epg.get(section, {}),
                 sort_key,
+                display_category,
             )
             category_info_cache[category] = info
         return info
@@ -287,7 +296,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         channel_name = stream.get('name', '')
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
-        section, category_is_divider, category_country, epg_config, cat_order = category_info(category)
+        section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
 
         parsed = parse_channel_name(channel_name, index.rules)
         channel_id, reason, score, ranked = match_channel(
@@ -338,7 +347,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
             i,
             f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(channel_name)}" '
             f'tvg-logo="{_m3u_attr(logo)}" '
-            f'group-title="{_m3u_attr(_safe_group_title(category))}",{_m3u_attr(channel_name)}\n{stream_url}',
+            f'group-title="{_m3u_attr(_safe_group_title(display_category))}",{_m3u_attr(channel_name)}\n{stream_url}',
         ))
 
         # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.

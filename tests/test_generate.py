@@ -339,6 +339,33 @@ def test_la_playlist_no_lleva_barras_en_group_title(tmp_path, monkeypatch):
     assert 'USA Acción-Aventura' in playlist
 
 
+def test_divisor_24_7_se_muestra_con_texto_simple(tmp_path, monkeypatch):
+    """El separador decorativo del proveedor ("▆▆▆２４／７▆▆▆") se reemplaza por texto plano,
+    sin caracteres especiales, para descartarlos como causa de que no se muestre en el reproductor."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {
+        'order': ['24/7'],
+        'rules': [{'section': '24/7', 'starts_with': ['24 7']}],
+    }
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'Canal Divisor', 'category_id': 'divisor'}]
+    categories = {'divisor': '▆▆▆２４／７▆▆▆'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(tmp_path, 'luis')
+    assert '▆▆▆２４／７▆▆▆' not in playlist
+    assert 'group-title="24 7"' in playlist
+
+
 def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     monkeypatch.delenv('XTREAM_PROFILES', raising=False)
     generate_playlist.generate()
