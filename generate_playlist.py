@@ -85,11 +85,19 @@ def load_sections_config(path=SECTIONS_CONFIG_PATH):
         if 'epg' in rule and section not in section_epg:
             section_epg[section] = rule['epg']
         if 'category_order' in rule and section not in category_order:
-            # Se ignora el emoji/acentos/mayúsculas al comparar, igual que las reglas de
-            # matcheo: así "🏈 ESPN" y "⚽️ ESPN" caen en la misma posición de la lista.
-            category_order[section] = {
-                _strip_category_label(cat): i for i, cat in enumerate(rule['category_order'])
-            }
+            raw_order = rule['category_order']
+            # Formato nuevo: {"nombre categoría": número}, para reordenar cambiando un número
+            # en vez de mover líneas. El formato viejo (lista, la posición es el orden) se
+            # sigue aceptando. Se ignora el emoji/acentos/mayúsculas al comparar, igual que las
+            # reglas de matcheo: así "🏈 ESPN" y "⚽️ ESPN" caen en la misma posición.
+            if isinstance(raw_order, dict):
+                category_order[section] = {
+                    _strip_category_label(cat): pos for cat, pos in raw_order.items()
+                }
+            else:
+                category_order[section] = {
+                    _strip_category_label(cat): i for i, cat in enumerate(raw_order)
+                }
     return config.get('order', []), matchers, section_epg, category_order
 
 

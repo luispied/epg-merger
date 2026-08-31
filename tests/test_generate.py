@@ -208,6 +208,38 @@ def test_category_order_respeta_el_orden_explicito_y_agrega_nuevas_al_final(tmp_
     assert grupos == ['USA Zeta', 'USA Alfa', 'USA Nueva']
 
 
+def test_category_order_acepta_formato_numerico_con_huecos(tmp_path, monkeypatch):
+    """category_order también acepta {"nombre": numero}, más fácil de reordenar insertando un
+    número entre dos existentes en vez de mover líneas de una lista."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {
+        'order': ['ENGLISH'],
+        'rules': [{'section': 'ENGLISH', 'starts_with': ['usa'],
+                   'category_order': {'USA Zeta': 10, 'USA Alfa': 20, 'USA Beta': 15}}],
+    }
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [
+        {'stream_id': 1, 'name': 'Canal Alfa', 'category_id': 'alfa'},
+        {'stream_id': 2, 'name': 'Canal Beta', 'category_id': 'beta'},
+        {'stream_id': 3, 'name': 'Canal Zeta', 'category_id': 'zeta'},
+    ]
+    categories = {'alfa': 'USA Alfa', 'beta': 'USA Beta', 'zeta': 'USA Zeta'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    lineas = [l for l in _playlist(tmp_path, 'luis').splitlines() if l.startswith('#EXTINF')]
+    grupos = [l.split('group-title="')[1].split('"')[0] for l in lineas]
+    assert grupos == ['USA Zeta', 'USA Beta', 'USA Alfa']
+
+
 def test_category_order_ignora_emoji_acentos_y_mayusculas(tmp_path, monkeypatch):
     """El proveedor puede cambiar el emoji de una categoría; category_order debe seguir
     reconociéndola por el texto, no por el símbolo exacto que se haya tipeado."""
