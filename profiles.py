@@ -8,6 +8,12 @@ se genera una sola vez y después se recorren los perfiles.
 
 Se configura con un único secret `XTREAM_PROFILES` (JSON), así agregar a alguien es editar
 ese secret y no tocar el workflow. Si no está, se cae a las variables sueltas de siempre.
+
+Los servidores del proveedor (el balanceador con sus URLs de failover) son una lista
+compartida, no algo propio de cada perfil: `{"servers": [...], "profiles": [...]}` la declara
+una sola vez y cada perfil la hereda, salvo que explícitamente traiga su propia lista
+`servers`. El formato viejo (una lista plana de perfiles, cada uno con su `servers`) sigue
+funcionando.
 """
 import json
 import os
@@ -58,13 +64,25 @@ def load_profiles(env=None):
         return []
 
     try:
-        entries = json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError as e:
         print(f"❌ {PROFILES_ENV} no es JSON válido ({e}); no se genera ninguna playlist")
         return []
 
-    if isinstance(entries, dict):
-        entries = [entries]
+    # Los servidores del proveedor son un balanceador compartido, no algo propio de cada
+    # persona: {"servers": [...], "profiles": [...]} declara la lista una sola vez y cada
+    # perfil hereda esos servidores salvo que traiga los suyos propios.
+    default_servers = []
+    if isinstance(parsed, dict) and 'profiles' in parsed:
+        default_servers = _clean_servers(parsed.get('servers'))
+        entries = parsed.get('profiles')
+    elif isinstance(parsed, dict):
+        entries = [parsed]
+    else:
+        entries = parsed
+    if not default_servers:
+        default_servers = _clean_servers(env.get('XTREAM_SERVERS', ''))
+
     if not isinstance(entries, list):
         print(f"❌ {PROFILES_ENV} debe ser una lista de perfiles")
         return []
@@ -83,7 +101,7 @@ def load_profiles(env=None):
             continue
         username = entry.get('username')
         password = entry.get('password')
-        servers = _clean_servers(entry.get('servers'))
+        servers = _clean_servers(entry.get('servers')) or default_servers
         if not username or not password or not servers:
             print(f"⚠️  Perfil {name!r} ignorado: faltan username, password o servers")
             continue
