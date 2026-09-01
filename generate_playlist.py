@@ -360,13 +360,18 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
                 unmatched.append(channel_name)
             tvg_id = channel_name
 
+        # El separador muestra el mismo texto simple tanto en el group-title como en el nombre
+        # del canal (su único ítem): el placeholder crudo del proveedor ("== 24 /7 Only ==")
+        # no debería quedar visible en ningún lado.
+        display_name = display_category if category_is_divider else channel_name
+
         entries.append((
             section_order.get(section, no_section_order),
             cat_order,
             i,
-            f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(channel_name)}" '
+            f'#EXTINF:-1 tvg-id="{_m3u_attr(tvg_id)}" tvg-name="{_m3u_attr(display_name)}" '
             f'tvg-logo="{_m3u_attr(logo)}" '
-            f'group-title="{_m3u_attr(_safe_group_title(display_category))}",{_m3u_attr(channel_name)}\n{stream_url}',
+            f'group-title="{_m3u_attr(_safe_group_title(display_category))}",{_m3u_attr(display_name)}\n{stream_url}',
         ))
 
         # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.
