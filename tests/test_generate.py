@@ -436,6 +436,11 @@ def test_divisor_24_7_se_muestra_con_texto_simple(tmp_path, monkeypatch):
     playlist = _playlist(tmp_path, 'luis')
     assert '▆▆▆２４／７▆▆▆' not in playlist
     assert 'group-title="24 7"' in playlist
+    # El nombre crudo puede seguir siendo el tvg-id (invisible, solo hace falta que sea único),
+    # pero no debe quedar visible ni como tvg-name ni como el texto que se muestra.
+    assert 'tvg-name="Canal Divisor"' not in playlist
+    assert ',Canal Divisor' not in playlist
+    assert 'tvg-name="24 7"' in playlist
 
 
 def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
