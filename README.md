@@ -54,7 +54,8 @@ cuesta días de guía.
 
 Antes de tocar el nombre, se le saca el prefijo que el proveedor antepone y que no aporta nada
 al verlo en el reproductor: código de país + `|` o `:` (`UY|`, `PT|`, `ES:`, `CL|`, `BR|`,
-`AR|`, `USA|`, `E|`, `S|`, `D|`), número de evento (`EVENTS 01:`) o `24` + una letra (`24P`).
+`AR|`, `USA|`, `E|`, `S|`, `D|`, `Y|`), número de evento (`EVENTS 01:`) o `24` + una letra
+(`24P`).
 Si el prefijo era un código de país reconocido, ese país sigue sumando al matching aunque ya
 no esté en el nombre. Los overrides de `xtream_channel_map.json` siguen buscándose por el
 nombre **crudo** (con el prefijo), porque es lo que se copia del panel de Xtream.

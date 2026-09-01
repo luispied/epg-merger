@@ -73,6 +73,7 @@ def test_prefijo_de_pais_del_proveedor():
     ('E| Entertainment', 'Entertainment', None),
     ('S| Somos', 'Somos', None),
     ('D| Discovery', 'Discovery', None),
+    ('Y| Yupi TV', 'Yupi TV', None),
     ('EVENTS 01: Box Estelar', 'Box Estelar', None),
     ('EVENTS 12:UFC 300', 'UFC 300', None),
     ('24P Suspenso', 'Suspenso', None),
