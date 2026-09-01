@@ -29,7 +29,7 @@ COUNTRY_PREFIX_RE = re.compile(r'^[A-Za-z]{1,3}\s*\|\s*')
 # COUNTRY_PREFIX_RE (que es deliberadamente laxo porque solo ajusta el puntaje interno), esta
 # lista es explícita: recortar el nombre que ve la persona es más arriesgado que ajustar un
 # puntaje, así que solo se tocan los prefijos confirmados en vez de adivinar por forma.
-_DISPLAY_PREFIX_CODES = ('UY', 'PT', 'ES', 'CL', 'BR', 'AR', 'USA', 'E', 'S', 'D')
+_DISPLAY_PREFIX_CODES = ('UY', 'PT', 'ES', 'CL', 'BR', 'AR', 'USA', 'E', 'S', 'D', 'Y')
 DISPLAY_PREFIX_RE = re.compile(
     r'^(?:'
     r'EVENTS\s+\d+\s*:\s*'
