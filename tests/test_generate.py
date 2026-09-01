@@ -411,9 +411,10 @@ def test_la_playlist_no_lleva_barras_en_group_title(tmp_path, monkeypatch):
     assert 'USA Acción-Aventura' in playlist
 
 
-def test_divisor_24_7_se_muestra_con_texto_simple(tmp_path, monkeypatch):
-    """El separador decorativo del proveedor ("▆▆▆２４／７▆▆▆") se reemplaza por texto plano,
-    sin caracteres especiales, para descartarlos como causa de que no se muestre en el reproductor."""
+def test_divisor_24_7_mantiene_el_estilo_decorativo_sin_la_barra(tmp_path, monkeypatch):
+    """La barra del separador original del proveedor ("▆▆▆２４／７▆▆▆") era lo que TiviMate
+    escondía (confirmado a mano); se mantiene el mismo estilo que las demás secciones pero sin
+    la barra, en vez de texto plano."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
     sections = {
@@ -434,13 +435,13 @@ def test_divisor_24_7_se_muestra_con_texto_simple(tmp_path, monkeypatch):
 
     _correr(monkeypatch, PERFILES[:1])
     playlist = _playlist(tmp_path, 'luis')
-    assert '▆▆▆２４／７▆▆▆' not in playlist
-    assert 'group-title="24 7"' in playlist
+    assert '▆▆▆２４／７▆▆▆' not in playlist, "el original con barra no debe quedar en ningún lado"
+    assert 'group-title="▆▆▆２４ ７▆▆▆"' in playlist
     # El nombre crudo puede seguir siendo el tvg-id (invisible, solo hace falta que sea único),
     # pero no debe quedar visible ni como tvg-name ni como el texto que se muestra.
     assert 'tvg-name="Canal Divisor"' not in playlist
     assert ',Canal Divisor' not in playlist
-    assert 'tvg-name="24 7"' in playlist
+    assert 'tvg-name="▆▆▆２４ ７▆▆▆"' in playlist
 
 
 def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
