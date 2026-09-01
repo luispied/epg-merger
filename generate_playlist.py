@@ -61,10 +61,10 @@ DIVIDER_SECTION_MAP = {
 }
 
 # El proveedor nombra el separador de esta sección con dígitos de ancho completo y una barra
-# ("▆▆▆２４／７▆▆▆"): se prueba si un texto simple, sin caracteres especiales, se muestra mejor
-# en los reproductores que el decorativo original.
+# ("▆▆▆２４／７▆▆▆"): la barra era lo que TiviMate escondía (confirmado), así que se mantiene el
+# mismo estilo decorativo que las demás secciones pero sin la barra.
 DIVIDER_DISPLAY_OVERRIDE = {
-    '24/7': '24 7',
+    '24/7': '▆▆▆２４ ７▆▆▆',
 }
 
 
