@@ -39,6 +39,7 @@
   }
   header h1 { margin: 0 0 2px; font-size: 17px; }
   header p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  header p + p { margin-top: 4px; }
   .toolbar {
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
     padding: 12px calc(16px + env(safe-area-inset-left, 0px));
@@ -137,6 +138,7 @@
 <header>
   <h1>Corrección de EPG</h1>
   <p>epg-merger · lee <code>match_report</code> del último release y corrige overrides en <code>xtream_channel_map.json</code></p>
+  <p>El selector de perfil solo cambia qué canales estás mirando — los overrides que guardés son compartidos, valen para todos los perfiles.</p>
 </header>
 
 <div class="toolbar">
