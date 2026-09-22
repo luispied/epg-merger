@@ -53,11 +53,16 @@ jobs:
             --notes "Se actualiza automáticamente en cada corrida del workflow."
         fi
         gh release upload "$TAG" merged.xml.gz --clobber
+        [ -f out/epg_catalog.json ] && gh release upload "$TAG" out/epg_catalog.json --clobber
         for dir in out/*/; do
           [ -f "$dir/epg.xml.gz" ] || continue
           name=$(basename "$dir")
           cp "$dir/epg.xml.gz" "epg-$name.xml.gz"
           gh release upload "$TAG" "epg-$name.xml.gz" --clobber
+          # match_report.json no lleva URLs de stream ni credenciales: es seguro publicarlo
+          # para que la interfaz de corrección manual (docs/) lo lea directo del release.
+          cp "$dir/match_report.json" "match_report-$name.json"
+          gh release upload "$TAG" "match_report-$name.json" --clobber
         done
 
     # No-op si falta GIST_TOKEN: el script lo avisa y sale sin error.

@@ -152,6 +152,20 @@ def test_canal_con_match_conserva_su_logo(proyecto, monkeypatch):
     assert 'tvg-logo="http://logo/tbs.png"' in linea
 
 
+def test_catalogo_del_epg_incluye_todos_los_canales_sin_credenciales(proyecto, monkeypatch):
+    """El catálogo alimenta la interfaz de corrección manual (docs/): tiene que cubrir TODO el
+    EPG (no solo lo matcheado) y no puede llevar nada de las credenciales de ningún perfil."""
+    _correr(monkeypatch, PERFILES)
+    with open(proyecto / 'out' / 'epg_catalog.json', encoding='utf-8') as f:
+        catalogo = json.load(f)
+    ids = {c['id'] for c in catalogo}
+    assert ids == {'TBS.us', 'TBS.mx', 'Warner.cr'}
+    tbs_us = next(c for c in catalogo if c['id'] == 'TBS.us')
+    assert tbs_us == {'id': 'TBS.us', 'name': 'TBS', 'country': 'us', 'source': 'acidjesuz-us'}
+    crudo = (proyecto / 'out' / 'epg_catalog.json').read_text(encoding='utf-8')
+    assert 'clave-de-luis' not in crudo and 'clave-de-juan' not in crudo
+
+
 def test_el_reporte_no_lleva_credenciales(proyecto, monkeypatch):
     """El reporte se guarda como artifact para diffear entre corridas: no puede llevar
     las URLs de stream, que sí tienen usuario y contraseña adentro."""
