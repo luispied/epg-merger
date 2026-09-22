@@ -106,7 +106,9 @@ mejor alternativa: mejor sin EPG que con uno equivocado.
 ### Interfaz de corrección (`docs/`)
 
 `docs/index.html`, servida por GitHub Pages, lista los canales de cada perfil con el EPG que
-se les asignó (`match_report-<perfil>.json`) y deja elegir otro de las alternativas ya
+se les asignó (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se
+excluyen: son transmisiones puntuales que ningún EPG público cubre, así que nunca van a
+matchear y no hay nada que corregir ahí — y deja elegir otro de las alternativas ya
 calculadas o buscando en todo el EPG (`epg_catalog.json`: solo `channel_id`/nombre/país/fuente,
 sin credenciales). Estos dos también se publican como asset del release `latest` (útil para
 bajarlos con `gh`/`curl`), pero la interfaz los lee de una branch `data` aparte: los assets de
