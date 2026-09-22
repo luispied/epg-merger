@@ -88,12 +88,17 @@
     display: none;
   }
   .editor.open { display: block; }
-  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; align-items: stretch; }
+  .chip-wrap { display: flex; flex-direction: column; gap: 3px; max-width: 260px; }
   .chip {
     background: var(--chip-bg); border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 10px; font-size: 12.5px; cursor: pointer; text-align: left;
   }
   .chip:hover { border-color: var(--accent); }
+  .chip-now {
+    font-size: 11px; color: var(--muted); padding: 0 2px; min-height: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .search-results {
     max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
     margin-top: 6px; display: none;
@@ -105,6 +110,11 @@
   .search-results .row:last-child { border-bottom: none; }
   .search-results .row:hover { background: var(--chip-bg); }
   .search-results .row small { color: var(--muted); }
+  .peek-btn {
+    background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 6px 0 0;
+    float: right;
+  }
+  .search-results .chip-now { white-space: normal; }
   .editor-msg { font-size: 12px; margin-top: 6px; min-height: 16px; }
   .editor-msg.ok { color: var(--ok); }
   .editor-msg.bad { color: var(--bad); }
@@ -233,6 +243,37 @@
     const res = await fetch(url, opts);
     if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
     return res.json();
+  }
+
+  // channel_id -> Promise<[[start,stop,title], ...] | null>. Se pide bajo demanda (no para
+  // los 21k canales del catálogo, solo para los candidatos que se llegan a mostrar), y se
+  // cachea porque el mismo canal aparece seguido como alternativa de varios canales de Xtream.
+  const scheduleCache = new Map();
+
+  function fetchSchedule(channelId) {
+    if (scheduleCache.has(channelId)) return scheduleCache.get(channelId);
+    const c = catalogEntry(channelId);
+    const p = c.sched
+      ? fetchJSON(`${DATA_RAW_BASE}/schedule/${c.sched}.json`).catch(() => null)
+      : Promise.resolve(null);
+    scheduleCache.set(channelId, p);
+    return p;
+  }
+
+  function nowPlayingText(entries) {
+    if (!entries || !entries.length) return null;
+    const now = Date.now() / 1000;
+    const cur = entries.find(([start, stop]) => start <= now && now < stop);
+    if (!cur) return 'Sin programación para este horario';
+    const [, stop, title] = cur;
+    const hasta = new Date(stop * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `📺 Ahora: ${title} (hasta ${hasta})`;
+  }
+
+  function loadNowPlayingInto(el, channelId) {
+    fetchSchedule(channelId).then((entries) => {
+      el.textContent = nowPlayingText(entries) || '';
+    });
   }
 
   function getToken() {
@@ -373,9 +414,18 @@
     const alts = (ch.alternatives || []);
     const chips = alts.map((a) => {
       const c = catalogEntry(a.channel_id);
-      return `<button class="chip" data-id="${escapeHtml(a.channel_id)}">${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''} · ${a.score.toFixed(2)}</button>`;
+      const id = escapeHtml(a.channel_id);
+      return `<div class="chip-wrap">
+        <button class="chip" data-id="${id}">${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''} · ${a.score.toFixed(2)}</button>
+        <div class="chip-now" data-sched-for="${id}">Cargando programación…</div>
+      </div>`;
     }).join('');
+    const currentBlock = ch.chosen ? `
+      <div class="card-meta">EPG actual: ${escapeHtml(labelFor(ch.chosen))}</div>
+      <div class="chip-now" data-sched-for="${escapeHtml(ch.chosen)}" style="margin-bottom:10px;">Cargando programación…</div>
+    ` : '';
     return `
+      ${currentBlock}
       ${alts.length ? `<div class="card-meta">Alternativas ya calculadas:</div><div class="chip-row">${chips}</div>` : ''}
       <input type="search" class="catalog-search" placeholder="Buscar en todo el EPG (nombre, país)…">
       <div class="search-results"></div>
@@ -394,6 +444,9 @@
       btn.addEventListener('click', () => saveOverride(ch, btn.dataset.id, editor));
     });
     editor.querySelector('.force-none-btn').addEventListener('click', () => saveOverride(ch, null, editor));
+    editor.querySelectorAll('[data-sched-for]').forEach((el) => {
+      loadNowPlayingInto(el, el.dataset.schedFor);
+    });
     const input = editor.querySelector('.catalog-search');
     const results = editor.querySelector('.search-results');
     let timer = null;
@@ -415,13 +468,22 @@
     }
     resultsEl.innerHTML = matches.map((c) => `
       <div class="row" data-id="${escapeHtml(c.id)}">
+        <button class="peek-btn" data-peek="${escapeHtml(c.id)}" title="Ver qué está dando ahora">📺</button>
         ${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''}
         <br><small>${escapeHtml(c.id)}${c.source ? ' · ' + escapeHtml(c.source) : ''}</small>
+        <div class="chip-now" data-peek-result="${escapeHtml(c.id)}"></div>
       </div>
     `).join('') || '<div class="row"><small>Sin resultados</small></div>';
     resultsEl.classList.add('open');
     resultsEl.querySelectorAll('.row[data-id]').forEach((row) => {
       row.addEventListener('click', () => saveOverride(ch, row.dataset.id, editor));
+    });
+    resultsEl.querySelectorAll('.peek-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // no disparar la selección del canal, solo mostrar programación
+        const target = resultsEl.querySelector(`[data-peek-result="${CSS.escape(btn.dataset.peek)}"]`);
+        loadNowPlayingInto(target, btn.dataset.peek);
+      });
     });
   }
 

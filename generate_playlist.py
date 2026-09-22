@@ -7,7 +7,9 @@ la parte cara del trabajo es la misma para todo el mundo, lo único que cambia e
 son las credenciales que van dentro de la URL del stream.
 """
 import copy
+import datetime
 import gzip
+import hashlib
 import json
 import os
 import re
@@ -25,6 +27,17 @@ MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
 SECTIONS_CONFIG_PATH = 'playlist_sections.json'
 EPG_CATALOG_PATH = os.path.join('out', 'epg_catalog.json')
+SCHEDULE_DIR = os.path.join('out', 'schedule')
+
+# Ventana de programación que se publica por canal, para que la interfaz de corrección (docs/)
+# pueda mostrar qué está dando cada candidato al elegir el EPG de un canal. El navegador calcula
+# "en el aire ahora mismo" comparando estos horarios contra su propio reloj (no se congela un
+# "ahora" al momento de esta corrida), así que sigue siendo preciso aunque se mire horas después.
+SCHEDULE_WINDOW_PAST = datetime.timedelta(hours=1)
+SCHEDULE_WINDOW_FUTURE = datetime.timedelta(hours=30)
+SCHEDULE_MAX_ENTRIES = 60  # tope por canal, por si alguna fuente trae franjas muy cortas
+
+_XMLTV_TIME_RE = re.compile(r'^(\d{14})\s*(?:([+-]\d{4}))?$')
 
 # Cuántos candidatos alternativos incluir (con display-name anotado) en el EPG del perfil
 # cuando un canal tiene varios EPG posibles (ej. "E!" existe para 17 países/feeds distintos) —
@@ -457,16 +470,84 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
     return stats
 
 
-def write_epg_catalog(index, path=EPG_CATALOG_PATH):
-    """Todo el universo de channel_id posibles (nombre, país, fuente), sin credenciales, para
-    que la interfaz de corrección manual (docs/) pueda ofrecer "cualquier canal del EPG" como
-    alternativa, no solo los 4 candidatos que ya trae el match_report de cada perfil."""
+def _parse_xmltv_time(raw):
+    """'20240101100000 +0000' -> datetime UTC. None si el formato no matchea (algunas fuentes
+    traen basura puntual; se descarta esa franja en vez de romper toda la corrida)."""
+    m = _XMLTV_TIME_RE.match((raw or '').strip())
+    if not m:
+        return None
+    dt = datetime.datetime.strptime(m.group(1), '%Y%m%d%H%M%S')
+    tz = m.group(2)
+    if tz:
+        sign = 1 if tz[0] == '+' else -1
+        offset = datetime.timedelta(hours=int(tz[1:3]), minutes=int(tz[3:5])) * sign
+        dt -= offset
+    return dt.replace(tzinfo=datetime.timezone.utc)
+
+
+def _schedule_filename(channel_id):
+    # El channel_id puede traer '#', espacios, etc.: no sirve directo como nombre de archivo ni
+    # como para armarlo desde JS sin duplicar la codificación en los dos lados. Un hash corto
+    # evita ese problema — el nombre exacto viaja ya resuelto en epg_catalog.json (campo 'sched').
+    return hashlib.sha1(channel_id.encode('utf-8')).hexdigest()[:16]
+
+
+def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
+    """Un archivo por canal con su programación de la ventana [ahora - 1h, ahora + 30h], para
+    que la interfaz de corrección (docs/) pueda mostrar qué está dando cada candidato al elegir
+    el EPG de un canal. Devuelve {channel_id: nombre_de_archivo} (sin extensión) para los
+    canales que sí tienen programación en la ventana."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    window_start = now - SCHEDULE_WINDOW_PAST
+    window_end = now + SCHEDULE_WINDOW_FUTURE
+    # Pre-filtro barato por texto antes de parsear fecha en cada programa: un canal suele traer
+    # varios días de guía y acá solo interesa una ventana corta.
+    lo = (window_start - datetime.timedelta(days=1)).strftime('%Y%m%d')
+    hi = (window_end + datetime.timedelta(days=1)).strftime('%Y%m%d')
+
+    by_channel = {}
+    for programme in epg_root.findall('programme'):
+        start_raw = programme.get('start') or ''
+        if not (lo <= start_raw[:8] <= hi):
+            continue
+        start = _parse_xmltv_time(start_raw)
+        stop = _parse_xmltv_time(programme.get('stop'))
+        if not start or not stop or stop <= window_start or start >= window_end:
+            continue
+        channel_id = programme.get('channel')
+        title_elem = programme.find('title')
+        title = (title_elem.text or '').strip() if title_elem is not None else ''
+        if not channel_id or not title:
+            continue
+        by_channel.setdefault(channel_id, []).append(
+            (int(start.timestamp()), int(stop.timestamp()), title))
+
+    os.makedirs(out_dir, exist_ok=True)
+    sched_by_channel = {}
+    for channel_id, entries in by_channel.items():
+        entries.sort()
+        filename = _schedule_filename(channel_id)
+        with open(os.path.join(out_dir, f'{filename}.json'), 'w', encoding='utf-8') as f:
+            json.dump(entries[:SCHEDULE_MAX_ENTRIES], f, ensure_ascii=False, separators=(',', ':'))
+        sched_by_channel[channel_id] = filename
+
+    print(f"📺 {out_dir}: programación de {len(sched_by_channel)} canales "
+          f"(ventana -{SCHEDULE_WINDOW_PAST}/+{SCHEDULE_WINDOW_FUTURE})")
+    return sched_by_channel
+
+
+def write_epg_catalog(index, sched_by_channel, path=EPG_CATALOG_PATH):
+    """Todo el universo de channel_id posibles (nombre, país, fuente, y el archivo de
+    programación si hay uno), sin credenciales, para que la interfaz de corrección manual
+    (docs/) pueda ofrecer "cualquier canal del EPG" como alternativa, no solo los 4 candidatos
+    que ya trae el match_report de cada perfil."""
     catalog = [
         {
             'id': channel_id,
             'name': index.display_name.get(channel_id) or channel_id,
             'country': index.country.get(channel_id),
             'source': index.source.get(channel_id),
+            'sched': sched_by_channel.get(channel_id),
         }
         for channel_id in index.parsed
     ]
@@ -493,7 +574,8 @@ def generate():
     sources = {s['id']: s for s in load_sources()}
     index = EpgIndex(epg_root, sources=sources)
     print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens")
-    write_epg_catalog(index)
+    sched_by_channel = write_schedule_snapshot(epg_root)
+    write_epg_catalog(index, sched_by_channel)
 
     # Un override que apunte a un channel_id inexistente en el EPG sería un tvg-id colgado.
     # `null` es un valor válido a propósito: "forzar sin EPG" (ver forced_no_epg más abajo),

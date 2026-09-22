@@ -127,6 +127,14 @@ El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en v
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
 dejarlo sin EPG a propósito que con uno incorrecto.
 
+Al abrir el editor de un canal, cada alternativa (y el EPG ya asignado) muestra qué programa
+está dando **en ese momento**: `generate_playlist.py` publica, por canal, su programación de
+`out/schedule/<hash>.json` (ventana de -1h a +30h desde la corrida, sin credenciales, también
+en la branch `data`) y la página calcula "ahora" comparando contra el reloj del navegador —
+sigue siendo preciso aunque se mire horas después de la corrida, no es una foto congelada al
+momento de generarla. Se pide bajo demanda (al abrir el editor, o con el botón 📺 de un
+resultado de búsqueda), no de entrada para los ~21.000 canales del catálogo.
+
 ### Cuando un canal tiene varios EPG posibles
 
 Muchos nombres (`"E!"`, `"TBS"`) existen varias veces en el EPG: un feed por país, o variantes

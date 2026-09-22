@@ -161,9 +161,51 @@ def test_catalogo_del_epg_incluye_todos_los_canales_sin_credenciales(proyecto, m
     ids = {c['id'] for c in catalogo}
     assert ids == {'TBS.us', 'TBS.mx', 'Warner.cr'}
     tbs_us = next(c for c in catalogo if c['id'] == 'TBS.us')
-    assert tbs_us == {'id': 'TBS.us', 'name': 'TBS', 'country': 'us', 'source': 'acidjesuz-us'}
+    # sched es None: los programas de MERGED están fechados en 2024, fuera de la ventana de
+    # "ahora" que usa write_schedule_snapshot (ver test aparte con `now` controlado).
+    assert tbs_us == {'id': 'TBS.us', 'name': 'TBS', 'country': 'us', 'source': 'acidjesuz-us',
+                       'sched': None}
     crudo = (proyecto / 'out' / 'epg_catalog.json').read_text(encoding='utf-8')
     assert 'clave-de-luis' not in crudo and 'clave-de-juan' not in crudo
+
+
+def test_parse_xmltv_time_convierte_offset_a_utc():
+    dt = generate_playlist._parse_xmltv_time('20260101120000 -0300')
+    assert dt == generate_playlist.datetime.datetime(
+        2026, 1, 1, 15, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+
+
+def test_parse_xmltv_time_sin_offset_asume_utc():
+    dt = generate_playlist._parse_xmltv_time('20260101120000')
+    assert dt == generate_playlist.datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+
+
+def test_parse_xmltv_time_formato_invalido_devuelve_none():
+    assert generate_playlist._parse_xmltv_time('no es una fecha') is None
+    assert generate_playlist._parse_xmltv_time('') is None
+
+
+def test_schedule_snapshot_solo_incluye_la_ventana_de_ahora(tmp_path):
+    """La interfaz de corrección necesita "qué está dando ahora", no la guía completa: un
+    programa que ya terminó o que empieza muy lejos en el futuro no debe publicarse."""
+    now = generate_playlist.datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+    root = etree.fromstring("""<tv>
+      <programme channel="A.us" start="20260101110000 +0000" stop="20260101120000 +0000">
+        <title>Ya casi termina, todavia en curso</title></programme>
+      <programme channel="A.us" start="20260101130000 +0000" stop="20260101140000 +0000">
+        <title>Mas tarde hoy</title></programme>
+      <programme channel="A.us" start="20260103000000 +0000" stop="20260103010000 +0000">
+        <title>Muy lejos, fuera de ventana</title></programme>
+      <programme channel="B.us" start="20260101100000 +0000" stop="20260101103000 +0000">
+        <title>Ya termino, fuera de ventana</title></programme>
+    </tv>""")
+    sched = generate_playlist.write_schedule_snapshot(root, out_dir=str(tmp_path), now=now)
+    assert set(sched) == {'A.us'}
+    with open(tmp_path / f"{sched['A.us']}.json", encoding='utf-8') as f:
+        entries = json.load(f)
+    assert [e[2] for e in entries] == ['Ya casi termina, todavia en curso', 'Mas tarde hoy']
 
 
 def test_el_reporte_no_lleva_credenciales(proyecto, monkeypatch):
