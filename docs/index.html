@@ -174,6 +174,12 @@
   const REPO = 'luispied/epg-merger';
   const API = `https://api.github.com/repos/${REPO}`;
   const RAW_MAP_URL = `https://raw.githubusercontent.com/${REPO}/main/xtream_channel_map.json`;
+  // epg_catalog.json y match_report-<perfil>.json no viven en el release: sus assets se sirven
+  // vía un redirect a Azure Blob que no manda cabecera CORS, así que fetch() desde acá los
+  // bloquea (confirmado). raw.githubusercontent.com sí manda Access-Control-Allow-Origin, así
+  // que el workflow los publica además en esta branch aparte (force-push, sin credenciales).
+  const DATA_BRANCH = 'data';
+  const DATA_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/${DATA_BRANCH}`;
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
   const TOKEN_KEY = 'epg_admin_pat';
@@ -191,7 +197,7 @@
   let catalogById = new Map();
   let channelMap = { overrides: {} };
   let channelMapSha = null;
-  let profiles = {};            // name -> download_url del match_report
+  let profiles = {};            // name -> URL raw del match_report en la branch "data"
   let currentChannels = [];     // reporte del perfil activo
   let filtered = [];
   let rendered = 0;
@@ -235,19 +241,19 @@
   // --------------------------------------------------------------- carga inicial
 
   async function loadRelease() {
-    const release = await fetchJSON(`${API}/releases/tags/latest`);
-    const assets = release.assets || [];
-    const byName = new Map(assets.map((a) => [a.name, a.browser_download_url]));
+    const listing = await fetchJSON(`${API}/contents?ref=${DATA_BRANCH}`);
+    const names = new Set(listing.map((f) => f.name));
 
-    const catalogUrl = byName.get('epg_catalog.json');
-    if (!catalogUrl) throw new Error('El release "latest" todavía no tiene epg_catalog.json — esperá a que corra el workflow una vez con este cambio.');
-    catalog = await fetchJSON(catalogUrl);
+    if (!names.has('epg_catalog.json')) {
+      throw new Error('La branch "data" todavía no tiene epg_catalog.json — esperá a que corra el workflow una vez con este cambio.');
+    }
+    catalog = await fetchJSON(`${DATA_RAW_BASE}/epg_catalog.json?_=${Date.now()}`);
     catalogById = new Map(catalog.map((c) => [c.id, c]));
 
     profiles = {};
-    for (const name of byName.keys()) {
+    for (const name of names) {
       const m = name.match(/^match_report-(.+)\.json$/);
-      if (m) profiles[m[1]] = byName.get(name);
+      if (m) profiles[m[1]] = `${DATA_RAW_BASE}/${name}`;
     }
 
     try {
