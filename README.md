@@ -96,9 +96,14 @@ arriba), que es lo que se copia del panel.
 ### Interfaz de corrección (`docs/`)
 
 `docs/index.html`, servida por GitHub Pages, lista los canales de cada perfil con el EPG que
-se les asignó (`match_report-<perfil>.json`, publicado como asset del release `latest`, sin
-credenciales) y deja elegir otro de las alternativas ya calculadas o buscando en todo el EPG
-(`epg_catalog.json`, también publicado sin credenciales: solo `channel_id`/nombre/país/fuente).
+se les asignó (`match_report-<perfil>.json`) y deja elegir otro de las alternativas ya
+calculadas o buscando en todo el EPG (`epg_catalog.json`: solo `channel_id`/nombre/país/fuente,
+sin credenciales). Estos dos también se publican como asset del release `latest` (útil para
+bajarlos con `gh`/`curl`), pero la interfaz los lee de una branch `data` aparte: los assets de
+un release se sirven vía un redirect a Azure Blob que no manda cabecera CORS, así que el
+navegador no puede leerlos con `fetch()`. La branch `data` se sobreescribe entera en cada
+corrida (`git push -f`), no acumula historia — es contenido descartable, no algo para
+versionar.
 
 Al elegir un canal, la página commitea el override directo a `xtream_channel_map.json` en
 `main` usando la API de GitHub desde el propio navegador. Hace falta un **fine-grained

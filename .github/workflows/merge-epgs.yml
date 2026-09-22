@@ -59,11 +59,36 @@ jobs:
           name=$(basename "$dir")
           cp "$dir/epg.xml.gz" "epg-$name.xml.gz"
           gh release upload "$TAG" "epg-$name.xml.gz" --clobber
-          # match_report.json no lleva URLs de stream ni credenciales: es seguro publicarlo
-          # para que la interfaz de corrección manual (docs/) lo lea directo del release.
+          # match_report.json no lleva URLs de stream ni credenciales: es seguro publicarlo.
+          # Sirve para bajarlo con `gh release download`/`gh api` al diagnosticar matching.
           cp "$dir/match_report.json" "match_report-$name.json"
           gh release upload "$TAG" "match_report-$name.json" --clobber
         done
+
+    # La interfaz de corrección (docs/) necesita leer epg_catalog.json y los match_report
+    # desde el navegador, y los assets de un release se sirven vía un redirect a Azure Blob
+    # que NO manda cabecera CORS (confirmado con curl) — fetch() los bloquea. raw.githubusercontent.com
+    # sí manda `Access-Control-Allow-Origin: *`, así que estos mismos archivos (sin credenciales)
+    # se publican además en una branch `data` aparte, con force-push para no acumular historia
+    # (es contenido que se reemplaza entero en cada corrida, no algo para versionar).
+    - name: Publish data branch for the EPG-correction UI
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        rm -rf /tmp/data-branch && mkdir /tmp/data-branch
+        [ -f out/epg_catalog.json ] && cp out/epg_catalog.json /tmp/data-branch/
+        for dir in out/*/; do
+          [ -f "$dir/match_report.json" ] || continue
+          name=$(basename "$dir")
+          cp "$dir/match_report.json" "/tmp/data-branch/match_report-$name.json"
+        done
+        cd /tmp/data-branch
+        git init -q -b data
+        git config user.email "actions@github.com"
+        git config user.name "github-actions"
+        git add -A
+        git commit -q -m "Actualizar datos para la interfaz de corrección de EPG"
+        git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data:data
 
     # No-op si falta GIST_TOKEN: el script lo avisa y sale sin error.
     - name: Publish playlists to secret gists
