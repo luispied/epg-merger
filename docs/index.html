@@ -210,7 +210,8 @@
     return score.toFixed(2);
   }
 
-  function scoreBadge(score, chosen) {
+  function scoreBadge(score, chosen, reason) {
+    if (reason === 'override_none') return '<span class="badge override">🚫 forzado sin EPG</span>';
     if (!chosen) return '<span class="badge bad">sin EPG</span>';
     if (score >= 0.8) return `<span class="badge ok">${fmtScore(score)}</span>`;
     if (score >= MIN_SCORE) return `<span class="badge warn">${fmtScore(score)}</span>`;
@@ -278,7 +279,8 @@
     switch (activeFilter) {
       case 'sin-epg': return !ch.chosen;
       case 'override': return hasOverride;
-      case 'revisar': return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
+      case 'revisar':
+        return (!ch.chosen && ch.reason !== 'override_none') || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
       default: return true;
     }
   }
@@ -312,7 +314,11 @@
     const el = document.createElement('div');
     el.className = 'card';
     const hasOverride = Object.prototype.hasOwnProperty.call(channelMap.overrides, ch.xtream_name);
+    const forcedNoEpg = ch.reason === 'override_none';
     const chosenLabel = ch.chosen ? labelFor(ch.chosen) : null;
+    const epgText = forcedNoEpg
+      ? '<span style="color:var(--muted)">forzado sin EPG ni logo, a propósito</span>'
+      : (chosenLabel ? escapeHtml(chosenLabel) : '<span style="color:var(--muted)">sin EPG asignado</span>');
 
     el.innerHTML = `
       <div class="card-top">
@@ -321,11 +327,11 @@
           <div class="card-meta">${escapeHtml(ch.category)}${ch.section ? ' · ' + escapeHtml(ch.section) : ''}</div>
         </div>
         <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
-          ${scoreBadge(ch.score, ch.chosen)}
-          ${hasOverride ? '<span class="badge override">override</span>' : ''}
+          ${scoreBadge(ch.score, ch.chosen, ch.reason)}
+          ${hasOverride && !forcedNoEpg ? '<span class="badge override">override</span>' : ''}
         </div>
       </div>
-      <div class="card-epg">${chosenLabel ? escapeHtml(chosenLabel) : '<span style="color:var(--muted)">sin EPG asignado</span>'}</div>
+      <div class="card-epg">${epgText}</div>
       <div class="card-actions">
         <button class="ghost edit-btn">Cambiar EPG</button>
         ${hasOverride ? '<button class="ghost danger remove-btn">Quitar override</button>' : ''}
@@ -373,14 +379,21 @@
       ${alts.length ? `<div class="card-meta">Alternativas ya calculadas:</div><div class="chip-row">${chips}</div>` : ''}
       <input type="search" class="catalog-search" placeholder="Buscar en todo el EPG (nombre, país)…">
       <div class="search-results"></div>
+      <div class="chip-row" style="margin-top:10px;">
+        <button class="chip force-none-btn" style="color:var(--bad); border-color:var(--bad);">
+          🚫 Forzar sin EPG (ni logo)
+        </button>
+      </div>
+      <div class="card-meta">Deja este canal explícitamente sin EPG asignado, aunque el matching automático encuentre algo — para casos como "Channel No Longer Available" que no se puede confiar en la fuente.</div>
       <div class="editor-msg"></div>
     `;
   }
 
   function wireEditor(editor, ch) {
-    editor.querySelectorAll('.chip').forEach((btn) => {
+    editor.querySelectorAll('.chip[data-id]').forEach((btn) => {
       btn.addEventListener('click', () => saveOverride(ch, btn.dataset.id, editor));
     });
+    editor.querySelector('.force-none-btn').addEventListener('click', () => saveOverride(ch, null, editor));
     const input = editor.querySelector('.catalog-search');
     const results = editor.querySelector('.search-results');
     let timer = null;
@@ -457,8 +470,10 @@
       await withChannelMap((overrides) => { overrides[ch.xtream_name] = channelId; });
       msg.textContent = `✓ Guardado. Va a tomar efecto en la próxima corrida del workflow.`;
       msg.className = 'editor-msg ok';
-      ch.chosen = channelId; // refresco visual optimista, el próximo run confirma
+      // refresco visual optimista, el próximo run confirma
+      ch.chosen = channelId;
       ch.score = 1.0;
+      ch.reason = channelId === null ? 'override_none' : 'override';
       setTimeout(() => applyFilters(), 900);
     } catch (e) {
       msg.textContent = '✗ ' + e.message;
@@ -470,6 +485,10 @@
     if (!confirm(`¿Quitar el override de "${ch.xtream_name}"? Volverá a matchear automático en la próxima corrida.`)) return;
     try {
       await withChannelMap((overrides) => { delete overrides[ch.xtream_name]; });
+      // El match_report todavía va a decir lo mismo hasta la próxima corrida; se limpia el
+      // motivo optimistamente para no dejar la tarjeta mostrando "forzado sin EPG" cuando el
+      // override que decía eso ya no existe.
+      if (ch.reason === 'override' || ch.reason === 'override_none') ch.reason = null;
       applyFilters();
     } catch (e) {
       alert('No se pudo quitar: ' + e.message);

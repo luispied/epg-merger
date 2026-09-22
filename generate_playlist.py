@@ -305,6 +305,12 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         # Xtream, que es lo que la persona que configura el override tiene copiado del panel.
         channel_name, prefix_country = strip_display_prefix(raw_name, index.rules)
 
+        # Un override en `null` (armable desde la interfaz de corrección, botón "Forzar sin
+        # EPG") significa "nunca le asignes EPG a este canal, ni de casualidad": sin esto, un
+        # canal así de todos modos entraría al matching automático y al fallback de
+        # "epg_channel_id" de abajo, así que la próxima corrida se lo podría volver a asignar.
+        forced_no_epg = raw_name in overrides and overrides[raw_name] is None
+
         if category_is_divider:
             # El placeholder que el proveedor usa como separador visual ("== 24 /7 Only ==")
             # no es un canal real: matchearlo contra el EPG solo arriesga un falso positivo de
@@ -313,6 +319,8 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
             # este separador — y varios reproductores, TiviMate confirmado, esconden uno de los
             # dos cuando dos entradas comparten tvg-id).
             channel_id, reason, score, ranked = None, None, 0.0, []
+        elif forced_no_epg:
+            channel_id, reason, score, ranked = None, 'override_none', 1.0, []
         else:
             parsed = parse_channel_name(channel_name, index.rules)
             channel_id, reason, score, ranked = match_channel(
@@ -358,9 +366,10 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
 
             tvg_id = channel_id
         else:
-            # Los separadores decorativos nunca tienen EPG a propósito (ver arriba): no cuentan
-            # como canales sin matchear, sería ruido en el reporte.
-            if not category_is_divider:
+            # Los separadores decorativos y los canales con "forzar sin EPG" no tienen EPG a
+            # propósito (ver arriba): no cuentan como canales sin matchear, sería ruido en el
+            # reporte hacerlo pasar por un caso a revisar cuando ya se revisó y se decidió así.
+            if not category_is_divider and not forced_no_epg:
                 unmatched.append(channel_name)
             tvg_id = channel_name
 
@@ -487,12 +496,14 @@ def generate():
     write_epg_catalog(index)
 
     # Un override que apunte a un channel_id inexistente en el EPG sería un tvg-id colgado.
+    # `null` es un valor válido a propósito: "forzar sin EPG" (ver forced_no_epg más abajo),
+    # no un channel_id colgado.
     overrides_raw = load_channel_map()
-    invalid = [n for n, cid in overrides_raw.items() if cid not in index]
+    invalid = [n for n, cid in overrides_raw.items() if cid is not None and cid not in index]
     if invalid:
         print(f"⚠️  {len(invalid)} override(s) en {CHANNEL_MAP_PATH} apuntan a un channel_id "
               f"inexistente en el EPG, se ignoran: {', '.join(invalid[:5])}")
-    overrides = {n: cid for n, cid in overrides_raw.items() if cid in index}
+    overrides = {n: cid for n, cid in overrides_raw.items() if cid is None or cid in index}
 
     sections = load_sections_config()
 

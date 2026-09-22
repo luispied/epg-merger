@@ -93,6 +93,16 @@ Si un canal no encuentra su EPG, agregalo a `xtream_channel_map.json`:
 La clave es el nombre **crudo** tal como lo trae Xtream (antes de sacarle el prefijo, ver
 arriba), que es lo que se copia del panel.
 
+También se acepta `null` en vez de un `channel_id`, para forzar que un canal quede **sin EPG y
+sin logo a propósito** — ni el matching automático ni el fallback de `epg_channel_id` de Xtream
+lo van a tocar. Sirve para el caso de un canal cuya fuente resultó no confiable (ej. quedaba
+matcheado a un `channel_id` con programación falsa tipo "Channel No Longer Available") y no hay
+mejor alternativa: mejor sin EPG que con uno equivocado.
+
+```json
+{ "overrides": { "Nombre exacto del canal en Xtream": null } }
+```
+
 ### Interfaz de corrección (`docs/`)
 
 `docs/index.html`, servida por GitHub Pages, lista los canales de cada perfil con el EPG que
@@ -112,6 +122,10 @@ se pide la primera vez (⚙️ en la interfaz) y se guarda solo en `localStorage
 nunca se manda a nada que no sea `api.github.com`. El cambio queda commiteado al toque, pero
 solo se ve reflejado en la playlist después de la próxima corrida del workflow (diaria, o a
 mano con `gh workflow run merge-epgs.yml`).
+
+El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en vez de elegir un
+canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
+dejarlo sin EPG a propósito que con uno incorrecto.
 
 ### Cuando un canal tiene varios EPG posibles
 
