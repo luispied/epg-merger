@@ -2,6 +2,7 @@
   "_comment": "Overrides manuales: 'nombre exacto del canal en Xtream' -> 'channel_id deseado en el EPG mergeado'. Usar cuando el matching automático por nombre no encuentre el canal correcto.",
   "overrides": {
     "TBS -EN": "I247.58515.schedulesdirect.org",
-    "E| HBO 2": "HBO2.HD.us2"
+    "E| HBO 2": "HBO2.HD.us2",
+    "E| EPIX 2": null
   }
 }
