@@ -24,6 +24,7 @@ from xtream_client import XtreamError, build_stream_url, get_live_categories, ge
 MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
 SECTIONS_CONFIG_PATH = 'playlist_sections.json'
+EPG_CATALOG_PATH = os.path.join('out', 'epg_catalog.json')
 
 # Cuántos candidatos alternativos incluir (con display-name anotado) en el EPG del perfil
 # cuando un canal tiene varios EPG posibles (ej. "E!" existe para 17 países/feeds distintos) —
@@ -447,6 +448,25 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
     return stats
 
 
+def write_epg_catalog(index, path=EPG_CATALOG_PATH):
+    """Todo el universo de channel_id posibles (nombre, país, fuente), sin credenciales, para
+    que la interfaz de corrección manual (docs/) pueda ofrecer "cualquier canal del EPG" como
+    alternativa, no solo los 4 candidatos que ya trae el match_report de cada perfil."""
+    catalog = [
+        {
+            'id': channel_id,
+            'name': index.display_name.get(channel_id) or channel_id,
+            'country': index.country.get(channel_id),
+            'source': index.source.get(channel_id),
+        }
+        for channel_id in index.parsed
+    ]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(catalog, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"📚 {path}: {len(catalog)} canales del EPG completo")
+
+
 def generate():
     profiles = load_profiles()
     if not profiles:
@@ -464,6 +484,7 @@ def generate():
     sources = {s['id']: s for s in load_sources()}
     index = EpgIndex(epg_root, sources=sources)
     print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens")
+    write_epg_catalog(index)
 
     # Un override que apunte a un channel_id inexistente en el EPG sería un tvg-id colgado.
     overrides_raw = load_channel_map()

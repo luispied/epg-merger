@@ -90,6 +90,24 @@ Si un canal no encuentra su EPG, agregalo a `xtream_channel_map.json`:
 { "overrides": { "Nombre exacto del canal en Xtream": "channel_id-del-merged.xml.gz" } }
 ```
 
+La clave es el nombre **crudo** tal como lo trae Xtream (antes de sacarle el prefijo, ver
+arriba), que es lo que se copia del panel.
+
+### Interfaz de corrección (`docs/`)
+
+`docs/index.html`, servida por GitHub Pages, lista los canales de cada perfil con el EPG que
+se les asignó (`match_report-<perfil>.json`, publicado como asset del release `latest`, sin
+credenciales) y deja elegir otro de las alternativas ya calculadas o buscando en todo el EPG
+(`epg_catalog.json`, también publicado sin credenciales: solo `channel_id`/nombre/país/fuente).
+
+Al elegir un canal, la página commitea el override directo a `xtream_channel_map.json` en
+`main` usando la API de GitHub desde el propio navegador. Hace falta un **fine-grained
+personal access token** con permiso `Contents: Read and write` sobre este repo únicamente —
+se pide la primera vez (⚙️ en la interfaz) y se guarda solo en `localStorage` del navegador,
+nunca se manda a nada que no sea `api.github.com`. El cambio queda commiteado al toque, pero
+solo se ve reflejado en la playlist después de la próxima corrida del workflow (diaria, o a
+mano con `gh workflow run merge-epgs.yml`).
+
 ### Cuando un canal tiene varios EPG posibles
 
 Muchos nombres (`"E!"`, `"TBS"`) existen varias veces en el EPG: un feed por país, o variantes
@@ -168,6 +186,8 @@ funcionando. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de sie
 |---|---|---|
 | `merged.xml.gz` | release público `latest` | no |
 | `epg-<perfil>.xml.gz` | release público `latest` | no |
+| `epg_catalog.json` | release público `latest` | no |
+| `match_report-<perfil>.json` | release público `latest` | no |
 | `playlist.m3u8` | **gist secreto** propio de cada persona | **sí** |
 
 La playlist lleva usuario y contraseña dentro de **cada URL de stream**, así que no puede ir a
