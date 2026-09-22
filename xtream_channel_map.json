@@ -1,4 +1,6 @@
 {
   "_comment": "Overrides manuales: 'nombre exacto del canal en Xtream' -> 'channel_id deseado en el EPG mergeado'. Usar cuando el matching automático por nombre no encuentre el canal correcto.",
-  "overrides": {}
+  "overrides": {
+    "TBS -EN": "TBS.HD.us2"
+  }
 }
