@@ -127,6 +127,44 @@ def test_canal_sin_programas_se_descarta(run_merge):
     assert [c.get('id') for c in root.findall('channel')] == ['Lleno.es']
 
 
+def test_canal_dado_de_baja_por_la_fuente_se_descarta(run_merge):
+    """schedulesdirect.org (visto en "HBO Family", "Universal Kids") deja el <channel> con
+    nombre real pero rellena cada franja con este placeholder cuando el feed se dio de baja.
+    Mostrarlo como si tuviera EPG es peor que dejarlo sin EPG."""
+    root = run_merge(
+        {'sources': [{'id': 'a', 'url': 'http://a'}]},
+        {'http://a': _epg(
+            [('HBOFamily.us', 'HBO Family'), ('Lleno.us', 'Lleno')],
+            [
+                ('HBOFamily.us', '20240101100000 +0000', '20240101110000 +0000',
+                 'Channel No Longer Available'),
+                ('HBOFamily.us', '20240101110000 +0000', '20240101120000 +0000',
+                 'Channel No Longer Available'),
+                ('Lleno.us', '20240101100000 +0000', '20240101110000 +0000', 'L'),
+            ],
+        )},
+    )
+    assert [c.get('id') for c in root.findall('channel')] == ['Lleno.us']
+
+
+def test_canal_con_programacion_mixta_no_se_descarta(run_merge):
+    """Si solo una franja puntual es el placeholder pero el resto de la guía es real, el canal
+    sigue teniendo valor y no hay que tirarlo entero."""
+    root = run_merge(
+        {'sources': [{'id': 'a', 'url': 'http://a'}]},
+        {'http://a': _epg(
+            [('Mixto.us', 'Mixto')],
+            [
+                ('Mixto.us', '20240101100000 +0000', '20240101110000 +0000',
+                 'Channel No Longer Available'),
+                ('Mixto.us', '20240101110000 +0000', '20240101120000 +0000', 'Programa real'),
+            ],
+        )},
+    )
+    assert [c.get('id') for c in root.findall('channel')] == ['Mixto.us']
+    assert len(root.findall('programme')) == 2
+
+
 def test_formato_viejo_de_lista_de_strings_sigue_funcionando(run_merge):
     """epg_urls.json con 'urls': [...] debe seguir cargando, con la posición como prioridad."""
     root = run_merge(

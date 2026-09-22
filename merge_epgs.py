@@ -17,6 +17,20 @@ from epg_http import download_all
 SOURCES_PATH = 'epg_urls.json'
 OUTPUT_PATH = 'merged.xml.gz'
 
+# Algunas fuentes (schedulesdirect.org, visto en "HBO Family", "Universal Kids", "NBC Sports
+# Chicago"...) dejan el <channel> con su nombre real pero le rellenan cada franja con este
+# placeholder cuando el feed que originaba la guía se dio de baja. El nombre sigue matcheando
+# perfecto contra el canal real de Xtream, así que sin este filtro el canal queda con "EPG
+# asignado" mostrando siempre el mismo texto en vez de programación — peor que no tener EPG.
+DEAD_PROGRAMME_TITLES = {'channel no longer available'}
+
+
+def _is_dead_programme(programme):
+    return any(
+        (title.text or '').strip().lower() in DEAD_PROGRAMME_TITLES
+        for title in programme.findall('title')
+    )
+
 
 def _source_id_from_url(url):
     """'.../epg_ripper_AR1.xml.gz' -> 'epg_ripper_AR1' (id estable derivado del nombre de archivo)."""
@@ -133,8 +147,19 @@ def merge_epgs():
                 if rank < existing[0]:
                     slots[start] = (rank, programme)
 
-    # Un canal sin ningún programa no sirve de nada en la guía.
-    valid_channels = {cid: elem for cid, (elem, _) in channels.items() if programmes.get(cid)}
+    # Un canal sin ningún programa no sirve de nada en la guía — y uno cuya programación
+    # entera es el placeholder de "dado de baja" (ver DEAD_PROGRAMME_TITLES) tampoco: mostrarlo
+    # como si tuviera EPG es peor que dejarlo sin EPG.
+    dead_channels = 0
+    valid_channels = {}
+    for cid, (elem, _) in channels.items():
+        slots = programmes.get(cid)
+        if not slots:
+            continue
+        if all(_is_dead_programme(prog) for _, prog in slots.values()):
+            dead_channels += 1
+            continue
+        valid_channels[cid] = elem
 
     total_programas = sum(len(s) for cid, s in programmes.items() if cid in valid_channels)
 
@@ -143,7 +168,8 @@ def merge_epgs():
     print(f"   Fuentes procesadas: {len(sources)}")
     print(f"   Canales encontrados: {len(channels)}")
     print(f"   Canales con data: {len(valid_channels)}")
-    print(f"   Canales sin programación: {len(channels) - len(valid_channels)}")
+    print(f"   Canales sin programación: {len(channels) - len(valid_channels) - dead_channels}")
+    print(f"   Canales dados de baja por la fuente (solo placeholder): {dead_channels}")
     print(f"   Programas totales: {total_programas}")
     print(f"   Programas duplicados descartados: {dropped_duplicates}")
     print("-" * 60)
