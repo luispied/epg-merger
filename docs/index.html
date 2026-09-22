@@ -306,10 +306,15 @@
     }
   }
 
+  // Los eventos de PPV son transmisiones puntuales (una pelea, un partido puntual): ningún
+  // EPG público los cubre, así que nunca van a tener match y no hay nada que corregir. Mostrarlos
+  // acá sería puro ruido — se filtran antes de que lleguen a ningún conteo o pestaña.
+  const PPV_SECTION = 'PPV EVENTS';
+
   async function loadProfile(name) {
     statusLine.textContent = 'Cargando canales…';
     const data = await fetchJSON(profiles[name] + `?_=${Date.now()}`);
-    currentChannels = data.channels || [];
+    currentChannels = (data.channels || []).filter((ch) => ch.section !== PPV_SECTION);
     applyFilters();
   }
 
