@@ -43,9 +43,11 @@ SECTIONS = {
 }
 
 STREAMS = [
-    {'stream_id': 1, 'name': 'TBS -EN', 'category_id': '1', 'container_extension': 'ts'},
+    {'stream_id': 1, 'name': 'TBS -EN', 'category_id': '1', 'container_extension': 'ts',
+     'stream_icon': 'http://xtream/tbs.png'},
     {'stream_id': 2, 'name': 'Warner TV Costa Rica', 'category_id': '2'},
-    {'stream_id': 3, 'name': 'Canal Inexistente', 'category_id': '2'},
+    {'stream_id': 3, 'name': 'Canal Inexistente', 'category_id': '2',
+     'stream_icon': 'http://xtream/generico.png'},
 ]
 CATEGORIES = {'1': 'USA ENTERTAINMENT', '2': '🇨🇷 COSTA RICA'}
 
@@ -129,6 +131,25 @@ def test_canal_sin_match_queda_con_su_nombre_como_tvg_id(proyecto, monkeypatch):
     canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
     assert canales['Canal Inexistente']['chosen'] is None
     assert 'tvg-id="Canal Inexistente"' in _playlist(proyecto, 'luis')
+
+
+def test_canal_sin_match_no_lleva_logo(proyecto, monkeypatch):
+    """El stream_icon que trae Xtream para un canal sin match confirmado no debería mostrarse:
+    da a entender que el canal tiene EPG asignado cuando no lo tiene."""
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    linea = next(l for l in playlist.splitlines() if 'tvg-id="Canal Inexistente"' in l)
+    assert 'tvg-logo=""' in linea
+    assert 'http://xtream/generico.png' not in playlist
+
+
+def test_canal_con_match_conserva_su_logo(proyecto, monkeypatch):
+    """Con match confirmado, el logo sigue siendo el del EPG (o el de Xtream si el EPG no
+    trae ícono para ese canal)."""
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    linea = next(l for l in playlist.splitlines() if 'tvg-id="TBS.us"' in l)
+    assert 'tvg-logo="http://logo/tbs.png"' in linea
 
 
 def test_el_reporte_no_lleva_credenciales(proyecto, monkeypatch):

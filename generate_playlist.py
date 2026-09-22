@@ -336,11 +336,14 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
             if c.channel_id != channel_id and c.score >= PLAUSIBLE_MIN
         ][:MAX_ALT_ENTRIES]
 
-        logo = stream.get('stream_icon', '')
+        # Sin match confirmado no hay logo: el de Xtream ("stream_icon") suele ser el del canal
+        # equivocado que el proveedor le puso a último momento o un genérico, y mostrarlo da la
+        # falsa impresión de que el canal sí tiene EPG asignado.
+        logo = ''
         if channel_id:
             matched_ids.add(channel_id)
             matched_stream_count += 1
-            logo = index.icon.get(channel_id) or logo
+            logo = index.icon.get(channel_id) or stream.get('stream_icon', '')
 
             # Cuando hay más de un candidato posible, el elegido y sus alternativas quedan en el
             # EPG del perfil con su display-name anotado (país/región/fuente) — no como entradas
