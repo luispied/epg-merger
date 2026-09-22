@@ -425,6 +425,61 @@ def test_override_sigue_usando_el_nombre_crudo_con_prefijo(tmp_path, monkeypatch
     assert 'tvg-id="Warner.cr"' in playlist
 
 
+def test_override_en_null_fuerza_sin_epg_ni_logo(tmp_path, monkeypatch):
+    """Desde la interfaz de corrección se puede elegir "forzar sin EPG": un override en `null`
+    en vez de un channel_id. Tiene que ganarle al matching automático (que para "TBS -EN"
+    normalmente encontraría TBS.us con score alto) y al fallback de epg_channel_id."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {'order': ['ENGLISH'], 'rules': [{'section': 'ENGLISH', 'starts_with': ['usa']}]}
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text(
+        json.dumps({'overrides': {'USA| TBS -EN': None}}), encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'USA| TBS -EN', 'category_id': 'us',
+                'stream_icon': 'http://xtream/tbs.png', 'epg_channel_id': 'TBS.us'}]
+    categories = {'us': 'USA Entertainment'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(tmp_path, 'luis')
+    assert 'tvg-id="TBS.us"' not in playlist
+    assert 'tvg-logo=""' in playlist
+
+    canales = {c['xtream_name']: c for c in _reporte(tmp_path, 'luis')['channels']}
+    canal = canales['USA| TBS -EN']
+    assert canal['chosen'] is None
+    assert canal['reason'] == 'override_none'
+
+
+def test_override_en_null_no_cuenta_como_sin_matchear(tmp_path, monkeypatch):
+    """Es una decisión deliberada, no un hueco a revisar: no debe inflar el conteo de
+    "sin match" del reporte."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    sections = {'order': ['ENGLISH'], 'rules': [{'section': 'ENGLISH', 'starts_with': ['usa']}]}
+    (tmp_path / 'playlist_sections.json').write_text(json.dumps(sections), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text(
+        json.dumps({'overrides': {'USA| TBS -EN': None}}), encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+
+    streams = [{'stream_id': 1, 'name': 'USA| TBS -EN', 'category_id': 'us'}]
+    categories = {'us': 'USA Entertainment'}
+    monkeypatch.setattr(generate_playlist, 'get_live_streams',
+                        lambda servers, u, p, **kw: (servers[0], streams))
+    monkeypatch.setattr(generate_playlist, 'get_live_categories',
+                        lambda s, u, p, **kw: categories)
+
+    _correr(monkeypatch, PERFILES[:1])
+    assert _reporte(tmp_path, 'luis')['stats']['unmatched'] == 0
+
+
 def test_la_playlist_no_lleva_barras_en_group_title(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
