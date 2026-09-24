@@ -125,6 +125,13 @@ nunca se manda a nada que no sea `api.github.com`. El cambio queda commiteado al
 solo se ve reflejado en la playlist después de la próxima corrida del workflow (diaria, o a
 mano con `gh workflow run merge-epgs.yml`).
 
+El buscador ("Buscar en todo el EPG") muestra al lado de cada resultado qué está dando ese
+canal ahora mismo, y también busca por nombre de programa: si en el canal de Xtream se está
+viendo "Friends", buscar `friends` lista los canales del EPG que lo están pasando en este
+momento. Los que tienen programación en este horario van primero. Para eso `generate_playlist.py`
+publica además, en `schedule/hour/<AAAAMMDDHH>.json` de la branch `data`, un índice por hora UTC
+con lo que da todo el catálogo; la página baja solo el de la hora actual (~0,5 MB comprimido).
+
 El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en vez de elegir un
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
 dejarlo sin EPG a propósito que con uno incorrecto.

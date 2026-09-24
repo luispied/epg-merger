@@ -36,6 +36,10 @@ SCHEDULE_DIR = os.path.join('out', 'schedule')
 SCHEDULE_WINDOW_PAST = datetime.timedelta(hours=1)
 SCHEDULE_WINDOW_FUTURE = datetime.timedelta(hours=30)
 SCHEDULE_MAX_ENTRIES = 60  # tope por canal, por si alguna fuente trae franjas muy cortas
+# Además del archivo por canal, un índice por hora UTC (schedule/hour/<AAAAMMDDHH>.json) con lo
+# que da TODO el catálogo en esa hora: el buscador de la interfaz baja uno solo (el de la hora
+# actual) y con eso muestra qué está dando cada resultado y permite buscar por programa.
+SCHEDULE_HOUR_SUBDIR = 'hour'
 
 _XMLTV_TIME_RE = re.compile(r'^(\d{14})\s*(?:([+-]\d{4}))?$')
 
@@ -531,9 +535,43 @@ def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
             json.dump(entries[:SCHEDULE_MAX_ENTRIES], f, ensure_ascii=False, separators=(',', ':'))
         sched_by_channel[channel_id] = filename
 
+    write_hourly_index(
+        {cid: entries[:SCHEDULE_MAX_ENTRIES] for cid, entries in by_channel.items()},
+        os.path.join(out_dir, SCHEDULE_HOUR_SUBDIR), window_start, window_end)
+
     print(f"📺 {out_dir}: programación de {len(sched_by_channel)} canales "
           f"(ventana -{SCHEDULE_WINDOW_PAST}/+{SCHEDULE_WINDOW_FUTURE})")
     return sched_by_channel
+
+
+def write_hourly_index(by_channel, out_dir, window_start, window_end):
+    """Un archivo por hora UTC de la ventana, con los programas de todos los canales que se
+    solapan con esa hora: {"h": inicio_de_la_hora, "t": [títulos],
+    "c": {channel_id: [[inicio, fin, i_título], ...]}}, con inicio/fin en minutos relativos a
+    "h" (números cortos en vez de timestamps: son decenas de miles de entradas por archivo).
+    Los títulos van deduplicados aparte porque muchos canales repiten el mismo (feeds regionales
+    del mismo canal, "Paid Programming", etc.)."""
+    first_hour = int(window_start.replace(minute=0, second=0, microsecond=0).timestamp())
+    last_hour = int(window_end.timestamp())
+    buckets = {h: ([], {}, {}) for h in range(first_hour, last_hour, 3600)}
+    for channel_id, entries in by_channel.items():
+        for start, stop, title in entries:
+            h = max(first_hour, start - (start - first_hour) % 3600)
+            while h < stop and h in buckets:
+                titles, title_idx, channels = buckets[h]
+                if title not in title_idx:
+                    title_idx[title] = len(titles)
+                    titles.append(title)
+                channels.setdefault(channel_id, []).append(
+                    [(start - h) // 60, (stop - h) // 60, title_idx[title]])
+                h += 3600
+
+    os.makedirs(out_dir, exist_ok=True)
+    for h, (titles, _, channels) in buckets.items():
+        name = datetime.datetime.fromtimestamp(h, datetime.timezone.utc).strftime('%Y%m%d%H')
+        with open(os.path.join(out_dir, f'{name}.json'), 'w', encoding='utf-8') as f:
+            json.dump({'h': h, 't': titles, 'c': channels}, f, ensure_ascii=False, separators=(',', ':'))
+    return len(buckets)
 
 
 def write_epg_catalog(index, sched_by_channel, path=EPG_CATALOG_PATH):
