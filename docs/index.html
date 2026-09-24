@@ -92,7 +92,7 @@
   .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; align-items: stretch; }
   .chip-wrap { display: flex; flex-direction: column; gap: 3px; max-width: 260px; }
   .chip {
-    background: var(--chip-bg); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--chip-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 10px; font-size: 12.5px; cursor: pointer; text-align: left;
   }
   .chip:hover { border-color: var(--accent); }
@@ -100,8 +100,9 @@
     font-size: 11px; color: var(--muted); padding: 0 2px; min-height: 13px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .catalog-search { width: 100%; }
   .search-results {
-    max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
+    max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
     margin-top: 6px; display: none;
   }
   .search-results.open { display: block; }
@@ -111,11 +112,8 @@
   .search-results .row:last-child { border-bottom: none; }
   .search-results .row:hover { background: var(--chip-bg); }
   .search-results .row small { color: var(--muted); }
-  .peek-btn {
-    background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 6px 0 0;
-    float: right;
-  }
   .search-results .chip-now { white-space: normal; }
+  .search-results .chip-now.on-air { color: var(--text); }
   .editor-msg { font-size: 12px; margin-top: 6px; min-height: 16px; }
   .editor-msg.ok { color: var(--ok); }
   .editor-msg.bad { color: var(--bad); }
@@ -262,20 +260,63 @@
     return p;
   }
 
-  function nowPlayingText(entries) {
-    if (!entries || !entries.length) return null;
-    const now = Date.now() / 1000;
-    const cur = entries.find(([start, stop]) => start <= now && now < stop);
-    if (!cur) return 'Sin programación para este horario';
-    const [, stop, title] = cur;
-    const hasta = new Date(stop * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `📺 Ahora: ${title} (hasta ${hasta})`;
+  // Índice de la hora UTC actual (schedule/hour/<AAAAMMDDHH>.json): qué da TODO el catálogo
+  // en esta hora, en un solo archivo. Es lo que permite mostrar la programación de cada
+  // resultado del buscador sin pedir un archivo por canal, y buscar por nombre de programa.
+  // null si la branch "data" todavía no lo tiene (corrida vieja) o si la hora quedó fuera de
+  // la ventana publicada — en ese caso se cae al archivo por canal.
+  const hourIndexCache = new Map();
+
+  function hourKey(date) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${date.getUTCFullYear()}${p(date.getUTCMonth() + 1)}${p(date.getUTCDate())}${p(date.getUTCHours())}`;
   }
 
-  function loadNowPlayingInto(el, channelId) {
-    fetchSchedule(channelId).then((entries) => {
-      el.textContent = nowPlayingText(entries) || '';
-    });
+  function fetchHourIndex() {
+    const key = hourKey(new Date());
+    if (!hourIndexCache.has(key)) {
+      hourIndexCache.set(key, fetchJSON(`${DATA_RAW_BASE}/schedule/hour/${key}.json`).catch(() => null));
+    }
+    return hourIndexCache.get(key);
+  }
+
+  // -> {title, stop} si hay algo en el aire ahora, null si no.
+  function nowFromHourIndex(idx, channelId) {
+    const entries = idx.c[channelId];
+    if (!entries) return null;
+    const now = Date.now() / 1000;
+    for (const [s, e, t] of entries) {
+      const start = idx.h + s * 60;
+      const stop = idx.h + e * 60;
+      if (start <= now && now < stop) return { title: idx.t[t], stop };
+    }
+    return null;
+  }
+
+  function nowFromEntries(entries) {
+    const now = Date.now() / 1000;
+    const cur = (entries || []).find(([start, stop]) => start <= now && now < stop);
+    return cur ? { title: cur[2], stop: cur[1] } : null;
+  }
+
+  function nowPlayingText(cur) {
+    if (!cur) return 'Sin programación para este horario';
+    const hasta = new Date(cur.stop * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `📺 Ahora: ${cur.title} (hasta ${hasta})`;
+  }
+
+  async function loadNowPlayingInto(el, channelId) {
+    const idx = await fetchHourIndex();
+    if (idx) {
+      el.textContent = nowPlayingText(nowFromHourIndex(idx, channelId));
+      return;
+    }
+    const entries = await fetchSchedule(channelId);
+    el.textContent = entries && entries.length ? nowPlayingText(nowFromEntries(entries)) : '';
+  }
+
+  function normalize(s) {
+    return String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   }
 
   function getToken() {
@@ -434,7 +475,7 @@
     return `
       ${currentBlock}
       ${alts.length ? `<div class="card-meta">Alternativas ya calculadas:</div><div class="chip-row">${chips}</div>` : ''}
-      <input type="search" class="catalog-search" placeholder="Buscar en todo el EPG (nombre, país)…">
+      <input type="search" class="catalog-search" placeholder="Buscar en todo el EPG: canal o programa que está dando ahora…">
       <div class="search-results"></div>
       <div class="chip-row" style="margin-top:10px;">
         <button class="chip force-none-btn" style="color:var(--bad); border-color:var(--bad);">
@@ -463,35 +504,50 @@
     });
   }
 
-  function renderCatalogSearch(term, resultsEl, ch, editor) {
-    term = term.trim().toLowerCase();
+  const SEARCH_LIMIT = 50;
+  let searchSeq = 0;
+
+  // Busca por nombre/id del canal Y por lo que está dando ahora (índice de la hora actual), y
+  // muestra la programación de cada resultado directo en la lista: así se puede comparar con
+  // lo que se ve en el canal de Xtream en vez de elegir a ciegas. Los que tienen algo en el
+  // aire van primero; los que no tienen programación para este horario, al final.
+  async function renderCatalogSearch(term, resultsEl, ch, editor) {
+    term = normalize(term.trim());
     if (term.length < 2) { resultsEl.classList.remove('open'); resultsEl.innerHTML = ''; return; }
+    const seq = ++searchSeq;
+    const idx = await fetchHourIndex();
+    if (seq !== searchSeq) return; // llegó otra búsqueda mientras se bajaba el índice
+
     const matches = [];
     for (const c of catalog) {
-      if (c.name.toLowerCase().includes(term) || c.id.toLowerCase().includes(term)) {
-        matches.push(c);
-        if (matches.length >= 40) break;
-      }
+      const byName = normalize(c.name).includes(term) || c.id.toLowerCase().includes(term);
+      const cur = idx ? nowFromHourIndex(idx, c.id) : null;
+      const byProgram = !!cur && normalize(cur.title).includes(term);
+      if (byName || byProgram) matches.push({ c, cur, byProgram });
     }
-    resultsEl.innerHTML = matches.map((c) => `
+    // Sin índice no se sabe todavía qué da cada uno: se conserva el orden del catálogo.
+    if (idx) matches.sort((a, b) => (!a.cur - !b.cur));
+    const shown = matches.slice(0, SEARCH_LIMIT);
+
+    const summary = idx
+      ? `${matches.length} resultado(s)${matches.length > SEARCH_LIMIT ? `, mostrando ${SEARCH_LIMIT}` : ''} · primero los que tienen programación ahora`
+      : 'Programación por hora no disponible todavía: se carga canal por canal.';
+    resultsEl.innerHTML = `<div class="row"><small>${escapeHtml(summary)}</small></div>` + (shown.map(({ c, cur, byProgram }) => `
       <div class="row" data-id="${escapeHtml(c.id)}">
-        <button class="peek-btn" data-peek="${escapeHtml(c.id)}" title="Ver qué está dando ahora">📺</button>
         ${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''}
         <br><small>${escapeHtml(c.id)}${c.source ? ' · ' + escapeHtml(c.source) : ''}</small>
-        <div class="chip-now" data-peek-result="${escapeHtml(c.id)}"></div>
+        <div class="chip-now${cur ? ' on-air' : ''}" data-now-for="${escapeHtml(c.id)}">${
+          idx ? escapeHtml(nowPlayingText(cur)) + (byProgram ? ' ← coincide con la búsqueda' : '') : 'Cargando programación…'
+        }</div>
       </div>
-    `).join('') || '<div class="row"><small>Sin resultados</small></div>';
+    `).join('') || '<div class="row"><small>Sin resultados</small></div>');
     resultsEl.classList.add('open');
     resultsEl.querySelectorAll('.row[data-id]').forEach((row) => {
       row.addEventListener('click', () => saveOverride(ch, row.dataset.id, editor));
     });
-    resultsEl.querySelectorAll('.peek-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // no disparar la selección del canal, solo mostrar programación
-        const target = resultsEl.querySelector(`[data-peek-result="${CSS.escape(btn.dataset.peek)}"]`);
-        loadNowPlayingInto(target, btn.dataset.peek);
-      });
-    });
+    if (!idx) {
+      resultsEl.querySelectorAll('[data-now-for]').forEach((el) => loadNowPlayingInto(el, el.dataset.nowFor));
+    }
   }
 
   // ------------------------------------------------------------- guardar en GitHub

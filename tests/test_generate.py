@@ -208,6 +208,38 @@ def test_schedule_snapshot_solo_incluye_la_ventana_de_ahora(tmp_path):
     assert [e[2] for e in entries] == ['Ya casi termina, todavia en curso', 'Mas tarde hoy']
 
 
+def test_schedule_snapshot_arma_indice_por_hora(tmp_path):
+    """El buscador de la interfaz baja un solo archivo (el de la hora actual) para mostrar qué
+    está dando cada canal del catálogo y poder buscar por programa: cada hora tiene que traer
+    todos los programas que se solapan con ella, y ninguno que no."""
+    now = generate_playlist.datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+    root = etree.fromstring("""<tv>
+      <programme channel="A.us" start="20260101113000 +0000" stop="20260101123000 +0000">
+        <title>Noticias</title></programme>
+      <programme channel="A.us" start="20260101123000 +0000" stop="20260101130000 +0000">
+        <title>Friends</title></programme>
+      <programme channel="B.us" start="20260101120000 +0000" stop="20260101140000 +0000">
+        <title>Friends</title></programme>
+    </tv>""")
+    generate_playlist.write_schedule_snapshot(root, out_dir=str(tmp_path), now=now)
+
+    def hora(nombre):
+        with open(tmp_path / 'hour' / f'{nombre}.json', encoding='utf-8') as f:
+            data = json.load(f)
+        return {cid: [data['t'][e[2]] for e in entries] for cid, entries in data['c'].items()}
+
+    assert hora('2026010111') == {'A.us': ['Noticias']}
+    with open(tmp_path / 'hour' / '2026010112.json', encoding='utf-8') as f:
+        data = json.load(f)
+    assert data['h'] == int(now.timestamp())
+    # inicio/fin en minutos relativos a la hora del archivo
+    assert [e[:2] for e in data['c']['A.us']] == [[-30, 30], [30, 60]]
+    assert hora('2026010112') == {'A.us': ['Noticias', 'Friends'], 'B.us': ['Friends']}
+    assert hora('2026010113') == {'B.us': ['Friends']}
+    assert hora('2026010114') == {}
+
+
 def test_el_reporte_no_lleva_credenciales(proyecto, monkeypatch):
     """El reporte se guarda como artifact para diffear entre corridas: no puede llevar
     las URLs de stream, que sí tienen usuario y contraseña adentro."""
