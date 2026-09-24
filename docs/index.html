@@ -82,6 +82,7 @@
   .badge.bad { color: var(--bad); background: var(--bad-bg); }
   .badge.override { color: var(--accent); background: var(--chip-bg); }
   .card-epg { margin-top: 6px; font-size: 13px; }
+  .card-now { margin-top: 2px; font-size: 12px; white-space: normal; }
   .card-actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
   .card-actions button { font-size: 12px; padding: 5px 10px; }
   .editor {
@@ -421,12 +422,19 @@
         </div>
       </div>
       <div class="card-epg">${epgText}</div>
+      ${ch.chosen && !forcedNoEpg ? '<div class="chip-now card-now">Cargando programación…</div>' : ''}
       <div class="card-actions">
         <button class="ghost edit-btn">Cambiar EPG</button>
         ${hasOverride ? '<button class="ghost danger remove-btn">Quitar override</button>' : ''}
       </div>
       <div class="editor"></div>
     `;
+
+    // Qué está dando ahora el EPG asignado, para comparar con lo que se ve en el canal sin
+    // tener que abrir el editor. Sale del índice de la hora actual (un solo archivo para toda
+    // la lista), así que no cuesta un pedido por tarjeta.
+    const nowEl = el.querySelector('.card-now');
+    if (nowEl) loadNowPlayingInto(nowEl, ch.chosen);
 
     el.querySelector('.edit-btn').addEventListener('click', () => toggleEditor(el, ch));
     const removeBtn = el.querySelector('.remove-btn');
