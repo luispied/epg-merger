@@ -354,11 +354,15 @@
   // EPG público los cubre, así que nunca van a tener match y no hay nada que corregir. Mostrarlos
   // acá sería puro ruido — se filtran antes de que lleguen a ningún conteo o pestaña.
   const PPV_SECTION = 'PPV EVENTS';
+  // Excepción: categorías de la sección PPV que en realidad son canales fijos (DAZN 1, 2, 3…,
+  // no eventos puntuales), así que sí tienen EPG público y vale la pena corregirlos.
+  const PPV_EDITABLE_CATEGORIES = new Set(['PPV DAZN']);
 
   async function loadProfile(name) {
     statusLine.textContent = 'Cargando canales…';
     const data = await fetchJSON(profiles[name] + `?_=${Date.now()}`);
-    currentChannels = (data.channels || []).filter((ch) => ch.section !== PPV_SECTION);
+    currentChannels = (data.channels || []).filter(
+      (ch) => ch.section !== PPV_SECTION || PPV_EDITABLE_CATEGORIES.has(ch.category));
     applyFilters();
   }
 
