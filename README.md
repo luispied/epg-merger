@@ -157,7 +157,9 @@ además el permiso `Actions: Read and write`.
 Cada cambio se guarda al instante y muestra abajo un aviso con **Deshacer** por unos segundos.
 Renombrar, mover de categoría, ocultar y volver al EPG automático están en **⋯ Más** de cada
 tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta
-los renombrados, movidos y ocultos.
+los renombrados, movidos y ocultos. La categoría **General** (donde caen los canales sin
+categoría en Xtream, sobre todo eventos sueltos) no aparece en "A revisar", pero sí en "Sin EPG"
+y "Todos".
 
 El botón **"🚫 Dejar sin EPG"** del editor guarda un override en `null` en vez de elegir un
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
