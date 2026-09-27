@@ -75,6 +75,14 @@
     { "id": "openepg-unitedstates11", "url": "https://open-epg.com/files/unitedstates11.xml.gz", "country": "us" },
     { "id": "acidjesuz-us", "url": "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_guide.xml.gz", "country": "us" },
     { "id": "openepg-uruguay", "url": "https://open-epg.com/files/uruguay.xml.gz", "country": "uy" },
-    { "id": "epgshare-uy1", "url": "https://epgshare01.online/epgshare01/epg_ripper_UY1.xml.gz", "country": "uy" }
+    { "id": "epgshare-uy1", "url": "https://epgshare01.online/epgshare01/epg_ripper_UY1.xml.gz", "country": "uy" },
+    { "id": "epgshare-br2", "url": "https://epgshare01.online/epgshare01/epg_ripper_BR2.xml.gz", "country": "br" },
+    { "id": "openepg-brazil1", "url": "https://open-epg.com/files/brazil1.xml.gz", "country": "br" },
+    { "id": "epgshare-do1", "url": "https://epgshare01.online/epgshare01/epg_ripper_DO1.xml.gz", "country": "do" },
+    { "id": "openepg-guatemala2", "url": "https://open-epg.com/files/guatemala2.xml.gz", "country": "gt" },
+    { "id": "openepg-honduras", "url": "https://open-epg.com/files/honduras.xml.gz", "country": "hn" },
+    { "id": "openepg-puertorico1", "url": "https://open-epg.com/files/puertorico1.xml.gz", "country": "pr" },
+    { "id": "openepg-elsalvador1", "url": "https://open-epg.com/files/elsalvador1.xml.gz", "country": "sv" },
+    { "id": "openepg-venezuela1", "url": "https://open-epg.com/files/venezuela1.xml.gz", "country": "ve" }
   ]
 }
