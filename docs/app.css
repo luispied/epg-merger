@@ -57,6 +57,14 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* App instalada en iPhone (status bar translúcida): una franja del color de la barra fija
+   tapa la zona de la hora/batería para que el contenido no pase por debajo al hacer scroll. */
+body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+  height: env(safe-area-inset-top, 0px); background: var(--toolbar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+}
+
 /* ------------------------------------------------------------------ íconos */
 .icon { width: 18px; height: 18px; flex: none; display: inline-block; vertical-align: -3px; }
 .icon.sm { width: 14px; height: 14px; vertical-align: -2px; }
@@ -65,13 +73,13 @@ a:hover { text-decoration: underline; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ------------------------------------------------------------------ encabezado */
-.app-header { padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 6px; }
+.app-header { padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .app-header h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
-.app-header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
 
 /* Lo fijo arriba: buscador, acciones y filtros (el título se va con el scroll). */
 .toolbar {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
   padding: 10px var(--gutter) 10px;
   background: var(--toolbar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
@@ -297,3 +305,20 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
   .wide { display: none; }
   #runWorkflowBtn { padding: 0 12px; gap: 4px; }
 }
+
+/* ------------------------------------------------------------------ ayuda */
+.help-sheet { max-height: 88vh; }
+.help-sheet .sheet-body { overflow-y: auto; max-height: 88vh; }
+.help-sheet .title-row { margin-bottom: 6px; }
+.help-sheet h2 { margin: 0; }
+.help-sheet details { background: var(--surface-2); border-radius: var(--radius-sm); margin-top: 8px; }
+.help-sheet summary {
+  list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; font-size: 15px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.help-sheet summary::-webkit-details-marker { display: none; }
+.help-sheet summary .icon { color: var(--muted); transition: transform .2s ease; }
+.help-sheet details[open] summary .icon { transform: rotate(180deg); }
+.help-sheet details p { margin: 0; padding: 0 14px 12px; color: var(--text); font-size: 14.5px; }
+.help-sheet details[open] p { animation: slide-down .2s ease both; }
+@media (max-width: 600px) { .help-sheet { max-height: 92vh; } .help-sheet .sheet-body { max-height: 92vh; } }

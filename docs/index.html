@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<title>Corrección de EPG</title>
+<title>Grilla — Guía de canales</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grilla">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="app.css">
 <script src="icons.js" defer></script>
 <script src="app.js" defer></script>
@@ -13,8 +20,10 @@
 <body>
 
 <header class="app-header">
-  <h1>Corrección de EPG</h1>
-  <p>Cada cambio se guarda al instante y vale para todos los perfiles. Se aplica a la playlist al correr el workflow.</p>
+  <div class="title-row">
+    <h1>Grilla</h1>
+    <button class="icon-btn" id="helpBtn" title="Ayuda" aria-label="Ayuda"><span data-icon="circle-help"></span></button>
+  </div>
 </header>
 
 <div class="toolbar">
@@ -28,12 +37,12 @@
     <button class="icon-btn" id="settingsBtn" title="Token de GitHub" aria-label="Token de GitHub"><span data-icon="key-round"></span></button>
   </div>
   <nav class="segmented" id="filterTabs" aria-label="Filtros">
+    <button data-filter="todos" data-label="Todos">Todos</button>
     <button data-filter="revisar" data-label="A revisar">A revisar</button>
     <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
     <button data-filter="override" data-label="EPG manual">EPG manual</button>
     <button data-filter="editados" data-label="Editados">Editados</button>
     <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
-    <button data-filter="todos" data-label="Todos">Todos</button>
   </nav>
 </div>
 
@@ -63,6 +72,67 @@
       <button class="btn btn-primary" value="save">Guardar</button>
     </div>
   </form>
+</dialog>
+
+<dialog class="sheet help-sheet" id="helpDialog" aria-labelledby="helpTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="helpTitle">Cómo usar Grilla</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <p>Grilla muestra los canales de tu playlist con la guía (EPG) que tiene asignada cada uno y lo que está dando ahora, para que corrijas lo que esté mal.</p>
+
+    <details open>
+      <summary>¿Cómo cambio el EPG de un canal?<span data-icon="chevron-down"></span></summary>
+      <p>Tocá <b>Cambiar EPG</b> en la tarjeta. Arriba aparecen las <b>alternativas</b> que ya se calcularon; abajo podés <b>buscar en todo el EPG</b> por nombre del canal o por el programa que está dando ahora: si en el canal ves un partido, buscá el partido. Tocá una opción y queda elegida.</p>
+      <p>Si ninguna guía sirve, <b>Dejar sin EPG</b> lo deja sin guía a propósito (mejor sin EPG que con uno equivocado).</p>
+    </details>
+
+    <details>
+      <summary>¿Qué significan Bien, Dudoso y Débil?<span data-icon="chevron-down"></span></summary>
+      <p>Qué tan seguro está el emparejamiento automático entre el canal y su guía: <b>Bien</b> casi seguro es correcto, <b>Dudoso</b> conviene revisarlo, <b>Débil</b> probablemente está mal. <b>Manual</b> es un EPG que elegiste vos y <b>Sin EPG</b> un canal sin guía.</p>
+    </details>
+
+    <details>
+      <summary>¿Cómo renombro un canal o lo cambio de categoría?<span data-icon="chevron-down"></span></summary>
+      <p>Tocá <b>Más</b> en la tarjeta: ahí está el nombre que se ve en la playlist y la categoría. El EPG no cambia al renombrar o mover. Para volver atrás, <b>Nombre original</b> o elegí la categoría marcada como <i>(original)</i>.</p>
+    </details>
+
+    <details>
+      <summary>¿Cómo oculto un canal?<span data-icon="chevron-down"></span></summary>
+      <p>Con el <b>ojo</b> de la tarjeta: abierto es visible, tachado es oculto. Un canal oculto sale de la playlist pero sigue acá, en el filtro <b>Ocultos</b>, para volver a mostrarlo.</p>
+    </details>
+
+    <details>
+      <summary>¿Cuándo se ven los cambios en la playlist?<span data-icon="chevron-down"></span></summary>
+      <p>Cada cambio se guarda al instante, pero la playlist se regenera cuando corre el <b>workflow</b>: todos los días solo, o cuando tocás el botón de <b>play</b>. Si hay cambios sin aplicar, el botón muestra cuántos. Tarda unos 8 minutos y te aviso cuando termina.</p>
+    </details>
+
+    <details>
+      <summary>Me equivoqué, ¿cómo deshago?<span data-icon="chevron-down"></span></summary>
+      <p>Después de cada cambio aparece un aviso abajo con <b>Deshacer</b> por unos segundos. Más tarde, cada cambio se revierte desde el mismo lugar: <b>Más → Volver al EPG automático</b>, <b>Nombre original</b>, la categoría <i>(original)</i> o el ojo.</p>
+    </details>
+
+    <details>
+      <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
+      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG (sin contar eventos sueltos de "General" ni los 24/7). <b>Sin EPG</b>: canales sin guía. <b>EPG manual</b>: los que elegiste vos. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist.</p>
+    </details>
+
+    <details>
+      <summary>Dice "Sin programación para este horario"<span data-icon="chevron-down"></span></summary>
+      <p>Esa guía no tiene nada cargado para esta hora. Si pasa en casi todos los canales, la programación publicada venció (cubre unas 30 horas desde la última corrida): corré el workflow y después tocá <b>actualizar</b> (las flechas en círculo).</p>
+    </details>
+
+    <details>
+      <summary>¿Qué es el token y dónde lo consigo?<span data-icon="chevron-down"></span></summary>
+      <p>Es el permiso para guardar cambios en GitHub. Creá un <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> solo para <code>luispied/epg-merger</code> con <b>Contents</b> y <b>Actions</b> en <i>Read and write</i>, y pegalo con el botón de la <b>llave</b>. Queda guardado solo en este dispositivo.</p>
+    </details>
+
+    <details>
+      <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
+      <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa, sin la barra del navegador. En iPhone la app instalada guarda sus datos aparte: pegá el token una vez más.</p>
+    </details>
+  </div>
 </dialog>
 
 <dialog class="sheet" id="confirmDialog">

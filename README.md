@@ -105,6 +105,10 @@ mejor alternativa: mejor sin EPG que con uno equivocado.
 
 ### Interfaz de corrección (`docs/`)
 
+**Grilla** (https://luispied.github.io/epg-merger/) es la interfaz para corregir la playlist
+desde el celular o la compu. Tiene una sección de ayuda (botón **?** arriba, y se abre sola la
+primera vez) que explica cómo usarla.
+
 `docs/` (`index.html` + `app.css` + `app.js` + `icons.js`), servida por GitHub Pages, lista los canales con el EPG que se les asignó
 (como todos los perfiles comparten canales y cambios, muestra siempre el primero) (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se
 excluyen: son transmisiones puntuales que ningún EPG público cubre, así que nunca van a
@@ -159,6 +163,17 @@ también hay avisos al lanzar el workflow, cuando termina (o falla), al actualiz
 guardar el token. El ojo de cada tarjeta muestra y cambia si el canal está visible u oculto en la
 playlist. Los íconos son SVG de [Lucide](https://lucide.dev) (licencia ISC) embebidos en
 `docs/icons.js`, sin depender de ninguna librería externa.
+
+La página es una **PWA**: en el celular se puede agregar a la pantalla de inicio ("Agregar a
+inicio" en Safari, "Instalar app" en Chrome) y abre a pantalla completa, sin la barra del
+navegador. `docs/sw.js` guarda solo la interfaz (network-first: siempre busca primero la versión
+publicada y usa la guardada únicamente sin conexión); los datos siempre vienen de la red. En
+iPhone la app instalada tiene su propio almacenamiento, así que la primera vez hay que volver a
+pegar el token.
+
+`docs/app.js` es JavaScript sin compilar, pero con tipos en comentarios (JSDoc + `// @ts-check`,
+tipos de los datos en `docs/types.d.ts`). El workflow **Check UI** corre `tsc -p docs` en cada PR
+que toca `docs/`; localmente: `npx -p typescript@5.9 tsc -p docs`.
 
 Renombrar, mover de categoría y volver al EPG automático están en **Más** de cada
 tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta

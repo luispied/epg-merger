@@ -1,0 +1,26 @@
+name: Check UI
+
+# Chequeo de tipos de la interfaz de corrección (docs/). No compila nada: app.js es JavaScript
+# con tipos en comentarios (JSDoc + // @ts-check) y GitHub Pages lo sirve tal cual.
+on:
+  pull_request:
+    paths: ['docs/**', '.github/workflows/check-ui.yml']
+  push:
+    branches: [main]
+    paths: ['docs/**', '.github/workflows/check-ui.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Type-check docs/app.js
+      run: npx --yes -p typescript@5.9 tsc -p docs
+    - name: Syntax-check the service worker
+      run: node --check docs/sw.js
