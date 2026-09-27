@@ -433,6 +433,8 @@
   // generate_playlist.py pone los canales cuya categoría no viene en la lista de Xtream: sobre
   // todo eventos sueltos ("09/26 Soccer … = SKY SPORTS MIX") que nunca van a tener EPG.
   const REVIEW_EXCLUDED_CATEGORIES = new Set(['General']);
+  // Lo mismo por sección: los canales 24/7 (series/películas en loop) no tienen EPG público.
+  const REVIEW_EXCLUDED_SECTIONS = new Set(['24/7']);
 
   async function loadProfile(name) {
     currentProfile = name;
@@ -462,7 +464,8 @@
       case 'sin-epg': return !ch.chosen && !hasOverride;
       case 'override': return hasOverride;
       case 'revisar':
-        if (hasOverride || REVIEW_EXCLUDED_CATEGORIES.has(effectiveCategory(ch))) return false;
+        if (hasOverride || REVIEW_EXCLUDED_CATEGORIES.has(effectiveCategory(ch))
+            || REVIEW_EXCLUDED_SECTIONS.has(effectiveSection(ch))) return false;
         return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
       default: return true;
     }
@@ -669,6 +672,11 @@
 
   function effectiveCategory(ch) {
     return movedCategoryOf(ch) || ch.category;
+  }
+
+  function effectiveSection(ch) {
+    const moved = movedCategoryOf(ch);
+    return moved ? sectionOfCategory.get(moved) : ch.section;
   }
 
   // Categorías reales del perfil (sin separadores), agrupadas por sección, para el desplegable.
