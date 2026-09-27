@@ -169,7 +169,8 @@
     "Spain: M+ Dazn F1 FHD": "DAZN F1 HD",
     "Spain: M+ Dazn F1 HD": "DAZN F1 HD",
     "Spain: Movistar Dazn 1 FHD": "dazn1.es",
-    "Spain: Movistar Dazn 1 FHD (h265)": "DAZN.1.es"
+    "Spain: Movistar Dazn 1 FHD (h265)": "DAZN.1.es",
+    "Spain: Movistar Dazn 1 HD": "dazn1.es"
   },
   "hidden": {
     "AAA": true,
