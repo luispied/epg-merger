@@ -159,7 +159,7 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
 
 .card {
   background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 14px 14px 8px; animation: fade-in .2s ease both;
+  padding: 14px; animation: fade-in .2s ease both;
   transition: opacity .2s ease;
 }
 .card.is-hidden { opacity: .5; }
@@ -169,8 +169,8 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
 .card-name { font-size: 17px; font-weight: 600; line-height: 1.25; word-break: break-word; }
 .card-sub { color: var(--muted); font-size: 13px; margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .card-note { color: var(--muted); font-size: 14px; margin-top: 10px; }
-.card-actions { display: flex; align-items: center; gap: 2px; margin: 6px -8px 0; }
-.card-actions .spacer { flex: 1; }
+.card-top .tag { margin-top: 3px; }
+.card-menu-btn { width: 32px; height: 32px; margin: -4px -6px 0 -4px; }
 
 /* Estado: punto de color + texto (o ícono para los manuales). */
 .tag {
@@ -188,6 +188,7 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
   display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
   color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px;
 }
+.pill.muted { color: var(--muted); background: var(--fill); }
 
 /* Un canal del EPG se muestra siempre igual: tarjeta, alternativas y búsqueda. */
 .epg-row { padding: 10px 12px; font-size: 14px; }
@@ -231,9 +232,17 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
 
 /* Paneles desplegables de la tarjeta ("Cambiar EPG" y "Más"). */
 .panel {
-  border-top: .5px solid var(--hairline); margin: 8px -14px 0; padding: 4px 14px 10px;
+  border-top: .5px solid var(--hairline); margin: 12px -14px -4px; padding: 6px 14px 0;
   animation: slide-down .22s ease both;
 }
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.panel-head .section-label { margin: 0 4px; }
+.panel-body > .section-label:first-child { margin-top: 0; }
+.icon-btn.sm { width: 32px; height: 32px; margin-right: -6px; }
+.icon-btn.filled { background: var(--accent); color: var(--on-accent); }
+.inline-field { display: flex; gap: 8px; align-items: center; }
+.inline-field .input { flex: 1; min-width: 0; }
+.inline-field .icon-btn { width: 44px; height: 44px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .field > span { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); padding-left: 4px; }
 .input, .select {
@@ -361,6 +370,8 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
 .settings-sheet { max-height: 88vh; }
 .settings-sheet .sheet-body { overflow-y: auto; max-height: 88vh; }
 .settings-sheet h2 { margin: 0; }
+.sheet-body .menu-title { margin: 0; font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cardMenuBody .menu:first-child { margin-top: 12px; }
 .menu { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; margin-top: 12px; }
 .menu > * + * { border-top: .5px solid var(--hairline); }
 .menu-row {

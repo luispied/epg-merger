@@ -164,7 +164,7 @@
 
     <details open>
       <summary>¿Cómo cambio el EPG de un canal?<span data-icon="chevron-down"></span></summary>
-      <p>Tocá <b>Cambiar EPG</b> en la tarjeta. Arriba aparecen las <b>alternativas</b> que ya se calcularon; abajo podés <b>buscar en todo el EPG</b> por nombre del canal o por el programa que está dando ahora: si en el canal ves un partido, buscá el partido. Tocá una opción y queda elegida.</p>
+      <p>Tocá <b>…</b> en la tarjeta → <b>Cambiar EPG</b>. Arriba aparecen las <b>alternativas</b> que ya se calcularon; abajo podés <b>buscar en todo el EPG</b> por nombre del canal o por el programa que está dando ahora: si en el canal ves un partido, buscá el partido. Tocá una opción y queda elegida.</p>
       <p>Si ninguna guía sirve, <b>Dejar sin EPG</b> lo deja sin guía a propósito (mejor sin EPG que con uno equivocado).</p>
     </details>
 
@@ -175,12 +175,12 @@
 
     <details>
       <summary>¿Cómo renombro un canal o lo cambio de categoría?<span data-icon="chevron-down"></span></summary>
-      <p>Tocá <b>Más</b> en la tarjeta: ahí está el nombre que se ve en la playlist y la categoría. El EPG no cambia al renombrar o mover. Para volver atrás, <b>Nombre original</b> o elegí la categoría marcada como <i>(original)</i>.</p>
+      <p>Tocá <b>…</b> en la tarjeta → <b>Cambiar nombre</b> o <b>Mover de categoría</b>. El EPG no cambia al renombrar o mover. Para volver atrás, el botón de <b>nombre original</b> (flecha circular) o elegí la categoría marcada como <i>(original)</i>.</p>
     </details>
 
     <details>
       <summary>¿Cómo oculto un canal?<span data-icon="chevron-down"></span></summary>
-      <p>Con el <b>ojo</b> de la tarjeta: abierto es visible, tachado es oculto. Un canal oculto sale de la playlist pero sigue acá, en el filtro <b>Ocultos</b>, para volver a mostrarlo.</p>
+      <p>Tocá <b>…</b> en la tarjeta → <b>Ocultar de la playlist</b>; la tarjeta queda atenuada con la marca <i>Oculto</i>. Un canal oculto sale de la playlist pero sigue acá, en el filtro <b>Ocultos</b>, para volver a mostrarlo.</p>
     </details>
 
     <details>
@@ -190,7 +190,7 @@
 
     <details>
       <summary>Me equivoqué, ¿cómo deshago?<span data-icon="chevron-down"></span></summary>
-      <p>Después de cada cambio aparece un aviso abajo con <b>Deshacer</b> por unos segundos. Más tarde, cada cambio se revierte desde el mismo lugar: <b>Más → Volver al EPG automático</b>, <b>Nombre original</b>, la categoría <i>(original)</i> o el ojo.</p>
+      <p>Después de cada cambio aparece un aviso abajo con <b>Deshacer</b> por unos segundos. Más tarde, cada cambio se revierte desde el mismo lugar: el menú <b>…</b> de la tarjeta: <b>Volver al EPG automático</b>, el nombre original, la categoría <i>(original)</i> o <b>Mostrar en la playlist</b>.</p>
     </details>
 
     <details>
@@ -212,6 +212,16 @@
       <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
       <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa, sin la barra del navegador. En iPhone la app instalada guarda sus datos aparte: pegá el token una vez más.</p>
     </details>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="cardMenuDialog" aria-labelledby="cardMenuTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="cardMenuTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="cardMenuBody"></div>
   </div>
 </dialog>
 

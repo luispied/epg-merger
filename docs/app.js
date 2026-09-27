@@ -707,32 +707,65 @@
           <div class="card-sub">
             <span>${esc(effectiveCategory(ch))}${section ? ' · ' + esc(section) : ''}</span>
             ${movedTo ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}
+            ${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}
           </div>
         </div>
         ${divider ? '' : qualityTag(ch)}
+        <button class="icon-btn ghost card-menu-btn" aria-haspopup="dialog" aria-label="Opciones del canal"
+          title="Opciones">${icon('ellipsis')}</button>
       </div>
       ${body}
-      <div class="card-actions">
-        ${divider ? '' : `
-          <button class="btn btn-plain" data-panel="editor" aria-expanded="false">${icon('pencil')}Cambiar EPG</button>
-          <button class="btn btn-plain" data-panel="more" aria-expanded="false">${icon('ellipsis')}Más</button>`}
-        <span class="spacer"></span>
-        <button class="icon-btn ghost hide-btn${hidden ? '' : ' on'}" aria-pressed="${!hidden}"
-          title="${hidden ? 'Oculto en la playlist: tocá para mostrarlo' : 'Visible en la playlist: tocá para ocultarlo'}"
-          aria-label="${hidden ? 'Mostrar en la playlist' : 'Ocultar de la playlist'}">${icon(hidden ? 'eye-off' : 'eye')}</button>
-      </div>
-      <div class="panel" data-for="editor" hidden></div>
-      <div class="panel" data-for="more" hidden></div>
+      <div class="panel" hidden></div>
     `;
 
     fillNowPlaying(el);
     fillLogos(el);
-    $('.hide-btn', el).addEventListener('click', () => {
-      const hide = !isHidden(ch);
-      setEntry('hidden', key, hide ? true : undefined, hide ? 'Canal oculto de la playlist' : 'Canal visible en la playlist');
-    });
-    $$('[data-panel]', el).forEach((btn) => btn.addEventListener('click', () => togglePanel(el, ch, btn.dataset.panel)));
+    $('.card-menu-btn', el).addEventListener('click', () => openCardMenu(el, ch));
     return el;
+  }
+
+  // ---- Menú "…" de la tarjeta: todas las acciones del canal en una hoja, para que la tarjeta
+  // quede limpia. Las que necesitan datos (EPG, nombre, categoría) abren su panel en la tarjeta;
+  // las demás se aplican directo.
+  const cardMenuDialog = /** @type {HTMLDialogElement} */ ($('#cardMenuDialog'));
+
+  /** @param {string} iconName @param {string} label @param {string} sub @param {string} action @param {string} [cls] */
+  function menuRowHtml(iconName, label, sub, action, cls = '') {
+    return `<button class="menu-row ${cls}" data-action="${action}">
+      <span class="menu-icon">${icon(iconName)}</span>
+      <span class="menu-text">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+    </button>`;
+  }
+
+  function openCardMenu(cardEl, ch) {
+    const key = ch.xtream_name;
+    const hidden = isHidden(ch);
+    const epg = currentEpgOf(ch);
+    const rows = [];
+    if (!isDivider(ch)) {
+      rows.push(menuRowHtml('pencil', 'Cambiar EPG', epg ? catalogEntry(epg).name : 'Sin EPG', 'editor'));
+      rows.push(menuRowHtml('text-cursor-input', 'Cambiar nombre', renameOf(ch) || key, 'rename'));
+      rows.push(menuRowHtml('folder-input', 'Mover de categoría', effectiveCategory(ch), 'category'));
+    }
+    rows.push(menuRowHtml(hidden ? 'eye' : 'eye-off', hidden ? 'Mostrar en la playlist' : 'Ocultar de la playlist',
+      hidden ? 'Ahora está oculto' : 'Ahora está visible', 'visibility'));
+    const extra = hasOverride(ch)
+      ? `<div class="menu">${menuRowHtml('undo-2', 'Volver al EPG automático', 'Descarta el EPG elegido a mano', 'auto-epg', 'danger')}</div>`
+      : '';
+    $('#cardMenuTitle').textContent = renameOf(ch) || key;
+    $('#cardMenuBody').innerHTML = `<div class="menu">${rows.join('')}</div>${extra}`;
+    $$('[data-action]', $('#cardMenuBody')).forEach((btn) => btn.addEventListener('click', () => {
+      cardMenuDialog.close();
+      const action = btn.dataset.action || '';
+      if (action === 'visibility') {
+        setEntry('hidden', key, hidden ? undefined : true, hidden ? 'Canal visible en la playlist' : 'Canal oculto de la playlist');
+      } else if (action === 'auto-epg') {
+        setEntry('overrides', key, undefined, 'Vuelve al EPG automático');
+      } else {
+        openPanel(cardEl, ch, action);
+      }
+    }));
+    cardMenuDialog.showModal();
   }
 
   // Re-renderiza solo las tarjetas de ese canal (puede haber varias con el mismo nombre en
@@ -746,16 +779,27 @@
 
   // Un solo panel abierto a la vez en toda la lista. Se arman al abrirse (no para las 60
   // tarjetas de la página): el desplegable de categorías solo tiene ~100 opciones.
-  function togglePanel(cardEl, ch, kind) {
-    const panel = $(`.panel[data-for="${kind}"]`, cardEl);
-    const opening = panel.hidden;
+  const PANEL_TITLES = { editor: 'Cambiar EPG', rename: 'Cambiar nombre', category: 'Mover de categoría' };
+
+  function closePanels() {
     $$('.panel:not([hidden])', cardsEl).forEach((p) => { p.hidden = true; p.innerHTML = ''; });
-    $$('[data-panel][aria-expanded="true"]', cardsEl).forEach((b) => b.setAttribute('aria-expanded', 'false'));
-    if (!opening) return;
+  }
+
+  /** @param {HTMLElement} cardEl @param {ReportChannel} ch @param {string} kind */
+  function openPanel(cardEl, ch, kind) {
+    closePanels();
+    const panel = $('.panel', cardEl);
     panel.hidden = false;
-    $(`[data-panel="${kind}"]`, cardEl).setAttribute('aria-expanded', 'true');
-    if (kind === 'editor') buildEditor(panel, ch);
-    else buildMorePanel(panel, ch);
+    panel.innerHTML = `<div class="panel-head">
+        <span class="section-label">${esc(PANEL_TITLES[kind] || '')}</span>
+        <button class="icon-btn ghost sm panel-close" aria-label="Cerrar">${icon('x')}</button>
+      </div><div class="panel-body"></div>`;
+    $('.panel-close', panel).addEventListener('click', closePanels);
+    const body = $('.panel-body', panel);
+    if (kind === 'editor') buildEditor(body, ch);
+    else if (kind === 'rename') buildRenamePanel(body, ch);
+    else buildCategoryPanel(body, ch);
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   // ---- "Cambiar EPG": alternativas + búsqueda en todo el EPG + dejar sin EPG
@@ -822,23 +866,18 @@
     fillLogos(resultsEl);
   }
 
-  // ---- "Más": nombre, categoría y volver al EPG automático
-  function buildMorePanel(panel, ch) {
+  // ---- Nombre: campo + guardar al costado (y volver al original si está renombrado)
+  function buildRenamePanel(panel, ch) {
     const key = ch.xtream_name;
     const renamed = renameOf(ch);
     panel.innerHTML = `
-      <label class="field"><span>Nombre en la playlist</span>
-        <input class="input rename-input" type="text" value="${esc(renamed || key)}" enterkeyhint="done">
-      </label>
-      <div class="row-actions">
-        <button class="btn btn-tonal rename-save">${icon('check')}Guardar nombre</button>
-        ${renamed ? `<button class="btn btn-plain rename-restore">${icon('rotate-ccw')}Nombre original</button>` : ''}
+      <div class="inline-field">
+        <input class="input rename-input" type="text" value="${esc(renamed || key)}" enterkeyhint="done"
+          aria-label="Nombre en la playlist">
+        <button class="icon-btn filled rename-save" aria-label="Guardar nombre" title="Guardar nombre">${icon('check')}</button>
+        ${renamed ? `<button class="icon-btn rename-restore" aria-label="Volver al nombre original"
+          title="Volver al nombre original">${icon('rotate-ccw')}</button>` : ''}
       </div>
-      <label class="field"><span>Categoría</span>
-        <select class="select cat-select">${categoryOptions(ch)}</select>
-      </label>
-      ${hasOverride(ch) ? `<div class="row-actions">
-        <button class="btn btn-plain auto-epg">${icon('undo-2')}Volver al EPG automático</button></div>` : ''}
     `;
     const input = $('.rename-input', panel);
     const rename = (value) => {
@@ -849,14 +888,19 @@
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') rename(input.value); });
     const restore = $('.rename-restore', panel);
     if (restore) restore.addEventListener('click', () => rename(''));
+    input.focus({ preventScroll: true });
+    input.select();
+  }
+
+  // ---- Categoría: se guarda al elegir
+  function buildCategoryPanel(panel, ch) {
+    const key = ch.xtream_name;
+    panel.innerHTML = `<select class="select cat-select" aria-label="Categoría">${categoryOptions(ch)}</select>`;
     const select = $('.cat-select', panel);
     select.addEventListener('change', () => {
       setEntry('categories', key, select.value === ch.category ? undefined : select.value,
         select.value === ch.category ? 'Categoría original restaurada' : 'Canal movido de categoría');
     });
-    const auto = $('.auto-epg', panel);
-    if (auto) auto.addEventListener('click', () => setEntry('overrides', key, undefined, 'Vuelve al EPG automático'));
-    input.focus({ preventScroll: true });
   }
 
   // ================================================================= guardar en GitHub

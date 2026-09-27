@@ -148,13 +148,13 @@ con lo que da todo el catálogo; la página baja solo el de la hora actual (~0,5
 
 Desde cada tarjeta también se puede:
 
-- **Renombrar el canal** (Más → Nombre en la playlist): guarda `"renames": {"nombre en Xtream":
+- **Renombrar el canal** (menú **…** de la tarjeta → Cambiar nombre): guarda `"renames": {"nombre en Xtream":
   "nombre a mostrar"}`. Solo cambia el nombre que se ve en la playlist; el matching y los
   overrides de EPG siguen yendo por el nombre original de Xtream.
-- **Moverlo de categoría** (Más → Categoría): guarda `"categories": {"nombre en
+- **Moverlo de categoría** (menú **…** → Mover de categoría): guarda `"categories": {"nombre en
   Xtream": "categoría destino"}`. Cambia en qué grupo/sección aparece en la playlist; el EPG se
   sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
-- **Ocultarlo** (el ojo de la tarjeta: abierto = visible, tachado = oculto): guarda `"hidden": {"nombre en Xtream": true}`. El
+- **Ocultarlo** (menú **…** → Ocultar de la playlist; la tarjeta queda atenuada con la marca *Oculto*): guarda `"hidden": {"nombre en Xtream": true}`. El
   canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
@@ -169,8 +169,8 @@ además el permiso `Actions: Read and write`.
 
 Cada cambio se guarda al instante y muestra abajo un aviso con **Deshacer** por unos segundos;
 también hay avisos al lanzar el workflow, cuando termina (o falla), al actualizar datos y al
-guardar el token. El ojo de cada tarjeta muestra y cambia si el canal está visible u oculto en la
-playlist. Los íconos son SVG de [Lucide](https://lucide.dev) (licencia ISC) embebidos en
+guardar el token. Todas las acciones de un canal (EPG, nombre, categoría, visibilidad y volver
+al EPG automático) están en el menú **…** de su tarjeta. Los íconos son SVG de [Lucide](https://lucide.dev) (licencia ISC) embebidos en
 `docs/icons.js`, sin depender de ninguna librería externa.
 
 Cada tarjeta, alternativa y resultado de búsqueda muestra el **logo** del canal del EPG
@@ -189,7 +189,7 @@ pegar el token.
 tipos de los datos en `docs/types.d.ts`). El workflow **Check UI** corre `tsc -p docs` en cada PR
 que toca `docs/`; localmente: `npx -p typescript@5.9 tsc -p docs`.
 
-Renombrar, mover de categoría y volver al EPG automático están en **Más** de cada
+Renombrar, mover de categoría y volver al EPG automático están en el menú **…** de cada
 tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta
 los renombrados, movidos y ocultos. La categoría **General** (donde caen los canales sin
 categoría en Xtream, sobre todo eventos sueltos) y la sección **24/7** (series y películas en
