@@ -23,6 +23,11 @@
   // antes hubiera quedado guardado "A revisar".
   const FILTER_KEY = 'epg_ui_filter_v2';
   const HELP_SEEN_KEY = 'epg_ui_help_seen';
+  // Preferencias de Configuración (por dispositivo).
+  const THEME_KEY = 'epg_ui_theme';                // auto | light | dark (lo lee también index.html)
+  const LOGOS_KEY = 'epg_ui_logos';                // '0' = logos apagados
+  const START_FILTER_KEY = 'epg_ui_start_filter';  // last | todos | revisar
+  const APP_VERSION = '2026.09.27';
 
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
@@ -70,7 +75,9 @@
   let filtered = [];
   let rendered = 0;
   let searchTerm = '';
-  let activeFilter = storageGet(FILTER_KEY) || 'todos';
+  const startFilterPref = storageGet(START_FILTER_KEY) || 'last';
+  let activeFilter = startFilterPref === 'last' ? (storageGet(FILTER_KEY) || 'todos') : startFilterPref;
+  let logosEnabled = storageGet(LOGOS_KEY) !== '0';
   let pendingChanges = 0;       // commits a MAP_PATH desde la última corrida del workflow
   // raw.githubusercontent.com cachea unos minutos por URL: este sufijo cambia al actualizar datos.
   let dataNonce = Date.now();
@@ -260,7 +267,7 @@
 
   /** @param {ParentNode} root */
   function fillLogos(root) {
-    if (!logoById) return;
+    if (!logoById || !logosEnabled) return;
     $$('.logo[data-logo-for]', root).forEach((el) => {
       const url = logoById?.[el.dataset.logoFor];
       el.removeAttribute('data-logo-for');
@@ -278,6 +285,7 @@
   }
 
   function loadLogos() {
+    if (!logosEnabled) return;
     getJSON(`${DATA_RAW_BASE}/epg_icons.json?_=${dataNonce}`)
       .then((map) => { logoById = map; fillLogos(document); })
       .catch(() => { /* sin logos: la interfaz anda igual */ });
@@ -993,6 +1001,88 @@
     }
   });
 
+  // ================================================================= configuración
+
+  const settingsDialog = $('#settingsDialog');
+
+  /** @param {string} value auto | light | dark */
+  function applyTheme(value) {
+    if (value === 'light' || value === 'dark') document.documentElement.dataset.theme = value;
+    else delete document.documentElement.dataset.theme;
+    // La barra del navegador / de la app instalada acompaña al tema elegido.
+    const forced = value === 'light' ? '#f2f2f7' : value === 'dark' ? '#000000' : null;
+    $$('meta[name="theme-color"]').forEach((m) => {
+      if (!m.dataset.original) m.dataset.original = m.content;
+      m.content = forced || m.dataset.original;
+    });
+  }
+
+  /** @param {boolean} on */
+  function setLogosEnabled(on) {
+    logosEnabled = on;
+    storageSet(LOGOS_KEY, on ? null : '0');
+    document.body.classList.toggle('no-logos', !on);
+    if (on) {
+      if (logoById) fillLogos(document); else loadLogos();
+    }
+  }
+
+  function openSettings() {
+    $('#tokenState').textContent = getToken() ? 'Configurado' : 'Sin configurar: no se pueden guardar cambios';
+    const theme = storageGet(THEME_KEY) || 'auto';
+    $$('#themeSeg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.value === theme)));
+    $('#logosToggle').checked = logosEnabled;
+    $('#startFilterSelect').value = storageGet(START_FILTER_KEY) || 'last';
+    $('#aboutLine').textContent = `Grilla · versión ${APP_VERSION}`
+      + (dataGeneratedAt ? ` · datos del ${fmtDateTime(dataGeneratedAt)}` : '');
+    settingsDialog.showModal();
+  }
+
+  $('#themeSeg').addEventListener('click', (e) => {
+    const btn = /** @type {Element} */ (e.target).closest('button[data-value]');
+    if (!btn) return;
+    const value = /** @type {HTMLElement} */ (btn).dataset.value || 'auto';
+    storageSet(THEME_KEY, value === 'auto' ? null : value);
+    applyTheme(value);
+    $$('#themeSeg button').forEach((b) => b.setAttribute('aria-checked', String(b === btn)));
+  });
+  $('#logosToggle').addEventListener('change', (e) => {
+    setLogosEnabled(/** @type {HTMLInputElement} */ (e.target).checked);
+  });
+  $('#startFilterSelect').addEventListener('change', (e) => {
+    const value = /** @type {HTMLSelectElement} */ (e.target).value;
+    storageSet(START_FILTER_KEY, value === 'last' ? null : value);
+    toast('Se aplica la próxima vez que abras Grilla', { kind: 'info' });
+  });
+  $('#menuToken').addEventListener('click', () => { settingsDialog.close(); openTokenDialog(); });
+  $('#menuHelp').addEventListener('click', () => { settingsDialog.close(); $('#helpDialog').showModal(); });
+
+  // Borra lo guardado en este dispositivo (preferencias, filtro, caché de la PWA) pero no el
+  // token, por si algo queda trabado después de una actualización.
+  $('#menuReset').addEventListener('click', async () => {
+    settingsDialog.close();
+    const ok = await confirmDialog({
+      title: 'Restablecer la app',
+      text: 'Se borran los filtros, el tema y la copia guardada de la app en este dispositivo, y se vuelve a cargar. El token de GitHub se conserva.',
+      ok: 'Restablecer',
+    });
+    if (!ok) return;
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('epg_ui_')) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+    } catch { /* sin storage */ }
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations() || [];
+      await Promise.all(regs.map((r) => r.unregister()));
+      if (window.caches) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+    } catch { /* sin service worker */ }
+    location.reload();
+  });
+
   // ================================================================= eventos e inicio
 
   filterTabs.addEventListener('click', (e) => {
@@ -1022,10 +1112,9 @@
   });
 
   loadMoreBtn.addEventListener('click', renderMore);
-  $('#helpBtn').addEventListener('click', () => $('#helpDialog').showModal());
   $('#refreshDataBtn').addEventListener('click', refreshData);
   runBtn.addEventListener('click', runWorkflow);
-  $('#settingsBtn').addEventListener('click', openTokenDialog);
+  $('#settingsBtn').addEventListener('click', openSettings);
 
   // PWA: instalable en la pantalla de inicio (ver sw.js). Solo en contexto seguro (GitHub Pages
   // por https, o localhost al probar).
@@ -1034,6 +1123,8 @@
   }
 
   (async () => {
+    applyTheme(storageGet(THEME_KEY) || 'auto');
+    document.body.classList.toggle('no-logos', !logosEnabled);
     hydrateIcons();
     cardsEl.innerHTML = skeletonHtml();
     try {
