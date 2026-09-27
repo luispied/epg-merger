@@ -201,7 +201,7 @@
     return catalogById.get(id) || { id, name: id, country: null, source: null };
   }
 
-  // channel_id -> Promise<[[start, stop, title], ...] | null>, bajo demanda y cacheado.
+  // channel_id -> Promise<ScheduleEntry[] | null>, bajo demanda y cacheado.
   const scheduleCache = new Map();
   function fetchSchedule(channelId) {
     if (!scheduleCache.has(channelId)) {
@@ -231,30 +231,61 @@
   function nowFromHourIndex(idx, channelId) {
     const now = Date.now() / 1000;
     for (const [s, e, t] of idx.c[channelId] || []) {
-      if (idx.h + s * 60 <= now && now < idx.h + e * 60) return { title: idx.t[t], stop: idx.h + e * 60 };
+      if (idx.h + s * 60 <= now && now < idx.h + e * 60) {
+        return { title: idx.t[t], start: idx.h + s * 60, stop: idx.h + e * 60 };
+      }
     }
     return null;
   }
 
-  /** @param {[number, number, string][] | null} entries @returns {NowPlaying | null} */
+  /** @param {ScheduleEntry[] | null} entries @returns {NowPlaying | null} */
   function nowFromEntries(entries) {
     const now = Date.now() / 1000;
     const cur = (entries || []).find(([start, stop]) => start <= now && now < stop);
-    return cur ? { title: cur[2], stop: cur[1] } : null;
+    return cur ? { title: cur[2], start: cur[0], stop: cur[1] } : null;
   }
 
-  /** @param {NowPlaying | null} cur @param {string} [note] */
-  function nowHtml(cur, note = '') {
+  /** Con `id`, la línea es un botón que despliega la descripción del programa (toggleDesc).
+   *  @param {NowPlaying | null} cur @param {string} [note] @param {string} [id] channel_id del EPG */
+  function nowHtml(cur, note = '', id = '') {
     const noteHtml = note ? ` <span class="note">${esc(note)}</span>` : '';
-    return cur
-      ? `${icon('tv', 'sm')}<span>Ahora: ${esc(cur.title)} · hasta ${fmtTime(cur.stop * 1000)}${noteHtml}</span>`
-      : `<span>Sin programación para este horario${noteHtml}</span>`;
+    if (!cur) return `<span>Sin programación para este horario${noteHtml}</span>`;
+    const text = `${icon('tv', 'sm')}<span>Ahora: ${esc(cur.title)} · hasta ${fmtTime(cur.stop * 1000)}${noteHtml}</span>`;
+    if (!id || !catalogEntry(id).sched) return text;
+    return `<button type="button" class="now-btn" data-desc-for="${esc(id)}" data-start="${cur.start}"
+      aria-expanded="false" title="Ver descripción del programa">${text}${icon('chevron-down', 'sm chev')}</button>`;
+  }
+
+  // Descripción del programa en el aire: sale del archivo de programación del canal (unos pocos
+  // KB), que se baja recién al tocar la línea "Ahora". El índice por hora no la trae para no
+  // inflar el archivo que se baja entero.
+  /** @param {HTMLElement} btn */
+  async function toggleDesc(btn) {
+    const box = /** @type {HTMLElement} */ (btn.parentElement);
+    const open = $('.epg-desc', box);
+    if (open) {
+      open.remove();
+      btn.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    btn.setAttribute('aria-expanded', 'true');
+    const p = document.createElement('p');
+    p.className = 'epg-desc muted';
+    p.textContent = 'Cargando descripción…';
+    box.appendChild(p);
+    const entries = (await fetchSchedule(btn.dataset.descFor || '')) || [];
+    const start = Number(btn.dataset.start);
+    const now = Date.now() / 1000;
+    const entry = entries.find((e) => e[0] === start) || entries.find(([s, e]) => s <= now && now < e);
+    const desc = entry?.[3];
+    p.textContent = desc || 'La guía no trae descripción para este programa.';
+    p.classList.toggle('muted', !desc);
   }
 
   async function loadNowPlayingInto(el, channelId) {
     const idx = await fetchHourIndex();
     const cur = idx ? nowFromHourIndex(idx, channelId) : nowFromEntries(await fetchSchedule(channelId));
-    el.innerHTML = nowHtml(cur);
+    el.innerHTML = nowHtml(cur, '', channelId);
     el.classList.toggle('on-air', !!cur);
   }
 
@@ -406,7 +437,7 @@
       </div>
       <small class="epg-src">${esc(c.id)}${c.source ? ' · ' + esc(c.source) : ''}</small>
       <div class="epg-now${known && cur ? ' on-air' : ''}"${known ? '' : ` data-now-for="${esc(id)}"`}>${
-        known ? nowHtml(cur, note) : '<span>Cargando programación…</span>'}</div>
+        known ? nowHtml(cur, note, id) : '<span>Cargando programación…</span>'}</div>
       </div>
     </div>`;
   }
@@ -414,7 +445,8 @@
   function wirePicks(root, onPick) {
     $$('.epg-row.pick', root).forEach((row) => {
       row.addEventListener('click', () => onPick(row.dataset.id));
-      row.addEventListener('keydown', (e) => { if (e.key === 'Enter') onPick(row.dataset.id); });
+      // Solo el Enter sobre la fila misma: el de un botón adentro (descripción) no elige.
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target === row) onPick(row.dataset.id); });
     });
   }
 
@@ -1242,6 +1274,15 @@
     applyFilters();
     btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
+
+  // En captura: la línea "Ahora" puede estar dentro de una fila que se elige al tocarla
+  // (alternativas, búsqueda); abrir la descripción no tiene que elegir ese EPG.
+  document.addEventListener('click', (e) => {
+    const btn = /** @type {HTMLElement | null} */ ((/** @type {Element} */ (e.target)).closest?.('.now-btn'));
+    if (!btn) return;
+    e.stopPropagation();
+    toggleDesc(btn);
+  }, true);
 
   let searchTimer = null;
   searchBox.addEventListener('input', () => {

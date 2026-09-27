@@ -3,7 +3,7 @@
    (network-first): así un cambio publicado en GitHub Pages se ve en la próxima apertura, y la
    copia guardada se usa solo sin conexión. Los datos (API de GitHub, raw.githubusercontent.com)
    no pasan por acá: son de otro origen y siempre van a la red. */
-const CACHE = 'epg-ui-v9';
+const CACHE = 'epg-ui-v10';
 const SHELL = [
   './', './index.html', './app.css', './app.js', './icons.js', './manifest.webmanifest',
   './img/icon.svg', './img/icon-192.png', './img/icon-512.png', './img/apple-touch-icon.png',

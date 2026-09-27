@@ -208,6 +208,35 @@ def test_schedule_snapshot_solo_incluye_la_ventana_de_ahora(tmp_path):
     assert [e[2] for e in entries] == ['Ya casi termina, todavia en curso', 'Mas tarde hoy']
 
 
+def test_schedule_snapshot_incluye_la_descripcion(tmp_path):
+    """La interfaz muestra la sinopsis del programa en el aire: va como cuarto elemento solo
+    cuando la guía la trae (si no, el nombre del episodio), con espacios normalizados y recortada
+    si es muy larga. El índice por hora no la lleva: es el que se baja entero."""
+    now = generate_playlist.datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+    larga = 'x' * (generate_playlist.SCHEDULE_DESC_MAX + 50)
+    root = etree.fromstring(f"""<tv>
+      <programme channel="A.us" start="20260101113000 +0000" stop="20260101123000 +0000">
+        <title>Noticias</title><desc>  Resumen   del
+        dia  </desc></programme>
+      <programme channel="A.us" start="20260101123000 +0000" stop="20260101130000 +0000">
+        <title>Friends</title><sub-title>The One with the Thumb</sub-title></programme>
+      <programme channel="A.us" start="20260101130000 +0000" stop="20260101140000 +0000">
+        <title>Sin datos</title></programme>
+      <programme channel="A.us" start="20260101140000 +0000" stop="20260101150000 +0000">
+        <title>Pelicula</title><desc>{larga}</desc></programme>
+    </tv>""")
+    sched = generate_playlist.write_schedule_snapshot(root, out_dir=str(tmp_path), now=now)
+    with open(tmp_path / f"{sched['A.us']}.json", encoding='utf-8') as f:
+        entries = json.load(f)
+    assert entries[0][3] == 'Resumen del dia'
+    assert entries[1][3] == 'The One with the Thumb'
+    assert len(entries[2]) == 3
+    assert len(entries[3][3]) == generate_playlist.SCHEDULE_DESC_MAX and entries[3][3].endswith('…')
+    with open(tmp_path / 'hour' / '2026010112.json', encoding='utf-8') as f:
+        assert all(len(e) == 3 for e in json.load(f)['c']['A.us'])
+
+
 def test_schedule_snapshot_arma_indice_por_hora(tmp_path):
     """El buscador de la interfaz baja un solo archivo (el de la hora actual) para mostrar qué
     está dando cada canal del catálogo y poder buscar por programa: cada hora tiene que traer

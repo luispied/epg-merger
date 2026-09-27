@@ -38,6 +38,9 @@ interface ChannelMap {
   hidden?: Record<string, boolean>;
 }
 
+/** schedule/<sched>.json: [inicio, fin, título, descripción?] con inicio/fin en epoch s. */
+type ScheduleEntry = [number, number, string, string?];
+
 /** schedule/hour/<AAAAMMDDHH>.json: h = inicio de la hora (epoch s), t = títulos,
  *  c = channel_id -> [[inicio_min, fin_min, índice_título], ...] relativos a h. */
 interface HourIndex {
@@ -49,6 +52,8 @@ interface HourIndex {
 /** Lo que está dando un canal ahora. */
 interface NowPlaying {
   title: string;
+  /** Inicio del programa, epoch en segundos (para ubicar su descripción en schedule/). */
+  start: number;
   /** Fin del programa, epoch en segundos. */
   stop: number;
 }

@@ -37,6 +37,9 @@ SCHEDULE_DIR = os.path.join('out', 'schedule')
 SCHEDULE_WINDOW_PAST = datetime.timedelta(hours=1)
 SCHEDULE_WINDOW_FUTURE = datetime.timedelta(hours=30)
 SCHEDULE_MAX_ENTRIES = 60  # tope por canal, por si alguna fuente trae franjas muy cortas
+# Tope de largo de la descripción de cada programa (la mediana ronda los 120 caracteres y el
+# p90 los 240): alguna fuente trae sinopsis larguísimas que solo inflarían los archivos.
+SCHEDULE_DESC_MAX = 400
 # Además del archivo por canal, un índice por hora UTC (schedule/hour/<AAAAMMDDHH>.json) con lo
 # que da TODO el catálogo en esa hora: el buscador de la interfaz baja uno solo (el de la hora
 # actual) y con eso muestra qué está dando cada resultado y permite buscar por programa.
@@ -528,6 +531,16 @@ def _parse_xmltv_time(raw):
     return dt.replace(tzinfo=datetime.timezone.utc)
 
 
+def _programme_desc(programme):
+    """Descripción del programa para mostrar en la interfaz: <desc>, o si no hay, el
+    <sub-title> (nombre del episodio). Espacios normalizados y recortada a SCHEDULE_DESC_MAX."""
+    for tag in ('desc', 'sub-title'):
+        text = ' '.join((programme.findtext(tag) or '').split())
+        if text:
+            return text if len(text) <= SCHEDULE_DESC_MAX else text[:SCHEDULE_DESC_MAX - 1].rstrip() + '…'
+    return ''
+
+
 def _schedule_filename(channel_id):
     # El channel_id puede traer '#', espacios, etc.: no sirve directo como nombre de archivo ni
     # como para armarlo desde JS sin duplicar la codificación en los dos lados. Un hash corto
@@ -538,7 +551,8 @@ def _schedule_filename(channel_id):
 def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
     """Un archivo por canal con su programación de la ventana [ahora - 1h, ahora + 30h], para
     que la interfaz de corrección (docs/) pueda mostrar qué está dando cada candidato al elegir
-    el EPG de un canal. Devuelve {channel_id: nombre_de_archivo} (sin extensión) para los
+    el EPG de un canal. Cada entrada es [inicio, fin, título] y, si la guía la trae, la
+    descripción como cuarto elemento (la interfaz la baja recién cuando se pide). Devuelve {channel_id: nombre_de_archivo} (sin extensión) para los
     canales que sí tienen programación en la ventana."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     window_start = now - SCHEDULE_WINDOW_PAST
@@ -563,7 +577,7 @@ def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
         if not channel_id or not title:
             continue
         by_channel.setdefault(channel_id, []).append(
-            (int(start.timestamp()), int(stop.timestamp()), title))
+            (int(start.timestamp()), int(stop.timestamp()), title, _programme_desc(programme)))
 
     os.makedirs(out_dir, exist_ok=True)
     sched_by_channel = {}
@@ -571,7 +585,9 @@ def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
         entries.sort()
         filename = _schedule_filename(channel_id)
         with open(os.path.join(out_dir, f'{filename}.json'), 'w', encoding='utf-8') as f:
-            json.dump(entries[:SCHEDULE_MAX_ENTRIES], f, ensure_ascii=False, separators=(',', ':'))
+            json.dump([[start, stop, title, desc] if desc else [start, stop, title]
+                       for start, stop, title, desc in entries[:SCHEDULE_MAX_ENTRIES]],
+                      f, ensure_ascii=False, separators=(',', ':'))
         sched_by_channel[channel_id] = filename
 
     write_hourly_index(
@@ -594,7 +610,7 @@ def write_hourly_index(by_channel, out_dir, window_start, window_end):
     last_hour = int(window_end.timestamp())
     buckets = {h: ([], {}, {}) for h in range(first_hour, last_hour, 3600)}
     for channel_id, entries in by_channel.items():
-        for start, stop, title in entries:
+        for start, stop, title, *_ in entries:
             h = max(first_hour, start - (start - first_hour) % 3600)
             while h < stop and h in buckets:
                 titles, title_idx, channels = buckets[h]
