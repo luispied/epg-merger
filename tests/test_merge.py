@@ -198,3 +198,18 @@ def test_metadata_de_una_fuente_programas_de_otra(run_merge):
     assert canal.find('display-name').text == 'Nombre Bueno'
     assert canal.get('source') == 'solo-metadata'
     assert len(root.findall('programme')) == 1
+
+
+def test_fuente_inactiva_no_se_descarga(tmp_path):
+    """"active": false deja la fuente en la lista (con el motivo) pero no se descarga; la
+    convención vieja de comentar la url con '#' sigue funcionando."""
+    (tmp_path / 'epg_urls.json').write_text(json.dumps({'sources': [
+        {'id': 'a', 'url': 'https://x/a.xml'},
+        {'id': 'b', 'url': 'https://x/b.xml', 'active': False,
+         'inactive_reason': 'ningún canal visible usa su guía'},
+        {'id': 'c', 'url': '#https://x/c.xml'},
+        {'id': 'd', 'url': 'https://x/d.xml', 'active': True},
+    ]}), encoding='utf-8')
+    sources = merge_epgs.load_sources(str(tmp_path / 'epg_urls.json'))
+    assert [s['id'] for s in sources] == ['a', 'd']
+    assert [s['priority'] for s in sources] == [0, 3], "la prioridad sigue siendo la posición"

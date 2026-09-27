@@ -45,6 +45,7 @@ def load_sources(path=SOURCES_PATH):
     viejo ("urls": lista de strings), donde el id se deriva del nombre de archivo. En ambos,
     'priority' por defecto es la posición en el archivo — o sea que sin declarar prioridades
     el comportamiento es el de siempre: gana la fuente que aparece primero. Menor = mejor.
+    Las fuentes con "active": false (o con la url comentada con '#') se saltean.
     """
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -66,7 +67,11 @@ def load_sources(path=SOURCES_PATH):
         if isinstance(entry, str):
             entry = {'url': entry}
         url = (entry.get('url') or '').strip()
-        if not url or url.startswith('#'):  # convención para deshabilitar una fuente sin borrarla
+        if not url or url.startswith('#'):  # convención vieja para deshabilitar sin borrarla
+            continue
+        # "active": false marca una fuente inactiva (con "inactive_reason" explicando por qué):
+        # no se descarga, pero queda en la lista con su configuración para reactivarla.
+        if entry.get('active', True) is False:
             continue
         source_id = entry.get('id') or _source_id_from_url(url)
         if source_id in seen_ids:
