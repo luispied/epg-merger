@@ -1,5 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d95ff"/><stop offset="1" stop-color="#0060df"/></linearGradient></defs>
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <g transform="translate(112.0 112.0) scale(12)" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2-5 5-5-5" /> <rect width="20" height="15" x="2" y="7" rx="2" /></g>
+  <rect x="96" y="142" width="150" height="48" rx="12" fill="#fff" fill-opacity="1"/>
+  <rect x="258" y="142" width="158" height="48" rx="12" fill="#fff" fill-opacity=".62"/>
+  <rect x="96" y="206" width="92" height="48" rx="12" fill="#fff" fill-opacity=".62"/>
+  <rect x="200" y="206" width="118" height="48" rx="12" fill="#fff" fill-opacity="1"/>
+  <rect x="330" y="206" width="86" height="48" rx="12" fill="#fff" fill-opacity=".62"/>
+  <rect x="96" y="270" width="196" height="48" rx="12" fill="#fff" fill-opacity="1"/>
+  <rect x="304" y="270" width="112" height="48" rx="12" fill="#fff" fill-opacity=".62"/>
+  <rect x="96" y="334" width="124" height="48" rx="12" fill="#fff" fill-opacity=".62"/>
+  <rect x="232" y="334" width="184" height="48" rx="12" fill="#fff" fill-opacity="1"/>
+  <line x1="244" y1="122" x2="244" y2="398" stroke="#ffd60a" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="244" cy="118" r="14" fill="#ffd60a"/>
 </svg>

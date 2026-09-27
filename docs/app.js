@@ -19,7 +19,10 @@
   const MAP_PATH = 'xtream_channel_map.json';
   const WORKFLOW_FILE = 'merge-epgs.yml';
   const TOKEN_KEY = 'epg_admin_pat';
-  const FILTER_KEY = 'epg_ui_filter';
+  // v2: el filtro por defecto pasó a "Todos"; la clave nueva hace que se vea así al abrir aunque
+  // antes hubiera quedado guardado "A revisar".
+  const FILTER_KEY = 'epg_ui_filter_v2';
+  const HELP_SEEN_KEY = 'epg_ui_help_seen';
 
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
@@ -65,7 +68,7 @@
   let filtered = [];
   let rendered = 0;
   let searchTerm = '';
-  let activeFilter = storageGet(FILTER_KEY) || 'revisar';
+  let activeFilter = storageGet(FILTER_KEY) || 'todos';
   let pendingChanges = 0;       // commits a MAP_PATH desde la última corrida del workflow
   // raw.githubusercontent.com cachea unos minutos por URL: este sufijo cambia al actualizar datos.
   let dataNonce = Date.now();
@@ -977,6 +980,7 @@
   });
 
   loadMoreBtn.addEventListener('click', renderMore);
+  $('#helpBtn').addEventListener('click', () => $('#helpDialog').showModal());
   $('#refreshDataBtn').addEventListener('click', refreshData);
   runBtn.addEventListener('click', runWorkflow);
   $('#settingsBtn').addEventListener('click', openTokenDialog);
@@ -996,6 +1000,11 @@
       if (!names.length) throw new Error('Todavía no hay ningún match_report publicado: corré el workflow una vez.');
       await loadProfile(names[0]);
       pollWorkflow();
+      // La primera vez en este dispositivo se muestra la ayuda.
+      if (!storageGet(HELP_SEEN_KEY)) {
+        storageSet(HELP_SEEN_KEY, '1');
+        $('#helpDialog').showModal();
+      }
     } catch (e) {
       cardsEl.innerHTML = `<div class="empty">${icon('triangle-alert', 'lg')}<strong>No se pudieron cargar los datos</strong>${esc(errMsg(e))}</div>`;
       toast(errMsg(e), { kind: 'error' });

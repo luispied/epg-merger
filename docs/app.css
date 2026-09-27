@@ -74,6 +74,7 @@ body::before {
 
 /* ------------------------------------------------------------------ encabezado */
 .app-header { padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 6px; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .app-header h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
 .app-header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
 
@@ -305,3 +306,20 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
   .wide { display: none; }
   #runWorkflowBtn { padding: 0 12px; gap: 4px; }
 }
+
+/* ------------------------------------------------------------------ ayuda */
+.help-sheet { max-height: 88vh; }
+.help-sheet .sheet-body { overflow-y: auto; max-height: 88vh; }
+.help-sheet .title-row { margin-bottom: 6px; }
+.help-sheet h2 { margin: 0; }
+.help-sheet details { background: var(--surface-2); border-radius: var(--radius-sm); margin-top: 8px; }
+.help-sheet summary {
+  list-style: none; cursor: pointer; padding: 12px 14px; font-weight: 600; font-size: 15px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.help-sheet summary::-webkit-details-marker { display: none; }
+.help-sheet summary .icon { color: var(--muted); transition: transform .2s ease; }
+.help-sheet details[open] summary .icon { transform: rotate(180deg); }
+.help-sheet details p { margin: 0; padding: 0 14px 12px; color: var(--text); font-size: 14.5px; }
+.help-sheet details[open] p { animation: slide-down .2s ease both; }
+@media (max-width: 600px) { .help-sheet { max-height: 92vh; } .help-sheet .sheet-body { max-height: 92vh; } }

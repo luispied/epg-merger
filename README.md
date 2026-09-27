@@ -105,6 +105,10 @@ mejor alternativa: mejor sin EPG que con uno equivocado.
 
 ### Interfaz de corrección (`docs/`)
 
+**Grilla** (https://luispied.github.io/epg-merger/) es la interfaz para corregir la playlist
+desde el celular o la compu. Tiene una sección de ayuda (botón **?** arriba, y se abre sola la
+primera vez) que explica cómo usarla.
+
 `docs/` (`index.html` + `app.css` + `app.js` + `icons.js`), servida por GitHub Pages, lista los canales con el EPG que se les asignó
 (como todos los perfiles comparten canales y cambios, muestra siempre el primero) (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se
 excluyen: son transmisiones puntuales que ningún EPG público cubre, así que nunca van a
