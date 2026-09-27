@@ -93,8 +93,6 @@
   .badge.warn { color: var(--warn); background: var(--warn-bg); }
   .badge.bad { color: var(--bad); background: var(--bad-bg); }
   .badge.override { color: var(--accent); background: var(--chip-bg); }
-  .card-epg { margin-top: 6px; font-size: 13px; }
-  .card-now { margin-top: 2px; font-size: 12px; white-space: normal; }
   .card-actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
   .card-actions button { font-size: 12.5px; padding: 7px 12px; min-height: 34px; }
   .more-panel {
@@ -119,31 +117,25 @@
     display: none;
   }
   .editor.open { display: block; }
-  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; align-items: stretch; }
-  .chip-wrap { display: flex; flex-direction: column; gap: 3px; max-width: 260px; }
-  .chip {
-    background: var(--chip-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
-    padding: 6px 10px; font-size: 12.5px; cursor: pointer; text-align: left;
-  }
-  .chip:hover { border-color: var(--accent); }
-  .chip-now {
-    font-size: 11px; color: var(--muted); padding: 0 2px; min-height: 13px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  /* Un canal del EPG se muestra siempre igual (tarjeta, EPG actual, alternativas, búsqueda):
+     nombre [país] + calidad, id · fuente, y qué está dando ahora. */
+  .epg-row { padding: 8px 10px; font-size: 13px; }
+  .epg-row .epg-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .epg-row .epg-name { font-weight: 500; }
+  .epg-row .epg-src { display: block; color: var(--muted); font-size: 11.5px; word-break: break-all; }
+  .epg-row .epg-now { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .epg-row .epg-now.on-air { color: var(--text); }
+  .epg-row.pick { cursor: pointer; }
+  .epg-row.pick:hover, .epg-row.pick:focus-visible { background: var(--chip-bg); outline: none; }
+  .card > .epg-row { padding: 6px 0 0; }
+  .epg-list { border: 1px solid var(--border); border-radius: 8px; margin: 6px 0 12px; overflow: hidden; }
+  .epg-list > * + * { border-top: 1px solid var(--border); }
+  .epg-list .list-note { padding: 7px 10px; font-size: 12px; color: var(--muted); }
+  .section-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .catalog-search { width: 100%; }
-  .search-results {
-    max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;
-    margin-top: 6px; display: none;
-  }
+  .search-results { max-height: 360px; overflow-y: auto; display: none; }
   .search-results.open { display: block; }
-  .search-results .row {
-    padding: 7px 10px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 12.5px;
-  }
-  .search-results .row:last-child { border-bottom: none; }
-  .search-results .row:hover { background: var(--chip-bg); }
-  .search-results .row small { color: var(--muted); }
-  .search-results .chip-now { white-space: normal; }
-  .search-results .chip-now.on-air { color: var(--text); }
+  .force-none-btn { background: transparent; color: var(--bad); border: 1px solid var(--bad); margin-top: 4px; }
   dialog {
     border: 1px solid var(--border); border-radius: 12px; padding: 0; background: var(--panel);
     color: var(--text); max-width: 480px; width: calc(100vw - 32px);
@@ -282,22 +274,53 @@
         ? '<span class="badge override" title="Elegiste dejarlo sin EPG">🚫 Sin EPG a propósito</span>'
         : '<span class="badge override" title="EPG elegido a mano">✋ Manual</span>';
     }
-    const title = `title="Coincidencia ${fmtScore(ch.score)}"`;
     if (!ch.chosen) return '<span class="badge bad">Sin EPG</span>';
-    if (ch.score >= 0.8) return `<span class="badge ok" ${title}>Bien</span>`;
-    if (ch.score >= MIN_SCORE) return `<span class="badge warn" ${title}>Dudoso</span>`;
+    return scoreBadge(ch.score);
+  }
+
+  // Misma escala en todos lados: tarjeta, alternativas del editor.
+  function scoreBadge(score) {
+    const title = `title="Coincidencia ${fmtScore(score)}"`;
+    if (score >= 0.8) return `<span class="badge ok" ${title}>Bien</span>`;
+    if (score >= MIN_SCORE) return `<span class="badge warn" ${title}>Dudoso</span>`;
     return `<span class="badge bad" ${title}>Débil</span>`;
+  }
+
+  // Componente único para mostrar un canal del EPG. `cur` = lo que está dando ahora
+  // ({title, stop} o null) si ya se sabe; si no (undefined), queda "Cargando…" y se completa
+  // con fillNowPlaying(). `pick` lo hace elegible (alternativas y resultados de búsqueda).
+  function epgRowHtml(id, { score = null, pick = false, cur, note = '' } = {}) {
+    const c = catalogEntry(id);
+    const known = cur !== undefined;
+    return `<div class="epg-row${pick ? ' pick' : ''}"${pick ? ` data-id="${escapeHtml(id)}" role="button" tabindex="0"` : ''}>
+      <div class="epg-head">
+        <span class="epg-name">${escapeHtml(c.name)}${c.country ? ' [' + escapeHtml(c.country.toUpperCase()) + ']' : ''}</span>
+        ${score === null ? '' : scoreBadge(score)}
+      </div>
+      <small class="epg-src">${escapeHtml(c.id)}${c.source ? ' · ' + escapeHtml(c.source) : ''}</small>
+      <div class="epg-now${known && cur ? ' on-air' : ''}"${known ? '' : ` data-now-for="${escapeHtml(id)}"`}>${
+        known ? escapeHtml(nowPlayingText(cur)) + (note ? ' ' + escapeHtml(note) : '') : 'Cargando programación…'
+      }</div>
+    </div>`;
+  }
+
+  function fillNowPlaying(root) {
+    root.querySelectorAll('.epg-now[data-now-for]').forEach((el) => {
+      const id = el.dataset.nowFor;
+      el.removeAttribute('data-now-for');
+      loadNowPlayingInto(el, id);
+    });
+  }
+
+  function wirePicks(root, onPick) {
+    root.querySelectorAll('.epg-row.pick').forEach((row) => {
+      row.addEventListener('click', () => onPick(row.dataset.id));
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter') onPick(row.dataset.id); });
+    });
   }
 
   function catalogEntry(id) {
     return catalogById.get(id) || { id, name: id, country: null, source: null };
-  }
-
-  function labelFor(id) {
-    const c = catalogEntry(id);
-    const bits = [c.name];
-    if (c.country) bits.push(`[${c.country.toUpperCase()}]`);
-    return bits.join(' ');
   }
 
   async function fetchJSON(url, opts) {
@@ -371,12 +394,9 @@
 
   async function loadNowPlayingInto(el, channelId) {
     const idx = await fetchHourIndex();
-    if (idx) {
-      el.textContent = nowPlayingText(nowFromHourIndex(idx, channelId));
-      return;
-    }
-    const entries = await fetchSchedule(channelId);
-    el.textContent = entries && entries.length ? nowPlayingText(nowFromEntries(entries)) : '';
+    const cur = idx ? nowFromHourIndex(idx, channelId) : nowFromEntries(await fetchSchedule(channelId));
+    el.textContent = nowPlayingText(cur);
+    el.classList.toggle('on-air', !!cur);
   }
 
   function normalize(s) {
@@ -562,11 +582,9 @@
     if (isDivider) {
       body = '<div class="card-meta">Separador del proveedor: no lleva EPG.</div>';
     } else {
-      const epgText = forcedNoEpg
-        ? '<span style="color:var(--muted)">Sin EPG ni logo, a propósito</span>'
-        : (chosen ? escapeHtml(labelFor(chosen)) : '<span style="color:var(--muted)">Sin EPG asignado</span>');
-      body = `<div class="card-epg">${epgText}</div>
-        ${chosen && !forcedNoEpg ? '<div class="chip-now card-now">Cargando programación…</div>' : ''}`;
+      body = forcedNoEpg
+        ? '<div class="card-meta">Sin EPG ni logo, a propósito.</div>'
+        : (chosen ? epgRowHtml(chosen) : '<div class="card-meta">Sin EPG asignado.</div>');
     }
 
     el.innerHTML = `
@@ -610,8 +628,7 @@
     // Qué está dando ahora el EPG asignado, para comparar con lo que se ve en el canal sin
     // tener que abrir el editor. Sale del índice de la hora actual (un solo archivo para toda
     // la lista), así que no cuesta un pedido por tarjeta.
-    const nowEl = el.querySelector('.card-now');
-    if (nowEl) loadNowPlayingInto(nowEl, chosen);
+    fillNowPlaying(el);
 
     const key = ch.xtream_name;
     el.querySelector('.hide-btn').addEventListener('click', () => {
@@ -740,42 +757,26 @@
     wireEditor(editor, ch);
   }
 
+  // El EPG actual ya se ve en la tarjeta, arriba: el editor muestra solo las opciones para
+  // cambiarlo, con el mismo componente y la misma escala de calidad.
   function buildEditor(ch) {
-    const alts = (ch.alternatives || []);
-    const chips = alts.map((a) => {
-      const c = catalogEntry(a.channel_id);
-      const id = escapeHtml(a.channel_id);
-      return `<div class="chip-wrap">
-        <button class="chip" data-id="${id}">${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''} · ${a.score.toFixed(2)}</button>
-        <div class="chip-now" data-sched-for="${id}">Cargando programación…</div>
-      </div>`;
-    }).join('');
-    const currentBlock = ch.chosen ? `
-      <div class="card-meta">EPG actual: ${escapeHtml(labelFor(ch.chosen))}</div>
-      <div class="chip-now" data-sched-for="${escapeHtml(ch.chosen)}" style="margin-bottom:10px;">Cargando programación…</div>
-    ` : '';
+    const current = channelMap.overrides[ch.xtream_name] ?? ch.chosen;
+    const alts = (ch.alternatives || []).filter((a) => a.channel_id !== current);
     return `
-      ${currentBlock}
-      ${alts.length ? `<div class="card-meta">Alternativas ya calculadas:</div><div class="chip-row">${chips}</div>` : ''}
-      <input type="search" class="catalog-search" placeholder="Buscar en todo el EPG: canal o programa que está dando ahora…">
-      <div class="search-results"></div>
-      <div class="chip-row" style="margin-top:10px;">
-        <button class="chip force-none-btn" style="color:var(--bad); border-color:var(--bad);">
-          🚫 Dejar sin EPG
-        </button>
-      </div>
+      ${alts.length ? `<div class="section-label">Alternativas ya calculadas (tocá una para elegirla)</div>
+        <div class="epg-list">${alts.map((a) => epgRowHtml(a.channel_id, { score: a.score, pick: true })).join('')}</div>` : ''}
+      <div class="section-label">Buscar en todo el EPG</div>
+      <input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora…">
+      <div class="search-results epg-list"></div>
+      <button class="force-none-btn">🚫 Dejar sin EPG</button>
       <div class="card-meta">Para cuando ninguna guía sirve (p. ej. «Channel No Longer Available»): mejor sin EPG que con uno equivocado.</div>
     `;
   }
 
   function wireEditor(editor, ch) {
-    editor.querySelectorAll('.chip[data-id]').forEach((btn) => {
-      btn.addEventListener('click', () => saveOverride(ch, btn.dataset.id));
-    });
+    wirePicks(editor, (id) => saveOverride(ch, id));
+    fillNowPlaying(editor);
     editor.querySelector('.force-none-btn').addEventListener('click', () => saveOverride(ch, null));
-    editor.querySelectorAll('[data-sched-for]').forEach((el) => {
-      loadNowPlayingInto(el, el.dataset.schedFor);
-    });
     const input = editor.querySelector('.catalog-search');
     const results = editor.querySelector('.search-results');
     let timer = null;
@@ -813,22 +814,15 @@
     const summary = idx
       ? `${matches.length} resultado(s)${matches.length > SEARCH_LIMIT ? `, mostrando ${SEARCH_LIMIT}` : ''} · primero los que tienen programación ahora`
       : 'Programación por hora no disponible todavía: se carga canal por canal.';
-    resultsEl.innerHTML = `<div class="row"><small>${escapeHtml(summary)}</small></div>` + (shown.map(({ c, cur, byProgram }) => `
-      <div class="row" data-id="${escapeHtml(c.id)}">
-        ${escapeHtml(c.name)} ${c.country ? '[' + c.country.toUpperCase() + ']' : ''}
-        <br><small>${escapeHtml(c.id)}${c.source ? ' · ' + escapeHtml(c.source) : ''}</small>
-        <div class="chip-now${cur ? ' on-air' : ''}" data-now-for="${escapeHtml(c.id)}">${
-          idx ? escapeHtml(nowPlayingText(cur)) + (byProgram ? ' ← coincide con la búsqueda' : '') : 'Cargando programación…'
-        }</div>
-      </div>
-    `).join('') || '<div class="row"><small>Sin resultados</small></div>');
+    resultsEl.innerHTML = `<div class="list-note">${escapeHtml(summary)}</div>` + (shown.map(({ c, cur, byProgram }) =>
+      epgRowHtml(c.id, {
+        pick: true,
+        cur: idx ? cur : undefined,
+        note: byProgram ? '← coincide con la búsqueda' : '',
+      })).join('') || '<div class="list-note">Sin resultados</div>');
     resultsEl.classList.add('open');
-    resultsEl.querySelectorAll('.row[data-id]').forEach((row) => {
-      row.addEventListener('click', () => saveOverride(ch, row.dataset.id));
-    });
-    if (!idx) {
-      resultsEl.querySelectorAll('[data-now-for]').forEach((el) => loadNowPlayingInto(el, el.dataset.nowFor));
-    }
+    wirePicks(resultsEl, (id) => saveOverride(ch, id));
+    fillNowPlaying(resultsEl);
   }
 
   // ------------------------------------------------------------- guardar en GitHub
