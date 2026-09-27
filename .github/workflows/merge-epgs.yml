@@ -8,6 +8,14 @@ on:
 permissions:
   contents: write
 
+# Una sola corrida a la vez. Si se lanza otra (desde la interfaz, el cron o un merge) mientras
+# una sigue en marcha, la vieja se cancela: la nueva ya trae el código y el
+# xtream_channel_map.json más recientes. Sin esto, una corrida vieja y lenta podía terminar
+# después y pisar la branch `data` con resultados desactualizados (pasó el 27/09).
+concurrency:
+  group: merge-epgs
+  cancel-in-progress: true
+
 jobs:
   merge:
     runs-on: ubuntu-latest
