@@ -301,6 +301,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
 .load-more { margin-top: 12px; }
+.scroll-sentinel { height: 1px; }
 @media (max-width: 480px) {
   .wide { display: none; }
   #runWorkflowBtn { padding: 0 12px; gap: 4px; }
