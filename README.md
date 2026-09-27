@@ -164,6 +164,11 @@ guardar el token. El ojo de cada tarjeta muestra y cambia si el canal está visi
 playlist. Los íconos son SVG de [Lucide](https://lucide.dev) (licencia ISC) embebidos en
 `docs/icons.js`, sin depender de ninguna librería externa.
 
+Cada tarjeta, alternativa y resultado de búsqueda muestra el **logo** del canal del EPG
+(`epg_icons.json` en la branch `data`: `{channel_id: url}`, solo los que traen `<icon>`, con las
+URLs `http://` pasadas a `https://`). La interfaz lo baja en segundo plano después de mostrar la
+lista; si un logo no carga queda un ícono genérico.
+
 La página es una **PWA**: en el celular se puede agregar a la pantalla de inicio ("Agregar a
 inicio" en Safari, "Instalar app" en Chrome) y abre a pantalla completa, sin la barra del
 navegador. `docs/sw.js` guarda solo la interfaz (network-first: siempre busca primero la versión

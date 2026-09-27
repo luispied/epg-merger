@@ -52,6 +52,8 @@
   let catalogById = new Map();
   /** @type {ChannelMap} */
   let channelMap = { overrides: {} };
+  /** @type {Record<string, string> | null} channel_id -> URL del logo (epg_icons.json, carga en 2º plano) */
+  let logoById = null;
   /** @type {Record<string, string>} nombre de perfil -> URL raw de su match_report */
   let profiles = {};
   // Los perfiles solo difieren en credenciales (mismos canales, mismo EPG, y los cambios de acá
@@ -249,6 +251,38 @@
     el.classList.toggle('on-air', !!cur);
   }
 
+  // Logos de los canales del EPG: el mapa (epg_icons.json) se baja en segundo plano después de
+  // la primera carga; hasta que llega, los lugares quedan con un ícono genérico.
+  /** @param {string | null} id channel_id del EPG (null: sin EPG) @param {string} [cls] */
+  function logoHtml(id, cls = '') {
+    return `<span class="logo ${cls}"${id ? ` data-logo-for="${esc(id)}"` : ''}>${icon('tv')}</span>`;
+  }
+
+  /** @param {ParentNode} root */
+  function fillLogos(root) {
+    if (!logoById) return;
+    $$('.logo[data-logo-for]', root).forEach((el) => {
+      const url = logoById?.[el.dataset.logoFor];
+      el.removeAttribute('data-logo-for');
+      if (!url) return;
+      const img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.addEventListener('load', () => el.classList.add('has-img'));
+      img.addEventListener('error', () => img.remove()); // queda el ícono genérico
+      img.src = url;
+      el.appendChild(img);
+    });
+  }
+
+  function loadLogos() {
+    getJSON(`${DATA_RAW_BASE}/epg_icons.json?_=${dataNonce}`)
+      .then((map) => { logoById = map; fillLogos(document); })
+      .catch(() => { /* sin logos: la interfaz anda igual */ });
+  }
+
   function fillNowPlaying(root) {
     $$('.epg-now[data-now-for]', root).forEach((el) => {
       const id = el.dataset.nowFor;
@@ -349,13 +383,15 @@
   // está dando ahora si ya se sabe; si es undefined se completa después con fillNowPlaying().
   /**
    * @param {string} id channel_id del EPG
-   * @param {{ score?: number | null, pick?: boolean, cur?: NowPlaying | null, note?: string }} [opts]
+   * @param {{ score?: number | null, pick?: boolean, cur?: NowPlaying | null, note?: string, logo?: boolean }} [opts]
    */
-  function epgRowHtml(id, { score = null, pick = false, cur = undefined, note = '' } = {}) {
+  function epgRowHtml(id, { score = null, pick = false, cur = undefined, note = '', logo = true } = {}) {
     const c = catalogEntry(id);
     const known = cur !== undefined;
     const pickAttrs = pick ? ` data-id="${esc(id)}" role="button" tabindex="0"` : '';
-    return `<div class="epg-row${pick ? ' pick' : ''}"${pickAttrs}>
+    return `<div class="epg-row${pick ? ' pick' : ''}${logo ? ' with-logo' : ''}"${pickAttrs}>
+      ${logo ? logoHtml(id) : ''}
+      <div class="epg-body">
       <div class="epg-head">
         <span class="epg-name">${esc(c.name)}${c.country ? ' [' + esc(c.country.toUpperCase()) + ']' : ''}</span>
         ${score === null ? '' : scoreTag(score)}
@@ -363,6 +399,7 @@
       <small class="epg-src">${esc(c.id)}${c.source ? ' · ' + esc(c.source) : ''}</small>
       <div class="epg-now${known && cur ? ' on-air' : ''}"${known ? '' : ` data-now-for="${esc(id)}"`}>${
         known ? nowHtml(cur, note) : '<span>Cargando programación…</span>'}</div>
+      </div>
     </div>`;
   }
 
@@ -495,6 +532,7 @@
       hourIndexCache.clear();
       await loadRelease();
       await loadProfile(currentProfile);
+      loadLogos();
       pollWorkflow();
       toast('Datos actualizados');
     } catch (e) {
@@ -601,10 +639,11 @@
     let body;
     if (divider) body = '<div class="card-note">Separador del proveedor: no lleva EPG.</div>';
     else if (hasOverride(ch) && epg === null) body = '<div class="card-note">Sin EPG ni logo, a propósito.</div>';
-    else body = epg ? epgRowHtml(epg) : '<div class="card-note">Sin EPG asignado.</div>';
+    else body = epg ? epgRowHtml(epg, { logo: false }) : '<div class="card-note">Sin EPG asignado.</div>';
 
     el.innerHTML = `
       <div class="card-top">
+        ${divider ? '' : logoHtml(epg || null, 'lg')}
         <div class="card-title">
           <div class="card-name">${esc(renamed || key)}</div>
           ${renamed ? `<div class="card-sub">En Xtream: ${esc(key)}</div>` : ''}
@@ -630,6 +669,7 @@
     `;
 
     fillNowPlaying(el);
+    fillLogos(el);
     $('.hide-btn', el).addEventListener('click', () => {
       const hide = !isHidden(ch);
       setEntry('hidden', key, hide ? true : undefined, hide ? 'Canal oculto de la playlist' : 'Canal visible en la playlist');
@@ -681,6 +721,7 @@
     const pick = (id) => setEntry('overrides', ch.xtream_name, id, id === null ? 'Canal sin EPG a propósito' : 'EPG elegido');
     wirePicks(panel, pick);
     fillNowPlaying(panel);
+    fillLogos(panel);
     $('.force-none-btn', panel).addEventListener('click', () => pick(null));
     const input = $('.catalog-search', panel);
     const results = $('.search-results', panel);
@@ -721,6 +762,7 @@
     resultsEl.hidden = false;
     wirePicks(resultsEl, pick);
     fillNowPlaying(resultsEl);
+    fillLogos(resultsEl);
   }
 
   // ---- "Más": nombre, categoría y volver al EPG automático
@@ -999,6 +1041,7 @@
       const names = Object.keys(profiles).sort();
       if (!names.length) throw new Error('Todavía no hay ningún match_report publicado: corré el workflow una vez.');
       await loadProfile(names[0]);
+      loadLogos();
       pollWorkflow();
       // La primera vez en este dispositivo se muestra la ayuda.
       if (!storageGet(HELP_SEEN_KEY)) {
