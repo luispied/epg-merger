@@ -615,9 +615,10 @@ def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     assert 'Sin perfiles configurados' in capsys.readouterr().out
 
 
-def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None):
+def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None, ocultos=None):
     (proyecto / 'xtream_channel_map.json').write_text(json.dumps({
         'overrides': overrides or {}, 'renames': renames or {}, 'categories': categorias or {},
+        'hidden': {n: True for n in ocultos or []},
     }), encoding='utf-8')
 
 
@@ -656,3 +657,18 @@ def test_mover_a_un_separador_se_ignora(proyecto, monkeypatch):
     _con_ediciones(proyecto, categorias={'TBS -EN': '▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆'})
     _correr(monkeypatch, PERFILES[:1])
     assert 'group-title="USA ENTERTAINMENT"' in _extinf(_playlist(proyecto, 'luis'), 'TBS -EN')
+
+
+def test_canal_oculto_sale_de_playlist_y_guia_pero_queda_en_el_reporte(proyecto, monkeypatch):
+    """Oculto desde la interfaz: no aparece en la playlist ni su EPG en la guía del perfil,
+    pero sigue en el reporte (con su EPG calculado) para poder volver a mostrarlo."""
+    _con_ediciones(proyecto, ocultos=['Warner TV Costa Rica'])
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    assert 'Warner TV Costa Rica' not in playlist
+    assert 'TBS -EN' in playlist
+    with gzip.open(proyecto / 'out' / 'luis' / 'epg.xml.gz', 'rb') as f:
+        root = etree.fromstring(f.read())
+    assert 'Warner.cr' not in {c.get('id') for c in root.findall('channel')}
+    canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
+    assert canales['Warner TV Costa Rica']['chosen'] == 'Warner.cr'

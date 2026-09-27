@@ -141,6 +141,10 @@ Desde cada tarjeta también se puede:
 - **Moverlo de categoría** (desplegable debajo del nombre): guarda `"categories": {"nombre en
   Xtream": "categoría destino"}`. Cambia en qué grupo/sección aparece en la playlist; el EPG se
   sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
+- **Ocultarlo** (🙈 Ocultar / 👁️ Mostrar): guarda `"hidden": {"nombre en Xtream": true}`. El
+  canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
+  reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
+  cuentan en "A revisar" ni en "Sin EPG".
 
 Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
 con **▶️ Correr workflow** (muestra el estado hasta que termina). **🔄 Datos** vuelve a bajar

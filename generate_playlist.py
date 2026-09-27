@@ -232,20 +232,21 @@ def load_channel_map(path=CHANNEL_MAP_PATH):
 
 
 def load_channel_edits(path=CHANNEL_MAP_PATH):
-    """(renames, category_moves) de xtream_channel_map.json, armables desde la interfaz de
-    corrección: {nombre_crudo_en_xtream: nombre_a_mostrar} y {nombre_crudo: categoría}. Igual
-    que los overrides de EPG, van por el nombre CRUDO de Xtream, así que renombrar un canal no
-    rompe su override de EPG."""
+    """(renames, category_moves, hidden) de xtream_channel_map.json, armables desde la
+    interfaz de corrección: {nombre_crudo_en_xtream: nombre_a_mostrar}, {nombre_crudo:
+    categoría} y {nombre_crudo: true} para sacarlo de la playlist. Igual que los overrides de
+    EPG, van por el nombre CRUDO de Xtream, así que renombrar un canal no rompe su override."""
     try:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {}, {}
+        return {}, {}, set()
     renames = {k: v.strip() for k, v in (data.get('renames') or {}).items()
                if isinstance(v, str) and v.strip()}
     moves = {k: v for k, v in (data.get('categories') or {}).items()
              if isinstance(v, str) and v and not is_divider_category(v)}
-    return renames, moves
+    hidden = {k for k, v in (data.get('hidden') or {}).items() if v}
+    return renames, moves, hidden
 
 
 def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
@@ -268,11 +269,12 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     return None, None, 0.0, ranked
 
 
-def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {})):
+def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {}, set())):
     """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats.
 
-    `edits` = (renames, category_moves), ver load_channel_edits."""
-    renames, category_moves = edits
+    `edits` = (renames, category_moves, hidden), ver load_channel_edits."""
+    renames, category_moves, hidden = edits
+    hidden_count = 0
     section_display_order, section_rules, section_epg, category_order = sections
     name = profile['name']
     username, password = profile['username'], profile['password']
@@ -391,6 +393,27 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
             if c.channel_id != channel_id and c.score >= PLAUSIBLE_MIN
         ][:MAX_ALT_ENTRIES]
 
+        # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.
+        report.append({
+            'xtream_name': raw_name,
+            'category': category,
+            'section': category_info(category)[0],
+            'chosen': channel_id,
+            'reason': reason,
+            'score': round(score, 4),
+            'alternatives': [
+                {'channel_id': c.channel_id, 'score': round(c.score, 4),
+                 'source': index.source.get(c.channel_id)}
+                for c in alternatives
+            ],
+        })
+
+        # Canal oculto a mano desde la interfaz: queda en el reporte (para poder volver a
+        # mostrarlo, con su EPG ya calculado) pero no entra a la playlist ni a la guía.
+        if raw_name in hidden:
+            hidden_count += 1
+            continue
+
         # Sin match confirmado no hay logo: el de Xtream ("stream_icon") suele ser el del canal
         # equivocado que el proveedor le puso a último momento o un genérico, y mostrarlo da la
         # falsa impresión de que el canal sí tiene EPG asignado.
@@ -432,21 +455,6 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
             f'tvg-logo="{_m3u_attr(logo)}" '
             f'group-title="{_m3u_attr(_safe_group_title(display_category))}",{_m3u_attr(display_name)}\n{stream_url}',
         ))
-
-        # El reporte no lleva URLs de stream: se publica/diffea sin credenciales adentro.
-        report.append({
-            'xtream_name': raw_name,
-            'category': category,
-            'section': category_info(category)[0],
-            'chosen': channel_id,
-            'reason': reason,
-            'score': round(score, 4),
-            'alternatives': [
-                {'channel_id': c.channel_id, 'score': round(c.score, 4),
-                 'source': index.source.get(c.channel_id)}
-                for c in alternatives
-            ],
-        })
 
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
@@ -494,7 +502,8 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
     with open(report_path, 'w', encoding='utf-8') as f:
         json.dump({'stats': stats, 'channels': report}, f, ensure_ascii=False, indent=1)
 
-    print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}")
+    print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}"
+          + (f" | ocultos: {hidden_count}" if hidden_count else ''))
     if unmatched:
         print(f"   Ejemplos sin match: {', '.join(unmatched[:15])}")
     if stats['alternatives']:
@@ -658,7 +667,7 @@ def generate():
     edits = load_channel_edits()
     if any(edits):
         print(f"✏️  Ediciones manuales: {len(edits[0])} renombrado(s), "
-              f"{len(edits[1])} cambio(s) de categoría")
+              f"{len(edits[1])} cambio(s) de categoría, {len(edits[2])} oculto(s)")
 
     print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
     for profile in profiles:

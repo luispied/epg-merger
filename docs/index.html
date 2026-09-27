@@ -128,6 +128,8 @@
   dialog p { color: var(--muted); font-size: 12.5px; }
   dialog input { width: 100%; margin: 8px 0; }
   dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .card.is-hidden { opacity: .55; }
+  .card.is-hidden:hover, .card.is-hidden:focus-within { opacity: 1; }
   .icon-btn {
     background: none; border: none; padding: 0 4px; font-size: 13px; cursor: pointer;
     color: var(--muted); vertical-align: baseline;
@@ -159,6 +161,7 @@
     <button class="tab active" data-filter="revisar">A revisar</button>
     <button class="tab" data-filter="sin-epg">Sin EPG</button>
     <button class="tab" data-filter="override">Con override</button>
+    <button class="tab" data-filter="ocultos">Ocultos</button>
     <button class="tab" data-filter="todos">Todos</button>
   </div>
   <button class="ghost" id="refreshDataBtn" title="Volver a bajar catálogo, reportes y programación sin recargar la página">🔄 Datos</button>
@@ -406,6 +409,9 @@
 
   function matchesFilter(ch) {
     const hasOverride = Object.prototype.hasOwnProperty.call(channelMap.overrides, ch.xtream_name);
+    // Un canal oculto ya se revisó y se decidió sacarlo: no cuenta como pendiente.
+    if (activeFilter === 'ocultos') return isHidden(ch);
+    if (isHidden(ch) && (activeFilter === 'revisar' || activeFilter === 'sin-epg')) return false;
     switch (activeFilter) {
       case 'sin-epg': return !ch.chosen;
       case 'override': return hasOverride;
@@ -472,7 +478,8 @@
 
   function renderCard(ch) {
     const el = document.createElement('div');
-    el.className = 'card';
+    const hidden = isHidden(ch);
+    el.className = hidden ? 'card is-hidden' : 'card';
     const hasOverride = Object.prototype.hasOwnProperty.call(channelMap.overrides, ch.xtream_name);
     const forcedNoEpg = ch.reason === 'override_none';
     const chosenLabel = ch.chosen ? labelFor(ch.chosen) : null;
@@ -509,12 +516,14 @@
         <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
           ${scoreBadge(ch.score, ch.chosen, ch.reason)}
           ${hasOverride && !forcedNoEpg ? '<span class="badge override">override</span>' : ''}
+          ${hidden ? '<span class="badge bad">🙈 oculto</span>' : ''}
         </div>
       </div>
       <div class="card-epg">${epgText}</div>
       ${ch.chosen && !forcedNoEpg ? '<div class="chip-now card-now">Cargando programación…</div>' : ''}
       <div class="card-actions">
         <button class="ghost edit-btn">Cambiar EPG</button>
+        <button class="ghost hide-btn" title="${hidden ? 'Volver a mostrarlo en la playlist' : 'Sacarlo de la playlist (se puede deshacer)'}">${hidden ? '👁️ Mostrar' : '🙈 Ocultar'}</button>
         ${hasOverride ? '<button class="ghost danger remove-btn">Quitar override</button>' : ''}
       </div>
       <div class="editor"></div>
@@ -528,6 +537,16 @@
 
     el.querySelector('.edit-btn').addEventListener('click', () => toggleEditor(el, ch));
     if (!isDivider) wireCardEdits(el, ch);
+    el.querySelector('.hide-btn').addEventListener('click', () => {
+      const hide = !isHidden(ch);
+      saveEdit(ch, el.querySelector('.card-msg'),
+        hide ? 'Ocultar canal desde la interfaz de corrección' : 'Mostrar canal desde la interfaz de corrección',
+        (doc) => {
+          doc.hidden = doc.hidden || {};
+          if (hide) doc.hidden[ch.xtream_name] = true;
+          else delete doc.hidden[ch.xtream_name];
+        });
+    });
     const removeBtn = el.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeOverride(ch, el));
 
@@ -535,6 +554,10 @@
   }
 
   // --------------------------------------------- renombrar / mover de categoría
+
+  function isHidden(ch) {
+    return !!(channelMap.hidden || {})[ch.xtream_name];
+  }
 
   function renameOf(ch) {
     return (channelMap.renames || {})[ch.xtream_name] || null;
@@ -767,7 +790,7 @@
     const decoded = JSON.parse(decodeURIComponent(escape(atob(current.content.replace(/\n/g, '')))));
     if (!decoded.overrides) decoded.overrides = {};
     mutate(decoded);
-    for (const key of ['renames', 'categories']) {
+    for (const key of ['renames', 'categories', 'hidden']) {
       if (decoded[key] && !Object.keys(decoded[key]).length) delete decoded[key];
     }
 
