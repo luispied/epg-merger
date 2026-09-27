@@ -115,7 +115,8 @@
   },
   "hidden": {
     "AAA": true,
-    "Discovery Investigation": true
+    "Discovery Investigation": true,
+    "Discovery Investigation FHD": true
   },
   "renames": {
     "Decasa": "AMC Living"
