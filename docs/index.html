@@ -128,6 +128,18 @@
   dialog p { color: var(--muted); font-size: 12.5px; }
   dialog input { width: 100%; margin: 8px 0; }
   dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .icon-btn {
+    background: none; border: none; padding: 0 4px; font-size: 13px; cursor: pointer;
+    color: var(--muted); vertical-align: baseline;
+  }
+  .rename-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+  .rename-box input { flex: 1 1 180px; }
+  .rename-box button { font-size: 12px; padding: 5px 10px; }
+  .card-meta select { font-size: 12px; padding: 3px 6px; max-width: 100%; }
+  .card .editor-msg:empty { display: none; }
+  .workflow-status { font-size: 12.5px; margin: 4px 0 8px; }
+  .workflow-status.ok { color: var(--ok); }
+  .workflow-status.bad { color: var(--bad); }
   a { color: var(--accent); }
   [hidden] { display: none !important; }
 </style>
@@ -149,10 +161,12 @@
     <button class="tab" data-filter="override">Con override</button>
     <button class="tab" data-filter="todos">Todos</button>
   </div>
+  <button class="ghost" id="runWorkflowBtn" title="Regenera playlists y EPG con los cambios guardados">▶️ Correr workflow</button>
   <button class="ghost" id="settingsBtn" title="Configurar token de GitHub">⚙️ Token</button>
 </div>
 
 <main>
+  <p class="workflow-status" id="workflowStatus" hidden></p>
   <p class="status" id="statusLine">Cargando…</p>
   <div class="cards" id="cards"></div>
   <p class="status" id="moreStatus" hidden></p>
@@ -163,9 +177,10 @@
   <div class="dialog-body">
     <h2>Token de GitHub</h2>
     <p>
-      Hace falta un <b>fine-grained personal access token</b> con permiso <b>Contents: Read and
-      write</b> sobre este repo (<code>luispied/epg-merger</code>), para poder guardar los
-      overrides que elijas acá directamente como un commit. Se guarda solo en este navegador
+      Hace falta un <b>fine-grained personal access token</b> sobre este repo
+      (<code>luispied/epg-merger</code>) con permiso <b>Contents: Read and write</b>, para
+      guardar los cambios que hagas acá como un commit, y <b>Actions: Read and write</b>, para
+      poder correr el workflow con el botón ▶️. Se guarda solo en este navegador
       (<code>localStorage</code>), nunca se envía a nada que no sea <code>api.github.com</code>.
       <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear token →</a>
     </p>
@@ -194,6 +209,10 @@
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
   const TOKEN_KEY = 'epg_admin_pat';
+  const WORKFLOW_FILE = 'merge-epgs.yml';
+  // Mismo criterio que generate_playlist.is_divider_category: los separadores decorativos del
+  // proveedor no son categorías reales, no se ofrecen como destino ni se pueden mover.
+  const DIVIDER_RE = /[▆░▒▓█]/;
 
   const $ = (sel) => document.querySelector(sel);
   const cardsEl = $('#cards');
@@ -209,7 +228,8 @@
   let channelMap = { overrides: {} };
   let channelMapSha = null;
   let profiles = {};            // name -> URL raw del match_report en la branch "data"
-  let currentChannels = [];     // reporte del perfil activo
+  let allChannels = [];         // reporte completo del perfil activo (incluye PPV)
+  let currentChannels = [];     // lo que se muestra (sin los eventos de PPV)
   let filtered = [];
   let rendered = 0;
   let activeFilter = 'revisar';
@@ -361,7 +381,9 @@
   async function loadProfile(name) {
     statusLine.textContent = 'Cargando canales…';
     const data = await fetchJSON(profiles[name] + `?_=${Date.now()}`);
-    currentChannels = (data.channels || []).filter(
+    allChannels = data.channels || [];
+    buildCategoryGroups();
+    currentChannels = allChannels.filter(
       (ch) => ch.section !== PPV_SECTION || PPV_EDITABLE_CATEGORIES.has(ch.category));
     applyFilters();
   }
@@ -381,7 +403,7 @@
 
   function matchesSearch(ch) {
     if (!searchTerm) return true;
-    const hay = `${ch.xtream_name} ${ch.category} ${ch.section || ''}`.toLowerCase();
+    const hay = `${ch.xtream_name} ${renameOf(ch) || ''} ${effectiveCategory(ch)} ${ch.section || ''}`.toLowerCase();
     return hay.includes(searchTerm);
   }
 
@@ -414,11 +436,31 @@
       ? '<span style="color:var(--muted)">forzado sin EPG ni logo, a propósito</span>'
       : (chosenLabel ? escapeHtml(chosenLabel) : '<span style="color:var(--muted)">sin EPG asignado</span>');
 
+    const renamed = renameOf(ch);
+    const isDivider = DIVIDER_RE.test(ch.category);
+    const movedTo = movedCategoryOf(ch);
+    const section = movedTo ? sectionOfCategory.get(movedTo) : ch.section;
+
     el.innerHTML = `
       <div class="card-top">
-        <div>
-          <div class="card-name">${escapeHtml(ch.xtream_name)}</div>
-          <div class="card-meta">${escapeHtml(ch.category)}${ch.section ? ' · ' + escapeHtml(ch.section) : ''}</div>
+        <div style="min-width:0; flex:1;">
+          <div class="card-name">
+            <span class="name-text">${escapeHtml(renamed || ch.xtream_name)}</span>
+            ${isDivider ? '' : '<button class="icon-btn rename-btn" title="Renombrar canal">✏️</button>'}
+          </div>
+          ${renamed ? `<div class="card-meta">Nombre en Xtream: ${escapeHtml(ch.xtream_name)}</div>` : ''}
+          <div class="rename-box" hidden>
+            <input type="text" class="rename-input" value="${escapeHtml(renamed || ch.xtream_name)}">
+            <button class="rename-save">Guardar</button>
+            <button class="ghost rename-cancel">Cancelar</button>
+            ${renamed ? '<button class="ghost rename-restore">Nombre original</button>' : ''}
+          </div>
+          <div class="card-meta">${isDivider
+            ? escapeHtml(ch.category)
+            : `<select class="cat-select" title="Mover a otra categoría">${categoryOptions(ch)}</select>`}${
+            section ? ' · ' + escapeHtml(section) : ''}${
+            movedTo ? ' · <span class="badge override">movido</span>' : ''}</div>
+          <div class="editor-msg card-msg"></div>
         </div>
         <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
           ${scoreBadge(ch.score, ch.chosen, ch.reason)}
@@ -441,10 +483,115 @@
     if (nowEl) loadNowPlayingInto(nowEl, ch.chosen);
 
     el.querySelector('.edit-btn').addEventListener('click', () => toggleEditor(el, ch));
+    if (!isDivider) wireCardEdits(el, ch);
     const removeBtn = el.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeOverride(ch, el));
 
     return el;
+  }
+
+  // --------------------------------------------- renombrar / mover de categoría
+
+  function renameOf(ch) {
+    return (channelMap.renames || {})[ch.xtream_name] || null;
+  }
+
+  function movedCategoryOf(ch) {
+    const moved = (channelMap.categories || {})[ch.xtream_name];
+    return moved && moved !== ch.category ? moved : null;
+  }
+
+  function effectiveCategory(ch) {
+    return movedCategoryOf(ch) || ch.category;
+  }
+
+  // Categorías reales del perfil (sin separadores), agrupadas por sección, para el desplegable.
+  // Se calcula una vez por perfil: son ~100 categorías para ~3000 canales.
+  let categoryGroupsHtml = null;
+  let sectionOfCategory = new Map();
+
+  function buildCategoryGroups() {
+    const bySection = new Map();
+    sectionOfCategory = new Map();
+    for (const ch of allChannels) {
+      if (DIVIDER_RE.test(ch.category)) continue;
+      sectionOfCategory.set(ch.category, ch.section);
+      const sec = ch.section || 'Sin sección';
+      if (!bySection.has(sec)) bySection.set(sec, new Set());
+      bySection.get(sec).add(ch.category);
+    }
+    const collator = new Intl.Collator('es');
+    categoryGroupsHtml = [...bySection.keys()].sort(collator.compare).map((sec) => {
+      const opts = [...bySection.get(sec)].sort(collator.compare)
+        .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      return `<optgroup label="${escapeHtml(sec)}">${opts}</optgroup>`;
+    }).join('');
+  }
+
+  function categoryOptions(ch) {
+    const current = effectiveCategory(ch);
+    // Se marca la seleccionada y la original sobre el HTML ya armado (reemplazo de texto: más
+    // barato que armar 100 <option> por cada una de las 60 tarjetas de la página).
+    const mark = (html, value, attr) => html.replace(`<option value="${escapeHtml(value)}">`,
+      `<option value="${escapeHtml(value)}" ${attr}>`);
+    let html = mark(categoryGroupsHtml, current, 'selected');
+    html = html.replace(`>${escapeHtml(ch.category)}</option>`, `>${escapeHtml(ch.category)} (original)</option>`);
+    // Destino que ya no existe en el proveedor: se muestra igual para no perderlo de vista.
+    if (!html.includes(`value="${escapeHtml(current)}"`)) {
+      html = `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)}</option>` + html;
+    }
+    return html;
+  }
+
+  function wireCardEdits(el, ch) {
+    const box = el.querySelector('.rename-box');
+    const input = el.querySelector('.rename-input');
+    const msg = el.querySelector('.card-msg');
+    el.querySelector('.rename-btn').addEventListener('click', () => {
+      box.hidden = !box.hidden;
+      if (!box.hidden) { input.focus(); input.select(); }
+    });
+    el.querySelector('.rename-cancel').addEventListener('click', () => {
+      input.value = renameOf(ch) || ch.xtream_name;
+      box.hidden = true;
+    });
+    const doRename = (value) => saveEdit(ch, msg, 'Renombrar canal desde la interfaz de corrección', (doc) => {
+      doc.renames = doc.renames || {};
+      value = (value || '').trim();
+      if (!value || value === ch.xtream_name) delete doc.renames[ch.xtream_name];
+      else doc.renames[ch.xtream_name] = value;
+    });
+    el.querySelector('.rename-save').addEventListener('click', () => doRename(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doRename(input.value);
+      if (e.key === 'Escape') el.querySelector('.rename-cancel').click();
+    });
+    const restore = el.querySelector('.rename-restore');
+    if (restore) restore.addEventListener('click', () => doRename(''));
+
+    const select = el.querySelector('.cat-select');
+    select.addEventListener('change', () => {
+      const value = select.value;
+      saveEdit(ch, msg, 'Mover canal de categoría desde la interfaz de corrección', (doc) => {
+        doc.categories = doc.categories || {};
+        if (value === ch.category) delete doc.categories[ch.xtream_name];
+        else doc.categories[ch.xtream_name] = value;
+      });
+    });
+  }
+
+  async function saveEdit(ch, msg, commitMessage, mutate) {
+    msg.textContent = 'Guardando…';
+    msg.className = 'editor-msg card-msg';
+    try {
+      await withChannelMap(mutate, commitMessage);
+      msg.textContent = '✓ Guardado. Se aplica a la playlist al correr el workflow (▶️ arriba).';
+      msg.className = 'editor-msg card-msg ok';
+      setTimeout(() => applyFilters(), 1200);
+    } catch (e) {
+      msg.textContent = '✗ ' + e.message;
+      msg.className = 'editor-msg card-msg bad';
+    }
   }
 
   function escapeHtml(s) {
@@ -564,7 +711,8 @@
 
   // ------------------------------------------------------------- guardar en GitHub
 
-  async function withChannelMap(mutate) {
+  // `mutate` recibe el documento entero ({overrides, renames, categories, …}).
+  async function withChannelMap(mutate, commitMessage = 'Override manual desde la interfaz de corrección de EPG') {
     const token = getToken();
     if (!token) { openTokenDialog(); throw new Error('Falta el token de GitHub'); }
 
@@ -574,7 +722,10 @@
     });
     const decoded = JSON.parse(decodeURIComponent(escape(atob(current.content.replace(/\n/g, '')))));
     if (!decoded.overrides) decoded.overrides = {};
-    mutate(decoded.overrides);
+    mutate(decoded);
+    for (const key of ['renames', 'categories']) {
+      if (decoded[key] && !Object.keys(decoded[key]).length) delete decoded[key];
+    }
 
     const newContent = JSON.stringify(decoded, null, 2) + '\n';
     const encoded = btoa(unescape(encodeURIComponent(newContent)));
@@ -587,7 +738,7 @@
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        message: 'Override manual desde la interfaz de corrección de EPG',
+        message: commitMessage,
         content: encoded,
         sha: current.sha,
       }),
@@ -604,7 +755,7 @@
     msg.textContent = 'Guardando…';
     msg.className = 'editor-msg';
     try {
-      await withChannelMap((overrides) => { overrides[ch.xtream_name] = channelId; });
+      await withChannelMap((doc) => { doc.overrides[ch.xtream_name] = channelId; });
       msg.textContent = `✓ Guardado. Va a tomar efecto en la próxima corrida del workflow.`;
       msg.className = 'editor-msg ok';
       // refresco visual optimista, el próximo run confirma
@@ -621,7 +772,7 @@
   async function removeOverride(ch, cardEl) {
     if (!confirm(`¿Quitar el override de "${ch.xtream_name}"? Volverá a matchear automático en la próxima corrida.`)) return;
     try {
-      await withChannelMap((overrides) => { delete overrides[ch.xtream_name]; });
+      await withChannelMap((doc) => { delete doc.overrides[ch.xtream_name]; });
       // El match_report todavía va a decir lo mismo hasta la próxima corrida; se limpia el
       // motivo optimistamente para no dejar la tarjeta mostrando "forzado sin EPG" cuando el
       // override que decía eso ya no existe.
@@ -631,6 +782,89 @@
       alert('No se pudo quitar: ' + e.message);
     }
   }
+
+  // ------------------------------------------------------------- correr el workflow
+
+  // Dispara merge-epgs.yml (workflow_dispatch) y sigue su estado hasta que termina, para no
+  // tener que ir a GitHub después de guardar cambios. Necesita Actions: Read and write.
+  const runBtn = $('#runWorkflowBtn');
+  const workflowStatus = $('#workflowStatus');
+  let pollTimer = null;
+  let dispatchedAt = 0;         // para no confundir la corrida recién lanzada con la anterior
+
+  function ghHeaders() {
+    return { Authorization: `Bearer ${getToken()}`, Accept: 'application/vnd.github+json' };
+  }
+
+  function showWorkflowStatus(html, cls = '') {
+    workflowStatus.hidden = false;
+    workflowStatus.className = 'workflow-status ' + cls;
+    workflowStatus.innerHTML = html;
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function latestRun() {
+    const data = await fetchJSON(`${API}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`, { headers: ghHeaders() });
+    return (data.workflow_runs || [])[0] || null;
+  }
+
+  function renderRun(run) {
+    const link = `<a href="${escapeHtml(run.html_url)}" target="_blank" rel="noopener">ver en GitHub</a>`;
+    if (run.status !== 'completed') {
+      const mins = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at)) / 60000));
+      showWorkflowStatus(`⏳ Workflow ${run.status === 'queued' ? 'en cola' : 'corriendo'} (${mins} min, suele tardar ~8) · ${link}`);
+      runBtn.disabled = true;
+      return false;
+    }
+    runBtn.disabled = false;
+    if (run.conclusion === 'success') {
+      showWorkflowStatus(`✅ Último workflow OK (${fmtTime(run.updated_at)}) · <a href="#" id="reloadLink">recargar datos</a> · ${link}`, 'ok');
+      const reload = $('#reloadLink');
+      if (reload) reload.addEventListener('click', (e) => { e.preventDefault(); location.reload(); });
+    } else {
+      showWorkflowStatus(`❌ El último workflow terminó con "${escapeHtml(run.conclusion)}" (${fmtTime(run.updated_at)}) · ${link}`, 'bad');
+    }
+    return true;
+  }
+
+  function pollWorkflow() {
+    clearTimeout(pollTimer);
+    latestRun().then((run) => {
+      const stale = dispatchedAt && (!run || new Date(run.created_at) < dispatchedAt - 60000);
+      if (stale && Date.now() - dispatchedAt < 3 * 60000) {
+        pollTimer = setTimeout(pollWorkflow, 5000); // todavía no apareció la corrida nueva
+        return;
+      }
+      if (run && !renderRun(run)) pollTimer = setTimeout(pollWorkflow, 15000);
+    }).catch(() => { /* sin permiso de Actions: el botón igual explica al usarlo */ });
+  }
+
+  runBtn.addEventListener('click', async () => {
+    if (!getToken()) { openTokenDialog(); return; }
+    if (!confirm('¿Correr el workflow ahora? Regenera playlists y EPG con los cambios guardados (tarda ~8 min).')) return;
+    runBtn.disabled = true;
+    showWorkflowStatus('Lanzando workflow…');
+    const res = await fetch(`${API}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+      method: 'POST',
+      headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    }).catch((e) => ({ ok: false, status: 0, text: async () => e.message }));
+    if (!res.ok) {
+      runBtn.disabled = false;
+      const hint = res.status === 403 || res.status === 404
+        ? ' — al token le falta el permiso <b>Actions: Read and write</b> (⚙️ Token).' : '';
+      showWorkflowStatus(`✗ No se pudo lanzar (HTTP ${res.status})${hint}`, 'bad');
+      return;
+    }
+    showWorkflowStatus('⏳ Workflow en cola…');
+    dispatchedAt = Date.now();
+    // La corrida nueva tarda unos segundos en aparecer en la API.
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(pollWorkflow, 5000);
+  });
 
   // --------------------------------------------------------------------- diálogo token
 
@@ -685,6 +919,7 @@
       if (!names.length) throw new Error('No hay ningún match_report-<perfil>.json publicado en el release "latest" todavía.');
       profileSelect.innerHTML = names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
       await loadProfile(names[0]);
+      if (getToken()) pollWorkflow();
     } catch (e) {
       statusLine.textContent = '⚠️ ' + e.message;
     }

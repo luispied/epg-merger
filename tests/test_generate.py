@@ -613,3 +613,46 @@ def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     generate_playlist.generate()
     assert not (proyecto / 'out').exists()
     assert 'Sin perfiles configurados' in capsys.readouterr().out
+
+
+def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None):
+    (proyecto / 'xtream_channel_map.json').write_text(json.dumps({
+        'overrides': overrides or {}, 'renames': renames or {}, 'categories': categorias or {},
+    }), encoding='utf-8')
+
+
+def _extinf(playlist, nombre):
+    return next(l for l in playlist.splitlines() if l.startswith('#EXTINF') and l.endswith(',' + nombre))
+
+
+def test_renombrar_cambia_solo_el_nombre_visible(proyecto, monkeypatch):
+    """El renombrado (armable desde la interfaz) cambia tvg-name y el título, pero el matching
+    y los overrides siguen yendo por el nombre crudo de Xtream."""
+    _con_ediciones(proyecto, overrides={'Canal Inexistente': 'Warner.cr'},
+                   renames={'TBS -EN': 'TBS USA', 'Canal Inexistente': 'Mi Warner'})
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    assert 'tvg-id="TBS.us" tvg-name="TBS USA"' in _extinf(playlist, 'TBS USA')
+    assert 'tvg-id="Warner.cr"' in _extinf(playlist, 'Mi Warner'), "el override sigue aplicando"
+    assert ',TBS -EN' not in playlist
+    canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
+    assert canales['TBS -EN']['chosen'] == 'TBS.us'
+
+
+def test_mover_de_categoria_cambia_grupo_y_orden_pero_no_el_epg(proyecto, monkeypatch):
+    _con_ediciones(proyecto, categorias={'TBS -EN': '🇨🇷 COSTA RICA'})
+    _correr(monkeypatch, PERFILES[:1])
+    lineas = [l for l in _playlist(proyecto, 'luis').splitlines() if l.startswith('#EXTINF')]
+    grupos = [l.split('group-title="')[1].split('"')[0] for l in lineas]
+    assert grupos == ['🇨🇷 COSTA RICA'] * 3, "ya no queda nada en USA ENTERTAINMENT"
+    # El EPG se sigue eligiendo con la categoría original (ENGLISH prefiere acidjesuz-us).
+    canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
+    assert canales['TBS -EN']['chosen'] == 'TBS.us'
+    assert canales['TBS -EN']['category'] == 'USA ENTERTAINMENT'
+    assert canales['TBS -EN']['section'] == 'ENGLISH'
+
+
+def test_mover_a_un_separador_se_ignora(proyecto, monkeypatch):
+    _con_ediciones(proyecto, categorias={'TBS -EN': '▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆'})
+    _correr(monkeypatch, PERFILES[:1])
+    assert 'group-title="USA ENTERTAINMENT"' in _extinf(_playlist(proyecto, 'luis'), 'TBS -EN')

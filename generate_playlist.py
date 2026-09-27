@@ -231,6 +231,23 @@ def load_channel_map(path=CHANNEL_MAP_PATH):
         return {}
 
 
+def load_channel_edits(path=CHANNEL_MAP_PATH):
+    """(renames, category_moves) de xtream_channel_map.json, armables desde la interfaz de
+    corrección: {nombre_crudo_en_xtream: nombre_a_mostrar} y {nombre_crudo: categoría}. Igual
+    que los overrides de EPG, van por el nombre CRUDO de Xtream, así que renombrar un canal no
+    rompe su override de EPG."""
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}, {}
+    renames = {k: v.strip() for k, v in (data.get('renames') or {}).items()
+               if isinstance(v, str) and v.strip()}
+    moves = {k: v for k, v in (data.get('categories') or {}).items()
+             if isinstance(v, str) and v and not is_divider_category(v)}
+    return renames, moves
+
+
 def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     """Devuelve (channel_id_elegido, motivo, puntaje, [candidatos_rankeados]).
 
@@ -251,8 +268,11 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     return None, None, 0.0, ranked
 
 
-def generate_for_profile(profile, index, epg_root, sections, overrides):
-    """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats."""
+def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {})):
+    """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats.
+
+    `edits` = (renames, category_moves), ver load_channel_edits."""
+    renames, category_moves = edits
     section_display_order, section_rules, section_epg, category_order = sections
     name = profile['name']
     username, password = profile['username'], profile['password']
@@ -315,6 +335,15 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         stream_id = stream.get('stream_id')
         container_ext = stream.get('container_extension', 'm3u8')
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
+
+        # Canal movido de categoría a mano desde la interfaz: solo cambia DÓNDE aparece en la
+        # playlist (sección, orden, group-title). El matching de EPG sigue usando la categoría
+        # original (país, fuentes preferidas), para que moverlo no le cambie el EPG sin avisar.
+        moved_to = None if category_is_divider else category_moves.get(raw_name)
+        if moved_to and moved_to != category:
+            section, _, _, _, cat_order, display_category = category_info(moved_to)
+        else:
+            moved_to = None
 
         # Se saca el prefijo que antepone el proveedor (código de país, número de evento) del
         # nombre que se muestra y del que se matchea — pero los overrides de
@@ -393,7 +422,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         # El separador muestra el mismo texto simple tanto en el group-title como en el nombre
         # del canal (su único ítem): el placeholder crudo del proveedor ("== 24 /7 Only ==")
         # no debería quedar visible en ningún lado.
-        display_name = display_category if category_is_divider else channel_name
+        display_name = display_category if category_is_divider else (renames.get(raw_name) or channel_name)
 
         entries.append((
             section_order.get(section, no_section_order),
@@ -408,7 +437,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides):
         report.append({
             'xtream_name': raw_name,
             'category': category,
-            'section': section,
+            'section': category_info(category)[0],
             'chosen': channel_id,
             'reason': reason,
             'score': round(score, 4),
@@ -626,10 +655,14 @@ def generate():
     overrides = {n: cid for n, cid in overrides_raw.items() if cid is None or cid in index}
 
     sections = load_sections_config()
+    edits = load_channel_edits()
+    if any(edits):
+        print(f"✏️  Ediciones manuales: {len(edits[0])} renombrado(s), "
+              f"{len(edits[1])} cambio(s) de categoría")
 
     print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
     for profile in profiles:
-        generate_for_profile(profile, index, epg_root, sections, overrides)
+        generate_for_profile(profile, index, epg_root, sections, overrides, edits)
 
 
 if __name__ == '__main__':

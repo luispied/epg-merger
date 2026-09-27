@@ -133,6 +133,19 @@ momento. Los que tienen programación en este horario van primero. Para eso `gen
 publica además, en `schedule/hour/<AAAAMMDDHH>.json` de la branch `data`, un índice por hora UTC
 con lo que da todo el catálogo; la página baja solo el de la hora actual (~0,5 MB comprimido).
 
+Desde cada tarjeta también se puede:
+
+- **Renombrar el canal** (✏️ al lado del nombre): guarda `"renames": {"nombre en Xtream":
+  "nombre a mostrar"}`. Solo cambia el nombre que se ve en la playlist; el matching y los
+  overrides de EPG siguen yendo por el nombre original de Xtream.
+- **Moverlo de categoría** (desplegable debajo del nombre): guarda `"categories": {"nombre en
+  Xtream": "categoría destino"}`. Cambia en qué grupo/sección aparece en la playlist; el EPG se
+  sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
+
+Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
+con **▶️ Correr workflow** (muestra el estado hasta que termina). Para eso el token necesita
+además el permiso `Actions: Read and write`.
+
 El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en vez de elegir un
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
 dejarlo sin EPG a propósito que con uno incorrecto.
