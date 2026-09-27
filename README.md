@@ -105,8 +105,8 @@ mejor alternativa: mejor sin EPG que con uno equivocado.
 
 ### Interfaz de corrección (`docs/`)
 
-`docs/index.html`, servida por GitHub Pages, lista los canales de cada perfil con el EPG que
-se les asignó (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se
+`docs/index.html`, servida por GitHub Pages, lista los canales con el EPG que se les asignó
+(como todos los perfiles comparten canales y cambios, muestra siempre el primero) (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se
 excluyen: son transmisiones puntuales que ningún EPG público cubre, así que nunca van a
 matchear y no hay nada que corregir ahí. La excepción es la categoría **PPV DAZN**, que son
 canales fijos (DAZN 1, 2, 3…) y sí se muestra — y deja elegir otro de las alternativas ya
@@ -135,25 +135,31 @@ con lo que da todo el catálogo; la página baja solo el de la hora actual (~0,5
 
 Desde cada tarjeta también se puede:
 
-- **Renombrar el canal** (✏️ al lado del nombre): guarda `"renames": {"nombre en Xtream":
+- **Renombrar el canal** (⋯ Más → Nombre en la playlist): guarda `"renames": {"nombre en Xtream":
   "nombre a mostrar"}`. Solo cambia el nombre que se ve en la playlist; el matching y los
   overrides de EPG siguen yendo por el nombre original de Xtream.
-- **Moverlo de categoría** (desplegable debajo del nombre): guarda `"categories": {"nombre en
+- **Moverlo de categoría** (⋯ Más → Categoría): guarda `"categories": {"nombre en
   Xtream": "categoría destino"}`. Cambia en qué grupo/sección aparece en la playlist; el EPG se
   sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
-- **Ocultarlo** (🙈 Ocultar / 👁️ Mostrar): guarda `"hidden": {"nombre en Xtream": true}`. El
+- **Ocultarlo** (⋯ Más → 🙈 Ocultar / 👁️ Mostrar; en los separadores, directo en la tarjeta): guarda `"hidden": {"nombre en Xtream": true}`. El
   canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
 
 Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
-con **▶️ Correr workflow** (muestra el estado hasta que termina). **🔄 Datos** vuelve a bajar
+con **▶️** (muestra el estado hasta que termina, y cuando hay cambios guardados desde la
+última corrida dice **"Aplicar N"**). **🔄** vuelve a bajar
 catálogo, reportes y programación sin recargar la página (por ejemplo, después de que termina
 el workflow); la barra de estado muestra de cuándo son los datos y avisa cuando la programación
 publicada (que cubre ~30 h desde la última corrida) ya venció. Para eso el token necesita
 además el permiso `Actions: Read and write`.
 
-El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en vez de elegir un
+Cada cambio se guarda al instante y muestra abajo un aviso con **Deshacer** por unos segundos.
+Renombrar, mover de categoría, ocultar y volver al EPG automático están en **⋯ Más** de cada
+tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta
+los renombrados, movidos y ocultos.
+
+El botón **"🚫 Dejar sin EPG"** del editor guarda un override en `null` en vez de elegir un
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor
 dejarlo sin EPG a propósito que con uno incorrecto.
 
