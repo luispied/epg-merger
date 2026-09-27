@@ -20,9 +20,11 @@
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
-<link rel="stylesheet" href="app.css">
-<script src="icons.js" defer></script>
-<script src="app.js" defer></script>
+<!-- ?v=N: igual al CACHE de sw.js; subirlo junto con él en cada cambio de la interfaz para que
+     el HTML nuevo nunca cargue CSS/JS viejos de la caché del navegador. -->
+<link rel="stylesheet" href="app.css?v=14">
+<script src="icons.js?v=14" defer></script>
+<script src="app.js?v=14" defer></script>
 </head>
 <body>
 

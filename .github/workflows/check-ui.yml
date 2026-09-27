@@ -24,3 +24,13 @@ jobs:
       run: npx --yes -p typescript@5.9 tsc -p docs
     - name: Syntax-check the service worker
       run: node --check docs/sw.js
+    - name: Asset versions match the service worker cache
+      # index.html pide app.css/app.js/icons.js con ?v=N; tiene que ser el mismo N que el
+      # CACHE de sw.js, si no el HTML nuevo puede cargar un JS viejo de la caché del navegador.
+      run: |
+        cache=$(grep -oP "CACHE = 'epg-ui-v\K\d+" docs/sw.js)
+        bad=$(grep -oP '(app\.css|app\.js|icons\.js)\?v=\K\d+' docs/index.html | grep -vx "$cache" || true)
+        count=$(grep -cP '(app\.css|app\.js|icons\.js)\?v=' docs/index.html)
+        if [ -n "$bad" ] || [ "$count" -ne 3 ]; then
+          echo "::error::index.html tiene que pedir app.css, app.js e icons.js con ?v=$cache (CACHE de sw.js)"; exit 1
+        fi
