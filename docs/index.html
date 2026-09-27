@@ -161,6 +161,7 @@
     <button class="tab" data-filter="override">Con override</button>
     <button class="tab" data-filter="todos">Todos</button>
   </div>
+  <button class="ghost" id="refreshDataBtn" title="Volver a bajar catálogo, reportes y programación sin recargar la página">🔄 Datos</button>
   <button class="ghost" id="runWorkflowBtn" title="Regenera playlists y EPG con los cambios guardados">▶️ Correr workflow</button>
   <button class="ghost" id="settingsBtn" title="Configurar token de GitHub">⚙️ Token</button>
 </div>
@@ -228,6 +229,7 @@
   let channelMap = { overrides: {} };
   let channelMapSha = null;
   let profiles = {};            // name -> URL raw del match_report en la branch "data"
+  let dataGeneratedAt = null;   // fecha del último commit de la branch "data"
   let allChannels = [];         // reporte completo del perfil activo (incluye PPV)
   let currentChannels = [];     // lo que se muestra (sin los eventos de PPV)
   let filtered = [];
@@ -270,12 +272,15 @@
   // los 21k canales del catálogo, solo para los candidatos que se llegan a mostrar), y se
   // cachea porque el mismo canal aparece seguido como alternativa de varios canales de Xtream.
   const scheduleCache = new Map();
+  // Se cambia con "🔄 Datos": raw.githubusercontent.com cachea unos minutos por URL, así que
+  // sin esto el navegador podría seguir recibiendo la programación vieja después de una corrida.
+  let dataNonce = Date.now();
 
   function fetchSchedule(channelId) {
     if (scheduleCache.has(channelId)) return scheduleCache.get(channelId);
     const c = catalogEntry(channelId);
     const p = c.sched
-      ? fetchJSON(`${DATA_RAW_BASE}/schedule/${c.sched}.json`).catch(() => null)
+      ? fetchJSON(`${DATA_RAW_BASE}/schedule/${c.sched}.json?_=${dataNonce}`).catch(() => null)
       : Promise.resolve(null);
     scheduleCache.set(channelId, p);
     return p;
@@ -296,7 +301,7 @@
   function fetchHourIndex() {
     const key = hourKey(new Date());
     if (!hourIndexCache.has(key)) {
-      hourIndexCache.set(key, fetchJSON(`${DATA_RAW_BASE}/schedule/hour/${key}.json`).catch(() => null));
+      hourIndexCache.set(key, fetchJSON(`${DATA_RAW_BASE}/schedule/hour/${key}.json?_=${dataNonce}`).catch(() => null));
     }
     return hourIndexCache.get(key);
   }
@@ -353,13 +358,22 @@
     if (!names.has('epg_catalog.json')) {
       throw new Error('La branch "data" todavía no tiene epg_catalog.json — esperá a que corra el workflow una vez con este cambio.');
     }
-    catalog = await fetchJSON(`${DATA_RAW_BASE}/epg_catalog.json?_=${Date.now()}`);
+    catalog = await fetchJSON(`${DATA_RAW_BASE}/epg_catalog.json?_=${dataNonce}`);
     catalogById = new Map(catalog.map((c) => [c.id, c]));
 
     profiles = {};
     for (const name of names) {
       const m = name.match(/^match_report-(.+)\.json$/);
       if (m) profiles[m[1]] = `${DATA_RAW_BASE}/${name}`;
+    }
+
+    // Cuándo se generaron los datos (último commit de la branch "data"): la programación cubre
+    // ~30 h desde esa corrida, pasado eso hay que volver a correr el workflow.
+    try {
+      const commit = await fetchJSON(`${API}/commits/${DATA_BRANCH}`);
+      dataGeneratedAt = new Date(commit.commit.committer.date);
+    } catch {
+      dataGeneratedAt = null;
     }
 
     try {
@@ -380,7 +394,7 @@
 
   async function loadProfile(name) {
     statusLine.textContent = 'Cargando canales…';
-    const data = await fetchJSON(profiles[name] + `?_=${Date.now()}`);
+    const data = await fetchJSON(profiles[name] + `?_=${dataNonce}`);
     allChannels = data.channels || [];
     buildCategoryGroups();
     currentChannels = allChannels.filter(
@@ -417,11 +431,41 @@
 
   // -------------------------------------------------------------------- render
 
+  const SCHEDULE_HOURS = 30;  // ventana que publica generate_playlist.py (SCHEDULE_WINDOW_FUTURE)
+
+  function freshnessText() {
+    if (!dataGeneratedAt) return '';
+    const hours = (Date.now() - dataGeneratedAt) / 3600000;
+    const when = dataGeneratedAt.toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    if (hours > SCHEDULE_HOURS) return ` · ⚠️ datos del ${when}: la programación ya venció, corré el workflow (▶️)`;
+    if (hours > SCHEDULE_HOURS - 2) return ` · ⚠️ datos del ${when}: la programación está por vencer, corré el workflow (▶️)`;
+    return ` · datos del ${when}`;
+  }
+
+  // Vuelve a bajar todo (catálogo, reportes, overrides, programación) sin recargar la página,
+  // conservando perfil, filtro y búsqueda.
+  async function refreshData() {
+    const btn = $('#refreshDataBtn');
+    btn.disabled = true;
+    statusLine.textContent = 'Actualizando datos…';
+    try {
+      dataNonce = Date.now();
+      scheduleCache.clear();
+      hourIndexCache.clear();
+      await loadRelease();
+      await loadProfile(profileSelect.value);
+    } catch (e) {
+      statusLine.textContent = '⚠️ ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   function renderMore() {
     const slice = filtered.slice(rendered, rendered + PAGE_SIZE);
     for (const ch of slice) cardsEl.appendChild(renderCard(ch));
     rendered += slice.length;
-    statusLine.textContent = `${filtered.length} canal(es) · ${currentChannels.length} en total`;
+    statusLine.textContent = `${filtered.length} canal(es) · ${currentChannels.length} en total${freshnessText()}`;
     loadMoreBtn.hidden = rendered >= filtered.length;
     moreStatus.hidden = true;
   }
@@ -821,9 +865,9 @@
     }
     runBtn.disabled = false;
     if (run.conclusion === 'success') {
-      showWorkflowStatus(`✅ Último workflow OK (${fmtTime(run.updated_at)}) · <a href="#" id="reloadLink">recargar datos</a> · ${link}`, 'ok');
+      showWorkflowStatus(`✅ Último workflow OK (${fmtTime(run.updated_at)}) · <a href="#" id="reloadLink">actualizar datos</a> · ${link}`, 'ok');
       const reload = $('#reloadLink');
-      if (reload) reload.addEventListener('click', (e) => { e.preventDefault(); location.reload(); });
+      if (reload) reload.addEventListener('click', (e) => { e.preventDefault(); refreshData(); });
     } else {
       showWorkflowStatus(`❌ El último workflow terminó con "${escapeHtml(run.conclusion)}" (${fmtTime(run.updated_at)}) · ${link}`, 'bad');
     }
@@ -907,6 +951,7 @@
   });
 
   loadMoreBtn.addEventListener('click', renderMore);
+  $('#refreshDataBtn').addEventListener('click', refreshData);
 
   profileSelect.addEventListener('change', () => loadProfile(profileSelect.value));
 

@@ -143,7 +143,10 @@ Desde cada tarjeta también se puede:
   sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
 
 Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
-con **▶️ Correr workflow** (muestra el estado hasta que termina). Para eso el token necesita
+con **▶️ Correr workflow** (muestra el estado hasta que termina). **🔄 Datos** vuelve a bajar
+catálogo, reportes y programación sin recargar la página (por ejemplo, después de que termina
+el workflow); la barra de estado muestra de cuándo son los datos y avisa cuando la programación
+publicada (que cubre ~30 h desde la última corrida) ya venció. Para eso el token necesita
 además el permiso `Actions: Read and write`.
 
 El botón **"🚫 Forzar sin EPG"** del editor guarda un override en `null` en vez de elegir un
