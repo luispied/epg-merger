@@ -739,7 +739,6 @@
 
   function openCardMenu(cardEl, ch) {
     const key = ch.xtream_name;
-    const hidden = isHidden(ch);
     const epg = currentEpgOf(ch);
     const rows = [];
     if (!isDivider(ch)) {
@@ -747,24 +746,40 @@
       rows.push(menuRowHtml('text-cursor-input', 'Cambiar nombre', renameOf(ch) || key, 'rename'));
       rows.push(menuRowHtml('folder-input', 'Mover de categoría', effectiveCategory(ch), 'category'));
     }
-    rows.push(menuRowHtml(hidden ? 'eye' : 'eye-off', hidden ? 'Mostrar en la playlist' : 'Ocultar de la playlist',
-      hidden ? 'Ahora está oculto' : 'Ahora está visible', 'visibility'));
+    // La visibilidad es un switch: cambia al instante sin cerrar el menú.
+    rows.push(`<label class="menu-row static">
+      <span class="menu-icon">${icon('eye')}</span>
+      <span class="menu-text">Visible en la playlist<small class="vis-sub"></small></span>
+      <input type="checkbox" class="switch vis-switch" aria-label="Visible en la playlist">
+    </label>`);
     const extra = hasOverride(ch)
       ? `<div class="menu">${menuRowHtml('undo-2', 'Volver al EPG automático', 'Descarta el EPG elegido a mano', 'auto-epg', 'danger')}</div>`
       : '';
     $('#cardMenuTitle').textContent = renameOf(ch) || key;
     $('#cardMenuBody').innerHTML = `<div class="menu">${rows.join('')}</div>${extra}`;
+    // Al cambiar la visibilidad la tarjeta se re-renderiza: las demás acciones buscan la actual.
+    const liveCard = () => (cardEl.isConnected ? cardEl
+      : $$('.card', cardsEl).find((c) => cardChannel.get(c) === ch) || cardEl);
     $$('[data-action]', $('#cardMenuBody')).forEach((btn) => btn.addEventListener('click', () => {
       cardMenuDialog.close();
       const action = btn.dataset.action || '';
-      if (action === 'visibility') {
-        setEntry('hidden', key, hidden ? undefined : true, hidden ? 'Canal visible en la playlist' : 'Canal oculto de la playlist');
-      } else if (action === 'auto-epg') {
-        setEntry('overrides', key, undefined, 'Vuelve al EPG automático');
-      } else {
-        openPanel(cardEl, ch, action);
-      }
+      if (action === 'auto-epg') setEntry('overrides', key, undefined, 'Vuelve al EPG automático');
+      else openPanel(liveCard(), ch, action);
     }));
+
+    const sw = /** @type {HTMLInputElement} */ ($('.vis-switch', $('#cardMenuBody')));
+    const syncSwitch = () => {
+      sw.checked = !isHidden(ch);
+      $('.vis-sub', $('#cardMenuBody')).textContent = sw.checked ? 'Sale en la playlist' : 'Oculto: no sale en la playlist';
+    };
+    syncSwitch();
+    sw.addEventListener('change', async () => {
+      const show = sw.checked;
+      sw.disabled = true;
+      await setEntry('hidden', key, show ? undefined : true, show ? 'Canal visible en la playlist' : 'Canal oculto de la playlist');
+      sw.disabled = false;
+      syncSwitch(); // si no se pudo guardar (p. ej. sin token) vuelve a su estado real
+    });
     cardMenuDialog.showModal();
   }
 

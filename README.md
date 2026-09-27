@@ -154,7 +154,7 @@ Desde cada tarjeta también se puede:
 - **Moverlo de categoría** (menú **…** → Mover de categoría): guarda `"categories": {"nombre en
   Xtream": "categoría destino"}`. Cambia en qué grupo/sección aparece en la playlist; el EPG se
   sigue eligiendo con la categoría original, para que moverlo no le cambie el EPG sin avisar.
-- **Ocultarlo** (menú **…** → Ocultar de la playlist; la tarjeta queda atenuada con la marca *Oculto*): guarda `"hidden": {"nombre en Xtream": true}`. El
+- **Ocultarlo** (menú **…** → switch *Visible en la playlist*; la tarjeta queda atenuada con la marca *Oculto*): guarda `"hidden": {"nombre en Xtream": true}`. El
   canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
