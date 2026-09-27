@@ -160,6 +160,17 @@ guardar el token. El ojo de cada tarjeta muestra y cambia si el canal está visi
 playlist. Los íconos son SVG de [Lucide](https://lucide.dev) (licencia ISC) embebidos en
 `docs/icons.js`, sin depender de ninguna librería externa.
 
+La página es una **PWA**: en el celular se puede agregar a la pantalla de inicio ("Agregar a
+inicio" en Safari, "Instalar app" en Chrome) y abre a pantalla completa, sin la barra del
+navegador. `docs/sw.js` guarda solo la interfaz (network-first: siempre busca primero la versión
+publicada y usa la guardada únicamente sin conexión); los datos siempre vienen de la red. En
+iPhone la app instalada tiene su propio almacenamiento, así que la primera vez hay que volver a
+pegar el token.
+
+`docs/app.js` es JavaScript sin compilar, pero con tipos en comentarios (JSDoc + `// @ts-check`,
+tipos de los datos en `docs/types.d.ts`). El workflow **Check UI** corre `tsc -p docs` en cada PR
+que toca `docs/`; localmente: `npx -p typescript@5.9 tsc -p docs`.
+
 Renombrar, mover de categoría y volver al EPG automático están en **Más** de cada
 tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta
 los renombrados, movidos y ocultos. La categoría **General** (donde caen los canales sin

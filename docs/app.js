@@ -1,3 +1,4 @@
+// @ts-check
 /* Interfaz de corrección de EPG (docs/). Lee los reportes que publica el workflow en la branch
    "data" y guarda los cambios (overrides de EPG, renombrados, categorías, ocultos) como commits
    a xtream_channel_map.json usando la API de GitHub desde el navegador. */
@@ -42,16 +43,25 @@
 
   // ================================================================= estado
 
-  let catalog = [];             // [{id, name, country, source, sched}]
+  /** @type {CatalogEntry[]} */
+  let catalog = [];
+  /** @type {Map<string, CatalogEntry>} */
   let catalogById = new Map();
+  /** @type {ChannelMap} */
   let channelMap = { overrides: {} };
-  let profiles = {};            // nombre -> URL raw del match_report
+  /** @type {Record<string, string>} nombre de perfil -> URL raw de su match_report */
+  let profiles = {};
   // Los perfiles solo difieren en credenciales (mismos canales, mismo EPG, y los cambios de acá
   // son compartidos), así que se muestra siempre el primero.
+  /** @type {string | null} */
   let currentProfile = null;
-  let dataGeneratedAt = null;   // fecha del último commit de la branch "data"
-  let allChannels = [];         // reporte completo (incluye PPV)
-  let currentChannels = [];     // lo que se muestra
+  /** @type {Date | null} fecha del último commit de la branch "data" */
+  let dataGeneratedAt = null;
+  /** @type {ReportChannel[]} reporte completo (incluye PPV) */
+  let allChannels = [];
+  /** @type {ReportChannel[]} lo que se muestra */
+  let currentChannels = [];
+  /** @type {ReportChannel[]} */
   let filtered = [];
   let rendered = 0;
   let searchTerm = '';
@@ -62,10 +72,18 @@
 
   // ================================================================= utilidades
 
+  // Los elementos que se buscan siempre existen (los arma esta misma página): se tipan como any
+  // para no llenar el código de chequeos de null que nunca fallan.
+  /** @type {(sel: string, root?: ParentNode) => any} */
   const $ = (sel, root = document) => root.querySelector(sel);
+  /** @type {(sel: string, root?: ParentNode) => any[]} */
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
+  /** Mensaje legible de cualquier cosa atrapada en un catch. @param {unknown} e */
+  const errMsg = (e) => (e instanceof Error ? e.message : String(e));
+
+  /** @param {unknown} s */
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -107,9 +125,10 @@
 
   // ================================================================= red
 
+  /** @param {string} url @returns {Promise<any>} */
   async function getJSON(url) {
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`No se pudo leer ${url.split('/').pop().split('?')[0]} (HTTP ${res.status})`);
+    if (!res.ok) throw new Error(`No se pudo leer ${(url.split('/').pop() || url).split('?')[0]} (HTTP ${res.status})`);
     return res.json();
   }
 
@@ -119,12 +138,18 @@
 
   // Único punto de acceso a la API de GitHub. auth: 'none' (datos públicos: un token vencido no
   // debe romper la carga), 'optional' (mejor rate limit si hay token) o 'required' (escribir).
-  async function gh(path, { method = 'GET', body, auth = 'optional' } = {}) {
+  /**
+   * @param {string} path ruta de la API relativa al repo (ej. "/contents/…")
+   * @param {{ method?: string, body?: any, auth?: 'none' | 'optional' | 'required' }} [opts]
+   * @returns {Promise<any>}
+   */
+  async function gh(path, { method = 'GET', body = undefined, auth = 'optional' } = {}) {
     const token = getToken();
     if (auth === 'required' && !token) {
       openTokenDialog();
       throw new Error('Falta el token de GitHub');
     }
+    /** @type {Record<string, string>} */
     const headers = { Accept: 'application/vnd.github+json' };
     if (token && auth !== 'none') headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -137,7 +162,9 @@
         403: 'Al token le falta permiso para esto.',
         409: 'El archivo cambió mientras guardabas. Probá de nuevo.',
       };
-      const err = new Error(messages[res.status] || `GitHub respondió ${res.status}${detail ? ': ' + detail : ''}`);
+      /** @type {Record<number, string>} */
+      const byStatus = messages;
+      const err = /** @type {GitHubError} */ (new Error(byStatus[res.status] || `GitHub respondió ${res.status}${detail ? ': ' + detail : ''}`));
       err.status = res.status;
       throw err;
     }
@@ -157,6 +184,7 @@
 
   // ================================================================= catálogo y programación
 
+  /** @param {string} id @returns {CatalogEntry} */
   function catalogEntry(id) {
     return catalogById.get(id) || { id, name: id, country: null, source: null };
   }
@@ -186,7 +214,8 @@
     return hourIndexCache.get(key);
   }
 
-  // -> {title, stop} si hay algo en el aire ahora, null si no.
+  /** Lo que está en el aire ahora según el índice por hora, o null.
+   *  @param {HourIndex} idx @param {string} channelId @returns {NowPlaying | null} */
   function nowFromHourIndex(idx, channelId) {
     const now = Date.now() / 1000;
     for (const [s, e, t] of idx.c[channelId] || []) {
@@ -195,12 +224,14 @@
     return null;
   }
 
+  /** @param {[number, number, string][] | null} entries @returns {NowPlaying | null} */
   function nowFromEntries(entries) {
     const now = Date.now() / 1000;
     const cur = (entries || []).find(([start, stop]) => start <= now && now < stop);
     return cur ? { title: cur[2], stop: cur[1] } : null;
   }
 
+  /** @param {NowPlaying | null} cur @param {string} [note] */
   function nowHtml(cur, note = '') {
     const noteHtml = note ? ` <span class="note">${esc(note)}</span>` : '';
     return cur
@@ -284,6 +315,11 @@
 
   // ================================================================= componentes
 
+  /**
+   * @param {string} kind ok | warn | bad | manual | muted
+   * @param {string} text
+   * @param {{ iconName?: string | null, title?: string }} [opts]
+   */
   function tag(kind, text, { iconName = null, title = '' } = {}) {
     return `<span class="tag ${kind}${iconName ? ' with-icon' : ''}"${title ? ` title="${esc(title)}"` : ''}>`
       + `${iconName ? icon(iconName, 'sm') : ''}${esc(text)}</span>`;
@@ -308,7 +344,11 @@
 
   // Un canal del EPG se muestra siempre igual (tarjeta, alternativas, búsqueda). `cur` = lo que
   // está dando ahora si ya se sabe; si es undefined se completa después con fillNowPlaying().
-  function epgRowHtml(id, { score = null, pick = false, cur, note = '' } = {}) {
+  /**
+   * @param {string} id channel_id del EPG
+   * @param {{ score?: number | null, pick?: boolean, cur?: NowPlaying | null, note?: string }} [opts]
+   */
+  function epgRowHtml(id, { score = null, pick = false, cur = undefined, note = '' } = {}) {
     const c = catalogEntry(id);
     const known = cur !== undefined;
     const pickAttrs = pick ? ` data-id="${esc(id)}" role="button" tabindex="0"` : '';
@@ -355,6 +395,11 @@
 
   // kind: success | error | info | busy. Un `id` reemplaza el toast anterior con ese id (ej.
   // "Guardando…" -> "✓ Guardado"). `action`: {label, fn}, p. ej. Deshacer.
+  /**
+   * @param {string} text
+   * @param {{ kind?: 'success' | 'error' | 'info' | 'busy', action?: { label: string, fn: () => unknown } | null,
+   *           sticky?: boolean, id?: string | null }} [opts]
+   */
   function toast(text, { kind = 'success', action = null, sticky = kind === 'busy', id = null } = {}) {
     let el = id ? $(`[data-toast-id="${id}"]`, toastsEl) : null;
     if (!el) {
@@ -382,6 +427,7 @@
   }
 
   // Reemplazo de confirm() con el estilo de la página. -> Promise<boolean>
+  /** @param {{ title: string, text: string, ok?: string }} opts @returns {Promise<boolean>} */
   function confirmDialog({ title, text, ok = 'Aceptar' }) {
     const dlg = $('#confirmDialog');
     $('#confirmTitle').textContent = title;
@@ -421,7 +467,7 @@
     try {
       channelMap = await getJSON(`${RAW_MAP_URL}?_=${Date.now()}`);
     } catch {
-      channelMap = {};
+      channelMap = { overrides: {} };
     }
     if (!channelMap.overrides) channelMap.overrides = {};
   }
@@ -450,7 +496,7 @@
       toast('Datos actualizados');
     } catch (e) {
       cardsEl.innerHTML = '';
-      toast(e.message, { kind: 'error' });
+      toast(errMsg(e), { kind: 'error' });
     } finally {
       btn.disabled = false;
     }
@@ -517,7 +563,7 @@
     let html = `${filtered.length} de ${currentChannels.length} canales`;
     let warn = false;
     if (dataGeneratedAt) {
-      const hours = (Date.now() - dataGeneratedAt) / 3600000;
+      const hours = (Date.now() - dataGeneratedAt.getTime()) / 3600000;
       const when = fmtDateTime(dataGeneratedAt);
       if (hours > SCHEDULE_HOURS - 2) {
         warn = true;
@@ -659,7 +705,7 @@
       const byProgram = !!cur && normalize(cur.title).includes(term);
       if (byName || byProgram) matches.push({ c, cur, byProgram });
     }
-    if (idx) matches.sort((a, b) => (!a.cur - !b.cur));
+    if (idx) matches.sort((a, b) => Number(!a.cur) - Number(!b.cur));
     const shown = matches.slice(0, SEARCH_LIMIT);
     const summary = idx
       ? `${matches.length} resultado(s)${matches.length > SEARCH_LIMIT ? `, se muestran ${SEARCH_LIMIT}` : ''} · primero los que tienen programación ahora`
@@ -746,7 +792,7 @@
         else doc[section][key] = value;
       }, `${label} (interfaz de corrección)`);
     } catch (e) {
-      toast(e.message, { kind: 'error', id: 'save' });
+      toast(errMsg(e), { kind: 'error', id: 'save' });
       return;
     }
     setPending(pendingChanges + (isUndo ? -1 : 1));
@@ -795,7 +841,7 @@
     const link = `<a href="${esc(run.html_url)}" target="_blank" rel="noopener">Ver ${icon('external-link', 'sm')}</a>`;
     let cls; let lead; let text; let extra = '';
     if (!done) {
-      const mins = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at)) / 60000));
+      const mins = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at).getTime()) / 60000));
       cls = 'busy'; lead = icon('loader-circle', 'spin');
       text = `Workflow ${run.status === 'queued' ? 'en cola' : 'corriendo'} · ${mins} min (suele tardar ~8)`;
     } else if (run.conclusion === 'success') {
@@ -833,7 +879,7 @@
     } catch {
       return; // sin permiso de Actions: el botón lo explica al usarlo
     }
-    const stale = dispatchedAt && (!run || new Date(run.created_at) < dispatchedAt - 60000);
+    const stale = dispatchedAt && (!run || new Date(run.created_at).getTime() < dispatchedAt - 60000);
     if (stale && Date.now() - dispatchedAt < 3 * 60000) {
       pollTimer = setTimeout(pollWorkflow, 5000); // todavía no apareció la corrida nueva
       return;
@@ -858,9 +904,10 @@
       await gh(`/actions/workflows/${WORKFLOW_FILE}/dispatches`, { method: 'POST', auth: 'required', body: { ref: 'main' } });
     } catch (e) {
       runBtn.disabled = false;
-      const msg = e.status === 403 || e.status === 404
+      const status = /** @type {GitHubError} */ (e).status;
+      const msg = status === 403 || status === 404
         ? 'No se pudo lanzar: al token le falta el permiso Actions: Read and write.'
-        : `No se pudo lanzar el workflow. ${e.message}`;
+        : `No se pudo lanzar el workflow. ${errMsg(e)}`;
       toast(msg, { kind: 'error' });
       return;
     }
@@ -923,7 +970,7 @@
 
   // "/" enfoca el buscador (escritorio), como en la mayoría de las apps web.
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && !e.target.closest('input, textarea, select, dialog')) {
+    if (e.key === '/' && !(/** @type {Element} */ (e.target)).closest('input, textarea, select, dialog')) {
       e.preventDefault();
       searchBox.focus();
     }
@@ -933,6 +980,12 @@
   $('#refreshDataBtn').addEventListener('click', refreshData);
   runBtn.addEventListener('click', runWorkflow);
   $('#settingsBtn').addEventListener('click', openTokenDialog);
+
+  // PWA: instalable en la pantalla de inicio (ver sw.js). Solo en contexto seguro (GitHub Pages
+  // por https, o localhost al probar).
+  if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* sin PWA: la página anda igual */ });
+  }
 
   (async () => {
     hydrateIcons();
@@ -944,8 +997,8 @@
       await loadProfile(names[0]);
       pollWorkflow();
     } catch (e) {
-      cardsEl.innerHTML = `<div class="empty">${icon('triangle-alert', 'lg')}<strong>No se pudieron cargar los datos</strong>${esc(e.message)}</div>`;
-      toast(e.message, { kind: 'error' });
+      cardsEl.innerHTML = `<div class="empty">${icon('triangle-alert', 'lg')}<strong>No se pudieron cargar los datos</strong>${esc(errMsg(e))}</div>`;
+      toast(errMsg(e), { kind: 'error' });
     }
   })();
 })();

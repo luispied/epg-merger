@@ -57,6 +57,14 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* App instalada en iPhone (status bar translúcida): una franja del color de la barra fija
+   tapa la zona de la hora/batería para que el contenido no pase por debajo al hacer scroll. */
+body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+  height: env(safe-area-inset-top, 0px); background: var(--toolbar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+}
+
 /* ------------------------------------------------------------------ íconos */
 .icon { width: 18px; height: 18px; flex: none; display: inline-block; vertical-align: -3px; }
 .icon.sm { width: 14px; height: 14px; vertical-align: -2px; }
@@ -71,7 +79,7 @@ a:hover { text-decoration: underline; }
 
 /* Lo fijo arriba: buscador, acciones y filtros (el título se va con el scroll). */
 .toolbar {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
   padding: 10px var(--gutter) 10px;
   background: var(--toolbar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);

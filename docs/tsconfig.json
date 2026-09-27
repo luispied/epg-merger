@@ -1,0 +1,15 @@
+{
+  // Solo chequeo de tipos (no se compila nada: GitHub Pages sirve app.js tal cual).
+  // Correr con: npx -p typescript@5 tsc -p docs
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  },
+  "files": ["types.d.ts", "icons.js", "app.js"]
+}
