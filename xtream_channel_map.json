@@ -169,5 +169,8 @@
     "TBS": "🇺🇸 USA Networks",
     "HBO Signature": "🎥 Movie Channels",
     "HBO Plus FHD": "🎥 Movie Channels"
+  },
+  "hidden_categories": {
+    "🇧🇴 Bolivia": true
   }
 }
