@@ -556,6 +556,16 @@
   const cardsEl = $('#cards');
   const statusLine = $('#statusLine');
   const loadMoreBtn = $('#loadMoreBtn');
+  const scrollSentinel = $('#scrollSentinel');
+
+  // Scroll infinito: carga la próxima tanda cuando el final de la grilla se acerca a la pantalla.
+  /** @type {IntersectionObserver | null} */
+  const scrollObserver = 'IntersectionObserver' in window
+    ? new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting) && rendered < filtered.length) renderMore();
+    }, { rootMargin: '0px 0px 800px 0px' })
+    : null;
+
   const searchBox = $('#searchBox');
   const filterTabs = $('#filterTabs');
 
@@ -604,8 +614,15 @@
     for (const ch of filtered.slice(rendered, rendered + PAGE_SIZE)) frag.appendChild(renderCard(ch));
     rendered = Math.min(filtered.length, rendered + PAGE_SIZE);
     cardsEl.appendChild(frag);
-    loadMoreBtn.hidden = rendered >= filtered.length;
+    // Con scroll infinito el botón queda solo como respaldo para navegadores sin IntersectionObserver.
+    loadMoreBtn.hidden = Boolean(scrollObserver) || rendered >= filtered.length;
     renderStatusLine();
+    if (scrollObserver) {
+      // Volver a observar fuerza una notificación inicial: si el centinela sigue a la vista
+      // (pantalla alta o tarjetas ocultas), se carga otra tanda sin esperar a que el usuario se mueva.
+      scrollObserver.unobserve(scrollSentinel);
+      if (rendered < filtered.length) scrollObserver.observe(scrollSentinel);
+    }
   }
 
   function renderStatusLine() {
