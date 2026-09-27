@@ -108,10 +108,25 @@
       </label>
     </div>
 
+    <div class="section-label">Copia de seguridad</div>
+    <div class="menu">
+      <button class="menu-row" id="menuExport">
+        <span class="menu-icon"><span data-icon="download"></span></span>
+        <span class="menu-text">Exportar configuración<small>Guarda en un archivo los cambios de canales y tus preferencias</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <button class="menu-row" id="menuImport">
+        <span class="menu-icon"><span data-icon="upload"></span></span>
+        <span class="menu-text">Importar configuración<small>Restaura desde un archivo exportado</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+
     <div class="menu">
       <button class="menu-row danger" id="menuReset">
         <span class="menu-icon"><span data-icon="trash-2"></span></span>
-        <span class="menu-text">Restablecer la app<small>Borra filtros y caché de este dispositivo (no el token)</small></span>
+        <span class="menu-text">Restablecer la app<small>Solo borra preferencias y caché de este dispositivo. No toca los cambios de canales ni el token</small></span>
       </button>
     </div>
 
