@@ -165,6 +165,11 @@ Desde cada tarjeta también se puede:
   canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
+- **Ocultar una categoría entera** (Configuración → Categorías, un switch por categoría):
+  guarda `"hidden_categories": {"categoría en Xtream": true}`. Todos sus canales salen de la
+  playlist y de la guía como si estuvieran ocultos uno por uno; cuenta la categoría donde se
+  muestra el canal, así que uno movido desde ahí a una categoría visible sigue saliendo. En la
+  interfaz esos canales solo aparecen en **Ocultos**.
 
 Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
 con el botón de **play** (muestra el estado hasta que termina, y cuando hay cambios guardados desde la

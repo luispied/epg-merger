@@ -36,6 +36,8 @@ interface ChannelMap {
   renames?: Record<string, string>;
   categories?: Record<string, string>;
   hidden?: Record<string, boolean>;
+  /** Categorías enteras fuera de la playlist, por nombre en Xtream. */
+  hidden_categories?: Record<string, boolean>;
 }
 
 /** schedule/<sched>.json: [inicio, fin, título, descripción?] con inicio/fin en epoch s. */

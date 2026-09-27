@@ -236,21 +236,23 @@ def load_channel_map(path=CHANNEL_MAP_PATH):
 
 
 def load_channel_edits(path=CHANNEL_MAP_PATH):
-    """(renames, category_moves, hidden) de xtream_channel_map.json, armables desde la
-    interfaz de corrección: {nombre_crudo_en_xtream: nombre_a_mostrar}, {nombre_crudo:
-    categoría} y {nombre_crudo: true} para sacarlo de la playlist. Igual que los overrides de
-    EPG, van por el nombre CRUDO de Xtream, así que renombrar un canal no rompe su override."""
+    """(renames, category_moves, hidden, hidden_categories) de xtream_channel_map.json,
+    armables desde la interfaz de corrección: {nombre_crudo_en_xtream: nombre_a_mostrar},
+    {nombre_crudo: categoría}, {nombre_crudo: true} para sacarlo de la playlist y
+    {categoría: true} para sacar una categoría entera. Igual que los overrides de EPG, van por
+    el nombre CRUDO de Xtream, así que renombrar un canal no rompe su override."""
     try:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {}, {}, set()
+        return {}, {}, set(), set()
     renames = {k: v.strip() for k, v in (data.get('renames') or {}).items()
                if isinstance(v, str) and v.strip()}
     moves = {k: v for k, v in (data.get('categories') or {}).items()
              if isinstance(v, str) and v and not is_divider_category(v)}
     hidden = {k for k, v in (data.get('hidden') or {}).items() if v}
-    return renames, moves, hidden
+    hidden_categories = {k for k, v in (data.get('hidden_categories') or {}).items() if v}
+    return renames, moves, hidden, hidden_categories
 
 
 def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
@@ -273,11 +275,11 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     return None, None, 0.0, ranked
 
 
-def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {}, set())):
+def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {}, set(), set())):
     """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats.
 
-    `edits` = (renames, category_moves, hidden), ver load_channel_edits."""
-    renames, category_moves, hidden = edits
+    `edits` = (renames, category_moves, hidden, hidden_categories), ver load_channel_edits."""
+    renames, category_moves, hidden, hidden_categories = edits
     hidden_count = 0
     section_display_order, section_rules, section_epg, category_order = sections
     name = profile['name']
@@ -414,7 +416,9 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
 
         # Canal oculto a mano desde la interfaz: queda en el reporte (para poder volver a
         # mostrarlo, con su EPG ya calculado) pero no entra a la playlist ni a la guía.
-        if raw_name in hidden:
+        # Lo mismo para una categoría entera oculta: cuenta la categoría donde el canal se
+        # muestra (la movida a mano si la hay), así un canal rescatado a otra categoría sigue.
+        if raw_name in hidden or (moved_to or category) in hidden_categories:
             hidden_count += 1
             continue
 

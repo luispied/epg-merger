@@ -644,10 +644,12 @@ def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
     assert 'Sin perfiles configurados' in capsys.readouterr().out
 
 
-def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None, ocultos=None):
+def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None, ocultos=None,
+                   categorias_ocultas=None):
     (proyecto / 'xtream_channel_map.json').write_text(json.dumps({
         'overrides': overrides or {}, 'renames': renames or {}, 'categories': categorias or {},
         'hidden': {n: True for n in ocultos or []},
+        'hidden_categories': {c: True for c in categorias_ocultas or []},
     }), encoding='utf-8')
 
 
@@ -701,6 +703,23 @@ def test_canal_oculto_sale_de_playlist_y_guia_pero_queda_en_el_reporte(proyecto,
     assert 'Warner.cr' not in {c.get('id') for c in root.findall('channel')}
     canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
     assert canales['Warner TV Costa Rica']['chosen'] == 'Warner.cr'
+
+
+def test_categoria_oculta_saca_todos_sus_canales(proyecto, monkeypatch):
+    """Una categoría entera oculta desde la interfaz: sus canales salen de la playlist y la
+    guía pero siguen en el reporte. Un canal movido desde ahí a otra categoría visible, sigue."""
+    _con_ediciones(proyecto, categorias_ocultas=['USA ENTERTAINMENT'])
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    assert 'group-title="USA ENTERTAINMENT"' not in playlist
+    assert 'Warner TV Costa Rica' in playlist
+    canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
+    assert canales['TBS -EN']['chosen'] == 'TBS.us', "sigue en el reporte con su EPG"
+
+    _con_ediciones(proyecto, categorias_ocultas=['USA ENTERTAINMENT'],
+                   categorias={'TBS -EN': '🇨🇷 COSTA RICA'})
+    _correr(monkeypatch, PERFILES[:1])
+    assert 'group-title="🇨🇷 COSTA RICA"' in _extinf(_playlist(proyecto, 'luis'), 'TBS -EN')
 
 
 def test_logos_del_epg_para_la_interfaz(proyecto, monkeypatch):
