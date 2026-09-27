@@ -108,8 +108,15 @@ mejor alternativa: mejor sin EPG que con uno equivocado.
 **Grilla** (https://luispied.github.io/epg-merger/) es la interfaz para corregir la playlist
 desde el celular o la compu. El engranaje de arriba abre **Configuración**: token de GitHub,
 ayuda (también se abre sola la primera vez), tema (auto/claro/oscuro), mostrar logos, filtro
-al abrir y "Restablecer la app" (borra preferencias y la caché de la app en ese dispositivo,
-sin tocar el token). Todo se guarda por dispositivo.
+al abrir, **copia de seguridad** y "Restablecer la app" (borra preferencias y la caché de la app
+en ese dispositivo; no toca los cambios de canales, que viven en GitHub, ni el token).
+
+**Exportar configuración** baja un `grilla-configuracion-AAAA-MM-DD.json` con los cambios de
+canales (`overrides`, `renames`, `categories`, `hidden`) y las preferencias del dispositivo; el
+token no se incluye. **Importar configuración** acepta ese archivo (o un
+`xtream_channel_map.json`), muestra un resumen, descarta entradas con forma inválida y, al
+confirmar, reemplaza los cambios de canales con un commit (lo anterior queda en el historial de
+git).
 
 `docs/` (`index.html` + `app.css` + `app.js` + `icons.js`), servida por GitHub Pages, lista los canales con el EPG que se les asignó
 (como todos los perfiles comparten canales y cambios, muestra siempre el primero) (`match_report-<perfil>.json`) — salvo los de la sección **PPV EVENTS**, que se

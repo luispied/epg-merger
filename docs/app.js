@@ -1057,13 +1057,145 @@
   $('#menuToken').addEventListener('click', () => { settingsDialog.close(); openTokenDialog(); });
   $('#menuHelp').addEventListener('click', () => { settingsDialog.close(); $('#helpDialog').showModal(); });
 
+  // ---- Copia de seguridad: exportar / importar
+  // El archivo lleva los cambios de canales (xtream_channel_map.json) y las preferencias de este
+  // dispositivo. El token NO se exporta: es una credencial.
+  const BACKUP_FORMAT = 1;
+  const CHANNEL_SECTIONS = /** @type {const} */ (['overrides', 'renames', 'categories', 'hidden']);
+
+  /** Solo las entradas con la forma esperada (un archivo editado a mano no rompe nada).
+   *  @param {any} raw @returns {ChannelMap} */
+  function sanitizeChannelMap(raw) {
+    /** @type {ChannelMap} */
+    const out = { overrides: {} };
+    const src = raw && typeof raw === 'object' ? raw : {};
+    for (const [k, v] of Object.entries(src.overrides || {})) {
+      if (typeof v === 'string' || v === null) out.overrides[k] = v;
+    }
+    for (const sec of /** @type {const} */ (['renames', 'categories'])) {
+      const entries = Object.entries(src[sec] || {}).filter(([, v]) => typeof v === 'string' && v.trim());
+      if (entries.length) out[sec] = Object.fromEntries(entries);
+    }
+    const hidden = Object.entries(src.hidden || {}).filter(([, v]) => v === true);
+    if (hidden.length) out.hidden = Object.fromEntries(hidden.map(([k]) => [k, true]));
+    return out;
+  }
+
+  /** @param {ChannelMap} map */
+  function describeMap(map) {
+    const ov = Object.values(map.overrides);
+    const n = (/** @type {Record<string, unknown> | undefined} */ o) => Object.keys(o || {}).length;
+    return `${ov.filter((v) => v !== null).length} EPG manuales, ${ov.filter((v) => v === null).length} sin EPG a propósito, `
+      + `${n(map.renames)} renombrados, ${n(map.categories)} movidos y ${n(map.hidden)} ocultos`;
+  }
+
+  async function exportConfig() {
+    settingsDialog.close();
+    let map = channelMap;
+    try { map = await getJSON(`${RAW_MAP_URL}?_=${Date.now()}`); } catch { /* se usa lo que ya está cargado */ }
+    const data = {
+      app: 'Grilla',
+      format: BACKUP_FORMAT,
+      version: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      channelMap: sanitizeChannelMap(map),
+      preferences: {
+        theme: storageGet(THEME_KEY) || 'auto',
+        logos: logosEnabled,
+        startFilter: storageGet(START_FILTER_KEY) || 'last',
+      },
+    };
+    const name = `grilla-configuracion-${new Date().toISOString().slice(0, 10)}.json`;
+    const file = new File([JSON.stringify(data, null, 2) + '\n'], name, { type: 'application/json' });
+    // En el celular, la hoja de compartir permite guardarlo en Archivos/iCloud/Drive o mandarlo.
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'Configuración de Grilla' });
+        toast('Configuración exportada');
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return; // canceló
+      }
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast(`Configuración exportada: ${name}`);
+  }
+
+  /** @param {File} file */
+  async function importConfig(file) {
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      toast('El archivo no es una configuración válida (no es JSON).', { kind: 'error' });
+      return;
+    }
+    // Se acepta el archivo exportado por Grilla o directamente un xtream_channel_map.json.
+    const rawMap = data && data.channelMap ? data.channelMap : data;
+    if (!rawMap || typeof rawMap !== 'object' || typeof rawMap.overrides !== 'object') {
+      toast('El archivo no tiene una configuración de Grilla.', { kind: 'error' });
+      return;
+    }
+    const map = sanitizeChannelMap(rawMap);
+    const when = data.exportedAt ? ` del ${fmtDateTime(data.exportedAt)}` : '';
+    const ok = await confirmDialog({
+      title: 'Importar configuración',
+      text: `El archivo${when} trae ${describeMap(map)}. Reemplaza los cambios de canales actuales `
+        + '(que igual quedan en el historial de GitHub) y se aplica al correr el workflow.',
+      ok: 'Importar',
+    });
+    if (!ok) return;
+    toast('Importando…', { kind: 'busy', id: 'save' });
+    try {
+      await withChannelMap((doc) => {
+        for (const sec of CHANNEL_SECTIONS) delete doc[sec];
+        Object.assign(doc, map);
+      }, 'Importar configuración (interfaz de corrección)');
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error', id: 'save' });
+      return;
+    }
+    const prefs = data.preferences || {};
+    if (['auto', 'light', 'dark'].includes(prefs.theme)) {
+      storageSet(THEME_KEY, prefs.theme === 'auto' ? null : prefs.theme);
+      applyTheme(prefs.theme);
+    }
+    if (typeof prefs.logos === 'boolean') setLogosEnabled(prefs.logos);
+    if (['last', 'todos', 'revisar'].includes(prefs.startFilter)) {
+      storageSet(START_FILTER_KEY, prefs.startFilter === 'last' ? null : prefs.startFilter);
+    }
+    setPending(pendingChanges + 1);
+    applyFilters();
+    toast('Configuración importada. Corré el workflow para aplicarla a la playlist.', { id: 'save' });
+  }
+
+  $('#menuExport').addEventListener('click', exportConfig);
+  $('#menuImport').addEventListener('click', () => {
+    if (!getToken()) { settingsDialog.close(); openTokenDialog(); return; }
+    settingsDialog.close();
+    $('#importFile').click();
+  });
+  $('#importFile').addEventListener('change', (e) => {
+    const input = /** @type {HTMLInputElement} */ (e.target);
+    const file = input.files && input.files[0];
+    input.value = ''; // permite volver a elegir el mismo archivo
+    if (file) importConfig(file);
+  });
+
   // Borra lo guardado en este dispositivo (preferencias, filtro, caché de la PWA) pero no el
   // token, por si algo queda trabado después de una actualización.
   $('#menuReset').addEventListener('click', async () => {
     settingsDialog.close();
     const ok = await confirmDialog({
       title: 'Restablecer la app',
-      text: 'Se borran los filtros, el tema y la copia guardada de la app en este dispositivo, y se vuelve a cargar. El token de GitHub se conserva.',
+      text: 'Se borran los filtros, el tema y la copia guardada de la app en este dispositivo, y se vuelve a cargar. Los cambios de canales (están en GitHub) y el token se conservan.',
       ok: 'Restablecer',
     });
     if (!ok) return;
