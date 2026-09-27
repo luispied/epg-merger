@@ -7,7 +7,7 @@ proveedor Xtream Codes, genera una playlist por persona con el `tvg-id` correcto
 
 | Etapa | Qué produce | ¿Depende de quién sos? |
 |---|---|---|
-| `merge_epgs.py` | `merged.xml.gz` — las 83 fuentes fusionadas y deduplicadas | no |
+| `merge_epgs.py` | `merged.xml.gz` — las fuentes activas (59 de 83) fusionadas y deduplicadas | no |
 | `generate_playlist.py` | `out/<perfil>/{playlist.m3u8, epg.xml.gz, match_report.json}` | solo en las credenciales |
 | `publish_playlists.py` | publica cada playlist en su gist secreto | sí |
 
@@ -37,7 +37,9 @@ python -m pytest tests/ -q
 - **`country`** (opcional) es el país que cubre la fuente. Omitirlo significa multi-país.
 - **`priority`** (opcional, menor = mejor) por defecto es la posición en la lista: ante un canal
   duplicado gana la fuente que aparece primero.
-- Para deshabilitar una fuente sin borrarla, anteponé `#` a su `url`.
+- **`active`: false** deja la fuente inactiva sin borrarla (no se descarga), con el motivo en
+  `inactive_reason`. Anteponer `#` a la `url` también la deshabilita. La prioridad de las demás
+  no cambia: sigue siendo su posición en la lista.
 
 Antes de sumar una fuente conviene medir qué aporta: que tenga programación vigente (hay
 repositorios públicos que dejaron de actualizarse hace meses) y cuántos canales sin EPG pasa a
@@ -45,6 +47,11 @@ cubrir sin cambiarle el EPG a los que ya estaban bien. Las fuentes de Brasil, Re
 Dominicana, Guatemala, Honduras, Puerto Rico, El Salvador y Venezuela del final de la lista se
 sumaron así, después de las demás para no desplazar a las existentes; los pocos canales que
 cambiaban para peor quedaron fijados con un override en `xtream_channel_map.json`.
+
+Con las categorías ocultas en cuenta, las fuentes que no le dan guía a ningún canal visible
+quedan inactivas (`"active": false`). Al revisarlo conviene volver a correr el matcher sin
+ellas: sacar canales del índice cambia el peso de las palabras y puede mover algún match; los
+que cambiaban para peor también quedaron fijados con un override.
 
 El formato viejo (`"urls": ["...", "..."]`) sigue funcionando: el `id` se deriva del nombre de
 archivo y la prioridad es la posición.
