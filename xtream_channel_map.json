@@ -122,6 +122,19 @@
     "Nat Geo Mundo": "730dtv.ar",
     "Hispan TV": "HispanTV.ar",
     "CGTN Espanol": "I156.44479.schedulesdirect.org",
+    "FX": "[FXL].FX.uy",
+    "Warner": "Warner.ar",
+    "Warner HD": "Warner.ar",
+    "HBO": "Canal.HBO.(México).mx",
+    "HBO 2": "Canal.HBO.2.Latinoamérica.cl",
+    "HBO 2 FHD": "Canal.HBO.2.Latinoamérica.cl",
+    "HBO 2 HD": "Canal.HBO.2.Latinoamérica.cl",
+    "HBO FHD": "Canal.HBO.(Argentina).ar",
+    "HBO HD": "I385.84823.schedulesdirect.org",
+    "HBO Signature": "HBO.Movies.us2",
+    "HBO Plus FHD": "HBO West HD.us",
+    "HBO Mundi FHD": "[MUNMEX].HBO.Mundi.uy",
+    "HBO Mundi HD": "[MUNMEX].HBO.Mundi.uy",
     "BR| GLOBO MINAS FHD": null,
     " NBA  02: ESPN HD": null,
     "RD| RTVD Canal 4": null,
@@ -148,6 +161,13 @@
     "E| EPIX Hits": "MGM+ Marquee",
     "E| Cinemax MovieMax": "FX",
     "ESPN 1 ARG FHD": "ESPN 2",
-    "ESPN 1 CO FHD": "ESPN 2"
+    "ESPN 1 CO FHD": "ESPN 2",
+    "HBO Signature": "HBO Movies",
+    "HBO Plus FHD": "HBO FHD"
+  },
+  "categories": {
+    "TBS": "🇺🇸 USA Networks",
+    "HBO Signature": "🎥 Movie Channels",
+    "HBO Plus FHD": "🎥 Movie Channels"
   }
 }
