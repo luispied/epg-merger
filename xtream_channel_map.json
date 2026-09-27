@@ -115,5 +115,8 @@
   },
   "hidden": {
     "AAA": true
+  },
+  "renames": {
+    "Decasa": "AMC Living"
   }
 }
