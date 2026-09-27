@@ -207,6 +207,11 @@ sigue siendo preciso aunque se mire horas después de la corrida, no es una foto
 momento de generarla. Se pide bajo demanda (al abrir el editor, o con el botón 📺 de un
 resultado de búsqueda), no de entrada para los ~21.000 canales del catálogo.
 
+Tocando la línea **Ahora: …** se despliega la descripción del programa (la sinopsis de la guía
+o, si no trae, el nombre del episodio). Va como cuarto elemento de cada entrada de ese mismo
+archivo por canal (recortada a 400 caracteres) y se baja recién al tocarla: el índice por hora,
+que se baja entero, no la lleva.
+
 ### Cuando un canal tiene varios EPG posibles
 
 Muchos nombres (`"E!"`, `"TBS"`) existen varias veces en el EPG: un feed por país, o variantes
