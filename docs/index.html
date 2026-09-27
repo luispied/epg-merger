@@ -429,6 +429,10 @@
   // Excepción: categorías de la sección PPV que en realidad son canales fijos (DAZN 1, 2, 3…,
   // no eventos puntuales), así que sí tienen EPG público y vale la pena corregirlos.
   const PPV_EDITABLE_CATEGORIES = new Set(['PPV DAZN']);
+  // Categorías que no entran en "A revisar" (siguen en "Sin EPG" y "Todos"). "General" es donde
+  // generate_playlist.py pone los canales cuya categoría no viene en la lista de Xtream: sobre
+  // todo eventos sueltos ("09/26 Soccer … = SKY SPORTS MIX") que nunca van a tener EPG.
+  const REVIEW_EXCLUDED_CATEGORIES = new Set(['General']);
 
   async function loadProfile(name) {
     currentProfile = name;
@@ -458,7 +462,7 @@
       case 'sin-epg': return !ch.chosen && !hasOverride;
       case 'override': return hasOverride;
       case 'revisar':
-        if (hasOverride) return false;
+        if (hasOverride || REVIEW_EXCLUDED_CATEGORIES.has(effectiveCategory(ch))) return false;
         return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
       default: return true;
     }
