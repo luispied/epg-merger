@@ -322,3 +322,21 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
 .help-sheet details p { margin: 0; padding: 0 14px 12px; color: var(--text); font-size: 14.5px; }
 .help-sheet details[open] p { animation: slide-down .2s ease both; }
 @media (max-width: 600px) { .help-sheet { max-height: 92vh; } .help-sheet .sheet-body { max-height: 92vh; } }
+
+/* ------------------------------------------------------------------ logos */
+/* Fondo claro en los dos temas + contorno fino: se leen tanto los logos oscuros como los
+   blancos sobre transparente (las fuentes de EPG traen de los dos). */
+.logo {
+  flex: none; width: 40px; height: 40px; border-radius: 10px;
+  background: #f2f2f7; color: #aeaeb2;
+  display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.logo.lg { width: 48px; height: 48px; border-radius: 12px; }
+.logo img { max-width: 84%; max-height: 84%; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0, 0, 0, .55)); }
+.logo.has-img > .icon { display: none; }
+.logo > .icon { width: 20px; height: 20px; }
+.epg-row.with-logo { display: flex; gap: 12px; align-items: flex-start; }
+.epg-row .epg-body { flex: 1; min-width: 0; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo { background: #e5e5ea; color: #8e8e93; }
+}

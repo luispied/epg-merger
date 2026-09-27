@@ -27,6 +27,7 @@ MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
 SECTIONS_CONFIG_PATH = 'playlist_sections.json'
 EPG_CATALOG_PATH = os.path.join('out', 'epg_catalog.json')
+EPG_ICONS_PATH = os.path.join('out', 'epg_icons.json')
 SCHEDULE_DIR = os.path.join('out', 'schedule')
 
 # Ventana de programación que se publica por canal, para que la interfaz de corrección (docs/)
@@ -633,6 +634,25 @@ def write_epg_catalog(index, sched_by_channel, path=EPG_CATALOG_PATH):
     print(f"📚 {path}: {len(catalog)} canales del EPG completo")
 
 
+def write_epg_icons(index, path=EPG_ICONS_PATH):
+    """{channel_id: url del logo} de los canales del EPG que traen <icon>, para mostrar logos en
+    la interfaz de corrección (docs/). Va aparte de epg_catalog.json porque la interfaz lo baja
+    en segundo plano, sin demorar la primera carga. Las URLs http:// se pasan a https:// (la
+    página se sirve por https y el navegador bloquearía o reescribiría la imagen igual; los
+    hosts de logos que usan las fuentes responden por https)."""
+    icons = {}
+    for channel_id in index.parsed:
+        url = (index.icon.get(channel_id) or '').strip()
+        if url.startswith('http://'):
+            url = 'https://' + url[len('http://'):]
+        if url.startswith('https://'):
+            icons[channel_id] = url
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(icons, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"🖼️  {path}: logos de {len(icons)} canales del EPG")
+
+
 def generate():
     profiles = load_profiles()
     if not profiles:
@@ -652,6 +672,7 @@ def generate():
     print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens")
     sched_by_channel = write_schedule_snapshot(epg_root)
     write_epg_catalog(index, sched_by_channel)
+    write_epg_icons(index)
 
     # Un override que apunte a un channel_id inexistente en el EPG sería un tvg-id colgado.
     # `null` es un valor válido a propósito: "forzar sin EPG" (ver forced_no_epg más abajo),

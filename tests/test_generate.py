@@ -672,3 +672,11 @@ def test_canal_oculto_sale_de_playlist_y_guia_pero_queda_en_el_reporte(proyecto,
     assert 'Warner.cr' not in {c.get('id') for c in root.findall('channel')}
     canales = {c['xtream_name']: c for c in _reporte(proyecto, 'luis')['channels']}
     assert canales['Warner TV Costa Rica']['chosen'] == 'Warner.cr'
+
+
+def test_logos_del_epg_para_la_interfaz(proyecto, monkeypatch):
+    """epg_icons.json: solo canales con logo, y siempre por https (la interfaz se sirve por https)."""
+    _correr(monkeypatch, PERFILES[:1])
+    with open(proyecto / 'out' / 'epg_icons.json', encoding='utf-8') as f:
+        icons = json.load(f)
+    assert icons == {'TBS.us': 'https://logo/tbs.png'}
