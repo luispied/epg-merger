@@ -32,25 +32,30 @@
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /* El título se va con el scroll; lo que queda fijo arriba es lo que se usa todo el tiempo:
+     buscador, acciones y filtros. */
   header {
-    padding: 16px calc(16px + env(safe-area-inset-left, 0px)) 12px;
-    border-bottom: 1px solid var(--border); background: var(--panel);
-    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-left, 0px)) 10px;
+    background: var(--panel);
   }
   header h1 { margin: 0 0 2px; font-size: 17px; }
   header p { margin: 0; color: var(--muted); font-size: 12.5px; }
-  header p + p { margin-top: 4px; }
   .toolbar {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
-    padding: 12px calc(16px + env(safe-area-inset-left, 0px));
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 8px calc(16px + env(safe-area-inset-left, 0px)) 10px;
     background: var(--panel); border-bottom: 1px solid var(--border);
-    position: sticky; top: 56px; z-index: 4;
+    position: sticky; top: 0; z-index: 4;
   }
+  .toolbar-row { display: flex; gap: 6px; align-items: center; }
+  .toolbar-row button { min-height: 36px; white-space: nowrap; }
+  button.icon-only { padding: 7px 10px; }
+  #runWorkflowBtn.pending { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   select, input[type="text"], input[type="password"], input[type="search"] {
     background: var(--bg); color: var(--text); border: 1px solid var(--border);
     border-radius: 8px; padding: 7px 10px; font-size: 13px; min-width: 0;
   }
-  input[type="search"] { flex: 1 1 200px; }
+  input[type="search"] { flex: 1 1 160px; min-height: 36px; }
+  .toolbar-row input[type="search"] { min-width: 130px; }
   button {
     background: var(--accent); color: var(--accent-text); border: none;
     border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer;
@@ -58,10 +63,17 @@
   button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
   button.danger { background: var(--bad); }
   button:disabled { opacity: .5; cursor: default; }
-  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  /* Una sola fila que se desliza de costado: en el celular no ocupa dos renglones. */
+  .filters {
+    display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    margin: 0 calc(-16px - env(safe-area-inset-left, 0px)); padding: 0 calc(16px + env(safe-area-inset-left, 0px));
+  }
+  .filters::-webkit-scrollbar { display: none; }
   .filters button.tab {
     background: var(--chip-bg); color: var(--text); font-size: 12.5px; padding: 6px 10px;
+    white-space: nowrap; flex: 0 0 auto; min-height: 32px;
   }
+  .filters .count { opacity: .7; font-size: 11.5px; margin-left: 2px; }
   .filters button.tab.active { background: var(--accent); color: var(--accent-text); }
   main { padding: 12px calc(16px + env(safe-area-inset-left, 0px)) 40px; max-width: 1100px; margin: 0 auto; }
   .status { color: var(--muted); font-size: 12.5px; margin: 4px 0 12px; }
@@ -84,7 +96,24 @@
   .card-epg { margin-top: 6px; font-size: 13px; }
   .card-now { margin-top: 2px; font-size: 12px; white-space: normal; }
   .card-actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .card-actions button { font-size: 12px; padding: 5px 10px; }
+  .card-actions button { font-size: 12.5px; padding: 7px 12px; min-height: 34px; }
+  .more-panel {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .more-panel label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .more-panel .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .more-panel select, .more-panel input { width: 100%; min-height: 34px; }
+  .more-panel button { font-size: 12.5px; padding: 7px 12px; min-height: 34px; }
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 10;
+    background: var(--text); color: var(--bg); border-radius: 10px; padding: 10px 14px;
+    display: flex; gap: 14px; align-items: center; font-size: 13px;
+    width: max-content; max-width: calc(100vw - 32px); box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  }
+  .toast.bad { background: var(--bad); color: #fff; }
+  .toast button { background: none; color: inherit; font-weight: 700; padding: 4px 6px; text-decoration: underline; }
   .editor {
     margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
     display: none;
@@ -115,9 +144,6 @@
   .search-results .row small { color: var(--muted); }
   .search-results .chip-now { white-space: normal; }
   .search-results .chip-now.on-air { color: var(--text); }
-  .editor-msg { font-size: 12px; margin-top: 6px; min-height: 16px; }
-  .editor-msg.ok { color: var(--ok); }
-  .editor-msg.bad { color: var(--bad); }
   dialog {
     border: 1px solid var(--border); border-radius: 12px; padding: 0; background: var(--panel);
     color: var(--text); max-width: 480px; width: calc(100vw - 32px);
@@ -130,15 +156,6 @@
   dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
   .card.is-hidden { opacity: .55; }
   .card.is-hidden:hover, .card.is-hidden:focus-within { opacity: 1; }
-  .icon-btn {
-    background: none; border: none; padding: 0 4px; font-size: 13px; cursor: pointer;
-    color: var(--muted); vertical-align: baseline;
-  }
-  .rename-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
-  .rename-box input { flex: 1 1 180px; }
-  .rename-box button { font-size: 12px; padding: 5px 10px; }
-  .card-meta select { font-size: 12px; padding: 3px 6px; max-width: 100%; }
-  .card .editor-msg:empty { display: none; }
   .workflow-status { font-size: 12.5px; margin: 4px 0 8px; }
   .workflow-status.ok { color: var(--ok); }
   .workflow-status.bad { color: var(--bad); }
@@ -150,23 +167,24 @@
 
 <header>
   <h1>Corrección de EPG</h1>
-  <p>epg-merger · lee <code>match_report</code> del último release y corrige overrides en <code>xtream_channel_map.json</code></p>
-  <p>El selector de perfil solo cambia qué canales estás mirando — los overrides que guardés son compartidos, valen para todos los perfiles.</p>
+  <p>Cada cambio se guarda al instante y vale para todos los perfiles. Se aplica a la playlist al correr el workflow (▶️).</p>
 </header>
 
 <div class="toolbar">
-  <select id="profileSelect"><option>Cargando perfiles…</option></select>
-  <input type="search" id="searchBox" placeholder="Buscar canal, categoría…">
-  <div class="filters" id="filterTabs">
-    <button class="tab active" data-filter="revisar">A revisar</button>
-    <button class="tab" data-filter="sin-epg">Sin EPG</button>
-    <button class="tab" data-filter="override">Con override</button>
-    <button class="tab" data-filter="ocultos">Ocultos</button>
-    <button class="tab" data-filter="todos">Todos</button>
+  <div class="toolbar-row">
+    <input type="search" id="searchBox" placeholder="Buscar canal o categoría…">
+    <button class="ghost icon-only" id="refreshDataBtn" title="Volver a bajar catálogo, canales y programación sin recargar la página" aria-label="Actualizar datos">🔄</button>
+    <button class="ghost" id="runWorkflowBtn" title="Regenera playlists y EPG con los cambios guardados">▶️ <span id="runLabel">Workflow</span></button>
+    <button class="ghost icon-only" id="settingsBtn" title="Token de GitHub" aria-label="Token de GitHub">⚙️</button>
   </div>
-  <button class="ghost" id="refreshDataBtn" title="Volver a bajar catálogo, reportes y programación sin recargar la página">🔄 Datos</button>
-  <button class="ghost" id="runWorkflowBtn" title="Regenera playlists y EPG con los cambios guardados">▶️ Correr workflow</button>
-  <button class="ghost" id="settingsBtn" title="Configurar token de GitHub">⚙️ Token</button>
+  <div class="filters" id="filterTabs">
+    <button class="tab active" data-filter="revisar" data-label="A revisar">A revisar</button>
+    <button class="tab" data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
+    <button class="tab" data-filter="override" data-label="EPG manual">EPG manual</button>
+    <button class="tab" data-filter="editados" data-label="Editados">Editados</button>
+    <button class="tab" data-filter="ocultos" data-label="Ocultos">Ocultos</button>
+    <button class="tab" data-filter="todos" data-label="Todos">Todos</button>
+  </div>
 </div>
 
 <main>
@@ -176,6 +194,11 @@
   <p class="status" id="moreStatus" hidden></p>
   <button class="ghost" id="loadMoreBtn" hidden>Mostrar más</button>
 </main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <span id="toastText"></span>
+  <button id="toastUndo" hidden>Deshacer</button>
+</div>
 
 <dialog id="tokenDialog">
   <div class="dialog-body">
@@ -223,7 +246,6 @@
   const statusLine = $('#statusLine');
   const moreStatus = $('#moreStatus');
   const loadMoreBtn = $('#loadMoreBtn');
-  const profileSelect = $('#profileSelect');
   const searchBox = $('#searchBox');
   const filterTabs = $('#filterTabs');
 
@@ -232,12 +254,17 @@
   let channelMap = { overrides: {} };
   let channelMapSha = null;
   let profiles = {};            // name -> URL raw del match_report en la branch "data"
+  // Los perfiles solo difieren en credenciales (mismos canales, mismo EPG, y los cambios de acá
+  // son compartidos), así que se muestra siempre el primero: no hace falta elegir.
+  let currentProfile = null;
   let dataGeneratedAt = null;   // fecha del último commit de la branch "data"
   let allChannels = [];         // reporte completo del perfil activo (incluye PPV)
   let currentChannels = [];     // lo que se muestra (sin los eventos de PPV)
   let filtered = [];
   let rendered = 0;
+  const FILTER_KEY = 'epg_ui_filter';
   let activeFilter = 'revisar';
+  try { activeFilter = localStorage.getItem(FILTER_KEY) || 'revisar'; } catch { /* sin storage */ }
   let searchTerm = '';
   let openCardKey = null;
 
@@ -246,12 +273,20 @@
     return score.toFixed(2);
   }
 
-  function scoreBadge(score, chosen, reason) {
-    if (reason === 'override_none') return '<span class="badge override">🚫 forzado sin EPG</span>';
-    if (!chosen) return '<span class="badge bad">sin EPG</span>';
-    if (score >= 0.8) return `<span class="badge ok">${fmtScore(score)}</span>`;
-    if (score >= MIN_SCORE) return `<span class="badge warn">${fmtScore(score)}</span>`;
-    return `<span class="badge bad">${fmtScore(score)}</span>`;
+  // Calidad del EPG en palabras (el número queda en el tooltip). Lo guardado a mano manda
+  // sobre el reporte, que recién se actualiza en la próxima corrida.
+  function qualityBadge(ch) {
+    const ov = channelMap.overrides;
+    if (Object.prototype.hasOwnProperty.call(ov, ch.xtream_name)) {
+      return ov[ch.xtream_name] === null
+        ? '<span class="badge override" title="Elegiste dejarlo sin EPG">🚫 Sin EPG a propósito</span>'
+        : '<span class="badge override" title="EPG elegido a mano">✋ Manual</span>';
+    }
+    const title = `title="Coincidencia ${fmtScore(ch.score)}"`;
+    if (!ch.chosen) return '<span class="badge bad">Sin EPG</span>';
+    if (ch.score >= 0.8) return `<span class="badge ok" ${title}>Bien</span>`;
+    if (ch.score >= MIN_SCORE) return `<span class="badge warn" ${title}>Dudoso</span>`;
+    return `<span class="badge bad" ${title}>Débil</span>`;
   }
 
   function catalogEntry(id) {
@@ -396,6 +431,7 @@
   const PPV_EDITABLE_CATEGORIES = new Set(['PPV DAZN']);
 
   async function loadProfile(name) {
+    currentProfile = name;
     statusLine.textContent = 'Cargando canales…';
     const data = await fetchJSON(profiles[name] + `?_=${dataNonce}`);
     allChannels = data.channels || [];
@@ -407,18 +443,37 @@
 
   // ------------------------------------------------------------------ filtrado
 
-  function matchesFilter(ch) {
+  function isEdited(ch) {
+    return !!(renameOf(ch) || movedCategoryOf(ch) || isHidden(ch));
+  }
+
+  function matchesFilter(ch, filter = activeFilter) {
     const hasOverride = Object.prototype.hasOwnProperty.call(channelMap.overrides, ch.xtream_name);
-    // Un canal oculto ya se revisó y se decidió sacarlo: no cuenta como pendiente.
-    if (activeFilter === 'ocultos') return isHidden(ch);
-    if (isHidden(ch) && (activeFilter === 'revisar' || activeFilter === 'sin-epg')) return false;
-    switch (activeFilter) {
-      case 'sin-epg': return !ch.chosen;
+    if (filter === 'ocultos') return isHidden(ch);
+    if (filter === 'editados') return isEdited(ch);
+    // Un canal oculto ya se revisó y se decidió sacarlo, y un separador nunca lleva EPG: ninguno
+    // de los dos cuenta como pendiente.
+    if ((isHidden(ch) || DIVIDER_RE.test(ch.category)) && (filter === 'revisar' || filter === 'sin-epg')) return false;
+    switch (filter) {
+      case 'sin-epg': return !ch.chosen && !hasOverride;
       case 'override': return hasOverride;
       case 'revisar':
-        return (!ch.chosen && ch.reason !== 'override_none') || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
+        if (hasOverride) return false;
+        return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
       default: return true;
     }
+  }
+
+  function updateFilterCounts() {
+    const counts = {};
+    filterTabs.querySelectorAll('.tab').forEach((b) => { counts[b.dataset.filter] = 0; });
+    for (const ch of currentChannels) {
+      for (const f of Object.keys(counts)) if (matchesFilter(ch, f)) counts[f]++;
+    }
+    filterTabs.querySelectorAll('.tab').forEach((b) => {
+      b.innerHTML = `${escapeHtml(b.dataset.label)} <span class="count">${counts[b.dataset.filter]}</span>`;
+      b.classList.toggle('active', b.dataset.filter === activeFilter);
+    });
   }
 
   function matchesSearch(ch) {
@@ -428,6 +483,7 @@
   }
 
   function applyFilters() {
+    updateFilterCounts();
     filtered = currentChannels.filter((ch) => matchesFilter(ch) && matchesSearch(ch));
     rendered = 0;
     cardsEl.innerHTML = '';
@@ -459,7 +515,8 @@
       scheduleCache.clear();
       hourIndexCache.clear();
       await loadRelease();
-      await loadProfile(profileSelect.value);
+      await loadProfile(currentProfile);
+      pollWorkflow();
     } catch (e) {
       statusLine.textContent = '⚠️ ' + e.message;
     } finally {
@@ -471,61 +528,75 @@
     const slice = filtered.slice(rendered, rendered + PAGE_SIZE);
     for (const ch of slice) cardsEl.appendChild(renderCard(ch));
     rendered += slice.length;
-    statusLine.textContent = `${filtered.length} canal(es) · ${currentChannels.length} en total${freshnessText()}`;
+    statusLine.textContent = `${filtered.length} de ${currentChannels.length} canales${freshnessText()}`;
     loadMoreBtn.hidden = rendered >= filtered.length;
     moreStatus.hidden = true;
   }
+
+  const cardChannel = new WeakMap();   // tarjeta -> canal, para re-renderizarla sola
 
   function renderCard(ch) {
     const el = document.createElement('div');
     const hidden = isHidden(ch);
     el.className = hidden ? 'card is-hidden' : 'card';
-    const hasOverride = Object.prototype.hasOwnProperty.call(channelMap.overrides, ch.xtream_name);
-    const forcedNoEpg = ch.reason === 'override_none';
-    const chosenLabel = ch.chosen ? labelFor(ch.chosen) : null;
-    const epgText = forcedNoEpg
-      ? '<span style="color:var(--muted)">forzado sin EPG ni logo, a propósito</span>'
-      : (chosenLabel ? escapeHtml(chosenLabel) : '<span style="color:var(--muted)">sin EPG asignado</span>');
-
+    el.dataset.key = ch.xtream_name;
+    cardChannel.set(el, ch);
+    const ov = channelMap.overrides;
+    const hasOverride = Object.prototype.hasOwnProperty.call(ov, ch.xtream_name);
+    const forcedNoEpg = hasOverride ? ov[ch.xtream_name] === null : ch.reason === 'override_none';
+    const chosen = hasOverride ? ov[ch.xtream_name] : ch.chosen;
     const renamed = renameOf(ch);
     const isDivider = DIVIDER_RE.test(ch.category);
     const movedTo = movedCategoryOf(ch);
+    const category = movedTo || ch.category;
     const section = movedTo ? sectionOfCategory.get(movedTo) : ch.section;
+
+    let body;
+    if (isDivider) {
+      body = '<div class="card-meta">Separador del proveedor: no lleva EPG.</div>';
+    } else {
+      const epgText = forcedNoEpg
+        ? '<span style="color:var(--muted)">Sin EPG ni logo, a propósito</span>'
+        : (chosen ? escapeHtml(labelFor(chosen)) : '<span style="color:var(--muted)">Sin EPG asignado</span>');
+      body = `<div class="card-epg">${epgText}</div>
+        ${chosen && !forcedNoEpg ? '<div class="chip-now card-now">Cargando programación…</div>' : ''}`;
+    }
 
     el.innerHTML = `
       <div class="card-top">
         <div style="min-width:0; flex:1;">
-          <div class="card-name">
-            <span class="name-text">${escapeHtml(renamed || ch.xtream_name)}</span>
-            ${isDivider ? '' : '<button class="icon-btn rename-btn" title="Renombrar canal">✏️</button>'}
-          </div>
-          ${renamed ? `<div class="card-meta">Nombre en Xtream: ${escapeHtml(ch.xtream_name)}</div>` : ''}
-          <div class="rename-box" hidden>
-            <input type="text" class="rename-input" value="${escapeHtml(renamed || ch.xtream_name)}">
-            <button class="rename-save">Guardar</button>
-            <button class="ghost rename-cancel">Cancelar</button>
-            ${renamed ? '<button class="ghost rename-restore">Nombre original</button>' : ''}
-          </div>
-          <div class="card-meta">${isDivider
-            ? escapeHtml(ch.category)
-            : `<select class="cat-select" title="Mover a otra categoría">${categoryOptions(ch)}</select>`}${
-            section ? ' · ' + escapeHtml(section) : ''}${
+          <div class="card-name">${escapeHtml(renamed || ch.xtream_name)}</div>
+          ${renamed ? `<div class="card-meta">En Xtream: ${escapeHtml(ch.xtream_name)}</div>` : ''}
+          <div class="card-meta">${escapeHtml(category)}${section ? ' · ' + escapeHtml(section) : ''}${
             movedTo ? ' · <span class="badge override">movido</span>' : ''}</div>
-          <div class="editor-msg card-msg"></div>
         </div>
-        <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
-          ${scoreBadge(ch.score, ch.chosen, ch.reason)}
-          ${hasOverride && !forcedNoEpg ? '<span class="badge override">override</span>' : ''}
-          ${hidden ? '<span class="badge bad">🙈 oculto</span>' : ''}
+        <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+          ${isDivider ? '' : qualityBadge(ch)}
+          ${hidden ? '<span class="badge bad">🙈 Oculto</span>' : ''}
         </div>
       </div>
-      <div class="card-epg">${epgText}</div>
-      ${ch.chosen && !forcedNoEpg ? '<div class="chip-now card-now">Cargando programación…</div>' : ''}
+      ${body}
       <div class="card-actions">
-        <button class="ghost edit-btn">Cambiar EPG</button>
-        <button class="ghost hide-btn" title="${hidden ? 'Volver a mostrarlo en la playlist' : 'Sacarlo de la playlist (se puede deshacer)'}">${hidden ? '👁️ Mostrar' : '🙈 Ocultar'}</button>
-        ${hasOverride ? '<button class="ghost danger remove-btn">Quitar override</button>' : ''}
+        ${isDivider
+          ? `<button class="ghost hide-btn">${hidden ? '👁️ Mostrar' : '🙈 Ocultar'}</button>`
+          : '<button class="ghost edit-btn">Cambiar EPG</button><button class="ghost more-btn" aria-expanded="false">⋯ Más</button>'}
       </div>
+      ${isDivider ? '' : `<div class="more-panel" hidden>
+        <label>Nombre en la playlist
+          <input type="text" class="rename-input" value="${escapeHtml(renamed || ch.xtream_name)}" enterkeyhint="done">
+        </label>
+        <div class="row-actions">
+          <button class="rename-save">Guardar nombre</button>
+          ${renamed ? '<button class="ghost rename-restore">Volver al original</button>' : ''}
+        </div>
+        <label>Categoría
+          <select class="cat-select">${categoryOptions(ch)}</select>
+        </label>
+        <div class="row-actions">
+          <button class="ghost hide-btn">${hidden ? '👁️ Mostrar en la playlist' : '🙈 Ocultar de la playlist'}</button>
+          ${hasOverride ? '<button class="ghost danger remove-btn">Volver al EPG automático</button>' : ''}
+        </div>
+      </div>`}
       <div class="editor"></div>
     `;
 
@@ -533,24 +604,48 @@
     // tener que abrir el editor. Sale del índice de la hora actual (un solo archivo para toda
     // la lista), así que no cuesta un pedido por tarjeta.
     const nowEl = el.querySelector('.card-now');
-    if (nowEl) loadNowPlayingInto(nowEl, ch.chosen);
+    if (nowEl) loadNowPlayingInto(nowEl, chosen);
 
-    el.querySelector('.edit-btn').addEventListener('click', () => toggleEditor(el, ch));
-    if (!isDivider) wireCardEdits(el, ch);
+    const key = ch.xtream_name;
     el.querySelector('.hide-btn').addEventListener('click', () => {
       const hide = !isHidden(ch);
-      saveEdit(ch, el.querySelector('.card-msg'),
-        hide ? 'Ocultar canal desde la interfaz de corrección' : 'Mostrar canal desde la interfaz de corrección',
-        (doc) => {
-          doc.hidden = doc.hidden || {};
-          if (hide) doc.hidden[ch.xtream_name] = true;
-          else delete doc.hidden[ch.xtream_name];
-        });
+      setEntry('hidden', key, hide ? true : undefined, hide ? 'Canal oculto' : 'Canal visible otra vez');
+    });
+    if (isDivider) return el;
+
+    el.querySelector('.edit-btn').addEventListener('click', () => toggleEditor(el, ch));
+    const panel = el.querySelector('.more-panel');
+    const moreBtn = el.querySelector('.more-btn');
+    moreBtn.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      moreBtn.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    const input = el.querySelector('.rename-input');
+    const doRename = (value) => {
+      value = (value || '').trim();
+      setEntry('renames', key, value && value !== key ? value : undefined, 'Canal renombrado');
+    };
+    el.querySelector('.rename-save').addEventListener('click', () => doRename(input.value));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doRename(input.value); });
+    const restore = el.querySelector('.rename-restore');
+    if (restore) restore.addEventListener('click', () => doRename(''));
+    const select = el.querySelector('.cat-select');
+    select.addEventListener('change', () => {
+      setEntry('categories', key, select.value === ch.category ? undefined : select.value, 'Canal movido de categoría');
     });
     const removeBtn = el.querySelector('.remove-btn');
-    if (removeBtn) removeBtn.addEventListener('click', () => removeOverride(ch, el));
-
+    if (removeBtn) removeBtn.addEventListener('click', () => setEntry('overrides', key, undefined, 'Vuelve al EPG automático'));
     return el;
+  }
+
+  // Re-renderiza solo las tarjetas de ese canal (puede haber más de una con el mismo nombre en
+  // categorías distintas), sin rehacer la lista: no se pierde el scroll ni la página cargada.
+  function rerenderCards(key) {
+    cardsEl.querySelectorAll(`.card[data-key="${CSS.escape(key)}"]`).forEach((old) => {
+      old.replaceWith(renderCard(cardChannel.get(old)));
+    });
+    openCardKey = null;
+    updateFilterCounts();
   }
 
   // --------------------------------------------- renombrar / mover de categoría
@@ -610,57 +705,6 @@
     return html;
   }
 
-  function wireCardEdits(el, ch) {
-    const box = el.querySelector('.rename-box');
-    const input = el.querySelector('.rename-input');
-    const msg = el.querySelector('.card-msg');
-    el.querySelector('.rename-btn').addEventListener('click', () => {
-      box.hidden = !box.hidden;
-      if (!box.hidden) { input.focus(); input.select(); }
-    });
-    el.querySelector('.rename-cancel').addEventListener('click', () => {
-      input.value = renameOf(ch) || ch.xtream_name;
-      box.hidden = true;
-    });
-    const doRename = (value) => saveEdit(ch, msg, 'Renombrar canal desde la interfaz de corrección', (doc) => {
-      doc.renames = doc.renames || {};
-      value = (value || '').trim();
-      if (!value || value === ch.xtream_name) delete doc.renames[ch.xtream_name];
-      else doc.renames[ch.xtream_name] = value;
-    });
-    el.querySelector('.rename-save').addEventListener('click', () => doRename(input.value));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') doRename(input.value);
-      if (e.key === 'Escape') el.querySelector('.rename-cancel').click();
-    });
-    const restore = el.querySelector('.rename-restore');
-    if (restore) restore.addEventListener('click', () => doRename(''));
-
-    const select = el.querySelector('.cat-select');
-    select.addEventListener('change', () => {
-      const value = select.value;
-      saveEdit(ch, msg, 'Mover canal de categoría desde la interfaz de corrección', (doc) => {
-        doc.categories = doc.categories || {};
-        if (value === ch.category) delete doc.categories[ch.xtream_name];
-        else doc.categories[ch.xtream_name] = value;
-      });
-    });
-  }
-
-  async function saveEdit(ch, msg, commitMessage, mutate) {
-    msg.textContent = 'Guardando…';
-    msg.className = 'editor-msg card-msg';
-    try {
-      await withChannelMap(mutate, commitMessage);
-      msg.textContent = '✓ Guardado. Se aplica a la playlist al correr el workflow (▶️ arriba).';
-      msg.className = 'editor-msg card-msg ok';
-      setTimeout(() => applyFilters(), 1200);
-    } catch (e) {
-      msg.textContent = '✗ ' + e.message;
-      msg.className = 'editor-msg card-msg bad';
-    }
-  }
-
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -705,19 +749,18 @@
       <div class="search-results"></div>
       <div class="chip-row" style="margin-top:10px;">
         <button class="chip force-none-btn" style="color:var(--bad); border-color:var(--bad);">
-          🚫 Forzar sin EPG (ni logo)
+          🚫 Dejar sin EPG
         </button>
       </div>
-      <div class="card-meta">Deja este canal explícitamente sin EPG asignado, aunque el matching automático encuentre algo — para casos como "Channel No Longer Available" que no se puede confiar en la fuente.</div>
-      <div class="editor-msg"></div>
+      <div class="card-meta">Para cuando ninguna guía sirve (p. ej. «Channel No Longer Available»): mejor sin EPG que con uno equivocado.</div>
     `;
   }
 
   function wireEditor(editor, ch) {
     editor.querySelectorAll('.chip[data-id]').forEach((btn) => {
-      btn.addEventListener('click', () => saveOverride(ch, btn.dataset.id, editor));
+      btn.addEventListener('click', () => saveOverride(ch, btn.dataset.id));
     });
-    editor.querySelector('.force-none-btn').addEventListener('click', () => saveOverride(ch, null, editor));
+    editor.querySelector('.force-none-btn').addEventListener('click', () => saveOverride(ch, null));
     editor.querySelectorAll('[data-sched-for]').forEach((el) => {
       loadNowPlayingInto(el, el.dataset.schedFor);
     });
@@ -769,7 +812,7 @@
     `).join('') || '<div class="row"><small>Sin resultados</small></div>');
     resultsEl.classList.add('open');
     resultsEl.querySelectorAll('.row[data-id]').forEach((row) => {
-      row.addEventListener('click', () => saveOverride(ch, row.dataset.id, editor));
+      row.addEventListener('click', () => saveOverride(ch, row.dataset.id));
     });
     if (!idx) {
       resultsEl.querySelectorAll('[data-now-for]').forEach((el) => loadNowPlayingInto(el, el.dataset.nowFor));
@@ -817,37 +860,82 @@
     channelMap = decoded;
   }
 
-  async function saveOverride(ch, channelId, editor) {
-    const msg = editor.querySelector('.editor-msg');
-    msg.textContent = 'Guardando…';
-    msg.className = 'editor-msg';
+  // --------------------------------------------------- guardar con "Deshacer"
+
+  const toast = $('#toast');
+  const toastText = $('#toastText');
+  const toastUndo = $('#toastUndo');
+  let toastTimer = null;
+  let toastUndoFn = null;
+
+  function showToast(text, { undo = null, bad = false, sticky = false } = {}) {
+    clearTimeout(toastTimer);
+    toast.hidden = false;
+    toast.className = bad ? 'toast bad' : 'toast';
+    toastText.textContent = text;
+    toastUndoFn = undo;
+    toastUndo.hidden = !undo;
+    if (!sticky) toastTimer = setTimeout(() => { toast.hidden = true; toastUndoFn = null; }, undo ? 7000 : 4000);
+  }
+  toastUndo.addEventListener('click', () => { const fn = toastUndoFn; toast.hidden = true; if (fn) fn(); });
+
+  // Pone (o borra, con value === undefined) una entrada de una sección de
+  // xtream_channel_map.json ('overrides', 'renames', 'categories', 'hidden'), re-renderiza la
+  // tarjeta y ofrece deshacer. En 'overrides', null es un valor válido ("dejar sin EPG").
+  async function setEntry(section, key, value, label, { isUndo = false } = {}) {
+    const current = channelMap[section] || {};
+    const had = Object.prototype.hasOwnProperty.call(current, key);
+    const prev = had ? current[key] : undefined;
+    if ((had ? prev : undefined) === value) return; // nada que cambiar
+    showToast('Guardando…', { sticky: true });
     try {
-      await withChannelMap((doc) => { doc.overrides[ch.xtream_name] = channelId; });
-      msg.textContent = `✓ Guardado. Va a tomar efecto en la próxima corrida del workflow.`;
-      msg.className = 'editor-msg ok';
-      // refresco visual optimista, el próximo run confirma
-      ch.chosen = channelId;
-      ch.score = 1.0;
-      ch.reason = channelId === null ? 'override_none' : 'override';
-      setTimeout(() => applyFilters(), 900);
+      await withChannelMap((doc) => {
+        doc[section] = doc[section] || {};
+        if (value === undefined) delete doc[section][key];
+        else doc[section][key] = value;
+      }, `${label} (interfaz de corrección)`);
     } catch (e) {
-      msg.textContent = '✗ ' + e.message;
-      msg.className = 'editor-msg bad';
+      showToast('✗ ' + e.message, { bad: true });
+      return;
+    }
+    setPending(pendingChanges + (isUndo ? -1 : 1));
+    rerenderCards(key);
+    if (isUndo) {
+      showToast('↩︎ Cambio deshecho');
+    } else {
+      showToast(`✓ ${label}`, {
+        undo: () => setEntry(section, key, prev, 'Deshacer: ' + label.toLowerCase(), { isUndo: true }),
+      });
     }
   }
 
-  async function removeOverride(ch, cardEl) {
-    if (!confirm(`¿Quitar el override de "${ch.xtream_name}"? Volverá a matchear automático en la próxima corrida.`)) return;
+  function saveOverride(ch, channelId) {
+    return setEntry('overrides', ch.xtream_name, channelId,
+      channelId === null ? 'Canal sin EPG a propósito' : 'EPG elegido a mano');
+  }
+
+  // Cambios guardados desde la última corrida del workflow (commits a xtream_channel_map.json
+  // posteriores a su inicio): así el botón ▶️ dice cuántos faltan aplicar.
+  let pendingChanges = 0;
+
+  function setPending(n) {
+    pendingChanges = Math.max(0, n);
+    $('#runLabel').textContent = pendingChanges ? `Aplicar ${pendingChanges}` : 'Workflow';
+    runBtn.title = pendingChanges
+      ? `Correr el workflow para aplicar ${pendingChanges} cambio(s) guardado(s)`
+      : 'Regenera playlists y EPG (no hay cambios pendientes)';
+    runBtn.classList.toggle('pending', pendingChanges > 0);
+  }
+
+  async function countPending(run) {
+    if (!run) return;
     try {
-      await withChannelMap((doc) => { delete doc.overrides[ch.xtream_name]; });
-      // El match_report todavía va a decir lo mismo hasta la próxima corrida; se limpia el
-      // motivo optimistamente para no dejar la tarjeta mostrando "forzado sin EPG" cuando el
-      // override que decía eso ya no existe.
-      if (ch.reason === 'override' || ch.reason === 'override_none') ch.reason = null;
-      applyFilters();
-    } catch (e) {
-      alert('No se pudo quitar: ' + e.message);
-    }
+      const since = new Date(run.run_started_at || run.created_at).toISOString();
+      const commits = await fetchJSON(
+        `${API}/commits?sha=main&path=xtream_channel_map.json&since=${encodeURIComponent(since)}&per_page=100`,
+        { headers: ghHeaders() });
+      setPending(commits.length);
+    } catch { /* sin datos: se deja como está */ }
   }
 
   // ------------------------------------------------------------- correr el workflow
@@ -860,7 +948,9 @@
   let dispatchedAt = 0;         // para no confundir la corrida recién lanzada con la anterior
 
   function ghHeaders() {
-    return { Authorization: `Bearer ${getToken()}`, Accept: 'application/vnd.github+json' };
+    const h = { Accept: 'application/vnd.github+json' };
+    if (getToken()) h.Authorization = `Bearer ${getToken()}`;
+    return h;
   }
 
   function showWorkflowStatus(html, cls = '') {
@@ -905,13 +995,16 @@
         pollTimer = setTimeout(pollWorkflow, 5000); // todavía no apareció la corrida nueva
         return;
       }
-      if (run && !renderRun(run)) pollTimer = setTimeout(pollWorkflow, 15000);
+      if (!run) return;
+      countPending(run);
+      if (!renderRun(run)) pollTimer = setTimeout(pollWorkflow, 15000);
     }).catch(() => { /* sin permiso de Actions: el botón igual explica al usarlo */ });
   }
 
   runBtn.addEventListener('click', async () => {
     if (!getToken()) { openTokenDialog(); return; }
-    if (!confirm('¿Correr el workflow ahora? Regenera playlists y EPG con los cambios guardados (tarda ~8 min).')) return;
+    const what = pendingChanges ? `aplicar ${pendingChanges} cambio(s) guardado(s)` : 'regenerar playlists y EPG';
+    if (!confirm(`¿Correr el workflow ahora para ${what}? Tarda ~8 min.`)) return;
     runBtn.disabled = true;
     showWorkflowStatus('Lanzando workflow…');
     const res = await fetch(`${API}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -961,6 +1054,7 @@
     filterTabs.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     activeFilter = btn.dataset.filter;
+    try { localStorage.setItem(FILTER_KEY, activeFilter); } catch { /* sin storage */ }
     applyFilters();
   });
 
@@ -976,7 +1070,6 @@
   loadMoreBtn.addEventListener('click', renderMore);
   $('#refreshDataBtn').addEventListener('click', refreshData);
 
-  profileSelect.addEventListener('change', () => loadProfile(profileSelect.value));
 
   // ------------------------------------------------------------------------------ init
 
@@ -985,9 +1078,8 @@
       await loadRelease();
       const names = Object.keys(profiles).sort();
       if (!names.length) throw new Error('No hay ningún match_report-<perfil>.json publicado en el release "latest" todavía.');
-      profileSelect.innerHTML = names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
       await loadProfile(names[0]);
-      if (getToken()) pollWorkflow();
+      pollWorkflow();
     } catch (e) {
       statusLine.textContent = '⚠️ ' + e.message;
     }
