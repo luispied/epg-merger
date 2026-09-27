@@ -47,7 +47,7 @@
   const REVIEW_EXCLUDED_SECTIONS = new Set(['24/7']);
 
   // Mensajes de commit por sección de xtream_channel_map.json (ver setEntry).
-  const EDIT_SECTIONS = ['renames', 'categories', 'hidden'];
+  const EDIT_SECTIONS = ['renames', 'categories', 'hidden', 'hidden_categories'];
 
   // ================================================================= estado
 
@@ -355,6 +355,11 @@
 
   const isEdited = (ch) => !!(renameOf(ch) || movedCategoryOf(ch) || isHidden(ch));
 
+  // Categoría entera oculta (Configuración → Categorías). Cuenta la categoría donde se muestra
+  // el canal, igual que el pipeline: uno movido a una categoría visible sigue en la playlist.
+  const isCategoryHidden = (ch) => !!(channelMap.hidden_categories || {})[effectiveCategory(ch)];
+  const isOut = (ch) => isHidden(ch) || isCategoryHidden(ch);
+
   // Categorías reales (sin separadores) agrupadas por sección, para el desplegable de "Más".
   let categoryGroupsHtml = '';
   let sectionOfCategory = new Map();
@@ -602,7 +607,9 @@
   const filterTabs = $('#filterTabs');
 
   function matchesFilter(ch, filter = activeFilter) {
-    if (filter === 'ocultos') return isHidden(ch);
+    if (filter === 'ocultos') return isOut(ch);
+    // Una categoría oculta no se quiere ver: sus canales solo aparecen en "Ocultos".
+    if (isCategoryHidden(ch)) return false;
     if (filter === 'editados') return isEdited(ch);
     if (filter === 'override') return hasOverride(ch);
     if (filter === 'todos') return true;
@@ -684,12 +691,13 @@
     const key = ch.xtream_name;
     const divider = isDivider(ch);
     const hidden = isHidden(ch);
+    const catHidden = isCategoryHidden(ch);
     const renamed = renameOf(ch);
     const movedTo = movedCategoryOf(ch);
     const section = effectiveSection(ch);
     const epg = currentEpgOf(ch);
 
-    el.className = hidden ? 'card is-hidden' : 'card';
+    el.className = hidden || catHidden ? 'card is-hidden' : 'card';
     el.dataset.key = key;
     cardChannel.set(el, ch);
 
@@ -708,6 +716,7 @@
             <span>${esc(effectiveCategory(ch))}${section ? ' · ' + esc(section) : ''}</span>
             ${movedTo ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}
             ${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}
+            ${catHidden ? `<span class="pill muted">${icon('layers', 'sm')}Categoría oculta</span>` : ''}
           </div>
         </div>
         ${divider ? '' : qualityTag(ch)}
@@ -770,7 +779,8 @@
     const sw = /** @type {HTMLInputElement} */ ($('.vis-switch', $('#cardMenuBody')));
     const syncSwitch = () => {
       sw.checked = !isHidden(ch);
-      $('.vis-sub', $('#cardMenuBody')).textContent = sw.checked ? 'Sale en la playlist' : 'Oculto: no sale en la playlist';
+      $('.vis-sub', $('#cardMenuBody')).textContent = !sw.checked ? 'Oculto: no sale en la playlist'
+        : isCategoryHidden(ch) ? 'Su categoría está oculta: no sale igual' : 'Sale en la playlist';
     };
     syncSwitch();
     sw.addEventListener('change', async () => {
@@ -957,7 +967,8 @@
       return;
     }
     setPending(pendingChanges + (isUndo ? -1 : 1));
-    rerenderCards(key);
+    // Ocultar una categoría cambia qué canales entran en cada filtro: se rearma la lista.
+    if (section === 'hidden_categories') { applyFilters(); renderCategoriesList(); } else rerenderCards(key);
     if (isUndo) {
       toast('Cambio deshecho', { kind: 'info', id: 'save' });
     } else {
@@ -1137,6 +1148,8 @@
 
   function openSettings() {
     $('#tokenState').textContent = getToken() ? 'Configurado' : 'Sin configurar: no se pueden guardar cambios';
+    const hiddenCats = hiddenCategoryCount();
+    $('#categoriesState').textContent = hiddenCats ? `${hiddenCats} oculta${hiddenCats === 1 ? '' : 's'}` : 'Todas visibles';
     const theme = storageGet(THEME_KEY) || 'auto';
     $$('#themeSeg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.value === theme)));
     $('#logosToggle').checked = logosEnabled;
@@ -1165,11 +1178,71 @@
   $('#menuToken').addEventListener('click', () => { settingsDialog.close(); openTokenDialog(); });
   $('#menuHelp').addEventListener('click', () => { settingsDialog.close(); $('#helpDialog').showModal(); });
 
+  // ---- Categorías: un switch por categoría para sacarla entera de la playlist
+  const categoriesDialog = /** @type {HTMLDialogElement} */ ($('#categoriesDialog'));
+  const categoriesFilter = /** @type {HTMLInputElement} */ ($('#categoriesFilter'));
+
+  function hiddenCategoryCount() {
+    return Object.values(channelMap.hidden_categories || {}).filter(Boolean).length;
+  }
+
+  function renderCategoriesList() {
+    if (!categoriesDialog.open) return;
+    const term = normalize(categoriesFilter.value.trim());
+    // Canales por categoría (donde se muestran) y la sección de cada una, agrupadas como en la playlist.
+    const counts = new Map();
+    const sectionOf = new Map();
+    // Todas, también las de PPV que la grilla no muestra: igual salen en la playlist.
+    for (const ch of allChannels) {
+      if (isDivider(ch)) continue;
+      const cat = effectiveCategory(ch);
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+      if (!sectionOf.has(cat)) sectionOf.set(cat, effectiveSection(ch) || 'Sin sección');
+    }
+    const hiddenCats = channelMap.hidden_categories || {};
+    const collator = new Intl.Collator('es');
+    const bySection = new Map();
+    for (const cat of [...counts.keys()].sort(collator.compare)) {
+      if (term && !normalize(`${cat} ${sectionOf.get(cat)}`).includes(term)) continue;
+      const sec = sectionOf.get(cat);
+      if (!bySection.has(sec)) bySection.set(sec, []);
+      bySection.get(sec).push(cat);
+    }
+    $('#categoriesList').innerHTML = [...bySection.keys()].sort(collator.compare).map((sec) => `
+      <div class="section-label">${esc(sec)}</div>
+      <div class="menu">${bySection.get(sec).map((cat) => `
+        <label class="menu-row static">
+          <span class="menu-text">${esc(cat)}<small>${counts.get(cat)} canal${counts.get(cat) === 1 ? '' : 'es'}${hiddenCats[cat] ? ' · oculta' : ''}</small></span>
+          <input type="checkbox" class="switch cat-switch" data-cat="${esc(cat)}" ${hiddenCats[cat] ? '' : 'checked'}
+            aria-label="Mostrar ${esc(cat)}">
+        </label>`).join('')}
+      </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
+  }
+
+  $('#categoriesList').addEventListener('change', async (e) => {
+    const sw = /** @type {HTMLInputElement} */ (e.target);
+    if (!sw.classList.contains('cat-switch')) return;
+    const cat = sw.dataset.cat || '';
+    sw.disabled = true;
+    await setEntry('hidden_categories', cat, sw.checked ? undefined : true,
+      sw.checked ? `Categoría visible: ${cat}` : `Categoría oculta: ${cat}`);
+    // Si no se pudo guardar, la lista se vuelve a armar con el estado real.
+    renderCategoriesList();
+  });
+  categoriesFilter.addEventListener('input', renderCategoriesList);
+
+  $('#menuCategories').addEventListener('click', () => {
+    settingsDialog.close();
+    categoriesFilter.value = '';
+    categoriesDialog.showModal();
+    renderCategoriesList();
+  });
+
   // ---- Copia de seguridad: exportar / importar
   // El archivo lleva los cambios de canales (xtream_channel_map.json) y las preferencias de este
   // dispositivo. El token NO se exporta: es una credencial.
   const BACKUP_FORMAT = 1;
-  const CHANNEL_SECTIONS = /** @type {const} */ (['overrides', 'renames', 'categories', 'hidden']);
+  const CHANNEL_SECTIONS = /** @type {const} */ (['overrides', 'renames', 'categories', 'hidden', 'hidden_categories']);
 
   /** Solo las entradas con la forma esperada (un archivo editado a mano no rompe nada).
    *  @param {any} raw @returns {ChannelMap} */
@@ -1184,8 +1257,10 @@
       const entries = Object.entries(src[sec] || {}).filter(([, v]) => typeof v === 'string' && v.trim());
       if (entries.length) out[sec] = Object.fromEntries(entries);
     }
-    const hidden = Object.entries(src.hidden || {}).filter(([, v]) => v === true);
-    if (hidden.length) out.hidden = Object.fromEntries(hidden.map(([k]) => [k, true]));
+    for (const sec of /** @type {const} */ (['hidden', 'hidden_categories'])) {
+      const entries = Object.entries(src[sec] || {}).filter(([, v]) => v === true);
+      if (entries.length) out[sec] = Object.fromEntries(entries.map(([k]) => [k, true]));
+    }
     return out;
   }
 
@@ -1194,7 +1269,8 @@
     const ov = Object.values(map.overrides);
     const n = (/** @type {Record<string, unknown> | undefined} */ o) => Object.keys(o || {}).length;
     return `${ov.filter((v) => v !== null).length} EPG manuales, ${ov.filter((v) => v === null).length} sin EPG a propósito, `
-      + `${n(map.renames)} renombrados, ${n(map.categories)} movidos y ${n(map.hidden)} ocultos`;
+      + `${n(map.renames)} renombrados, ${n(map.categories)} movidos, ${n(map.hidden)} ocultos`
+      + ` y ${n(map.hidden_categories)} categorías ocultas`;
   }
 
   async function exportConfig() {

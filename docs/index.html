@@ -75,6 +75,11 @@
         <span class="menu-text">Token de GitHub<small id="tokenState"></small></span>
         <span data-icon="chevron-right"></span>
       </button>
+      <button class="menu-row" id="menuCategories">
+        <span class="menu-icon"><span data-icon="layers"></span></span>
+        <span class="menu-text">Categorías<small id="categoriesState">Elegí cuáles ver</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
       <button class="menu-row" id="menuHelp">
         <span class="menu-icon"><span data-icon="circle-help"></span></span>
         <span class="menu-text">Ayuda<small>Cómo usar Grilla</small></span>
@@ -179,6 +184,11 @@
     </details>
 
     <details>
+      <summary>¿Cómo oculto una categoría entera?<span data-icon="chevron-down"></span></summary>
+      <p>En <b>Configuración → Categorías</b>, apagá las que no mirás. Todos sus canales salen de la playlist y de "A revisar", y quedan en <b>Ocultos</b> con la marca <i>Categoría oculta</i>. Se aplica en la próxima corrida del workflow; para volver, prendé el switch otra vez.</p>
+    </details>
+
+    <details>
       <summary>¿Cómo oculto un canal?<span data-icon="chevron-down"></span></summary>
       <p>Tocá <b>…</b> en la tarjeta y apagá <b>Visible en la playlist</b>; la tarjeta queda atenuada con la marca <i>Oculto</i>. Un canal oculto sale de la playlist pero sigue acá, en el filtro <b>Ocultos</b>, para volver a mostrarlo.</p>
     </details>
@@ -212,6 +222,21 @@
       <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
       <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa, sin la barra del navegador. En iPhone la app instalada guarda sus datos aparte: pegá el token una vez más.</p>
     </details>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="categoriesDialog" aria-labelledby="categoriesTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="categoriesTitle">Categorías</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <p class="help">Apagá las que no mirás: sus canales salen de la playlist y de "A revisar", y quedan en <b>Ocultos</b> por si los querés recuperar.</p>
+    <label class="search-field cat-filter">
+      <span data-icon="search"></span>
+      <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
+    </label>
+    <div id="categoriesList"></div>
   </div>
 </dialog>
 

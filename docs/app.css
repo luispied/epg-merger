@@ -372,6 +372,8 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
 .settings-sheet h2 { margin: 0; }
 .sheet-body .menu-title { margin: 0; font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cardMenuBody .menu:first-child { margin-top: 12px; }
+.cat-filter { margin-top: 10px; }
+#categoriesDialog .help { margin: 4px 0 0; }
 .menu { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; margin-top: 12px; }
 .menu > * + * { border-top: .5px solid var(--hairline); }
 .menu-row {
