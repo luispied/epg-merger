@@ -22,9 +22,9 @@
 </script>
 <!-- ?v=N: igual al CACHE de sw.js; subirlo junto con él en cada cambio de la interfaz para que
      el HTML nuevo nunca cargue CSS/JS viejos de la caché del navegador. -->
-<link rel="stylesheet" href="app.css?v=17">
-<script src="icons.js?v=17" defer></script>
-<script src="app.js?v=17" defer></script>
+<link rel="stylesheet" href="app.css?v=18">
+<script src="icons.js?v=18" defer></script>
+<script src="app.js?v=18" defer></script>
 </head>
 <body>
 
@@ -83,6 +83,11 @@
       <button class="menu-row" id="menuCategories">
         <span class="menu-icon"><span data-icon="layers"></span></span>
         <span class="menu-text">Categorías<small id="categoriesState">Elegí cuáles ver</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <button class="menu-row" id="menuSources">
+        <span class="menu-icon"><span data-icon="satellite-dish"></span></span>
+        <span class="menu-text">Fuentes de EPG<small id="sourcesState">Activas y sugeridas para tus canales</small></span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="menuHelp">
@@ -247,6 +252,22 @@
       <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
     </label>
     <div id="categoriesList"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="sourcesDialog" aria-labelledby="sourcesTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="sourcesTitle">Fuentes de EPG</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <p class="help" id="sourcesSummary">Cargando…</p>
+    <label class="search-field cat-filter">
+      <span data-icon="search"></span>
+      <input type="search" id="sourcesFilter" placeholder="Buscar fuente o país" autocomplete="off">
+    </label>
+    <div id="sourcesList"></div>
+    <p class="help">Los cambios se aplican en la próxima corrida del workflow. Una fuente <b>sin uso</b> no le da la guía a ningún canal visible: apagarla hace la corrida más rápida sin perder nada.</p>
   </div>
 </dialog>
 

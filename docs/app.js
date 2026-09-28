@@ -17,6 +17,8 @@
   const DATA_BRANCH = 'data';
   const DATA_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/${DATA_BRANCH}`;
   const MAP_PATH = 'xtream_channel_map.json';
+  const SOURCES_PATH = 'epg_urls.json';
+  const RAW_SOURCES_URL = `https://raw.githubusercontent.com/${REPO}/main/${SOURCES_PATH}`;
   const WORKFLOW_FILE = 'merge-epgs.yml';
   const TOKEN_KEY = 'epg_admin_pat';
   // v2: el filtro por defecto pasó a "Todos"; la clave nueva hace que se vea así al abrir aunque
@@ -517,6 +519,10 @@
    *           sticky?: boolean, id?: string | null }} [opts]
    */
   function toast(text, { kind = 'success', action = null, sticky = kind === 'busy', id = null } = {}) {
+    // Un <dialog> modal abierto tapa todo lo de afuera (y lo vuelve inerte): los avisos van
+    // adentro del de más arriba, para que su "Deshacer" se vea y se pueda tocar.
+    const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+    if (toastsEl.parentElement !== host) host.append(toastsEl);
     let el = id ? $(`[data-toast-id="${id}"]`, toastsEl) : null;
     if (!el) {
       el = document.createElement('div');
@@ -1192,22 +1198,30 @@
 
   // ================================================================= guardar en GitHub
 
-  // Relee xtream_channel_map.json justo antes de escribir (para no pisar un cambio hecho desde
-  // otro lado), aplica `mutate` sobre el documento entero y lo commitea.
-  async function withChannelMap(mutate, commitMessage) {
-    const current = await gh(`/contents/${MAP_PATH}`, { auth: 'required' });
+  // Relee un JSON del repo justo antes de escribir (para no pisar un cambio hecho desde otro
+  // lado), aplica `mutate` sobre el documento entero y lo commitea. Devuelve el documento nuevo.
+  /** @param {string} path @param {(doc: any) => void} mutate @param {string} commitMessage
+   *  @param {(doc: any) => string} [serialize] */
+  async function withRepoJson(path, mutate, commitMessage, serialize = (doc) => JSON.stringify(doc, null, 2) + '\n') {
+    const current = await gh(`/contents/${path}`, { auth: 'required' });
     const doc = JSON.parse(b64decode(current.content));
-    if (!doc.overrides) doc.overrides = {};
     mutate(doc);
-    for (const key of EDIT_SECTIONS) {
-      if (doc[key] && !Object.keys(doc[key]).length) delete doc[key];
-    }
-    await gh(`/contents/${MAP_PATH}`, {
+    await gh(`/contents/${path}`, {
       method: 'PUT',
       auth: 'required',
-      body: { message: commitMessage, content: b64encode(JSON.stringify(doc, null, 2) + '\n'), sha: current.sha },
+      body: { message: commitMessage, content: b64encode(serialize(doc)), sha: current.sha },
     });
-    channelMap = doc;
+    return doc;
+  }
+
+  async function withChannelMap(mutate, commitMessage) {
+    channelMap = await withRepoJson(MAP_PATH, (doc) => {
+      if (!doc.overrides) doc.overrides = {};
+      mutate(doc);
+      for (const key of EDIT_SECTIONS) {
+        if (doc[key] && !Object.keys(doc[key]).length) delete doc[key];
+      }
+    }, commitMessage);
   }
 
   // Pone (o borra, con value === undefined) una entrada de una sección del JSON ('overrides',
@@ -1281,12 +1295,13 @@
       : 'Regenera playlists y EPG (no hay cambios pendientes)';
   }
 
-  // Cambios guardados desde que arrancó la última corrida (commits a MAP_PATH posteriores).
+  // Cambios guardados desde que arrancó la última corrida (commits a MAP_PATH y SOURCES_PATH posteriores).
   async function countPending(run) {
     try {
       const since = new Date(run.run_started_at || run.created_at).toISOString();
-      const commits = await gh(`/commits?sha=main&path=${MAP_PATH}&since=${encodeURIComponent(since)}&per_page=100`);
-      setPending(commits.length);
+      const counts = await Promise.all([MAP_PATH, SOURCES_PATH].map((path) =>
+        gh(`/commits?sha=main&path=${path}&since=${encodeURIComponent(since)}&per_page=100`).then((c) => c.length)));
+      setPending(counts[0] + counts[1]);
     } catch { /* sin datos: se deja como está */ }
   }
 
@@ -1560,6 +1575,208 @@
     categoriesFilter.value = '';
     categoriesDialog.showModal();
     renderCategoriesList();
+  });
+
+  // ---- Fuentes de EPG: activas (con cuántos canales usan cada una), inactivas y sugeridas.
+  // El uso y las sugerencias salen de sources_report.json (tools/source_coverage.py, en cada
+  // corrida del workflow); el estado activo/inactivo, de epg_urls.json en main, que es lo que
+  // se edita acá.
+  const sourcesDialog = /** @type {HTMLDialogElement} */ ($('#sourcesDialog'));
+  const sourcesFilter = /** @type {HTMLInputElement} */ ($('#sourcesFilter'));
+  const SOURCE_OFF_REASON = 'desactivada desde Grilla';
+  /** @type {SourcesReport | null} */
+  let sourcesReport = null;
+  /** @type {EpgUrlsDoc | null} */
+  let epgUrls = null;
+
+  /** Mismo id que le da merge_epgs.load_sources a una entrada sin "id". @param {SourceEntry} e */
+  const sourceId = (e) => e.id || (e.url || '').replace(/^#/, '').replace(/\/+$/, '').split('/').pop()?.split('?')[0].split('.')[0] || e.url || '';
+  /** @param {SourceEntry} e */
+  const sourceActive = (e) => e.active !== false && !(e.url || '').startsWith('#');
+
+  // epg_urls.json con una fuente por línea, como está escrito a mano (un diff legible).
+  /** @param {EpgUrlsDoc} doc */
+  function serializeSources(doc) {
+    const { sources = [], ...rest } = doc;
+    const head = Object.entries(rest).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},\n`).join('');
+    const line = (/** @type {SourceEntry} */ e) => '    { ' + Object.entries(e).map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(', ') + ' }';
+    return `{\n${head}  "sources": [\n${sources.map(line).join(',\n')}\n  ]\n}\n`;
+  }
+
+  async function loadSourcesData() {
+    const [report, urls] = await Promise.all([
+      getJSON(`${DATA_RAW_BASE}/sources_report.json?_=${dataNonce}`).catch(() => null),
+      epgUrls ? Promise.resolve(epgUrls) : getJSON(`${RAW_SOURCES_URL}?_=${Date.now()}`),
+    ]);
+    sourcesReport = report;
+    epgUrls = urls;
+  }
+
+  function renderSourcesList() {
+    if (!sourcesDialog.open || !epgUrls) return;
+    const term = normalize(sourcesFilter.value.trim());
+    const report = sourcesReport;
+    /** @type {Map<string, SourceUsage>} */
+    const usage = new Map((report?.sources || []).map((s) => [s.id, s]));
+    const entries = (epgUrls.sources || []).map((e) => ({ entry: e, id: sourceId(e), active: sourceActive(e) }));
+    const have = new Set(entries.map((e) => e.id));
+    const suggestions = (report?.suggestions || []).filter((s) => !have.has(s.id));
+    const match = (/** @type {(string | null | undefined)[]} */ ...texts) => !term || normalize(texts.filter(Boolean).join(' ')).includes(term);
+    const cc = (/** @type {string | null | undefined} */ c) => (c ? c.toUpperCase() : 'Multi-país');
+
+    const row = (/** @type {{ entry: SourceEntry, id: string, active: boolean }} */ { entry, id, active }) => {
+      const u = usage.get(id);
+      const meta = [cc(entry.country || u?.country), u?.provider];
+      let use;
+      if (!active) use = entry.inactive_reason ? esc(entry.inactive_reason) : 'inactiva';
+      else if (!u) use = 'se mide en la próxima corrida';
+      else if (u.used_by) use = `la usan ${u.used_by} canal${u.used_by === 1 ? '' : 'es'}`;
+      else use = `<span class="warn">sin uso</span>${u.alt_by ? ` · ${u.alt_by} como alternativa` : ''}`;
+      const status = u?.status && u.status !== 'fresh'
+        ? ` · <span class="warn">${u.status === 'stale' ? 'guía desactualizada' : 'no responde'}</span>` : '';
+      return `
+        <div class="menu-row static">
+          <span class="menu-text">${esc(id)}<small class="src-meta">${esc(meta.filter(Boolean).join(' · '))} · ${use}${status}</small></span>
+          <input type="checkbox" class="switch src-switch" data-id="${esc(id)}" ${active ? 'checked' : ''}
+            aria-label="Usar ${esc(id)}">
+        </div>`;
+    };
+
+    const active = entries.filter((e) => e.active && match(e.id, e.entry.country, usage.get(e.id)?.provider));
+    const inactive = entries.filter((e) => !e.active && match(e.id, e.entry.country, usage.get(e.id)?.provider));
+    const sugs = suggestions.filter((s) => match(s.id, s.country, s.provider));
+    // Las sin uso primero: son las que conviene revisar.
+    active.sort((a, b) => (usage.get(a.id)?.used_by ?? 1e9) - (usage.get(b.id)?.used_by ?? 1e9) || a.id.localeCompare(b.id));
+    inactive.sort((a, b) => a.id.localeCompare(b.id));
+
+    const unused = entries.filter((e) => e.active && usage.get(e.id) && !usage.get(e.id)?.used_by).length;
+    $('#sourcesSummary').textContent = `${entries.filter((e) => e.active).length} activas · `
+      + `${suggestions.length} sugerida${suggestions.length === 1 ? '' : 's'} · ${unused} sin uso`
+      + (report ? ` · medido el ${fmtDateTime(new Date(report.generated_at))}` : ' · todavía sin reporte de uso (se arma en la próxima corrida)');
+
+    const sugHtml = sugs.length ? `
+      <div class="section-label">Sugeridas para tus canales</div>
+      <div class="menu">${sugs.map((s) => {
+        const plural = (/** @type {number} */ n, /** @type {string} */ one, /** @type {string} */ many) => `${n} ${n === 1 ? one : many}`;
+        const gain = !s.measured ? 'sin medir'
+          : s.firm ? `+${plural(s.firm, 'canal', 'canales')} con guía${s.doubtful ? ` (y ${s.doubtful} dudoso${s.doubtful === 1 ? '' : 's'})` : ''}`
+            : `+${plural(s.doubtful, 'canal', 'canales')} con guía dudosa`;
+        const examples = (s.examples || []).slice(0, 3).map((x) => `${x.channel} → ${x.epg}`).join(' · ');
+        return `
+        <div class="menu-row static">
+          <span class="menu-text">${esc(s.id)}<small class="src-meta">${esc(cc(s.country))} · ${esc(s.provider || '')} · <b>${esc(gain)}</b>
+            ${examples ? `<span class="src-examples">${esc(examples)}</span>` : ''}</small></span>
+          <button type="button" class="btn btn-tonal src-add" data-id="${esc(s.id)}">${icon('plus', 'sm')}Agregar</button>
+        </div>`;
+      }).join('')}</div>` : '';
+    const activeHtml = active.length ? `
+      <div class="section-label">Activas</div>
+      <div class="menu">${active.map(row).join('')}</div>` : '';
+    const inactiveHtml = inactive.length ? `
+      <details class="src-inactive" ${term ? 'open' : ''}>
+        <summary>Inactivas (${inactive.length})${icon('chevron-down', 'sm')}</summary>
+        <div class="menu">${inactive.map(row).join('')}</div>
+      </details>` : '';
+    $('#sourcesList').innerHTML = sugHtml + activeHtml + inactiveHtml || '<p class="help">Ninguna fuente coincide.</p>';
+  }
+
+  // Cambia epg_urls.json en un commit, con aviso y Deshacer (que vuelve a dejar las entradas
+  // como estaban). `mutate` recibe la lista de fuentes y devuelve false si no hay nada que hacer.
+  /** @param {(sources: SourceEntry[]) => boolean | void} mutate @param {string} label */
+  async function changeSources(mutate, label, { isUndo = false } = {}) {
+    const before = JSON.parse(JSON.stringify(epgUrls?.sources || []));
+    toast('Guardando…', { kind: 'busy', id: 'save' });
+    try {
+      let changed = true;
+      epgUrls = await withRepoJson(SOURCES_PATH, (doc) => {
+        doc.sources = doc.sources || [];
+        changed = mutate(doc.sources) !== false;
+      }, `${label} (interfaz de corrección)`, serializeSources);
+      if (!changed) {
+        toast('Nada que cambiar: ya estaba así', { kind: 'info', id: 'save' });
+        renderSourcesList();
+        return;
+      }
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error', id: 'save' });
+      renderSourcesList();
+      return;
+    }
+    setPending(pendingChanges + (isUndo ? -1 : 1));
+    renderSourcesList();
+    updateSourcesState();
+    if (isUndo) {
+      toast('Cambio deshecho', { kind: 'info', id: 'save' });
+      return;
+    }
+    toast(label, {
+      id: 'save',
+      action: {
+        label: 'Deshacer',
+        fn: () => changeSources((sources) => { sources.splice(0, sources.length, ...before); },
+          `Deshacer: ${label.toLowerCase()}`, { isUndo: true }),
+      },
+    });
+  }
+
+  $('#sourcesList').addEventListener('change', (e) => {
+    const sw = /** @type {HTMLInputElement} */ (e.target);
+    if (!sw.classList.contains('src-switch')) return;
+    const id = sw.dataset.id || '';
+    const on = sw.checked;
+    sw.disabled = true;
+    changeSources((sources) => {
+      const entry = sources.find((s) => sourceId(s) === id);
+      if (!entry || sourceActive(entry) === on) return false;
+      if (on) {
+        delete entry.active;
+        delete entry.inactive_reason;
+        if (entry.url && entry.url.startsWith('#')) entry.url = entry.url.replace(/^#\s*/, '');
+      } else {
+        entry.active = false;
+        entry.inactive_reason = SOURCE_OFF_REASON;
+      }
+      return true;
+    }, on ? `Fuente activada: ${id}` : `Fuente desactivada: ${id}`);
+  });
+
+  $('#sourcesList').addEventListener('click', (e) => {
+    const btn = /** @type {HTMLButtonElement | null} */ ((/** @type {Element} */ (e.target)).closest('.src-add'));
+    if (!btn || btn.disabled) return;
+    const id = btn.dataset.id || '';
+    btn.disabled = true;
+    // Solo el id: la URL y el país salen del catálogo (merge_epgs.load_sources los resuelve).
+    changeSources((sources) => {
+      if (sources.some((s) => sourceId(s) === id)) return false;
+      sources.push({ id });
+      return true;
+    }, `Fuente agregada: ${id}`);
+  });
+  sourcesFilter.addEventListener('input', renderSourcesList);
+
+  function updateSourcesState() {
+    if (!epgUrls) return;
+    const n = (epgUrls.sources || []).filter(sourceActive).length;
+    const have = new Set((epgUrls.sources || []).map(sourceId));
+    const sugs = (sourcesReport?.suggestions || []).filter((s) => !have.has(s.id)).length;
+    $('#sourcesState').textContent = `${n} activas${sugs ? ` · ${sugs} sugerida${sugs === 1 ? '' : 's'}` : ''}`;
+  }
+
+  $('#menuSources').addEventListener('click', async () => {
+    settingsDialog.close();
+    sourcesFilter.value = '';
+    $('#sourcesList').innerHTML = '';
+    $('#sourcesSummary').textContent = 'Cargando…';
+    sourcesDialog.showModal();
+    try {
+      epgUrls = null;  // siempre la versión de main al abrir: pudo cambiar desde otro lado
+      await loadSourcesData();
+    } catch (e) {
+      $('#sourcesSummary').textContent = errMsg(e);
+      return;
+    }
+    renderSourcesList();
+    updateSourcesState();
   });
 
   // ---- Copia de seguridad: exportar / importar

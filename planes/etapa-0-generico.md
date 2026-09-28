@@ -57,7 +57,7 @@ Resultado buscado:
 - Workflow semanal `discover-sources.yml` que actualiza el catálogo en la branch `data`.
 - `epg_urls.json` pasa a ser **la selección del usuario**: referencias a ids del catálogo, más URLs propias y `active` / `inactive_reason` (ya existe). `load_sources` resuelve los ids contra el catálogo y el formato actual sigue funcionando.
 
-### 5. Sugerencias y uso de fuentes según los canales de cada usuario
+### 5. Sugerencias y uso de fuentes según los canales de cada usuario ✅
 - `tools/source_coverage.py`, que formaliza los scripts de análisis de esta semana:
   - **países detectados:** banderas, prefijos (`AR|`, `CR|`) e idiomas de los canales del proveedor, con `flag_to_country_code` y `strip_display_prefix` de `channel_names.py`;
   - **candidatas:** fuentes `fresh` del catálogo para esos países;

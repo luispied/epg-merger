@@ -88,4 +88,6 @@ window.ICONS = {
   "list-checks": "<path d=\"M13 5h8\" /> <path d=\"M13 12h8\" /> <path d=\"M13 19h8\" /> <path d=\"m3 17 2 2 4-4\" /> <path d=\"m3 7 2 2 4-4\" />",
   "square": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" />",
   "square-check": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /> <path d=\"m16 9-5.5 5.5L8 12\" />",
+  "satellite-dish": "<path d=\"M18 12a6 6 0 00-6-6\" /> <path d=\"M2.824 10.459a8 8 0 0010.717 10.717c.558-.276.623-1.012.183-1.452l-9.448-9.448c-.44-.44-1.176-.375-1.452.183\" /> <path d=\"M22 12A10 10 0 0012 2\" /> <path d=\"m9 15 4-4\" />",
+  "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />",
 };

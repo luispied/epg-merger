@@ -80,6 +80,30 @@ quedan inactivas (`"active": false`). Al revisarlo conviene volver a correr el m
 ellas: sacar canales del índice cambia el peso de las palabras y puede mover algún match; los
 que cambiaban para peor también quedaron fijados con un override.
 
+### Uso de cada fuente y sugerencias (`tools/source_coverage.py`)
+
+Después de generar las playlists, el workflow corre `tools/source_coverage.py`, que deja en
+`out/sources_report.json` (y en la branch `data`, para la interfaz):
+
+- **uso por fuente:** cuántos canales visibles (sin ocultos, categorías ocultas ni separadores)
+  toman su guía de cada fuente y cuántas veces aparece como alternativa; las activas que no usa
+  nadie quedan en `unused_active`;
+- **países detectados** en los canales visibles que siguen sin guía (prefijo `AR|`, bandera de
+  la categoría, país en el nombre), sin contar los que no la necesitan (`no_epg` de
+  `provider_rules.json`, categorías marcadas "Sin guía", eventos sueltos, "forzar sin EPG");
+- **sugerencias:** hasta 20 fuentes `fresh` del catálogo de esos países que todavía no están en
+  `epg_urls.json`, repartidas por turnos entre países. Se bajan, se suman al índice sus canales
+  con programación en las próximas 24 h y se corre el matcher real sobre los canales sin guía:
+  la ganancia es cuántos quedarían con guía firme (puntaje ≥ 0.9) y cuántos con una dudosa.
+  Solo se sugieren las que suman algo.
+
+El paso tiene `continue-on-error`: si falla, la corrida sigue. En la interfaz,
+**Configuración → Fuentes de EPG** muestra las activas (con cuántos canales usan cada una, las
+sin uso primero), las inactivas y las sugeridas: el switch escribe `"active": false` con
+`"inactive_reason": "desactivada desde Grilla"` en `epg_urls.json` (o lo saca al reactivarla) y
+**Agregar** suma `{ "id": ... }` del catálogo. Son commits como los del mapa de canales, con
+*Deshacer*, y se aplican en la próxima corrida.
+
 El formato viejo (`"urls": ["...", "..."]`) sigue funcionando: el `id` se deriva del nombre de
 archivo y la prioridad es la posición.
 
@@ -414,6 +438,7 @@ las cuotas de ancho de banda de Git LFS.
 ## Workflow
 
 `.github/workflows/merge-epgs.yml` corre a diario a las 16:00 UTC y también a mano
-(`workflow_dispatch`). Los pasos son: tests → merge → playlists por perfil → publicación de los
+(`workflow_dispatch`). Los pasos son: tests → merge → playlists por perfil → reporte de uso de
+fuentes → publicación de los
 artefactos públicos al release → publicación de las playlists a los gists → subida de los
 `match_report.json` como artifact.

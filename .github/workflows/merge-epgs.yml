@@ -54,6 +54,14 @@ jobs:
         XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
       run: python generate_playlist.py
 
+    # Uso de cada fuente de EPG y fuentes sugeridas para los canales sin guía (baja hasta 20
+    # candidatas del catálogo para medirlas). Es informativo para la interfaz: si falla, la
+    # corrida sigue igual.
+    - name: Source coverage report
+      continue-on-error: true
+      timeout-minutes: 10
+      run: python tools/source_coverage.py
+
     # Al release público solo van artefactos SIN credenciales adentro. Las playlists llevan
     # usuario y contraseña dentro de cada URL de stream, así que van a un gist secreto por
     # persona (paso siguiente) y nunca acá.
@@ -93,6 +101,7 @@ jobs:
         [ -f out/epg_catalog.json ] && cp out/epg_catalog.json /tmp/data-branch/
         [ -f out/epg_icons.json ] && cp out/epg_icons.json /tmp/data-branch/
         [ -f provider_rules.json ] && cp provider_rules.json /tmp/data-branch/
+        [ -f out/sources_report.json ] && cp out/sources_report.json /tmp/data-branch/
         [ -d out/schedule ] && cp -r out/schedule /tmp/data-branch/schedule
         for dir in out/*/; do
           [ -f "$dir/match_report.json" ] || continue
