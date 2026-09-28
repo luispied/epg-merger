@@ -75,6 +75,8 @@ body::before {
 /* ------------------------------------------------------------------ encabezado */
 .app-header { padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; }
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.header-actions { display: flex; gap: 8px; }
+#selectBtn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .app-header h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
 
 /* Lo fijo arriba: buscador, acciones y filtros (el título se va con el scroll). */
@@ -414,3 +416,26 @@ label.menu-row.static { cursor: pointer; }
 .about { text-align: center; color: var(--muted); font-size: 12.5px; margin: 16px 0 4px; }
 body.no-logos .logo { display: none; }
 :root[data-theme="dark"] .logo { background: #e5e5ea; color: #8e8e93; }
+
+/* ------------------------------------------------------------------ selección múltiple */
+.card.selectable { cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.card.selectable .card-menu-btn { display: none; }
+.card.selected { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+.card.is-hidden.selected { opacity: 1; }
+.sel-box { flex: none; color: var(--faint); margin-top: 12px; }
+.card.selected .sel-box { color: var(--accent); }
+.sel-box .icon { width: 22px; height: 22px; }
+.bulk-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface); box-shadow: 0 -1px 0 var(--hairline), var(--shadow-lg);
+  animation: slide-up .2s ease both;
+}
+.bulk-bar[hidden] { display: none; }
+.bulk-count { flex: 1; font-weight: 600; font-size: 15px; min-width: 0; }
+.bulk-bar .btn { min-height: 38px; }
+body.selecting main { padding-bottom: 72px; }
+body.selecting .toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+#bulkBody .menu:first-child, #bulkBody .select { margin-top: 12px; }
+@keyframes slide-up { from { transform: translateY(100%); } }

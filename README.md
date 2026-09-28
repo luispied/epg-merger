@@ -172,6 +172,11 @@ Desde cada tarjeta también se puede:
   canal (o separador) sale de la playlist y su EPG de la guía del perfil, pero sigue en el
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
+- **Cambios masivos** (botón de selección del encabezado, o mantener apretada una tarjeta):
+  se marcan varios canales (o **Todos** los del filtro y la búsqueda actuales) y **Acciones**
+  aplica a todos juntos: el mismo EPG (con sugerencias de las opciones que más se repiten entre
+  los elegidos), mover de categoría, ocultar/mostrar, volver al EPG automático, restaurar
+  nombres o categorías originales y dejar sin EPG. Es un solo commit y un solo *Deshacer*.
 - **Ocultar una categoría entera** (Configuración → Categorías, un switch por categoría):
   guarda `"hidden_categories": {"categoría en Xtream": true}`. Todos sus canales salen de la
   playlist y de la guía como si estuvieran ocultos uno por uno; cuenta la categoría donde se

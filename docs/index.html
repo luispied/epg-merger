@@ -22,16 +22,19 @@
 </script>
 <!-- ?v=N: igual al CACHE de sw.js; subirlo junto con él en cada cambio de la interfaz para que
      el HTML nuevo nunca cargue CSS/JS viejos de la caché del navegador. -->
-<link rel="stylesheet" href="app.css?v=14">
-<script src="icons.js?v=14" defer></script>
-<script src="app.js?v=14" defer></script>
+<link rel="stylesheet" href="app.css?v=15">
+<script src="icons.js?v=15" defer></script>
+<script src="app.js?v=15" defer></script>
 </head>
 <body>
 
 <header class="app-header">
   <div class="title-row">
     <h1>Grilla</h1>
-    <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
+    <div class="header-actions">
+      <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
+      <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
+    </div>
   </div>
 </header>
 
@@ -186,6 +189,11 @@
     </details>
 
     <details>
+      <summary>¿Puedo cambiar varios canales a la vez?<span data-icon="chevron-down"></span></summary>
+      <p>Sí. Tocá el botón de <b>selección</b> (arriba, al lado de Configuración) o mantené apretada una tarjeta. Marcá los canales (o <b>Todos</b>, que toma los del filtro y la búsqueda actuales) y tocá <b>Acciones</b>: cambiar EPG (con sugerencias de las opciones que comparten), mover de categoría, ocultar o mostrar, volver al EPG automático, restaurar nombres o categorías y dejar sin EPG. Cada acción se guarda de una vez y se puede deshacer entera.</p>
+    </details>
+
+    <details>
       <summary>¿Cómo oculto una categoría entera?<span data-icon="chevron-down"></span></summary>
       <p>En <b>Configuración → Categorías</b>, apagá las que no mirás. Todos sus canales salen de la playlist y de "A revisar", y quedan en <b>Ocultos</b> con la marca <i>Categoría oculta</i>. Se aplica en la próxima corrida del workflow; para volver, prendé el switch otra vez.</p>
     </details>
@@ -239,6 +247,33 @@
       <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
     </label>
     <div id="categoriesList"></div>
+  </div>
+</dialog>
+
+<div class="bulk-bar" id="bulkBar" hidden>
+  <button class="icon-btn ghost" id="bulkCancel" title="Salir de la selección" aria-label="Salir de la selección"><span data-icon="x"></span></button>
+  <span class="bulk-count" id="bulkCount" aria-live="polite">Tocá los canales</span>
+  <button class="btn btn-plain" id="bulkAll">Todos</button>
+  <button class="btn btn-primary" id="bulkActions" disabled>Acciones</button>
+</div>
+
+<dialog class="sheet" id="bulkDialog" aria-labelledby="bulkTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="bulkTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="bulkBody"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="bulkEpgDialog" aria-labelledby="bulkEpgTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="bulkEpgTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="bulkEpgBody"></div>
   </div>
 </dialog>
 
