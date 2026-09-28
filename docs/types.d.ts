@@ -69,6 +69,9 @@ interface SourceUsage {
   /** fresh | stale | down, del catálogo (null si no está en el catálogo). */
   status: string | null;
   catalog_id?: string | null;
+  /** Tamaño comprimido y programas, del catálogo. */
+  size_bytes?: number | null;
+  programmes?: number | null;
   used_by: number;
   alt_by: number;
 }
@@ -81,6 +84,8 @@ interface SourceSuggestion {
   provider: string | null;
   live_channels?: number | null;
   new_channels?: number | null;
+  size_bytes?: number | null;
+  programmes?: number | null;
   measured: boolean;
   firm: number;
   doubtful: number;

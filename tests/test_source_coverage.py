@@ -38,7 +38,7 @@ USER_SOURCES = [
 
 CATALOG = {
     'cat-cl1': {'id': 'cat-cl1', 'url': 'https://c/cl1.xml.gz', 'country': 'cl', 'provider': 'c',
-                'status': 'fresh', 'live_channels': 50},
+                'status': 'fresh', 'live_channels': 50, 'size_bytes': 1234, 'programmes': 99},
     'cat-cl2': {'id': 'cat-cl2', 'url': 'https://c/cl2.xml.gz', 'country': 'cl', 'provider': 'c',
                 'status': 'fresh', 'live_channels': 10},
     'cat-uy1': {'id': 'cat-uy1', 'url': 'https://c/uy1.xml.gz', 'country': 'uy', 'provider': 'c',
@@ -136,4 +136,5 @@ def test_sugerencia_medida_con_el_matcher_real():
     s = sugs['cat-cl1']
     assert s['measured'] and s['new_channels'] == 2, "el canal sin programación vigente no suma"
     assert s['firm'] == 2 and s['doubtful'] == 0
+    assert s['size_bytes'] == 1234 and s['programmes'] == 99, "el costo de sumarla, del catálogo"
     assert {e['channel'] for e in s['examples']} == {'CL| Mega', 'CL| Chilevision HD'}

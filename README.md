@@ -115,6 +115,12 @@ guía. Ahora los programas se deduplican por `(canal, start)`: ante colisión ga
 prioritaria, y los horarios que ésa no cubre los siguen aportando las demás, así deduplicar no
 cuesta días de guía.
 
+El merge corre en streaming: cada fuente se lee elemento por elemento y la deduplicación se
+hace en una base SQLite temporal en disco. Antes armaba todo en memoria y con ~2 M de programas
+pasaba los 14 GB (el runner tiene 16 GB); así usa ~1,4 GB aunque la guía llegue a 3 M de
+programas. En **Fuentes de EPG** las de más de 20 MB se marcan como *pesadas*, con su tamaño y
+cantidad de programas, para ver el costo antes de sumarlas.
+
 ## Cómo se matchea un canal con su EPG
 
 Antes de tocar el nombre, se le saca el prefijo que el proveedor antepone y que no aporta nada
