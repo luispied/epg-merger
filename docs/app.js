@@ -29,7 +29,7 @@
   const THEME_KEY = 'epg_ui_theme';                // auto | light | dark (lo lee también index.html)
   const LOGOS_KEY = 'epg_ui_logos';                // '0' = logos apagados
   const START_FILTER_KEY = 'epg_ui_start_filter';  // last | todos | revisar
-  const APP_VERSION = '2026.09.28';
+  const APP_VERSION = '2026.09.29';
 
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
@@ -397,12 +397,16 @@
   let categoryGroupsHtml = '';
   let sectionOfCategory = new Map();
 
+  // Destinos para mover un canal: solo las categorías visibles. Mover un canal a una categoría
+  // oculta lo sacaría de la playlist sin avisar (para eso está el switch de visibilidad).
   function buildCategoryGroups() {
     const bySection = new Map();
     sectionOfCategory = new Map();
+    const hiddenCats = channelMap.hidden_categories || {};
     for (const ch of allChannels) {
       if (isDivider(ch)) continue;
       sectionOfCategory.set(ch.category, ch.section);
+      if (hiddenCats[ch.category]) continue;
       const sec = ch.section || 'Sin sección';
       if (!bySection.has(sec)) bySection.set(sec, new Set());
       bySection.get(sec).add(ch.category);
@@ -420,7 +424,8 @@
     let html = categoryGroupsHtml
       .replace(`<option value="${esc(current)}">`, `<option value="${esc(current)}" selected>`)
       .replace(`>${esc(ch.category)}</option>`, `>${esc(ch.category)} (original)</option>`);
-    // Destino que ya no existe en el proveedor: se muestra igual para no perderlo de vista.
+    // Destino que ya no existe en el proveedor o que está oculto: se muestra igual (es donde
+    // está el canal hoy) para no perderlo de vista.
     if (!html.includes(`value="${esc(current)}"`)) {
       html = `<option value="${esc(current)}" selected>${esc(current)}</option>` + html;
     }
@@ -1255,6 +1260,7 @@
     setPending(pendingChanges + (isUndo ? -1 : 1));
     // Ocultar una categoría cambia qué canales entran en cada filtro: se rearma la lista.
     if (changes.some((c) => c.section === 'hidden_categories' || c.section === 'no_epg_categories')) {
+      buildCategoryGroups();
       applyFilters();
       renderCategoriesList();
     } else {
@@ -1909,6 +1915,7 @@
       storageSet(START_FILTER_KEY, prefs.startFilter === 'last' ? null : prefs.startFilter);
     }
     setPending(pendingChanges + 1);
+    buildCategoryGroups();
     applyFilters();
     toast('Configuración importada. Corré el workflow para aplicarla a la playlist.', { id: 'save' });
   }
