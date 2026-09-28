@@ -27,7 +27,7 @@
     { "id": "openepg-spain4", "url": "https://open-epg.com/files/spain4.xml.gz", "country": "es" },
     { "id": "openepg-spain5", "url": "https://open-epg.com/files/spain5.xml.gz", "country": "es" },
     { "id": "openepg-spain6", "url": "https://open-epg.com/files/spain6.xml.gz", "country": "es", "active": false, "inactive_reason": "ningún canal visible usa su guía (27/09/2026)" },
-    { "id": "openepg-spain7", "url": "https://open-epg.com/files/spain7.xml.gz", "country": "es" },
+    { "id": "openepg-spain7", "url": "https://open-epg.com/files/spain7.xml.gz", "country": "es", "active": false, "inactive_reason": "desactivada desde Grilla" },
     { "id": "epgshare-fanduel1", "url": "https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz", "country": "us" },
     { "id": "epgshare-it1", "url": "https://epgshare01.online/epgshare01/epg_ripper_IT1.xml.gz", "country": "it" },
     { "id": "openepg-italy1", "url": "https://open-epg.com/files/italy1.xml.gz", "country": "it", "active": false, "inactive_reason": "ningún canal visible usa su guía (27/09/2026)" },
