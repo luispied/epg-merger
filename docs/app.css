@@ -439,3 +439,12 @@ body.selecting main { padding-bottom: 72px; }
 body.selecting .toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 #bulkBody .menu:first-child, #bulkBody .select { margin-top: 12px; }
 @keyframes slide-up { from { transform: translateY(100%); } }
+
+/* Botoncito de estado dentro de una fila de menú ("Sin guía" en Categorías). */
+.chip-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px;
+  border: 0; border-radius: 999px; background: var(--fill); color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.chip-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.chip-btn:disabled { cursor: default; opacity: .75; }

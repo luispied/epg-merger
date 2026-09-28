@@ -60,14 +60,24 @@ MAX_ALT_ENTRIES = 4
 
 # --------------------------------------------------------------------- categorías y secciones
 
-# Categorías "separador" decorativas que el proveedor usa como divisores visuales en su propio
-# panel (ej. "▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆"). Se conservan pero se reubican como encabezado al
-# principio de la sección real que les corresponde.
-DIVIDER_CATEGORY_RE = re.compile(r'[▆░▒▓█]')
+# Reglas propias de cada proveedor (provider_rules.json). Sin ese archivo el pipeline es
+# genérico: no hay categorías "separador", las categorías sin sección van en el orden en que las
+# lista el proveedor y nada se trata como evento suelto ni como "no necesita EPG". El archivo de
+# este repo trae las reglas del proveedor actual (separadores "▆▆▆ＰＰＶ　ＥＶＥＮＴＳ▆▆▆", etc.).
+PROVIDER_RULES_PATH = 'provider_rules.json'
 
-
-def is_divider_category(category):
-    return bool(DIVIDER_CATEGORY_RE.search(category))
+DEFAULT_PROVIDER_RULES = {
+    # 'provider' (orden del proveedor) o 'alphabetical', para las categorías sin orden explícito.
+    'category_order': 'provider',
+    # Categorías decorativas que el proveedor usa como separador visual en su panel: se
+    # conservan pero se reubican como encabezado al principio de la sección que les corresponde.
+    'dividers': {'pattern': None, 'sections': {}, 'display_names': {}},
+    # Secciones de eventos sueltos (PPV) que ningún EPG público cubre: la interfaz no las muestra
+    # para corregir, salvo las categorías listadas en editable_categories.
+    'event_sections': {'sections': [], 'editable_categories': []},
+    # Lo que no necesita guía por naturaleza: no cuenta en "A revisar" ni "Sin EPG".
+    'no_epg': {'categories': [], 'sections': [], 'category_patterns': []},
+}
 
 
 def _divider_key(category):
@@ -77,22 +87,50 @@ def _divider_key(category):
     return re.sub(r'[^a-z0-9]', '', text)
 
 
-DIVIDER_SECTION_MAP = {
-    _divider_key('PPV EVENTS'): 'PPV EVENTS',
-    _divider_key('PAISES'): 'PAÍSES',
-    _divider_key('DEPORTES'): 'DEPORTES',
-    _divider_key('ENGLISH'): 'ENGLISH',
-    _divider_key('ESPAÑOL'): 'ESPAÑOL',
-    _divider_key('LATINOS USA'): 'LATINOS USA',
-    _divider_key('24/7'): '24/7',
-}
+def load_provider_rules(path=None):
+    """provider_rules.json mezclado sobre los valores genéricos (lo que no declara, queda genérico)."""
+    path = path or PROVIDER_RULES_PATH
+    rules = json.loads(json.dumps(DEFAULT_PROVIDER_RULES))
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+    except FileNotFoundError:
+        return rules
+    except json.JSONDecodeError as e:
+        print(f"⚠️  {path} inválido ({e}); se usan reglas genéricas")
+        return rules
+    for key, value in raw.items():
+        if key.startswith('_'):
+            continue
+        if isinstance(value, dict) and isinstance(rules.get(key), dict):
+            rules[key].update(value)
+        else:
+            rules[key] = value
+    return rules
 
-# El proveedor nombra el separador de esta sección con dígitos de ancho completo y una barra
-# ("▆▆▆２４／７▆▆▆"): la barra era lo que TiviMate escondía (confirmado), así que se mantiene el
-# mismo estilo decorativo que las demás secciones pero sin la barra.
-DIVIDER_DISPLAY_OVERRIDE = {
-    '24/7': '▆▆▆２４ ７▆▆▆',
-}
+
+class _Rules:
+    """Reglas vigentes, ya compiladas (las fija set_provider_rules; generate() las carga)."""
+
+    def __init__(self, rules):
+        self.raw = rules
+        pattern = rules['dividers'].get('pattern')
+        self.divider_re = re.compile(pattern) if pattern else None
+        self.divider_sections = {_divider_key(k): v for k, v in (rules['dividers'].get('sections') or {}).items()}
+        self.divider_display = dict(rules['dividers'].get('display_names') or {})
+        self.alphabetical = rules.get('category_order') == 'alphabetical'
+
+
+_rules = _Rules(DEFAULT_PROVIDER_RULES)
+
+
+def set_provider_rules(rules):
+    global _rules
+    _rules = _Rules(rules)
+
+
+def is_divider_category(category):
+    return bool(_rules.divider_re and _rules.divider_re.search(category))
 
 
 def _strip_category_label(category):
@@ -162,7 +200,7 @@ def _make_rule_matcher(rule):
 
 def classify_section(category, section_rules):
     if is_divider_category(category):
-        return DIVIDER_SECTION_MAP.get(_divider_key(category))  # None si no está mapeado (ej. ADULTS)
+        return _rules.divider_sections.get(_divider_key(category))  # None si no está mapeado (ej. ADULTS)
 
     label = _strip_category_label(category)
     for section_name, matcher in section_rules:
@@ -323,6 +361,10 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     # classify_section/is_divider_category/flag_to_country_code solo dependen de `category`
     # (~99 valores únicos), no de cada canal (~3000+): se calculan una vez por categoría.
     category_info_cache = {}
+    # Orden en que el proveedor lista cada categoría (para category_order: 'provider').
+    provider_pos = {}
+    for stream in live_streams:
+        provider_pos.setdefault(stream['category'], len(provider_pos))
 
     def category_info(category):
         info = category_info_cache.get(category)
@@ -332,15 +374,18 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
             # Una categoría divisor con sección mapeada va primero como encabezado (0,).
             # Si la sección declaró 'category_order', se respeta esa posición exacta (1, i).
             # Una categoría nueva del proveedor que no esté en esa lista, o si la sección no
-            # declaró orden, se ordena alfabéticamente y va al final de las que sí están listadas.
+            # declaró orden, va al final de las listadas: alfabéticamente o en el orden del
+            # proveedor, según provider_rules.json.
             explicit_pos = category_order.get(section, {}).get(_strip_category_label(category))
             if is_divider and section:
                 sort_key = (0,)
             elif explicit_pos is not None:
                 sort_key = (1, explicit_pos)
-            else:
+            elif _rules.alphabetical:
                 sort_key = (2, _strip_category_label(category))
-            display_category = DIVIDER_DISPLAY_OVERRIDE.get(section, category) if is_divider else category
+            else:
+                sort_key = (2, provider_pos.get(category, len(provider_pos)))
+            display_category = _rules.divider_display.get(section, category) if is_divider else category
             info = (
                 section,
                 is_divider,
@@ -751,6 +796,7 @@ def generate():
         print(f"❌ Falta {MERGED_EPG_PATH}; corré primero: python merge_epgs.py")
         return
 
+    set_provider_rules(load_provider_rules())
     t0 = time.monotonic()
     elapsed = lambda: f"{time.monotonic() - t0:.0f}s"  # noqa: E731
 

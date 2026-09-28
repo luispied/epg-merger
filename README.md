@@ -328,6 +328,24 @@ conservan tal cual. La URL de la lista suele llevar credenciales, por eso va en 
 { "profiles": [ { "name": "otra", "type": "m3u", "url": "https://proveedor/get.php?...&type=m3u_plus", "gist_id": "…" } ] }
 ```
 
+**Reglas propias del proveedor (`provider_rules.json`):** lo que depende de cómo arma su lista
+cada proveedor, fuera del código. Sin este archivo el pipeline es genérico (sin separadores,
+categorías sin sección en el orden del proveedor, nada excluido); el de este repo trae las del
+proveedor actual:
+
+- `dividers`: `pattern` (regex) de las categorías decorativas que el proveedor usa como separador
+  (`▆▆▆ＤＥＰＯＲＴＥＳ▆▆▆`), `sections` (a qué sección corresponde cada una) y `display_names`.
+- `category_order`: `provider` o `alphabetical`, para las categorías sin orden explícito.
+- `event_sections`: secciones de eventos sueltos (PPV) que la interfaz no muestra para corregir,
+  salvo `editable_categories`.
+- `no_epg`: categorías, secciones y patrones que no necesitan guía (no cuentan en "A revisar"
+  ni "Sin EPG"). Además, cada categoría se puede marcar a mano desde la interfaz
+  (Configuración → Categorías → **Sin guía**), que se guarda en `xtream_channel_map.json` como
+  `no_epg_categories`.
+
+La interfaz lee el mismo archivo desde `main`, así un cambio de reglas se ve sin esperar al
+workflow.
+
 Los proveedores están en `providers.py` (`XtreamProvider`, `M3UProvider`): todos devuelven la
 misma lista de canales (`name`, `category`, `url`, `icon`, `epg_channel_id`), así sumar otro tipo
 de proveedor no toca el matching.

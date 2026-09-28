@@ -38,6 +38,18 @@ interface ChannelMap {
   hidden?: Record<string, boolean>;
   /** Categorías enteras fuera de la playlist, por nombre en Xtream. */
   hidden_categories?: Record<string, boolean>;
+  /** Categorías que no necesitan guía (no cuentan en "A revisar" ni "Sin EPG"). */
+  no_epg_categories?: Record<string, boolean>;
+}
+
+/** provider_rules.json ya compilado (ver compileRules en app.js). */
+interface ProviderRules {
+  dividerRe: RegExp | null;
+  eventSections: Set<string | null | undefined>;
+  eventEditable: Set<string>;
+  noEpgCategories: Set<string>;
+  noEpgSections: Set<string>;
+  noEpgPatterns: RegExp[];
 }
 
 /** schedule/<sched>.json: [inicio, fin, título, descripción?] con inicio/fin en epoch s. */

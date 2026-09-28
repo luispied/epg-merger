@@ -745,6 +745,40 @@ http://otro-proveedor/warner.m3u8?token=secreto
     assert {'TBS.us', 'Warner.cr'} <= {c.get('id') for c in root.findall('channel')}
 
 
+def test_sin_reglas_del_proveedor_todo_es_generico(tmp_path, monkeypatch):
+    """Otro proveedor, sin provider_rules.json: ningún separador especial y las categorías sin
+    sección van en el orden en que las lista el proveedor (no alfabético)."""
+    monkeypatch.setattr(generate_playlist, 'PROVIDER_RULES_PATH', str(tmp_path / 'no-existe.json'))
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'epg_urls.json').write_text(json.dumps(SOURCES), encoding='utf-8')
+    (tmp_path / 'xtream_channel_map.json').write_text('{"overrides": {}}', encoding='utf-8')
+    with gzip.open(tmp_path / 'merged.xml.gz', 'wb') as f:
+        f.write(MERGED.encode('utf-8'))
+    (tmp_path / 'lista.m3u').write_text('''#EXTM3U
+#EXTINF:-1 group-title="Zeta",Canal Z
+http://p/z
+#EXTINF:-1 group-title="▆▆▆ Alfa ▆▆▆",Canal A
+http://p/a
+#EXTINF:-1 group-title="Medio",Canal M
+http://p/m
+''', encoding='utf-8')
+    _correr(monkeypatch, [{'name': 'otro', 'type': 'm3u', 'url': str(tmp_path / 'lista.m3u')}])
+    lineas = [l for l in _playlist(tmp_path, 'otro').splitlines() if l.startswith('#EXTINF')]
+    grupos = [l.split('group-title="')[1].split('"')[0] for l in lineas]
+    assert grupos == ['Zeta', '▆▆▆ Alfa ▆▆▆', 'Medio'], "orden del proveedor, sin tratar ▆ como separador"
+    assert lineas[1].endswith(',Canal A'), "sin reglas, la categoría decorativa es una categoría común"
+
+
+def test_reglas_del_proveedor_se_mezclan_sobre_las_genericas(tmp_path):
+    (tmp_path / 'r.json').write_text(json.dumps({'_comment': 'x', 'category_order': 'alphabetical',
+                                                  'no_epg': {'categories': ['General']}}), encoding='utf-8')
+    reglas = generate_playlist.load_provider_rules(str(tmp_path / 'r.json'))
+    assert reglas['category_order'] == 'alphabetical'
+    assert reglas['no_epg'] == {'categories': ['General'], 'sections': [], 'category_patterns': []}
+    assert reglas['dividers']['pattern'] is None
+    assert '_comment' not in reglas
+
+
 def test_logos_del_epg_para_la_interfaz(proyecto, monkeypatch):
     """epg_icons.json: solo canales con logo, y siempre por https (la interfaz se sirve por https)."""
     _correr(monkeypatch, PERFILES[:1])

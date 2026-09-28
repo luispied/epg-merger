@@ -92,6 +92,7 @@ jobs:
         rm -rf /tmp/data-branch && mkdir /tmp/data-branch
         [ -f out/epg_catalog.json ] && cp out/epg_catalog.json /tmp/data-branch/
         [ -f out/epg_icons.json ] && cp out/epg_icons.json /tmp/data-branch/
+        [ -f provider_rules.json ] && cp provider_rules.json /tmp/data-branch/
         [ -d out/schedule ] && cp -r out/schedule /tmp/data-branch/schedule
         for dir in out/*/; do
           [ -f "$dir/match_report.json" ] || continue

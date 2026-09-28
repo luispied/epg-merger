@@ -34,22 +34,37 @@
   const SEARCH_LIMIT = 50;
   const SCHEDULE_HOURS = 30;  // ventana que publica generate_playlist.py (SCHEDULE_WINDOW_FUTURE)
 
-  // Mismo criterio que generate_playlist.is_divider_category: los separadores decorativos del
-  // proveedor no son categorías reales, no se ofrecen como destino ni se pueden mover.
-  const DIVIDER_RE = /[▆░▒▓█]/;
-  // Los eventos de PPV son transmisiones puntuales que ningún EPG público cubre: se filtran
-  // antes de cualquier conteo o pestaña. Excepción: PPV DAZN, que son canales fijos.
-  const PPV_SECTION = 'PPV EVENTS';
-  const PPV_EDITABLE_CATEGORIES = new Set(['PPV DAZN']);
-  // No entran en "A revisar" ni en "Sin EPG" (siguen en "Todos"): "General" es donde caen los
-  // canales sin categoría en Xtream (sobre todo eventos sueltos) y 24/7 son series/películas en loop.
-  const REVIEW_EXCLUDED_CATEGORIES = new Set(['General']);
-  const REVIEW_EXCLUDED_SECTIONS = new Set(['24/7']);
-  // Y cualquier categoría "24 7 …" aunque el proveedor la cambie de sección.
-  const REVIEW_EXCLUDED_CATEGORY_RE = /^\W*24\s*\/?\s*7\b/;
+  // Reglas propias del proveedor (provider_rules.json en main; ver generate_playlist.py). Sin el
+  // archivo todo es genérico: sin separadores, sin eventos sueltos y sin exclusiones.
+  const RAW_RULES_URL = `https://raw.githubusercontent.com/${REPO}/main/provider_rules.json`;
+
+  /** @param {any} raw @returns {ProviderRules} */
+  function compileRules(raw) {
+    const r = raw && typeof raw === 'object' ? raw : {};
+    const safeRe = (/** @type {any} */ p) => {
+      try { return p ? new RegExp(p, 'u') : null; } catch { return null; }
+    };
+    const d = r.dividers || {};
+    const ev = r.event_sections || {};
+    const ne = r.no_epg || {};
+    return {
+      // Mismo criterio que generate_playlist.is_divider_category: los separadores decorativos
+      // del proveedor no son categorías reales, no se ofrecen como destino ni se pueden mover.
+      dividerRe: safeRe(d.pattern),
+      // Eventos sueltos (PPV) que ningún EPG público cubre: se filtran antes de cualquier conteo
+      // o pestaña, salvo las categorías editables (canales fijos).
+      eventSections: new Set(ev.sections || []),
+      eventEditable: new Set(ev.editable_categories || []),
+      // Lo que no necesita guía: no entra en "A revisar" ni en "Sin EPG" (sigue en "Todos").
+      noEpgCategories: new Set(ne.categories || []),
+      noEpgSections: new Set(ne.sections || []),
+      noEpgPatterns: (ne.category_patterns || []).map(safeRe).filter(Boolean),
+    };
+  }
+  let rules = compileRules(null);
 
   // Mensajes de commit por sección de xtream_channel_map.json (ver setEntry).
-  const EDIT_SECTIONS = ['renames', 'categories', 'hidden', 'hidden_categories'];
+  const EDIT_SECTIONS = ['renames', 'categories', 'hidden', 'hidden_categories', 'no_epg_categories'];
 
   // ================================================================= estado
 
@@ -338,7 +353,7 @@
 
   // ================================================================= modelo de canal
 
-  const isDivider = (ch) => DIVIDER_RE.test(ch.category);
+  const isDivider = (ch) => !!rules.dividerRe && rules.dividerRe.test(ch.category);
   const isHidden = (ch) => !!(channelMap.hidden || {})[ch.xtream_name];
   const renameOf = (ch) => (channelMap.renames || {})[ch.xtream_name] || null;
   const hasOverride = (ch) => has(channelMap.overrides, ch.xtream_name);
@@ -365,6 +380,16 @@
   // el canal, igual que el pipeline: uno movido a una categoría visible sigue en la playlist.
   const isCategoryHidden = (ch) => !!(channelMap.hidden_categories || {})[effectiveCategory(ch)];
   const isOut = (ch) => isHidden(ch) || isCategoryHidden(ch);
+
+  // Categoría que no necesita guía: por las reglas del proveedor o marcada a mano
+  // (Configuración → Categorías → "Sin guía").
+  /** @param {string} cat @param {string | null | undefined} section */
+  function noEpgByRules(cat, section) {
+    return rules.noEpgCategories.has(cat) || rules.noEpgSections.has(section || '')
+      || rules.noEpgPatterns.some((re) => re.test(cat));
+  }
+  const needsNoEpg = (ch) => noEpgByRules(effectiveCategory(ch), effectiveSection(ch))
+    || !!(channelMap.no_epg_categories || {})[effectiveCategory(ch)];
 
   // Categorías reales (sin separadores) agrupadas por sección, para el desplegable de "Más".
   let categoryGroupsHtml = '';
@@ -556,6 +581,12 @@
     }
 
     try {
+      rules = compileRules(await getJSON(`${RAW_RULES_URL}?_=${Date.now()}`));
+    } catch {
+      rules = compileRules(null); // sin provider_rules.json: reglas genéricas
+    }
+
+    try {
       channelMap = await getJSON(`${RAW_MAP_URL}?_=${Date.now()}`);
     } catch {
       channelMap = { overrides: {} };
@@ -569,7 +600,7 @@
     allChannels = data.channels || [];
     buildCategoryGroups();
     currentChannels = allChannels.filter(
-      (ch) => ch.section !== PPV_SECTION || PPV_EDITABLE_CATEGORIES.has(ch.category));
+      (ch) => !rules.eventSections.has(ch.section) || rules.eventEditable.has(ch.category));
     applyFilters();
   }
 
@@ -623,9 +654,7 @@
     // EPG manual ya se revisó. Tampoco entran los que no llevan guía por naturaleza (eventos
     // sueltos de "General" y los canales 24/7 de series y películas).
     if (isHidden(ch) || isDivider(ch) || hasOverride(ch)) return false;
-    if (REVIEW_EXCLUDED_CATEGORIES.has(effectiveCategory(ch))
-        || REVIEW_EXCLUDED_SECTIONS.has(effectiveSection(ch))
-        || REVIEW_EXCLUDED_CATEGORY_RE.test(effectiveCategory(ch))) return false;
+    if (needsNoEpg(ch)) return false;
     if (filter === 'sin-epg') return !ch.chosen;
     return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
   }
@@ -1211,7 +1240,7 @@
     }
     setPending(pendingChanges + (isUndo ? -1 : 1));
     // Ocultar una categoría cambia qué canales entran en cada filtro: se rearma la lista.
-    if (changes.some((c) => c.section === 'hidden_categories')) {
+    if (changes.some((c) => c.section === 'hidden_categories' || c.section === 'no_epg_categories')) {
       applyFilters();
       renderCategoriesList();
     } else {
@@ -1469,6 +1498,7 @@
       if (!sectionOf.has(cat)) sectionOf.set(cat, effectiveSection(ch) || 'Sin sección');
     }
     const hiddenCats = channelMap.hidden_categories || {};
+    const noEpgCats = channelMap.no_epg_categories || {};
     const collator = new Intl.Collator('es');
     const bySection = new Map();
     for (const cat of [...counts.keys()].sort(collator.compare)) {
@@ -1480,13 +1510,38 @@
     $('#categoriesList').innerHTML = [...bySection.keys()].sort(collator.compare).map((sec) => `
       <div class="section-label">${esc(sec)}</div>
       <div class="menu">${bySection.get(sec).map((cat) => `
-        <label class="menu-row static">
+        <div class="menu-row static">
           <span class="menu-text">${esc(cat)}<small>${counts.get(cat)} canal${counts.get(cat) === 1 ? '' : 'es'}${hiddenCats[cat] ? ' · oculta' : ''}</small></span>
+          ${noEpgChipHtml(cat, sectionOf.get(cat), !!noEpgCats[cat])}
           <input type="checkbox" class="switch cat-switch" data-cat="${esc(cat)}" ${hiddenCats[cat] ? '' : 'checked'}
             aria-label="Mostrar ${esc(cat)}">
-        </label>`).join('')}
+        </div>`).join('')}
       </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
   }
+
+  // "Sin guía": la categoría no necesita EPG (no cuenta en "A revisar" ni "Sin EPG"). Si lo
+  // deciden las reglas del proveedor queda marcado y fijo.
+  /** @param {string} cat @param {string} section @param {boolean} byUser */
+  function noEpgChipHtml(cat, section, byUser) {
+    const byRules = noEpgByRules(cat, section === 'Sin sección' ? '' : section);
+    const on = byRules || byUser;
+    const title = byRules ? 'No necesita guía (reglas del proveedor)'
+      : on ? 'Marcada como sin guía: tocá para que vuelva a contar en "A revisar"'
+        : 'Tocá si esta categoría no necesita guía (no cuenta en "A revisar" ni "Sin EPG")';
+    return `<button type="button" class="chip-btn noepg-btn" data-cat="${esc(cat)}" aria-pressed="${on}"
+      ${byRules ? 'disabled' : ''} title="${esc(title)}">${icon('ban', 'sm')}Sin guía</button>`;
+  }
+
+  $('#categoriesList').addEventListener('click', async (e) => {
+    const btn = /** @type {HTMLButtonElement | null} */ ((/** @type {Element} */ (e.target)).closest('.noepg-btn'));
+    if (!btn || btn.disabled) return;
+    const cat = btn.dataset.cat || '';
+    const on = btn.getAttribute('aria-pressed') === 'true';
+    btn.disabled = true;
+    await setEntry('no_epg_categories', cat, on ? undefined : true,
+      on ? `${cat} vuelve a necesitar guía` : `${cat}: sin guía`);
+    renderCategoriesList();
+  });
 
   $('#categoriesList').addEventListener('change', async (e) => {
     const sw = /** @type {HTMLInputElement} */ (e.target);
@@ -1511,7 +1566,7 @@
   // El archivo lleva los cambios de canales (xtream_channel_map.json) y las preferencias de este
   // dispositivo. El token NO se exporta: es una credencial.
   const BACKUP_FORMAT = 1;
-  const CHANNEL_SECTIONS = /** @type {const} */ (['overrides', 'renames', 'categories', 'hidden', 'hidden_categories']);
+  const CHANNEL_SECTIONS = /** @type {const} */ (['overrides', 'renames', 'categories', 'hidden', 'hidden_categories', 'no_epg_categories']);
 
   /** Solo las entradas con la forma esperada (un archivo editado a mano no rompe nada).
    *  @param {any} raw @returns {ChannelMap} */
@@ -1526,7 +1581,7 @@
       const entries = Object.entries(src[sec] || {}).filter(([, v]) => typeof v === 'string' && v.trim());
       if (entries.length) out[sec] = Object.fromEntries(entries);
     }
-    for (const sec of /** @type {const} */ (['hidden', 'hidden_categories'])) {
+    for (const sec of /** @type {const} */ (['hidden', 'hidden_categories', 'no_epg_categories'])) {
       const entries = Object.entries(src[sec] || {}).filter(([, v]) => v === true);
       if (entries.length) out[sec] = Object.fromEntries(entries.map(([k]) => [k, true]));
     }
@@ -1539,7 +1594,7 @@
     const n = (/** @type {Record<string, unknown> | undefined} */ o) => Object.keys(o || {}).length;
     return `${ov.filter((v) => v !== null).length} EPG manuales, ${ov.filter((v) => v === null).length} sin EPG a propósito, `
       + `${n(map.renames)} renombrados, ${n(map.categories)} movidos, ${n(map.hidden)} ocultos`
-      + ` y ${n(map.hidden_categories)} categorías ocultas`;
+      + `, ${n(map.hidden_categories)} categorías ocultas y ${n(map.no_epg_categories)} sin guía`;
   }
 
   async function exportConfig() {
