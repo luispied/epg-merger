@@ -1,0 +1,41 @@
+name: Discover EPG sources
+
+# Una vez por semana recorre los proveedores públicos de EPG (epgshare01, open-epg,
+# iptv-epg.org y repos sueltos), prueba cada archivo y actualiza epg_sources_catalog.json en
+# main: qué fuentes existen, de qué país son y si están al día (fresh), abandonadas (stale) o
+# caídas (down). epg_urls.json puede referenciar estas fuentes solo por id.
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # lunes 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: discover-sources
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - run: pip install -r requirements.txt
+    - name: Discover and evaluate sources
+      run: python tools/discover_epg_sources.py --out epg_sources_catalog.json
+    - name: Commit the catalog if it changed
+      run: |
+        git config user.email "actions@github.com"
+        git config user.name "github-actions"
+        git add epg_sources_catalog.json
+        if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+        git commit -q -m "Actualizar catálogo de fuentes EPG (descubrimiento semanal)"
+        # Otro commit (p. ej. una edición desde la interfaz) pudo entrar mientras corría.
+        for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done

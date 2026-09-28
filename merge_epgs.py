@@ -38,7 +38,19 @@ def _source_id_from_url(url):
     return base.split('.')[0] or url
 
 
-def load_sources(path=SOURCES_PATH):
+CATALOG_PATH = 'epg_sources_catalog.json'
+
+
+def load_catalog(path=CATALOG_PATH):
+    """{id: fuente} de epg_sources_catalog.json (tools/discover_epg_sources.py). Vacío si no está."""
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return {s['id']: s for s in json.load(f).get('sources', []) if s.get('id') and s.get('url')}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        return {}
+
+
+def load_sources(path=SOURCES_PATH, catalog_path=CATALOG_PATH):
     """Carga las fuentes EPG desde epg_urls.json.
 
     Acepta el formato nuevo ("sources": lista de objetos con id/url/country/priority) y el
@@ -63,9 +75,20 @@ def load_sources(path=SOURCES_PATH):
 
     sources = []
     seen_ids = set()
+    catalog = None
     for i, entry in enumerate(raw):
         if isinstance(entry, str):
             entry = {'url': entry}
+        # Una entrada puede ser solo {"id": "..."} de una fuente del catálogo: la URL y el país
+        # salen de ahí (lo declarado en la entrada manda sobre el catálogo).
+        if not entry.get('url') and entry.get('id'):
+            if catalog is None:
+                catalog = load_catalog(catalog_path)
+            known = catalog.get(entry['id'])
+            if not known:
+                print(f"⚠️  Fuente {entry['id']!r} no está en {catalog_path}; se ignora")
+                continue
+            entry = {'country': known.get('country'), **entry, 'url': known['url']}
         url = (entry.get('url') or '').strip()
         if not url or url.startswith('#'):  # convención vieja para deshabilitar sin borrarla
             continue

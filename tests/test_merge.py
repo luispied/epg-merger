@@ -213,3 +213,24 @@ def test_fuente_inactiva_no_se_descarga(tmp_path):
     sources = merge_epgs.load_sources(str(tmp_path / 'epg_urls.json'))
     assert [s['id'] for s in sources] == ['a', 'd']
     assert [s['priority'] for s in sources] == [0, 3], "la prioridad sigue siendo la posición"
+
+
+def test_fuente_por_id_del_catalogo(tmp_path):
+    """epg_urls.json puede referenciar fuentes del catálogo solo por id: la URL y el país salen
+    del catálogo; un id desconocido se ignora sin romper el resto."""
+    (tmp_path / 'cat.json').write_text(json.dumps({'sources': [
+        {'id': 'openepg-italy1', 'url': 'https://open-epg.com/files/italy1.xml.gz', 'country': 'it',
+         'status': 'fresh'},
+    ]}), encoding='utf-8')
+    (tmp_path / 'epg_urls.json').write_text(json.dumps({'sources': [
+        {'id': 'openepg-italy1'},
+        {'id': 'no-existe'},
+        {'id': 'propia', 'url': 'https://x/propia.xml', 'country': 'ar'},
+        {'id': 'openepg-italy1-override', 'url': 'https://otra/url.xml'},
+    ]}), encoding='utf-8')
+    sources = merge_epgs.load_sources(str(tmp_path / 'epg_urls.json'), str(tmp_path / 'cat.json'))
+    assert [(s['id'], s['url'], s['country']) for s in sources] == [
+        ('openepg-italy1', 'https://open-epg.com/files/italy1.xml.gz', 'it'),
+        ('propia', 'https://x/propia.xml', 'ar'),
+        ('openepg-italy1-override', 'https://otra/url.xml', None),
+    ]

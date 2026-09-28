@@ -47,6 +47,27 @@ python -m pytest tests/ -q
   `inactive_reason`. Anteponer `#` a la `url` también la deshabilita. La prioridad de las demás
   no cambia: sigue siendo su posición en la lista.
 
+### Catálogo de fuentes (`epg_sources_catalog.json`)
+
+`tools/discover_epg_sources.py` recorre los proveedores públicos de EPG y arma un catálogo de
+todas las fuentes gratuitas que encuentra, con su país y su estado:
+
+- **epgshare01:** lee el índice completo del directorio.
+- **open-epg:** prueba `<país>`, `<país>1`, `<país>2`… para cada país conocido; open-epg
+  responde 200 vacío cuando un archivo no existe, así que se mira que venga contenido.
+- **iptv-epg.org:** prueba `epg-<código>.xml.gz` por país.
+- **Repos sueltos** ya conocidos (acidjesuz, davidmuma, programadorx y algunos abandonados, para
+  notar si reviven).
+
+Cada archivo se baja y se evalúa en streaming: `fresh` si tiene programación en las próximas
+24 h, `stale` si responde pero su guía es vieja, `down` si no se pudo bajar o no es XMLTV. Corre
+todos los lunes (`.github/workflows/discover-sources.yml`) y commitea el catálogo en `main` si
+cambió.
+
+En `epg_urls.json` una fuente del catálogo se puede agregar solo por id
+(`{ "id": "openepg-italy1" }`): la URL y el país salen del catálogo, y lo que declare la entrada
+manda sobre él.
+
 Antes de sumar una fuente conviene medir qué aporta: que tenga programación vigente (hay
 repositorios públicos que dejaron de actualizarse hace meses) y cuántos canales sin EPG pasa a
 cubrir sin cambiarle el EPG a los que ya estaban bien. Las fuentes de Brasil, República
