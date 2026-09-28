@@ -1,6 +1,6 @@
 # Grilla como app pública (iPhone, Apple TV y Android)
 
-Prerrequisito: `planes/etapa-0-generico.md`.
+Prerrequisitos: `planes/etapa-0-generico.md` (✅) y `planes/etapa-0-5-autoservicio.md` (cargar el proveedor y ver los links desde Grilla, sin tocar código).
 
 **Decisiones:**
 - Solo organizador: entrega URLs a TiviMate, IPTVX, etc.
@@ -23,7 +23,7 @@ Prerrequisito: `planes/etapa-0-generico.md`.
   - `GET /p/<cfgId>/epg.xml.gz`: concatena la guía por canal desde R2.
 
 **Fases:**
-1. Etapa 0 (plan de arriba).
+1. Etapa 0 (✅) y Etapa 0.5: autoservicio en GitHub (asistente, proveedor desde Grilla, "Tus links"). Lo que se aprenda del asistente y de "Tus links" se reusa en el onboarding de la fase 5.
 2. Servicio compartido en R2 y revisión de licencias de fuentes de EPG.
 3. `@grilla/core` en TS con paridad.
 4. Worker de entrega.
