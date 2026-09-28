@@ -30,7 +30,9 @@ Resultado buscado:
 - `generate_for_profile` (`generate_playlist.py`) usa el proveedor en vez de llamar a Xtream directo. El fallback `epg_channel_id` y `tvg-id` del M3U se aprovechan igual que hoy.
 - **Tests:** fixture M3U con `group-title` y `tvg-id` que genera lista, guía y reporte de punta a punta. Los tests actuales de Xtream siguen sin cambios.
 
-### 3. Reglas del proveedor como configuración
+### 3. Reglas del proveedor como configuración ✅
+> Hecho con un solo archivo: `provider_rules.json` del repo *es* el preset del proveedor actual (sin el archivo, todo genérico); no hizo falta `presets/`.
+
 - Nuevo `provider_rules.json` con valores genéricos por defecto: sin separadores especiales, secciones = categorías en el orden del proveedor, nada excluido. Campos:
   - `dividers`: patrón, mapa a sección y nombre visible;
   - `event_sections`: secciones de eventos sueltos que ninguna guía cubre (hoy "PPV EVENTS", con la excepción de "PPV DAZN");

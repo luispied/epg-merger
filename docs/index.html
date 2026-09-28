@@ -22,9 +22,9 @@
 </script>
 <!-- ?v=N: igual al CACHE de sw.js; subirlo junto con él en cada cambio de la interfaz para que
      el HTML nuevo nunca cargue CSS/JS viejos de la caché del navegador. -->
-<link rel="stylesheet" href="app.css?v=16">
-<script src="icons.js?v=16" defer></script>
-<script src="app.js?v=16" defer></script>
+<link rel="stylesheet" href="app.css?v=17">
+<script src="icons.js?v=17" defer></script>
+<script src="app.js?v=17" defer></script>
 </head>
 <body>
 
@@ -215,7 +215,7 @@
 
     <details>
       <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
-      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG (sin contar eventos sueltos de "General" ni los 24/7, que tampoco cuentan en Sin EPG). <b>Sin EPG</b>: canales sin guía. <b>EPG manual</b>: los que elegiste vos. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist.</p>
+      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG (sin contar las categorías que no necesitan guía, como eventos sueltos o 24/7, que tampoco cuentan en Sin EPG; se marcan en <b>Configuración → Categorías → Sin guía</b>). <b>Sin EPG</b>: canales sin guía. <b>EPG manual</b>: los que elegiste vos. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist.</p>
     </details>
 
     <details>
@@ -241,7 +241,7 @@
       <h2 id="categoriesTitle">Categorías</h2>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <p class="help">Apagá las que no mirás: sus canales salen de la playlist y de "A revisar", y quedan en <b>Ocultos</b> por si los querés recuperar.</p>
+    <p class="help">Apagá las que no mirás: sus canales salen de la playlist y de "A revisar", y quedan en <b>Ocultos</b> por si los querés recuperar. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, canales 24/7…): no cuentan en "A revisar" ni en "Sin EPG".</p>
     <label class="search-field cat-filter">
       <span data-icon="search"></span>
       <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
