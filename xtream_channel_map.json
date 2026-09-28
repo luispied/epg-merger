@@ -198,7 +198,8 @@
     "S| ESPN": null,
     "S| Eleven Sports Network": null,
     "S| CBS Sports Network": "CBS.Sports.HQ.us2",
-    "S| F1 Channel (eng)": null
+    "S| F1 Channel (eng)": null,
+    "D| Eleven Sports 1": "DAZN.1.pt"
   },
   "hidden": {
     "AAA": true,
