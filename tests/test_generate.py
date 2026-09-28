@@ -722,6 +722,29 @@ def test_categoria_oculta_saca_todos_sus_canales(proyecto, monkeypatch):
     assert 'group-title="🇨🇷 COSTA RICA"' in _extinf(_playlist(proyecto, 'luis'), 'TBS -EN')
 
 
+def test_perfil_m3u_genera_lista_guia_y_reporte(proyecto, monkeypatch):
+    """Una lista M3U cualquiera (no Xtream) pasa por el mismo matching: group-title es la
+    categoría, las URLs de stream se conservan tal cual y el tvg-id de la lista solo se usa
+    como sugerencia verificada."""
+    (proyecto / 'lista.m3u').write_text('''#EXTM3U
+#EXTINF:-1 group-title="USA ENTERTAINMENT",TBS -EN
+http://otro-proveedor/tbs.m3u8?token=secreto
+#EXTINF:-1 tvg-id="Warner.cr" group-title="🇨🇷 COSTA RICA",Warner Costa Rica
+http://otro-proveedor/warner.m3u8?token=secreto
+''', encoding='utf-8')
+    _correr(monkeypatch, [{'name': 'm3u', 'type': 'm3u', 'url': str(proyecto / 'lista.m3u')}])
+    playlist = _playlist(proyecto, 'm3u')
+    assert 'tvg-id="TBS.us"' in _extinf(playlist, 'TBS -EN')
+    assert 'http://otro-proveedor/tbs.m3u8?token=secreto' in playlist
+    assert 'group-title="🇨🇷 COSTA RICA"' in _extinf(playlist, 'Warner Costa Rica')
+    canales = {c['xtream_name']: c for c in _reporte(proyecto, 'm3u')['channels']}
+    assert canales['Warner Costa Rica']['chosen'] == 'Warner.cr'
+    assert 'secreto' not in json.dumps(_reporte(proyecto, 'm3u')), "el reporte no lleva URLs"
+    with gzip.open(proyecto / 'out' / 'm3u' / 'epg.xml.gz', 'rb') as f:
+        root = etree.fromstring(f.read())
+    assert {'TBS.us', 'Warner.cr'} <= {c.get('id') for c in root.findall('channel')}
+
+
 def test_logos_del_epg_para_la_interfaz(proyecto, monkeypatch):
     """epg_icons.json: solo canales con logo, y siempre por https (la interfaz se sirve por https)."""
     _correr(monkeypatch, PERFILES[:1])

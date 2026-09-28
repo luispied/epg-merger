@@ -22,7 +22,7 @@ Resultado buscado:
 ### 1. Guardar los planes en el repo ✅
 - `planes/app-publica.md` y este archivo, en `planes/` (fuera de `docs/`, que se publica en GitHub Pages).
 
-### 2. Proveedor agnóstico: Xtream y M3U
+### 2. Proveedor agnóstico: Xtream y M3U ✅
 - Nuevo `providers.py` con una interfaz común `list_channels()`, que devuelve `[{name, category, url, icon, epg_channel_id}]` y las categorías en el orden del proveedor.
   - **`XtreamProvider`:** envuelve `get_live_streams`, `get_live_categories` y `build_stream_url` de `xtream_client.py` (failover entre servidores incluido).
   - **`M3UProvider`:** baja o lee un M3U y parsea `#EXTINF` (`tvg-id`, `tvg-name`, `tvg-logo`, `group-title`) más la URL de stream tal cual. El orden de categorías es el de aparición.

@@ -318,6 +318,20 @@ El formato viejo (una lista plana de perfiles, cada uno con su propio `servers`)
 funcionando. Si `XTREAM_PROFILES` no está, se usan las variables sueltas de siempre
 (`XTREAM_USERNAME`, `XTREAM_PASSWORD`, `XTREAM_SERVERS`) como un perfil llamado `default`.
 
+**Listas M3U (cualquier proveedor):** un perfil puede ser una lista M3U en vez de Xtream, con
+`"type": "m3u"` y la `url` de la lista (o la ruta a un archivo). `group-title` es la categoría,
+`tvg-logo` el logo y `tvg-id` una sugerencia de EPG que solo se acepta si el canal existe en la
+guía y el nombre coincide (igual que el `epg_channel_id` de Xtream). Las URLs de stream se
+conservan tal cual. La URL de la lista suele llevar credenciales, por eso va en el mismo secret.
+
+```json
+{ "profiles": [ { "name": "otra", "type": "m3u", "url": "https://proveedor/get.php?...&type=m3u_plus", "gist_id": "…" } ] }
+```
+
+Los proveedores están en `providers.py` (`XtreamProvider`, `M3UProvider`): todos devuelven la
+misma lista de canales (`name`, `category`, `url`, `icon`, `epg_channel_id`), así sumar otro tipo
+de proveedor no toca el matching.
+
 ### Dónde termina cada archivo
 
 | Artefacto | Destino | ¿Lleva credenciales? |

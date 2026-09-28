@@ -85,3 +85,16 @@ def test_gist_id_en_el_perfil_default():
     p = load_profiles({'XTREAM_USERNAME': 'u', 'XTREAM_PASSWORD': 'p',
                        'XTREAM_SERVERS': 'http://a', 'XTREAM_GIST_ID': 'abc123'})
     assert p[0]['gist_id'] == 'abc123'
+
+
+def test_perfil_m3u():
+    """Un perfil puede ser una lista M3U (URL o archivo) en vez de Xtream; sin URL se ignora."""
+    p = load_profiles({'XTREAM_PROFILES': '''[
+        {"name": "m3u", "type": "m3u", "url": "https://prov/lista.m3u?user=a&pass=b", "gist_id": "g"},
+        {"name": "sinurl", "type": "m3u"},
+        {"name": "raro", "type": "stalker", "url": "x"},
+        {"name": "xt", "servers": ["http://a:8080"], "username": "u", "password": "p"}
+    ]'''})
+    assert [(x['name'], x['type']) for x in p] == [('m3u', 'm3u'), ('xt', 'xtream')]
+    assert p[0]['url'] == 'https://prov/lista.m3u?user=a&pass=b'
+    assert p[0]['gist_id'] == 'g'

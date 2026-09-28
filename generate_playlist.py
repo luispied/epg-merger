@@ -25,7 +25,8 @@ from channel_names import flag_to_country_code, parse_channel_name, strip_accent
 from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
-from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams
+from providers import M3UProvider, ProviderError, XtreamProvider
+from xtream_client import get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
 CHANNEL_MAP_PATH = 'xtream_channel_map.json'
@@ -279,6 +280,18 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     return None, None, 0.0, ranked
 
 
+def load_provider_channels(profile):
+    """Canales del proveedor del perfil (ver providers.py). Las funciones de Xtream se buscan
+    en este módulo al llamar, así los tests pueden reemplazarlas."""
+    if profile.get('type') == 'm3u':
+        return M3UProvider(profile).load()
+    return XtreamProvider(
+        profile,
+        get_streams=lambda *a, **kw: get_live_streams(*a, **kw),
+        get_categories=lambda *a, **kw: get_live_categories(*a, **kw),
+    ).load()
+
+
 def generate_for_profile(profile, index, channels_root, sections, overrides, edits=({}, {}, set(), set())):
     """Genera playlist y reporte de matching para un perfil. Devuelve un ProfileEpg con lo que
     necesita su guía acotada (se escribe después, en la pasada de programas: ver generate()),
@@ -289,17 +302,13 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     hidden_count = 0
     section_display_order, section_rules, section_epg, category_order = sections
     name = profile['name']
-    username, password = profile['username'], profile['password']
 
     print(f"\n{'=' * 60}\n👤 Perfil: {name}")
     try:
-        active_server, live_streams = get_live_streams(profile['servers'], username, password)
-    except XtreamError as e:
-        print(f"❌ No se pudo obtener la lista de canales de Xtream: {e}")
+        live_streams = load_provider_channels(profile)
+    except ProviderError as e:
+        print(f"❌ {e}")
         return None
-
-    categories = get_live_categories(active_server, username, password)
-    print(f"📂 Categorías encontradas: {len(categories)}")
 
     matched_ids = set()        # channel_id que quedan en el EPG del perfil (elegido + alternativas)
     matched_stream_count = 0
@@ -344,10 +353,8 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         return info
 
     for i, stream in enumerate(live_streams):
-        category = categories.get(str(stream.get('category_id')), 'General')
-        raw_name = stream.get('name', '')
-        stream_id = stream.get('stream_id')
-        container_ext = stream.get('container_extension', 'm3u8')
+        category = stream['category']
+        raw_name = stream['name']
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
 
         # Canal movido de categoría a mano desde la interfaz: solo cambia DÓNDE aparece en la
@@ -388,18 +395,18 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
             )
 
             if not channel_id:
-                # Xtream trae su propio "epg_channel_id", que es una adivinanza del proveedor
-                # sin verificar: a veces es el mismo id "por defecto" para una docena de
-                # canales sin relación entre sí. Solo se acepta si el canal apuntado existe en
-                # nuestro EPG y además su nombre real tiene algo que ver con el del canal de
-                # Xtream.
-                candidate = stream.get('epg_channel_id')
+                # El proveedor trae su propio id de EPG (Xtream: "epg_channel_id"; M3U:
+                # "tvg-id"), que es una adivinanza sin verificar: a veces es el mismo id "por
+                # defecto" para una docena de canales sin relación entre sí. Solo se acepta si
+                # el canal apuntado existe en nuestro EPG y además su nombre real tiene algo que
+                # ver con el del canal del proveedor.
+                candidate = stream['epg_channel_id']
                 if candidate and candidate in index:
                     plausibility = index.best_name_score(parsed, candidate)
                     if plausibility >= PLAUSIBLE_MIN:
                         channel_id, reason, score = candidate, 'xtream_epg_id', plausibility
 
-        stream_url = build_stream_url(active_server, username, password, stream_id, container_ext)
+        stream_url = stream['url']
         alternatives = [
             c for c in ranked
             if c.channel_id != channel_id and c.score >= PLAUSIBLE_MIN
@@ -435,7 +442,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         if channel_id:
             matched_ids.add(channel_id)
             matched_stream_count += 1
-            logo = index.icon.get(channel_id) or stream.get('stream_icon', '')
+            logo = index.icon.get(channel_id) or stream['icon']
 
             # Cuando hay más de un candidato posible, el elegido y sus alternativas quedan en el
             # EPG del perfil con su display-name anotado (país/región/fuente) — no como entradas
