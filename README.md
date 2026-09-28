@@ -173,7 +173,7 @@ Desde cada tarjeta también se puede:
   reporte, así que aparece en la pestaña **Ocultos** para volver a mostrarlo. Los ocultos no
   cuentan en "A revisar" ni en "Sin EPG".
 - **Cambios masivos** (botón de selección del encabezado, o mantener apretada una tarjeta):
-  se marcan varios canales (o **Todos** los del filtro y la búsqueda actuales) y **Acciones**
+  se marcan varios canales (o **Todos** los del filtro y la búsqueda actuales) y el botón **…**
   aplica a todos juntos: el mismo EPG (con sugerencias de las opciones que más se repiten entre
   los elegidos), mover de categoría, ocultar/mostrar, volver al EPG automático, restaurar
   nombres o categorías originales y dejar sin EPG. Es un solo commit y un solo *Deshacer*.
@@ -185,7 +185,9 @@ Desde cada tarjeta también se puede:
 
 Todo se aplica en la próxima corrida del workflow, que se puede lanzar desde la misma página
 con el botón de **play** (muestra el estado hasta que termina, y cuando hay cambios guardados desde la
-última corrida dice **"Aplicar N"**). El botón de **actualizar** vuelve a bajar
+última corrida dice **"Aplicar N"**). Si ya hay una corrida en marcha, la nueva queda en cola y
+arranca cuando esa termina: el workflow corre de a una y en orden (`concurrency` en
+`merge-epgs.yml`), así la última en publicar es siempre la más nueva. El botón de **actualizar** vuelve a bajar
 catálogo, reportes y programación sin recargar la página (por ejemplo, después de que termina
 el workflow); la barra de estado muestra de cuándo son los datos y avisa cuando la programación
 publicada (que cubre ~30 h desde la última corrida) ya venció. Para eso el token necesita
@@ -214,10 +216,12 @@ tipos de los datos en `docs/types.d.ts`). El workflow **Check UI** corre `tsc -p
 que toca `docs/`; localmente: `npx -p typescript@5.9 tsc -p docs`.
 
 Renombrar, mover de categoría y volver al EPG automático están en el menú **…** de cada
-tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una, y **Editados** junta
+tarjeta; las pestañas de filtro muestran cuántos canales hay en cada una (con la búsqueda
+aplicada, si hay texto), y **Editados** junta
 los renombrados, movidos y ocultos. La categoría **General** (donde caen los canales sin
 categoría en Xtream, sobre todo eventos sueltos) y la sección **24/7** (series y películas en
-loop) no aparecen en "A revisar", pero sí en "Sin EPG" y "Todos".
+loop, cualquier categoría "24 7 …") no aparecen en "A revisar" ni en "Sin EPG", pero sí en
+"Todos".
 
 El botón **"Dejar sin EPG"** del editor guarda un override en `null` en vez de elegir un
 canal (ver arriba): sirve para los casos donde ninguna alternativa es confiable y es mejor

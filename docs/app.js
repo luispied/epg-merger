@@ -41,10 +41,12 @@
   // antes de cualquier conteo o pestaña. Excepción: PPV DAZN, que son canales fijos.
   const PPV_SECTION = 'PPV EVENTS';
   const PPV_EDITABLE_CATEGORIES = new Set(['PPV DAZN']);
-  // No entran en "A revisar" (siguen en "Sin EPG" y "Todos"): "General" es donde caen los canales
-  // sin categoría en Xtream (sobre todo eventos sueltos) y 24/7 son series/películas en loop.
+  // No entran en "A revisar" ni en "Sin EPG" (siguen en "Todos"): "General" es donde caen los
+  // canales sin categoría en Xtream (sobre todo eventos sueltos) y 24/7 son series/películas en loop.
   const REVIEW_EXCLUDED_CATEGORIES = new Set(['General']);
   const REVIEW_EXCLUDED_SECTIONS = new Set(['24/7']);
+  // Y cualquier categoría "24 7 …" aunque el proveedor la cambie de sección.
+  const REVIEW_EXCLUDED_CATEGORY_RE = /^\W*24\s*\/?\s*7\b/;
 
   // Mensajes de commit por sección de xtream_channel_map.json (ver setEntry).
   const EDIT_SECTIONS = ['renames', 'categories', 'hidden', 'hidden_categories'];
@@ -618,11 +620,13 @@
     if (filter === 'override') return hasOverride(ch);
     if (filter === 'todos') return true;
     // "Sin EPG" y "A revisar": un oculto ya se decidió, un separador nunca lleva EPG y uno con
-    // EPG manual ya se revisó.
+    // EPG manual ya se revisó. Tampoco entran los que no llevan guía por naturaleza (eventos
+    // sueltos de "General" y los canales 24/7 de series y películas).
     if (isHidden(ch) || isDivider(ch) || hasOverride(ch)) return false;
-    if (filter === 'sin-epg') return !ch.chosen;
     if (REVIEW_EXCLUDED_CATEGORIES.has(effectiveCategory(ch))
-        || REVIEW_EXCLUDED_SECTIONS.has(effectiveSection(ch))) return false;
+        || REVIEW_EXCLUDED_SECTIONS.has(effectiveSection(ch))
+        || REVIEW_EXCLUDED_CATEGORY_RE.test(effectiveCategory(ch))) return false;
+    if (filter === 'sin-epg') return !ch.chosen;
     return !ch.chosen || ch.score < 0.8 || ch.reason === 'xtream_epg_id';
   }
 
@@ -635,7 +639,9 @@
   function updateFilterCounts() {
     const tabs = $$('button', filterTabs);
     const counts = Object.fromEntries(tabs.map((b) => [b.dataset.filter, 0]));
+    // Los números siguen a la búsqueda: cuentan lo que mostraría cada filtro con ese texto.
     for (const ch of currentChannels) {
+      if (!matchesSearch(ch)) continue;
       for (const f in counts) if (matchesFilter(ch, f)) counts[f]++;
     }
     for (const b of tabs) {
@@ -1233,7 +1239,6 @@
   const workflowStatus = $('#workflowStatus');
   let pollTimer = null;
   let dispatchedAt = 0;          // para no confundir la corrida recién lanzada con la anterior
-  let watchedRun = null;         // {id, done}: para avisar con un toast cuando termina
 
   function setPending(n) {
     pendingChanges = Math.max(0, n);
@@ -1256,18 +1261,32 @@
     } catch { /* sin datos: se deja como está */ }
   }
 
-  function renderRun(run) {
-    const done = run.status === 'completed';
+  let workflowBusy = false;       // hay una corrida en marcha o en cola (para el texto al lanzar otra)
+
+  // Estado de las últimas corridas. El workflow corre de a una: una lanzada mientras otra está
+  // en marcha queda en cola y arranca cuando esa termina (ver concurrency en merge-epgs.yml).
+  /** @param {WorkflowRun[]} runs más nuevas primero @returns {boolean} true si no queda nada en curso */
+  function renderRun(runs) {
+    const active = runs.filter((r) => r.status !== 'completed');
+    const wasBusy = workflowBusy;
+    workflowBusy = active.length > 0;
+    const run = active.find((r) => r.status === 'in_progress') || active[active.length - 1] || runs[0];
     const link = `<a href="${esc(run.html_url)}" target="_blank" rel="noopener">Ver ${icon('external-link', 'sm')}</a>`;
     let cls; let lead; let text; let extra = '';
-    if (!done) {
-      const mins = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at).getTime()) / 60000));
+    if (workflowBusy) {
+      const waiting = active.length - (run.status === 'in_progress' ? 1 : 0);
       cls = 'busy'; lead = icon('loader-circle', 'spin');
-      text = `Workflow ${run.status === 'queued' ? 'en cola' : 'corriendo'} · ${mins} min (suele tardar ~8)`;
+      text = run.status === 'in_progress'
+        ? `Workflow corriendo · ${Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at).getTime()) / 60000))} min (suele tardar ~8)`
+          + (waiting ? ` · ${waiting} en cola` : '')
+        : 'Workflow en cola: arranca en un momento';
     } else if (run.conclusion === 'success') {
       cls = 'ok'; lead = icon('circle-check');
       text = `Último workflow OK · ${fmtDateTime(run.updated_at)}`;
       extra = '<button class="btn btn-plain refresh-link">Actualizar datos</button>';
+    } else if (run.conclusion === 'cancelled') {
+      cls = 'ok'; lead = icon('info');
+      text = `Último workflow reemplazado por uno más nuevo · ${fmtDateTime(run.updated_at)}`;
     } else {
       cls = 'bad'; lead = icon('circle-x');
       text = `El último workflow falló (${esc(run.conclusion)}) · ${fmtDateTime(run.updated_at)}`;
@@ -1277,45 +1296,46 @@
     workflowStatus.innerHTML = `<span class="lead">${lead}</span><span class="grow">${text}</span>${extra}${link}`;
     const refresh = $('.refresh-link', workflowStatus);
     if (refresh) refresh.addEventListener('click', refreshData);
-    runBtn.disabled = !done;
 
-    // Aviso cuando termina una corrida que se vio en curso en esta sesión.
-    if (watchedRun && watchedRun.id === run.id && !watchedRun.done && done) {
+    // Aviso cuando termina todo lo que se vio en curso en esta sesión.
+    if (wasBusy && !workflowBusy) {
       if (run.conclusion === 'success') {
         toast('El workflow terminó: playlists y EPG actualizados', { action: { label: 'Actualizar datos', fn: refreshData } });
-      } else {
+      } else if (run.conclusion !== 'cancelled') {
         toast('El workflow falló', { kind: 'error', action: { label: 'Ver', fn: () => window.open(run.html_url, '_blank', 'noopener') } });
       }
     }
-    watchedRun = { id: run.id, done };
-    return done;
+    return !workflowBusy;
   }
 
   async function pollWorkflow() {
     clearTimeout(pollTimer);
-    let run;
+    /** @type {WorkflowRun[]} */
+    let runs;
     try {
-      run = ((await gh(`/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`)).workflow_runs || [])[0];
+      runs = (await gh(`/actions/workflows/${WORKFLOW_FILE}/runs?per_page=5`)).workflow_runs || [];
     } catch {
       return; // sin permiso de Actions: el botón lo explica al usarlo
     }
-    const stale = dispatchedAt && (!run || new Date(run.created_at).getTime() < dispatchedAt - 60000);
+    const stale = dispatchedAt && (!runs[0] || new Date(runs[0].created_at).getTime() < dispatchedAt - 60000);
     if (stale && Date.now() - dispatchedAt < 3 * 60000) {
       pollTimer = setTimeout(pollWorkflow, 5000); // todavía no apareció la corrida nueva
       return;
     }
-    if (!run) return;
-    countPending(run);
-    if (!renderRun(run)) pollTimer = setTimeout(pollWorkflow, 15000);
+    if (!runs.length) return;
+    // Pendientes = cambios posteriores al arranque de la corrida más nueva (la que los va a aplicar).
+    countPending(runs[0]);
+    if (!renderRun(runs)) pollTimer = setTimeout(pollWorkflow, 15000);
   }
 
   async function runWorkflow() {
     if (!getToken()) { openTokenDialog(); return; }
     const ok = await confirmDialog({
       title: 'Correr el workflow',
-      text: pendingChanges
+      text: (pendingChanges
         ? `Aplica ${pendingChanges} cambio(s) guardado(s) a las playlists y al EPG. Tarda unos 8 minutos.`
-        : 'Regenera playlists y EPG con lo último del proveedor. Tarda unos 8 minutos.',
+        : 'Regenera playlists y EPG con lo último del proveedor. Tarda unos 8 minutos.')
+        + (workflowBusy ? ' Ya hay uno en marcha: este queda en cola y arranca cuando termine.' : ''),
       ok: 'Correr',
     });
     if (!ok) return;
@@ -1331,9 +1351,10 @@
       toast(msg, { kind: 'error' });
       return;
     }
-    toast('Workflow lanzado · te aviso cuando termine', { kind: 'info' });
+    runBtn.disabled = false;
+    toast(workflowBusy ? 'Workflow en cola · arranca cuando termine el actual' : 'Workflow lanzado · te aviso cuando termine', { kind: 'info' });
     dispatchedAt = Date.now();
-    watchedRun = null;
+    workflowBusy = true; // para avisar cuando termine, aunque no se la llegue a ver corriendo
     clearTimeout(pollTimer);
     pollTimer = setTimeout(pollWorkflow, 5000);
   }
