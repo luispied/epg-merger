@@ -296,6 +296,7 @@
     "🇧🇷 Brasil": true
   },
   "no_epg_categories": {
-    "PPV Box y Luchas": true
+    "PPV Box y Luchas": true,
+    "PPV Eventos": true
   }
 }
