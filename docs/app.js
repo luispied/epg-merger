@@ -29,7 +29,7 @@
   const THEME_KEY = 'epg_ui_theme';                // auto | light | dark (lo lee también index.html)
   const LOGOS_KEY = 'epg_ui_logos';                // '0' = logos apagados
   const START_FILTER_KEY = 'epg_ui_start_filter';  // last | todos | revisar
-  const APP_VERSION = '2026.09.27';
+  const APP_VERSION = '2026.09.28';
 
   const MIN_SCORE = 0.45;
   const PAGE_SIZE = 60;
@@ -1591,6 +1591,17 @@
 
   /** Mismo id que le da merge_epgs.load_sources a una entrada sin "id". @param {SourceEntry} e */
   const sourceId = (e) => e.id || (e.url || '').replace(/^#/, '').replace(/\/+$/, '').split('/').pop()?.split('?')[0].split('.')[0] || e.url || '';
+  // Una fuente que pasa de esto hace notar la corrida (se baja y entra entera a la guía):
+  // iptv-epg.org de EE.UU., con 60 MB y 1,15 M de programas, casi duplicaba la guía.
+  const HEAVY_SOURCE_BYTES = 20 * 1024 * 1024;
+  /** @param {{ size_bytes?: number | null, programmes?: number | null }} s */
+  function sizeNote(s) {
+    if (!s.size_bytes) return '';
+    const mb = s.size_bytes / 1024 / 1024;
+    const progs = s.programmes ? ` · ${(s.programmes / 1e6 >= 1 ? `${(s.programmes / 1e6).toFixed(1).replace('.', ',')} M` : `${Math.round(s.programmes / 1000)} mil`)} programas` : '';
+    const text = `${mb >= 10 ? Math.round(mb) : mb.toFixed(1).replace('.', ',')} MB${progs}`;
+    return s.size_bytes >= HEAVY_SOURCE_BYTES ? `<span class="warn">pesada: ${esc(text)}</span>` : esc(text);
+  }
   /** @param {SourceEntry} e */
   const sourceActive = (e) => e.active !== false && !(e.url || '').startsWith('#');
 
@@ -1632,8 +1643,9 @@
       else if (!u) use = 'se mide en la próxima corrida';
       else if (u.used_by) use = `la usan ${u.used_by} canal${u.used_by === 1 ? '' : 'es'}`;
       else use = `<span class="warn">sin uso</span>${u.alt_by ? ` · ${u.alt_by} como alternativa` : ''}`;
-      const status = u?.status && u.status !== 'fresh'
-        ? ` · <span class="warn">${u.status === 'stale' ? 'guía desactualizada' : 'no responde'}</span>` : '';
+      const heavy = u?.size_bytes && u.size_bytes >= HEAVY_SOURCE_BYTES ? ` · ${sizeNote(u)}` : '';
+      const status = heavy + (u?.status && u.status !== 'fresh'
+        ? ` · <span class="warn">${u.status === 'stale' ? 'guía desactualizada' : 'no responde'}</span>` : '');
       return `
         <div class="menu-row static">
           <span class="menu-text">${esc(id)}<small class="src-meta">${esc(meta.filter(Boolean).join(' · '))} · ${use}${status}</small></span>
@@ -1664,7 +1676,7 @@
         const examples = (s.examples || []).slice(0, 3).map((x) => `${x.channel} → ${x.epg}`).join(' · ');
         return `
         <div class="menu-row static">
-          <span class="menu-text">${esc(s.id)}<small class="src-meta">${esc(cc(s.country))} · ${esc(s.provider || '')} · <b>${esc(gain)}</b>
+          <span class="menu-text">${esc(s.id)}<small class="src-meta">${esc(cc(s.country))} · ${esc(s.provider || '')} · <b>${esc(gain)}</b>${s.size_bytes ? ` · ${sizeNote(s)}` : ''}
             ${examples ? `<span class="src-examples">${esc(examples)}</span>` : ''}</small></span>
           <button type="button" class="btn btn-tonal src-add" data-id="${esc(s.id)}">${icon('plus', 'sm')}Agregar</button>
         </div>`;

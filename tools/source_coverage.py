@@ -282,6 +282,8 @@ def build_report(user_sources, catalog, channels, missing, countries, source_of,
             'provider': known.get('provider') or _provider(s['url']),
             'status': known.get('status'),
             'catalog_id': known.get('id'),
+            'size_bytes': known.get('size_bytes'),
+            'programmes': known.get('programmes'),
             'used_by': used.get(s['id'], 0),
             'alt_by': alt.get(s['id'], 0),
         })
@@ -342,6 +344,8 @@ def run(reports, channel_map, user_sources, catalog, channels_root, sections, ru
             suggestions.append({
                 'id': c['id'], 'url': c['url'], 'country': c.get('country'), 'provider': c.get('provider'),
                 'live_channels': c.get('live_channels'), 'new_channels': added.get(c['id']),
+                # Cuánto pesa sumarla: cada corrida la baja y la mete en la guía entera.
+                'size_bytes': c.get('size_bytes'), 'programmes': c.get('programmes'),
                 'measured': c['id'] in added,
                 'firm': g.get('firm', 0), 'doubtful': g.get('doubtful', 0), 'examples': g.get('examples', []),
             })

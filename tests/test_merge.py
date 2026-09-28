@@ -234,3 +234,32 @@ def test_fuente_por_id_del_catalogo(tmp_path):
         ('propia', 'https://x/propia.xml', 'ar'),
         ('openepg-italy1-override', 'https://otra/url.xml', None),
     ]
+
+
+def test_fuente_cortada_a_la_mitad_conserva_lo_leido(run_merge):
+    """Un archivo que se corta a la mitad (descarga incompleta) no tira lo que sí vino bien,
+    ni rompe las demás fuentes."""
+    entera = _epg([('A.es', 'A')], [('A.es', '20240101100000 +0000', '20240101110000 +0000', 'P1')])
+    cortada = _epg([('B.es', 'B')], [('B.es', '20240101100000 +0000', '20240101110000 +0000', 'P2'),
+                                     ('B.es', '20240101110000 +0000', '20240101120000 +0000', 'P3')])
+    cortada = cortada[:cortada.rindex(b'<programme')] + b'<programme channel="B.es" sta'
+    root = run_merge(
+        {'sources': [{'id': 'a', 'url': 'http://a'}, {'id': 'b', 'url': 'http://b'}]},
+        {'http://a': entera, 'http://b': cortada},
+    )
+    assert [c.get('id') for c in root.findall('channel')] == ['A.es', 'B.es']
+    assert [p.find('title').text for p in root.findall('programme')] == ['P1', 'P2']
+
+
+def test_canales_antes_que_programas_y_ordenados(run_merge):
+    """generate_playlist.load_epg_channels deja de leer en el primer <programme>."""
+    root = run_merge(
+        {'sources': [{'id': 'a', 'url': 'http://a'}]},
+        {'http://a': _epg([('Z.es', 'Z'), ('A.es', 'A')],
+                          [('Z.es', '20240101100000 +0000', '20240101110000 +0000', 'z'),
+                           ('A.es', '20240101110000 +0000', '20240101120000 +0000', 'a2'),
+                           ('A.es', '20240101100000 +0000', '20240101110000 +0000', 'a1')])},
+    )
+    assert [el.tag for el in root] == ['channel', 'channel', 'programme', 'programme', 'programme']
+    assert [c.get('id') for c in root.findall('channel')] == ['A.es', 'Z.es']
+    assert [p.find('title').text for p in root.findall('programme')] == ['a1', 'a2', 'z']
