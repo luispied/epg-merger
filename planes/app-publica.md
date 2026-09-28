@@ -1,6 +1,6 @@
 # Grilla como app pública (iPhone, Apple TV y Android)
 
-Prerrequisitos: `planes/etapa-0-generico.md` (✅) y `planes/etapa-0-5-autoservicio.md` (cargar el proveedor y ver los links desde Grilla, sin tocar código).
+Prerrequisitos: `planes/etapa-0-generico.md` (✅) y `planes/etapa-1-web-sin-github.md` (Grilla web sin GitHub: guía compartida en R2, `@grilla/core` y Worker). La Etapa 0.5 (`planes/etapa-0-5-autoservicio.md`) es opcional.
 
 **Decisiones:**
 - Solo organizador: entrega URLs a TiviMate, IPTVX, etc.
@@ -23,12 +23,10 @@ Prerrequisitos: `planes/etapa-0-generico.md` (✅) y `planes/etapa-0-5-autoservi
   - `GET /p/<cfgId>/epg.xml.gz`: concatena la guía por canal desde R2.
 
 **Fases:**
-1. Etapa 0 (✅) y Etapa 0.5: autoservicio en GitHub (asistente, proveedor desde Grilla, "Tus links"). Lo que se aprenda del asistente y de "Tus links" se reusa en el onboarding de la fase 5.
-2. Servicio compartido en R2 y revisión de licencias de fuentes de EPG.
-3. `@grilla/core` en TS con paridad.
-4. Worker de entrega.
-5. App Expo, con onboarding Xtream/M3U, sincronización, copiar URLs, refresco en segundo plano, Apple TV de solo lectura e importación del backup de Grilla web.
-6. Tiendas:
+1. Etapa 0 (✅). Etapa 0.5 opcional.
+2. **Etapa 1: Grilla web sin GitHub** (`planes/etapa-1-web-sin-github.md`): guía compartida en R2 y revisión de licencias, `@grilla/core` en TS con paridad, Worker de entrega y Grilla web sobre el Worker. Cubre lo que antes eran las fases 2, 3 y 4 de este plan.
+3. App Expo sobre el mismo servicio: onboarding Xtream/M3U, credenciales en el Llavero, matching en el teléfono con `@grilla/core`, sincronización, copiar URLs, refresco en segundo plano, Apple TV de solo lectura e importación de la configuración de Grilla web.
+4. Tiendas:
    - guías 5.2.2 y 5.2.3: "traé tu propia lista", sin contenido ni proveedores;
    - lista de demo legal para el revisor;
    - privacidad "Datos no recopilados";

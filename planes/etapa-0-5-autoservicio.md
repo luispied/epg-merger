@@ -1,5 +1,11 @@
 # Etapa 0.5: que otra persona pueda usar Grilla sin tocar código
 
+> **Opcional (28/09/2026).** El camino principal pasó a ser `planes/etapa-1-web-sin-github.md`
+> (Grilla web sin GitHub, sin repo, gist ni token por persona). Esta etapa solo tiene sentido
+> si antes de eso se quiere que alguien use su propio fork. Puntos que conviene hacer igual,
+> porque también sirven para vos hoy: **"Tus links"** (punto 2) y el **repo detectado solo**
+> (punto 1).
+
 Prerrequisito: `planes/etapa-0-generico.md` (✅). Va antes de la app pública (`planes/app-publica.md`)
 y no la reemplaza: sigue siendo "cada persona con su copia en GitHub", pero sin editar archivos
 ni secrets a mano.
