@@ -20,6 +20,11 @@ concurrency:
 jobs:
   merge:
     runs-on: ubuntu-latest
+    # Una corrida normal tarda ~8 min. Con las corridas en cola, una trabada no puede
+    # bloquear a las siguientes por horas (el límite por defecto de GitHub es 6 h).
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: '1'  # el log muestra el avance en vivo, no todo junto al final
 
     steps:
     - uses: actions/checkout@v4

@@ -15,6 +15,12 @@ La parte cara —fusionar las fuentes y decidir qué `tvg-id` le corresponde a c
 idéntica para todo el mundo y se hace **una sola vez**. Lo único que cambia entre personas son
 el usuario y la contraseña que van dentro de la URL del stream.
 
+`generate_playlist.py` lee `merged.xml.gz` en streaming (unos 1,3 GB de XML y 2 millones de
+programas) en vez de cargarlo entero: una pasada por los canales para indexar y matchear todos
+los perfiles, y otra por los programas, que van directo a la programación de la interfaz y a la
+guía de cada perfil. Usa unos 600 MB de memoria en lugar de más de 10 GB, que en un runner
+cargado hacían que la corrida se arrastrara por swap (de 8 a más de 30 minutos).
+
 ## Uso local
 
 ```bash

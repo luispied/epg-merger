@@ -2,10 +2,13 @@
 """Genera, por cada perfil configurado, su playlist y su EPG acotado.
 
 Cruza la lista real de canales de Xtream Codes con el EPG ya fusionado por merge_epgs.py.
-`merged.xml.gz` se parsea e indexa **una sola vez** y se reutiliza para todos los perfiles:
-la parte cara del trabajo es la misma para todo el mundo, lo único que cambia entre personas
-son las credenciales que van dentro de la URL del stream.
+`merged.xml.gz` se lee **en streaming** y en dos pasadas, sin cargar nunca el árbol entero
+(~1,3 GB de XML y ~2 millones de programas: en memoria pasaba los 10 GB y en un runner cargado
+la corrida se arrastraba por swap): primero solo los <channel>, para indexar y matchear todos
+los perfiles; después los <programme> de a uno, que van a la programación de la interfaz y a
+la guía de cada perfil a medida que pasan.
 """
+import contextlib
 import copy
 import datetime
 import gzip
@@ -13,6 +16,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import unicodedata
 
 from lxml import etree
@@ -275,8 +279,10 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
     return None, None, 0.0, ranked
 
 
-def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({}, {}, set(), set())):
-    """Genera playlist, EPG acotado y reporte de matching para un perfil. Devuelve stats.
+def generate_for_profile(profile, index, channels_root, sections, overrides, edits=({}, {}, set(), set())):
+    """Genera playlist y reporte de matching para un perfil. Devuelve un ProfileEpg con lo que
+    necesita su guía acotada (se escribe después, en la pasada de programas: ver generate()),
+    o None si no se pudo leer el proveedor. `channels_root`: los <channel> de la guía.
 
     `edits` = (renames, category_moves, hidden, hidden_categories), ver load_channel_edits."""
     renames, category_moves, hidden, hidden_categories = edits
@@ -473,32 +479,7 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
     with open(playlist_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(['#EXTM3U'] + [e[3] for e in entries]) + '\n')
 
-    # deepcopy y no append directo: appendear mueve el elemento fuera de `epg_root`, y el
-    # árbol se reutiliza para los perfiles siguientes. También evita que la anotación del
-    # display-name de un perfil se filtre al de otro.
-    filtered_root = etree.Element('tv', attrib=dict(epg_root.attrib))
-    for channel in epg_root.findall('channel'):
-        channel_id = channel.get('id')
-        if channel_id not in matched_ids:
-            continue
-        channel = copy.deepcopy(channel)
-        label = channel_display_labels.get(channel_id)
-        if label:
-            # La etiqueta va al PRINCIPIO del display-name para que no quede cortada si el
-            # reproductor trunca los nombres largos por el lado derecho.
-            first = channel.find('display-name')
-            if first is not None:
-                first.text = f"[{label}] {first.text or ''}".strip()
-        filtered_root.append(channel)
-    for programme in epg_root.findall('programme'):
-        if programme.get('channel') in matched_ids:
-            filtered_root.append(copy.deepcopy(programme))
-
-    body = etree.tostring(filtered_root, encoding='utf-8', xml_declaration=False, pretty_print=True)
     epg_path = os.path.join(out_dir, 'epg.xml.gz')
-    with gzip.open(epg_path, 'wb') as f:
-        f.write(b'<?xml version="1.0" encoding="UTF-8" ?>\n' + body)
-
     stats = {
         'profile': name,
         'total': len(live_streams),
@@ -516,8 +497,75 @@ def generate_for_profile(profile, index, epg_root, sections, overrides, edits=({
         print(f"   Ejemplos sin match: {', '.join(unmatched[:15])}")
     if stats['alternatives']:
         print(f"   Alternativas de EPG agregadas a la guía: {stats['alternatives']}")
-    print(f"✅ {playlist_path}, {epg_path} y {report_path} generados")
-    return stats
+    print(f"✅ {playlist_path} y {report_path} generados ({epg_path} se escribe al recorrer la guía)")
+    return ProfileEpg(epg_path, channels_root, matched_ids, channel_display_labels, stats)
+
+
+class ProfileEpg:
+    """Guía acotada de un perfil: sus canales (el elegido y las alternativas de cada canal de
+    la playlist) y sus programas, escrita de forma incremental mientras se recorre la guía."""
+
+    def __init__(self, path, channels_root, matched_ids, labels, stats):
+        self.path = path
+        self.channels_root = channels_root
+        self.matched_ids = matched_ids
+        self.labels = labels
+        self.stats = stats
+        self._xf = None
+
+    def open(self, stack):
+        """Abre el archivo y escribe los <channel>; los <programme> van con write_programme."""
+        f = stack.enter_context(gzip.open(self.path, 'wb'))
+        f.write(b'<?xml version="1.0" encoding="UTF-8" ?>\n')
+        self._xf = stack.enter_context(etree.xmlfile(f, encoding='utf-8'))
+        stack.enter_context(self._xf.element('tv', attrib=dict(self.channels_root.attrib)))
+        self._xf.write('\n')
+        for channel in self.channels_root.findall('channel'):
+            channel_id = channel.get('id')
+            if channel_id not in self.matched_ids:
+                continue
+            # Copia: la anotación del display-name de un perfil no se filtra al de otro.
+            channel = copy.deepcopy(channel)
+            label = self.labels.get(channel_id)
+            if label:
+                # La etiqueta va al PRINCIPIO del display-name para que no quede cortada si el
+                # reproductor trunca los nombres largos por el lado derecho.
+                first = channel.find('display-name')
+                if first is not None:
+                    first.text = f"[{label}] {first.text or ''}".strip()
+            channel.tail = None
+            self._xf.write(channel, pretty_print=True)
+
+    def write_programme(self, programme):
+        if programme.get('channel') in self.matched_ids:
+            self._xf.write(programme, pretty_print=True)
+
+
+def load_epg_channels(path=MERGED_EPG_PATH):
+    """Solo los <channel> de merged.xml.gz (unos pocos MB en vez del árbol entero). merge_epgs.py
+    escribe todos los canales antes que el primer programa, así que se corta ahí."""
+    root = etree.Element('tv')
+    with gzip.open(path, 'rb') as f:
+        for _, el in etree.iterparse(f, events=('end',), tag=('channel', 'programme'), huge_tree=True):
+            if el.tag == 'programme':
+                break
+            channel = copy.deepcopy(el)
+            channel.tail = None
+            root.append(channel)
+            el.clear()
+    return root
+
+
+def iter_programmes(path=MERGED_EPG_PATH):
+    """Los <programme> de merged.xml.gz de a uno, liberando cada uno después de usarlo."""
+    with gzip.open(path, 'rb') as f:
+        for _, el in etree.iterparse(f, events=('end',), tag='programme', huge_tree=True):
+            el.tail = None  # el pretty_print de cada guía pone su propio salto de línea
+            yield el
+            el.clear()
+            parent = el.getparent()
+            while el.getprevious() is not None:
+                del parent[0]
 
 
 def _parse_xmltv_time(raw):
@@ -552,55 +600,67 @@ def _schedule_filename(channel_id):
     return hashlib.sha1(channel_id.encode('utf-8')).hexdigest()[:16]
 
 
-def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
-    """Un archivo por canal con su programación de la ventana [ahora - 1h, ahora + 30h], para
-    que la interfaz de corrección (docs/) pueda mostrar qué está dando cada candidato al elegir
-    el EPG de un canal. Cada entrada es [inicio, fin, título] y, si la guía la trae, la
-    descripción como cuarto elemento (la interfaz la baja recién cuando se pide). Devuelve {channel_id: nombre_de_archivo} (sin extensión) para los
-    canales que sí tienen programación en la ventana."""
-    now = now or datetime.datetime.now(datetime.timezone.utc)
-    window_start = now - SCHEDULE_WINDOW_PAST
-    window_end = now + SCHEDULE_WINDOW_FUTURE
-    # Pre-filtro barato por texto antes de parsear fecha en cada programa: un canal suele traer
-    # varios días de guía y acá solo interesa una ventana corta.
-    lo = (window_start - datetime.timedelta(days=1)).strftime('%Y%m%d')
-    hi = (window_end + datetime.timedelta(days=1)).strftime('%Y%m%d')
+class ScheduleCollector:
+    """Programación de la ventana [ahora - 1h, ahora + 30h] para la interfaz de corrección
+    (docs/): un archivo por canal y un índice por hora. Se alimenta de a un programa (add) para
+    poder armarla mientras se recorre la guía en streaming, y se escribe al final (write)."""
 
-    by_channel = {}
-    for programme in epg_root.findall('programme'):
+    def __init__(self, now=None):
+        now = now or datetime.datetime.now(datetime.timezone.utc)
+        self.window_start = now - SCHEDULE_WINDOW_PAST
+        self.window_end = now + SCHEDULE_WINDOW_FUTURE
+        # Pre-filtro barato por texto antes de parsear fecha en cada programa: un canal suele
+        # traer varios días de guía y acá solo interesa una ventana corta.
+        self.lo = (self.window_start - datetime.timedelta(days=1)).strftime('%Y%m%d')
+        self.hi = (self.window_end + datetime.timedelta(days=1)).strftime('%Y%m%d')
+        self.by_channel = {}
+
+    def add(self, programme):
         start_raw = programme.get('start') or ''
-        if not (lo <= start_raw[:8] <= hi):
-            continue
+        if not (self.lo <= start_raw[:8] <= self.hi):
+            return
         start = _parse_xmltv_time(start_raw)
         stop = _parse_xmltv_time(programme.get('stop'))
-        if not start or not stop or stop <= window_start or start >= window_end:
-            continue
+        if not start or not stop or stop <= self.window_start or start >= self.window_end:
+            return
         channel_id = programme.get('channel')
         title_elem = programme.find('title')
         title = (title_elem.text or '').strip() if title_elem is not None else ''
         if not channel_id or not title:
-            continue
-        by_channel.setdefault(channel_id, []).append(
+            return
+        self.by_channel.setdefault(channel_id, []).append(
             (int(start.timestamp()), int(stop.timestamp()), title, _programme_desc(programme)))
 
-    os.makedirs(out_dir, exist_ok=True)
-    sched_by_channel = {}
-    for channel_id, entries in by_channel.items():
-        entries.sort()
-        filename = _schedule_filename(channel_id)
-        with open(os.path.join(out_dir, f'{filename}.json'), 'w', encoding='utf-8') as f:
-            json.dump([[start, stop, title, desc] if desc else [start, stop, title]
-                       for start, stop, title, desc in entries[:SCHEDULE_MAX_ENTRIES]],
-                      f, ensure_ascii=False, separators=(',', ':'))
-        sched_by_channel[channel_id] = filename
+    def write(self, out_dir=SCHEDULE_DIR):
+        """Cada entrada por canal es [inicio, fin, título] y, si la guía la trae, la descripción
+        como cuarto elemento (la interfaz la baja recién cuando se pide). Devuelve
+        {channel_id: nombre_de_archivo} (sin extensión) de los canales con programación."""
+        os.makedirs(out_dir, exist_ok=True)
+        sched_by_channel = {}
+        for channel_id, entries in self.by_channel.items():
+            entries.sort()
+            filename = _schedule_filename(channel_id)
+            with open(os.path.join(out_dir, f'{filename}.json'), 'w', encoding='utf-8') as f:
+                json.dump([[start, stop, title, desc] if desc else [start, stop, title]
+                           for start, stop, title, desc in entries[:SCHEDULE_MAX_ENTRIES]],
+                          f, ensure_ascii=False, separators=(',', ':'))
+            sched_by_channel[channel_id] = filename
 
-    write_hourly_index(
-        {cid: entries[:SCHEDULE_MAX_ENTRIES] for cid, entries in by_channel.items()},
-        os.path.join(out_dir, SCHEDULE_HOUR_SUBDIR), window_start, window_end)
+        write_hourly_index(
+            {cid: entries[:SCHEDULE_MAX_ENTRIES] for cid, entries in self.by_channel.items()},
+            os.path.join(out_dir, SCHEDULE_HOUR_SUBDIR), self.window_start, self.window_end)
 
-    print(f"📺 {out_dir}: programación de {len(sched_by_channel)} canales "
-          f"(ventana -{SCHEDULE_WINDOW_PAST}/+{SCHEDULE_WINDOW_FUTURE})")
-    return sched_by_channel
+        print(f"📺 {out_dir}: programación de {len(sched_by_channel)} canales "
+              f"(ventana -{SCHEDULE_WINDOW_PAST}/+{SCHEDULE_WINDOW_FUTURE})")
+        return sched_by_channel
+
+
+def write_schedule_snapshot(epg_root, out_dir=SCHEDULE_DIR, now=None):
+    """ScheduleCollector sobre un árbol ya cargado (lo usan los tests)."""
+    collector = ScheduleCollector(now)
+    for programme in epg_root.findall('programme'):
+        collector.add(programme)
+    return collector.write(out_dir)
 
 
 def write_hourly_index(by_channel, out_dir, window_start, window_end):
@@ -684,14 +744,13 @@ def generate():
         print(f"❌ Falta {MERGED_EPG_PATH}; corré primero: python merge_epgs.py")
         return
 
-    with gzip.open(MERGED_EPG_PATH, 'rb') as f:
-        epg_root = etree.fromstring(f.read())
+    t0 = time.monotonic()
+    elapsed = lambda: f"{time.monotonic() - t0:.0f}s"  # noqa: E731
 
+    channels_root = load_epg_channels()
     sources = {s['id']: s for s in load_sources()}
-    index = EpgIndex(epg_root, sources=sources)
-    print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens")
-    sched_by_channel = write_schedule_snapshot(epg_root)
-    write_epg_catalog(index, sched_by_channel)
+    index = EpgIndex(channels_root, sources=sources)
+    print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens [{elapsed()}]")
     write_epg_icons(index)
 
     # Un override que apunte a un channel_id inexistente en el EPG sería un tvg-id colgado.
@@ -708,11 +767,30 @@ def generate():
     edits = load_channel_edits()
     if any(edits):
         print(f"✏️  Ediciones manuales: {len(edits[0])} renombrado(s), "
-              f"{len(edits[1])} cambio(s) de categoría, {len(edits[2])} oculto(s)")
+              f"{len(edits[1])} cambio(s) de categoría, {len(edits[2])} oculto(s), "
+              f"{len(edits[3])} categoría(s) oculta(s)")
 
     print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
-    for profile in profiles:
-        generate_for_profile(profile, index, epg_root, sections, overrides, edits)
+    guides = [g for g in (generate_for_profile(profile, index, channels_root, sections, overrides, edits)
+                          for profile in profiles) if g]
+    print(f"\n⏱️  Matching de {len(guides)} perfil(es) listo [{elapsed()}]; recorriendo la guía…")
+
+    # Segunda pasada: cada programa va a la programación de la interfaz y a la guía de los
+    # perfiles que lo usan, y se libera.
+    collector = ScheduleCollector()
+    count = 0
+    with contextlib.ExitStack() as stack:
+        for guide in guides:
+            guide.open(stack)
+        for programme in iter_programmes():
+            collector.add(programme)
+            for guide in guides:
+                guide.write_programme(programme)
+            count += 1
+    print(f"📼 {count} programas recorridos; guías de perfil escritas [{elapsed()}]")
+    sched_by_channel = collector.write()
+    write_epg_catalog(index, sched_by_channel)
+    print(f"✅ Listo [{elapsed()}]")
 
 
 if __name__ == '__main__':
