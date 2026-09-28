@@ -8,13 +8,14 @@ on:
 permissions:
   contents: write
 
-# Una sola corrida a la vez. Si se lanza otra (desde la interfaz, el cron o un merge) mientras
-# una sigue en marcha, la vieja se cancela: la nueva ya trae el código y el
-# xtream_channel_map.json más recientes. Sin esto, una corrida vieja y lenta podía terminar
-# después y pisar la branch `data` con resultados desactualizados (pasó el 27/09).
+# Una sola corrida a la vez, en orden. Si se lanza otra (desde la interfaz, el cron o un merge)
+# mientras una sigue en marcha, queda en cola y arranca cuando esa termina; si ya había una en
+# cola, GitHub se queda con la más nueva (que trae el código y el xtream_channel_map.json más
+# recientes). Al correr en orden, la última en terminar es siempre la más nueva: una corrida
+# vieja ya no puede pisar la branch `data` con resultados desactualizados (pasó el 27/09).
 concurrency:
   group: merge-epgs
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   merge:
