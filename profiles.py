@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Perfiles de acceso Xtream: una persona = un perfil.
+"""Perfiles de acceso al proveedor: una persona = un perfil (Xtream Codes o lista M3U).
 
 La parte cara del pipeline (fusionar las fuentes EPG y decidir qué tvg-id le corresponde a
 cada canal del proveedor) es idéntica para todo el mundo. Lo único que cambia entre personas
@@ -37,6 +37,7 @@ def _clean_servers(raw):
 def _build(name, username, password, servers, gist_id=None):
     return {
         'name': name,
+        'type': 'xtream',
         'username': username,
         'password': password,
         'servers': servers,
@@ -98,6 +99,20 @@ def load_profiles(env=None):
             continue
         if name in seen:
             print(f"⚠️  Perfil {name!r} ignorado: nombre repetido")
+            continue
+        kind = entry.get('type', 'xtream')
+        if kind == 'm3u':
+            # Lista M3U por URL o archivo: la URL suele llevar las credenciales adentro, por eso
+            # vive en el mismo secret que los perfiles Xtream y nunca se imprime.
+            url = str(entry.get('url') or '').strip()
+            if not url:
+                print(f"⚠️  Perfil {name!r} ignorado: falta 'url' de la lista M3U")
+                continue
+            seen.add(name)
+            profiles.append({'name': name, 'type': 'm3u', 'url': url, 'gist_id': entry.get('gist_id')})
+            continue
+        if kind != 'xtream':
+            print(f"⚠️  Perfil {name!r} ignorado: 'type' debe ser 'xtream' o 'm3u'")
             continue
         username = entry.get('username')
         password = entry.get('password')
