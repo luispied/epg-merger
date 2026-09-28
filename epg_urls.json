@@ -60,7 +60,7 @@
     { "id": "openepg-unitedkingdom", "url": "https://open-epg.com/files/unitedkingdom.xml.gz", "country": "uk" },
     { "id": "epgshare-us2", "url": "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz", "country": "us" },
     { "id": "acidjesuz-us-local", "url": "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/US_local_guide.xml.gz", "country": "us" },
-    { "id": "epgshare-us_locals1", "url": "https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz", "country": "us" },
+    { "id": "epgshare-us_locals1", "url": "https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz", "country": "us", "active": false, "inactive_reason": "desactivada desde Grilla" },
     { "id": "epgshare-us_sports1", "url": "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz", "country": "us" },
     { "id": "openepg-unitedstates1", "url": "https://open-epg.com/files/unitedstates1.xml.gz", "country": "us" },
     { "id": "openepg-unitedstates2", "url": "https://open-epg.com/files/unitedstates2.xml.gz", "country": "us" },
