@@ -297,6 +297,7 @@
   },
   "no_epg_categories": {
     "PPV Box y Luchas": true,
-    "PPV Eventos": true
+    "PPV Eventos": true,
+    "PPV Eventos del dia": true
   }
 }
