@@ -75,6 +75,10 @@
   let filtered = [];
   let rendered = 0;
   let searchTerm = '';
+  // Selección múltiple: nombres crudos de Xtream (la misma clave que usan los cambios).
+  let selectMode = false;
+  /** @type {Set<string>} */
+  const selected = new Set();
   const startFilterPref = storageGet(START_FILTER_KEY) || 'last';
   let activeFilter = startFilterPref === 'last' ? (storageGet(FILTER_KEY) || 'todos') : startFilterPref;
   let logosEnabled = storageGet(LOGOS_KEY) !== '0';
@@ -698,6 +702,8 @@
     const epg = currentEpgOf(ch);
 
     el.className = hidden || catHidden ? 'card is-hidden' : 'card';
+    if (selectMode) el.classList.add('selectable');
+    if (selected.has(key)) el.classList.add('selected');
     el.dataset.key = key;
     cardChannel.set(el, ch);
 
@@ -708,6 +714,7 @@
 
     el.innerHTML = `
       <div class="card-top">
+        ${selectMode ? `<span class="sel-box" aria-hidden="true">${icon(selected.has(key) ? 'square-check' : 'square')}</span>` : ''}
         ${divider ? '' : logoHtml(epg || null, 'lg')}
         <div class="card-title">
           <div class="card-name">${esc(renamed || key)}</div>
@@ -730,8 +737,228 @@
     fillNowPlaying(el);
     fillLogos(el);
     $('.card-menu-btn', el).addEventListener('click', () => openCardMenu(el, ch));
+    wireSelection(el, ch);
     return el;
   }
+
+  // ================================================================= selección múltiple
+
+  const bulkBar = $('#bulkBar');
+  const selectBtn = $('#selectBtn');
+  /** @type {HTMLDialogElement} */
+  const bulkDialog = /** @type {HTMLDialogElement} */ ($('#bulkDialog'));
+  /** @type {HTMLDialogElement} */
+  const bulkEpgDialog = /** @type {HTMLDialogElement} */ ($('#bulkEpgDialog'));
+  /** Tarjeta recién marcada con un toque largo: el click de soltar el dedo no la desmarca. */
+  let suppressClickFor = '';
+
+  /** @param {boolean} on @param {string} [firstKey] */
+  function setSelectMode(on, firstKey) {
+    selectMode = on;
+    selected.clear();
+    if (on && firstKey) selected.add(firstKey);
+    document.body.classList.toggle('selecting', on);
+    selectBtn.setAttribute('aria-pressed', String(on));
+    bulkBar.hidden = !on;
+    closePanels();
+    $$('.card', cardsEl).forEach((old) => old.replaceWith(renderCard(cardChannel.get(old))));
+    updateBulkBar();
+  }
+
+  function updateBulkBar() {
+    const n = selected.size;
+    $('#bulkCount').textContent = n ? `${n} seleccionado${n === 1 ? '' : 's'}` : 'Tocá los canales';
+    /** @type {HTMLButtonElement} */ ($('#bulkActions')).disabled = !n;
+    const allSel = filtered.length > 0 && filtered.every((ch) => selected.has(ch.xtream_name));
+    $('#bulkAll').textContent = allSel ? 'Ninguno' : 'Todos';
+  }
+
+  /** @param {string} key */
+  function toggleSelected(key) {
+    if (selected.has(key)) selected.delete(key); else selected.add(key);
+    const on = selected.has(key);
+    $$(`.card[data-key="${CSS.escape(key)}"]`, cardsEl).forEach((card) => {
+      card.classList.toggle('selected', on);
+      const box = $('.sel-box', card);
+      if (box) box.innerHTML = icon(on ? 'square-check' : 'square');
+    });
+    updateBulkBar();
+  }
+
+  // En modo selección, tocar la tarjeta la marca (en captura: nada de adentro se activa).
+  // Fuera de ese modo, mantenerla apretada medio segundo entra al modo con esa tarjeta marcada.
+  /** @param {HTMLElement} el @param {ReportChannel} ch */
+  function wireSelection(el, ch) {
+    el.addEventListener('click', (e) => {
+      if (suppressClickFor === ch.xtream_name) { suppressClickFor = ''; e.preventDefault(); e.stopPropagation(); return; }
+      if (!selectMode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSelected(ch.xtream_name);
+    }, true);
+    let timer = 0;
+    let startX = 0;
+    let startY = 0;
+    const cancel = () => { clearTimeout(timer); timer = 0; };
+    el.addEventListener('pointerdown', (e) => {
+      if (selectMode || e.button !== 0 || (/** @type {Element} */ (e.target)).closest('input, select, textarea, .panel')) return;
+      startX = e.clientX;
+      startY = e.clientY;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        // Si el click de soltar no llega (la tarjeta se re-renderizó), el flag caduca solo.
+        suppressClickFor = ch.xtream_name;
+        setTimeout(() => { suppressClickFor = ''; }, 600);
+        navigator.vibrate?.(15);
+        setSelectMode(true, ch.xtream_name);
+      }, 500);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (timer && Math.hypot(e.clientX - startX, e.clientY - startY) > 10) cancel();
+    });
+    el.addEventListener('pointerup', cancel);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('contextmenu', (e) => { if (selectMode) e.preventDefault(); });
+  }
+
+  /** Canales seleccionados (uno por nombre de Xtream). @returns {ReportChannel[]} */
+  function selectedChannels() {
+    const byKey = new Map();
+    for (const ch of allChannels) if (selected.has(ch.xtream_name) && !byKey.has(ch.xtream_name)) byKey.set(ch.xtream_name, ch);
+    return [...byKey.values()];
+  }
+
+  /** Aplica a todos los seleccionados y sale del modo selección si se guardó.
+   *  @param {MapChange[]} changes @param {string} label */
+  async function applyBulk(changes, label) {
+    if (changes.every((c) => currentValue(c.section, c.key) === c.value)) {
+      toast('Nada que cambiar: ya estaban así', { kind: 'info', id: 'save' });
+      return;
+    }
+    if (await applyChanges(changes, label)) setSelectMode(false);
+  }
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function openBulkMenu() {
+    const chs = selectedChannels();
+    const epgable = chs.filter((ch) => !isDivider(ch));
+    const n = chs.length;
+    $('#bulkTitle').textContent = plural(n, 'canal seleccionado', 'canales seleccionados');
+    const rows = [];
+    if (epgable.length) {
+      rows.push(menuRowHtml('pencil', 'Cambiar EPG', `El mismo para ${plural(epgable.length, 'canal', 'canales')}`, 'epg'));
+      rows.push(menuRowHtml('folder-input', 'Mover de categoría', 'Todos a la misma categoría', 'category'));
+    }
+    rows.push(menuRowHtml('eye-off', 'Ocultar de la playlist', '', 'hide'));
+    rows.push(menuRowHtml('eye', 'Mostrar en la playlist', '', 'show'));
+    const undoRows = [];
+    if (epgable.some((ch) => hasOverride(ch))) undoRows.push(menuRowHtml('undo-2', 'Volver al EPG automático', 'Descarta los EPG elegidos a mano', 'auto-epg'));
+    if (chs.some((ch) => renameOf(ch))) undoRows.push(menuRowHtml('rotate-ccw', 'Restaurar nombres originales', '', 'names'));
+    if (chs.some((ch) => movedCategoryOf(ch))) undoRows.push(menuRowHtml('folder-input', 'Volver a la categoría original', '', 'orig-cat'));
+    if (epgable.length) undoRows.push(menuRowHtml('ban', 'Dejar sin EPG', 'Para cuando ninguna guía sirve', 'no-epg', 'danger'));
+    $('#bulkBody').innerHTML = `<div class="menu">${rows.join('')}</div>`
+      + (undoRows.length ? `<div class="menu">${undoRows.join('')}</div>` : '');
+    $$('[data-action]', $('#bulkBody')).forEach((btn) => btn.addEventListener('click', () => {
+      bulkDialog.close();
+      const keys = chs.map((ch) => ch.xtream_name);
+      const epgKeys = epgable.map((ch) => ch.xtream_name);
+      const set = (section, list, value) => list.map((key) => ({ section, key, value }));
+      switch (btn.dataset.action) {
+        case 'epg': openBulkEpg(epgable); break;
+        case 'category': openBulkCategory(epgable); break;
+        case 'hide': applyBulk(set('hidden', keys, true), `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`); break;
+        case 'show': applyBulk(set('hidden', keys, undefined), `${plural(n, 'canal visible', 'canales visibles')} en la playlist`); break;
+        case 'auto-epg': applyBulk(set('overrides', epgKeys, undefined), `${plural(epgKeys.length, 'canal vuelve', 'canales vuelven')} al EPG automático`); break;
+        case 'names': applyBulk(set('renames', keys, undefined), 'Nombres originales restaurados'); break;
+        case 'orig-cat': applyBulk(set('categories', keys, undefined), 'Categorías originales restauradas'); break;
+        case 'no-epg': confirmDialog({
+          title: `¿Dejar ${plural(epgKeys.length, 'canal', 'canales')} sin EPG?`,
+          text: 'No se les va a asignar guía ni logo, ni siquiera automáticamente. Se puede deshacer.',
+          ok: 'Dejar sin EPG',
+        }).then((yes) => { if (yes) applyBulk(set('overrides', epgKeys, null), `${plural(epgKeys.length, 'canal', 'canales')} sin EPG a propósito`); });
+          break;
+        default: break;
+      }
+    }));
+    bulkDialog.showModal();
+  }
+
+  // EPG para todos: primero las opciones que más se repiten entre los seleccionados (su EPG
+  // actual y sus alternativas), después la búsqueda en todo el EPG.
+  /** @param {ReportChannel[]} chs */
+  function openBulkEpg(chs) {
+    const score = new Map();
+    for (const ch of chs) {
+      const cur = currentEpgOf(ch);
+      const ids = [...(cur ? [cur] : []), ...(ch.alternatives || []).map((a) => a.channel_id)];
+      for (const id of new Set(ids)) score.set(id, (score.get(id) || 0) + 1);
+    }
+    const suggestions = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    $('#bulkEpgTitle').textContent = `EPG para ${plural(chs.length, 'canal', 'canales')}`;
+    $('#bulkEpgBody').innerHTML = `
+      ${suggestions.length ? `<div class="section-label">Sugerencias</div>
+        <div class="list">${suggestions.map(([id, count]) => epgRowHtml(id, {
+          pick: true, note: count > 1 ? `· opción de ${count} de ${chs.length}` : '',
+        })).join('')}</div>` : ''}
+      <div class="section-label">Buscar en todo el EPG</div>
+      <label class="search-field" style="margin-top:6px">${icon('search')}
+        <input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search">
+      </label>
+      <div class="list search-results" hidden></div>`;
+    const body = $('#bulkEpgBody');
+    const pick = (id) => {
+      bulkEpgDialog.close();
+      applyBulk(chs.map((ch) => ({ section: 'overrides', key: ch.xtream_name, value: id })),
+        `EPG elegido para ${plural(chs.length, 'canal', 'canales')}`);
+    };
+    wirePicks(body, pick);
+    fillNowPlaying(body);
+    fillLogos(body);
+    const input = $('.catalog-search', body);
+    const results = $('.search-results', body);
+    let timer = null;
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => renderCatalogSearch(input.value, results, pick), 150);
+    });
+    bulkEpgDialog.showModal();
+  }
+
+  /** @param {ReportChannel[]} chs */
+  function openBulkCategory(chs) {
+    $('#bulkTitle').textContent = `Mover ${plural(chs.length, 'canal', 'canales')}`;
+    $('#bulkBody').innerHTML = `
+      <select class="select bulk-cat" aria-label="Categoría destino">
+        <option value="" selected disabled>Elegí la categoría…</option>${categoryGroupsHtml}
+      </select>
+      <div class="sheet-actions"><button class="btn btn-primary bulk-move" disabled>Mover</button></div>`;
+    const select = /** @type {HTMLSelectElement} */ ($('.bulk-cat', $('#bulkBody')));
+    const move = /** @type {HTMLButtonElement} */ ($('.bulk-move', $('#bulkBody')));
+    select.addEventListener('change', () => { move.disabled = !select.value; });
+    move.addEventListener('click', () => {
+      bulkDialog.close();
+      const dest = select.value;
+      // Mover a su propia categoría original equivale a no tenerlo movido.
+      applyBulk(chs.map((ch) => ({ section: 'categories', key: ch.xtream_name, value: dest === ch.category ? undefined : dest })),
+        `${plural(chs.length, 'canal movido', 'canales movidos')} a ${dest}`);
+    });
+    bulkDialog.showModal();
+  }
+
+  selectBtn.addEventListener('click', () => setSelectMode(!selectMode));
+  $('#bulkCancel').addEventListener('click', () => setSelectMode(false));
+  $('#bulkActions').addEventListener('click', openBulkMenu);
+  $('#bulkAll').addEventListener('click', () => {
+    const allSel = filtered.length > 0 && filtered.every((ch) => selected.has(ch.xtream_name));
+    if (allSel) filtered.forEach((ch) => selected.delete(ch.xtream_name));
+    else filtered.forEach((ch) => selected.add(ch.xtream_name));
+    $$('.card', cardsEl).forEach((old) => old.replaceWith(renderCard(cardChannel.get(old))));
+    updateBulkBar();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selectMode && !document.querySelector('dialog[open]')) setSelectMode(false);
+  });
 
   // ---- Menú "…" de la tarjeta: todas las acciones del canal en una hoja, para que la tarjeta
   // quede limpia. Las que necesitan datos (EPG, nombre, categoría) abren su panel en la tarjeta;
@@ -951,32 +1178,53 @@
   // Pone (o borra, con value === undefined) una entrada de una sección del JSON ('overrides',
   // 'renames', 'categories', 'hidden'), re-renderiza la tarjeta y ofrece deshacer. En
   // 'overrides', null es un valor válido ("dejar sin EPG").
-  async function setEntry(section, key, value, label, { isUndo = false } = {}) {
-    const had = has(channelMap[section], key);
-    const prev = had ? channelMap[section][key] : undefined;
-    if (prev === value) return;
+  /** @typedef {{ section: string, key: string, value: any }} MapChange */
+
+  const currentValue = (section, key) => (has(channelMap[section], key) ? channelMap[section][key] : undefined);
+
+  // Aplica uno o varios cambios en un solo commit (la selección múltiple usa el mismo camino),
+  // re-renderiza las tarjetas afectadas y ofrece deshacerlos todos juntos. value === undefined
+  // borra la entrada; en 'overrides', null es un valor válido ("dejar sin EPG").
+  /** @param {MapChange[]} changes @param {string} label @returns {Promise<boolean>} */
+  async function applyChanges(changes, label, { isUndo = false } = {}) {
+    changes = changes.filter((c) => currentValue(c.section, c.key) !== c.value);
+    if (!changes.length) return false;
+    const undo = changes.map((c) => ({ ...c, value: currentValue(c.section, c.key) }));
     toast('Guardando…', { kind: 'busy', id: 'save' });
     try {
       await withChannelMap((doc) => {
-        doc[section] = doc[section] || {};
-        if (value === undefined) delete doc[section][key];
-        else doc[section][key] = value;
+        for (const { section, key, value } of changes) {
+          doc[section] = doc[section] || {};
+          if (value === undefined) delete doc[section][key];
+          else doc[section][key] = value;
+        }
       }, `${label} (interfaz de corrección)`);
     } catch (e) {
       toast(errMsg(e), { kind: 'error', id: 'save' });
-      return;
+      return false;
     }
     setPending(pendingChanges + (isUndo ? -1 : 1));
     // Ocultar una categoría cambia qué canales entran en cada filtro: se rearma la lista.
-    if (section === 'hidden_categories') { applyFilters(); renderCategoriesList(); } else rerenderCards(key);
+    if (changes.some((c) => c.section === 'hidden_categories')) {
+      applyFilters();
+      renderCategoriesList();
+    } else {
+      for (const key of new Set(changes.map((c) => c.key))) rerenderCards(key);
+    }
     if (isUndo) {
       toast('Cambio deshecho', { kind: 'info', id: 'save' });
     } else {
       toast(label, {
         id: 'save',
-        action: { label: 'Deshacer', fn: () => setEntry(section, key, prev, `Deshacer: ${label.toLowerCase()}`, { isUndo: true }) },
+        action: { label: 'Deshacer', fn: () => applyChanges(undo, `Deshacer: ${label.toLowerCase()}`, { isUndo: true }) },
       });
     }
+    return true;
+  }
+
+  /** @param {string} section @param {string} key @param {any} value @param {string} label */
+  function setEntry(section, key, value, label, { isUndo = false } = {}) {
+    return applyChanges([{ section, key, value }], label, { isUndo });
   }
 
   // ================================================================= workflow
@@ -1413,6 +1661,7 @@
   // En captura: la línea "Ahora" puede estar dentro de una fila que se elige al tocarla
   // (alternativas, búsqueda); abrir la descripción no tiene que elegir ese EPG.
   document.addEventListener('click', (e) => {
+    if (selectMode && (/** @type {Element} */ (e.target)).closest?.('#cards')) return; // la tarjeta se selecciona
     const btn = /** @type {HTMLElement | null} */ ((/** @type {Element} */ (e.target)).closest?.('.now-btn'));
     if (!btn) return;
     e.stopPropagation();
