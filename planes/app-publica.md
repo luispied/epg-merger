@@ -19,7 +19,8 @@ Prerrequisitos: `planes/etapa-0-generico.md` (✅) y `planes/etapa-1-web-sin-git
   - ediciones sincronizadas por iCloud;
   - sube a R2 una configuración anónima (sin credenciales) → `cfgId`.
 - **Worker:**
-  - `GET /p/<cfgId>/<token>/playlist.m3u8`: token = credenciales cifradas AES-GCM con clave del Worker; se descifran al servir y no se guardan; no llama al proveedor;
+  - `GET /p/<cfgId>/<token>/playlist.m3u8`: token = credenciales cifradas AES-GCM con clave del Worker; se descifran al servir y no se guardan; baja la lista en vivo del proveedor (con failover) y le aplica la configuración (ver `planes/etapa-1-web-sin-github.md`);
+  - `GET /s/<cfgId>/<token>/<stream_id>`: redirect al primer servidor sano del balanceador del proveedor;
   - `GET /p/<cfgId>/epg.xml.gz`: concatena la guía por canal desde R2.
 
 **Fases:**

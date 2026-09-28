@@ -24,10 +24,30 @@ gratis para el servicio mientras entre en los planes gratuitos.
   navegador no puede, por CORS y http), sin guardarla ni registrarla; el cruce con la guía
   se hace en el navegador con `@grilla/core` (port a TypeScript del matcher de Python).
   Así el Worker entra en el plan gratis (10 ms de CPU por pedido).
-- **Actualización:** la lista de canales guardada se refresca cada vez que la persona abre
-  Grilla (y con el refresco en segundo plano de la app, más adelante). **Opcional**, con
-  consentimiento explícito: guardar las credenciales cifradas para que un cron diario
-  detecte canales nuevos sin abrir Grilla.
+- **Lista en vivo al servir, sin abrir Grilla:** cuando el reproductor (TiviMate) pide la
+  playlist, el Worker ya tiene las credenciales (vienen en el token del link), así que baja
+  la lista **en ese momento** del proveedor y le aplica lo guardado:
+  - canales conocidos (por nombre crudo, como hoy los overrides) → su EPG elegido,
+    renombre, categoría y ocultos;
+  - canales nuevos (por ejemplo los eventos PPV del día, que el proveedor rota) → salen tal
+    cual, sin EPG, igual que hoy; los que desaparecieron, simplemente no salen;
+  - la lista ya procesada (sin credenciales ni URLs de stream: solo nombre, categoría,
+    `stream_id`) se cachea unas horas por configuración, para no pedirla en cada refresco
+    y no pasar el límite de CPU; si el proveedor no responde, se sirve la última cacheada.
+  El matching pesado de los canales nuevos contra la guía sigue siendo en el navegador al
+  abrir Grilla; en el día a día la playlist queda siempre al día. **No hace falta guardar
+  credenciales en el servidor.**
+- **Balanceador del proveedor (Xtream):** la configuración guarda la lista de servidores
+  (sin credenciales) y se usa en dos lugares:
+  - **al bajar la lista:** se prueba cada servidor en orden, como hoy `xtream_client.py`;
+  - **al reproducir:** hoy la playlist queda armada con el servidor que respondió al
+    generar, y si ese se cae durante el día TiviMate no puede saltar a otro. Con el Worker,
+    cada canal de la playlist apunta a `…/s/<cfgId>/<token>/<stream_id>.<ext>` y el Worker
+    responde con un **redirect 302 al primer servidor sano**, con las mismas credenciales.
+    El estado de cada servidor (sano / caído) se cachea un par de minutos para que cambiar de
+    canal no sume demoras. El video nunca pasa por el Worker, solo el redirect.
+  - Un perfil puede elegir "URLs directas" (sin redirect) por si algún reproductor no sigue
+    redirects; en ese caso se arma con el servidor sano del momento, como hoy.
 - **EPG compartido:** una sola corrida diaria para todo el servicio (GitHub Actions de un
   repo público del servicio, o tu repo mientras tanto): `merge_epgs.py` + catálogo + guía
   por canal a R2. Es infraestructura, no algo de cada usuario.
@@ -45,8 +65,11 @@ gratis para el servicio mientras entre en los planes gratuitos.
     configuración: canales del proveedor (sin URLs ni credenciales), elección de EPG por
     canal, renombres, categorías, ocultos, reglas y fuentes;
   - `POST /api/token` — cifra las credenciales y devuelve el `token` para los links;
-  - `GET /p/<cfgId>/<token>/playlist.m3u8` — arma la playlist desde la configuración y
-    las credenciales descifradas del token;
+  - `GET /p/<cfgId>/<token>/playlist.m3u8` — baja la lista en vivo del proveedor (con
+    failover entre servidores y caché de unas horas), le aplica la configuración y arma la
+    playlist; los streams apuntan a `/s/…` (o directo al servidor sano, según el perfil);
+  - `GET /s/<cfgId>/<token>/<stream_id>.<ext>` — redirect 302 al primer servidor sano del
+    balanceador, con las credenciales del token;
   - `GET /p/<cfgId>/epg.xml.gz` — concatena de R2 la guía de los canales elegidos.
 - **Almacenamiento:** Cloudflare D1 o KV para configuraciones (unos KB cada una), R2 para
   la guía compartida.
@@ -70,8 +93,8 @@ gratis para el servicio mientras entre en los planes gratuitos.
    GitHub (mismos canales, mismos EPG) y cambiar los links en tus reproductores.
 
 ## Seguridad
-- Credenciales: solo dentro del token del link, cifradas; el Worker no las guarda (salvo la
-  opción explícita de refresco diario, cifradas en reposo).
+- Credenciales: solo dentro del token del link, cifradas; el Worker no las guarda en ningún
+  caso (ni en la caché de la lista, que no lleva URLs de stream).
 - La clave de edición nunca viaja en los links de reproducción.
 - `POST /api/provider/list`: sin logs del cuerpo, límite por IP para que no sea un proxy
   abierto.
@@ -80,7 +103,10 @@ gratis para el servicio mientras entre en los planes gratuitos.
 
 ## Costos y límites (plan gratis de Cloudflare)
 - Workers: 100.000 pedidos por día, 10 ms de CPU por pedido (por eso el matching va en el
-  navegador).
+  navegador). Cada cambio de canal con redirect es un pedido: una persona que zapea mucho
+  hace unos cientos por día, así que alcanza para decenas de usuarios; aplicar la
+  configuración a ~3.000 canales puede rozar los 10 ms, de ahí la caché de la lista
+  procesada. Si no alcanza, Workers pago (~5 USD/mes).
 - R2: 10 GB y egreso gratis; la guía compartida ocupa ~200 MB por día.
 - D1: 5 GB. Si se supera algo, Workers pago (~5 USD/mes) resuelve CPU y pedidos.
 
@@ -91,3 +117,9 @@ gratis para el servicio mientras entre en los planes gratuitos.
 - Un usuario de prueba con una lista M3U pública legal (iptv-org de un país) llega a sus
   links y los carga en un reproductor.
 - Tests del Worker; Playwright del onboarding y de "Tus links".
+- **Lista en vivo:** con un proveedor simulado, un canal nuevo aparece en la playlist sin
+  abrir Grilla y uno que desaparece deja de salir; si el proveedor no responde, sale la
+  última cacheada.
+- **Balanceador:** con el primer servidor caído, la lista se baja del segundo y `/s/…`
+  redirige al segundo; cuando el primero vuelve, se lo usa de nuevo. Prueba real en TiviMate
+  de que sigue el redirect.
