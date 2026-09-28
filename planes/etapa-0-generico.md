@@ -42,7 +42,9 @@ Resultado buscado:
 - El workflow publica `provider_rules.json` en la branch `data`. `docs/app.js` lo lee y reemplaza `DIVIDER_RE`, `PPV_SECTION`, `PPV_EDITABLE_CATEGORIES` y `REVIEW_EXCLUDED_*`.
 - **En la interfaz (Configuración → Categorías):** junto al switch de visibilidad, una opción por categoría "No necesita EPG". Se guarda en `xtream_channel_map.json` como `no_epg_categories` y así cada usuario decide, en lugar de General y 24/7 fijos.
 
-### 4. Catálogo amplio de fuentes de EPG
+### 4. Catálogo amplio de fuentes de EPG ✅
+> Primera corrida (28/09): 548 fuentes — 532 fresh, 15 stale, 1 down.
+
 - `epg_sources_catalog.json` con todas las fuentes gratuitas conocidas. Por fuente:
   - `id`, `url`, `country`, `provider`;
   - `status` (`fresh` / `stale` / `down`), `last_checked`;
