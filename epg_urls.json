@@ -6,7 +6,7 @@
     { "id": "epgshare-bein1", "url": "https://epgshare01.online/epgshare01/epg_ripper_BEIN1.xml.gz" },
     { "id": "openepg-bolivia1", "url": "https://open-epg.com/files/bolivia1.xml.gz", "country": "bo" },
     { "id": "openepg-bolivia2", "url": "https://open-epg.com/files/bolivia2.xml.gz", "country": "bo", "active": false, "inactive_reason": "ningún canal visible usa su guía (27/09/2026)" },
-    { "id": "epgshare-br1", "url": "https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz", "country": "br" },
+    { "id": "epgshare-br1", "url": "https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz", "country": "br", "active": false, "inactive_reason": "desactivada desde Grilla" },
     { "id": "openepg-canada", "url": "https://open-epg.com/files/canada.xml.gz", "country": "ca" },
     { "id": "epgshare-ca2", "url": "https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz", "country": "ca" },
     { "id": "epgshare-cl1", "url": "https://epgshare01.online/epgshare01/epg_ripper_CL1.xml.gz", "country": "cl" },
