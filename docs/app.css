@@ -375,7 +375,19 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
 .sheet-body .menu-title { margin: 0; font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #cardMenuBody .menu:first-child { margin-top: 12px; }
 .cat-filter { margin-top: 10px; }
-#categoriesDialog .help { margin: 4px 0 0; }
+#categoriesDialog .help, #sourcesDialog .help { margin: 4px 0 0; }
+#sourcesList .menu-text small { overflow-wrap: anywhere; }
+.src-meta .warn { color: var(--orange); }
+.src-examples { display: block; margin-top: 2px; color: var(--faint); }
+.src-add { flex: none; min-height: 34px; padding: 0 10px; font-size: 14px; }
+.src-inactive { margin-top: 12px; }
+.src-inactive > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin: 0 4px;
+}
+.src-inactive > summary::-webkit-details-marker { display: none; }
+.src-inactive > summary .icon { transition: transform .2s ease; }
+.src-inactive[open] > summary .icon { transform: rotate(180deg); }
 .menu { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; margin-top: 12px; }
 .menu > * + * { border-top: .5px solid var(--hairline); }
 .menu-row {

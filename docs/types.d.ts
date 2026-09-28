@@ -42,6 +42,61 @@ interface ChannelMap {
   no_epg_categories?: Record<string, boolean>;
 }
 
+/** Una fuente de epg_urls.json: con url propia o solo el id de epg_sources_catalog.json. */
+interface SourceEntry {
+  id?: string;
+  url?: string;
+  country?: string | null;
+  priority?: number;
+  active?: boolean;
+  inactive_reason?: string;
+}
+
+/** epg_urls.json */
+interface EpgUrlsDoc {
+  _comment?: string;
+  sources?: SourceEntry[];
+}
+
+/** Uso de una fuente del usuario en sources_report.json (tools/source_coverage.py). */
+interface SourceUsage {
+  id: string;
+  url: string | null;
+  active: boolean;
+  inactive_reason?: string | null;
+  country: string | null;
+  provider: string | null;
+  /** fresh | stale | down, del catálogo (null si no está en el catálogo). */
+  status: string | null;
+  catalog_id?: string | null;
+  used_by: number;
+  alt_by: number;
+}
+
+/** Fuente del catálogo sugerida, con los canales sin guía que ganaría. */
+interface SourceSuggestion {
+  id: string;
+  url: string;
+  country: string | null;
+  provider: string | null;
+  live_channels?: number | null;
+  new_channels?: number | null;
+  measured: boolean;
+  firm: number;
+  doubtful: number;
+  examples: { channel: string; epg: string; score: number }[];
+}
+
+/** sources_report.json */
+interface SourcesReport {
+  generated_at: string;
+  summary: Record<string, number>;
+  sources: SourceUsage[];
+  unused_active: string[];
+  countries: { country: string; missing: number; matched: number }[];
+  suggestions: SourceSuggestion[];
+}
+
 /** provider_rules.json ya compilado (ver compileRules en app.js). */
 interface ProviderRules {
   dividerRe: RegExp | null;
