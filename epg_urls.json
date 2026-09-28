@@ -84,7 +84,7 @@
     { "id": "openepg-puertorico1", "url": "https://open-epg.com/files/puertorico1.xml.gz", "country": "pr", "active": false, "inactive_reason": "ningún canal visible usa su guía (27/09/2026)" },
     { "id": "openepg-elsalvador1", "url": "https://open-epg.com/files/elsalvador1.xml.gz", "country": "sv", "active": false, "inactive_reason": "desactivada desde Grilla" },
     { "id": "openepg-venezuela1", "url": "https://open-epg.com/files/venezuela1.xml.gz", "country": "ve", "active": false, "inactive_reason": "ningún canal visible usa su guía (27/09/2026)" },
-    { "id": "iptvepg-us" },
+    { "id": "iptvepg-us", "active": false, "inactive_reason": "demasiado grande: la corrida se quedó sin memoria (28/09/2026)" },
     { "id": "iptvepg-uy" }
   ]
 }
