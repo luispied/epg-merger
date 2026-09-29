@@ -247,7 +247,7 @@ def measure_suggestions(channels_root, sources, candidates, fetched, missing, ov
         name, prefix_country = strip_display_prefix(ch['xtream_name'], index.rules)
         parsed = parse_channel_name(name, index.rules)
         cid, _, score, _ = gp.match_channel(
-            ch['xtream_name'], parsed, index, overrides, section_epg.get(section, {}),
+            ch['xtream_name'], parsed, index, overrides, gp.epg_config_for(section, ch['category'], section_epg),
             prefix_country or flag_to_country_code(ch['category'], index.rules),
         )
         gain = gains.get(index.source.get(cid)) if cid else None

@@ -83,6 +83,9 @@ DEFAULT_PROVIDER_RULES = {
     # que ninguna), entre 0.7 y 0.8 ~72 %, desde 0.8 ~98 %. Lo que queda debajo no se asigna
     # pero sigue como sugerencia en "A revisar".
     'min_assign_score': 0.7,
+    # Señal horaria preferida de los canales de EE.UU./Canadá cuando el nombre no dice cuál:
+    # 'east', 'pacific' (= 'west'), 'mountain', 'central' o null (sin preferencia).
+    'preferred_feed': 'east',
 }
 
 
@@ -126,6 +129,7 @@ class _Rules:
         self.divider_display = dict(rules['dividers'].get('display_names') or {})
         self.alphabetical = rules.get('category_order') == 'alphabetical'
         self.min_assign_score = float(rules.get('min_assign_score') or MIN_SCORE)
+        self.preferred_feed = (rules.get('preferred_feed') or '').lower() or None
 
 
 _rules = _Rules(DEFAULT_PROVIDER_RULES)
@@ -185,7 +189,28 @@ def load_sections_config(path=SECTIONS_CONFIG_PATH):
                 category_order[section] = {
                     _strip_category_label(cat): i for i, cat in enumerate(raw_order)
                 }
+    # Preferencias por categoría (más finas que las de la sección): {"ESPN": {"prefer_sources":
+    # [...]}}. Van en el mismo dict con una clave aparte; ver epg_config_for.
+    for cat, cfg in (config.get('category_epg') or {}).items():
+        if isinstance(cfg, dict):
+            section_epg[(CATEGORY_EPG_KEY, _strip_category_label(cat))] = cfg
     return _ordered_names(config.get('order', [])), matchers, section_epg, category_order
+
+
+CATEGORY_EPG_KEY = 'category'
+
+
+def epg_config_for(section, category, section_epg):
+    """Config de EPG de un canal: la de su sección, más la de su categoría si hay una (sus
+    fuentes preferidas van primero y su país manda)."""
+    base = section_epg.get(section) or {}
+    extra = section_epg.get((CATEGORY_EPG_KEY, _strip_category_label(category or ''))) if category else None
+    if not extra:
+        return base
+    merged = {**base, **extra}
+    merged['prefer_sources'] = list(dict.fromkeys(
+        list(extra.get('prefer_sources') or []) + list(base.get('prefer_sources') or [])))
+    return merged
 
 
 def _make_rule_matcher(rule):
@@ -521,7 +546,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
                 section,
                 is_divider,
                 flag_to_country_code(category),
-                section_epg.get(section, {}),
+                epg_config_for(section, category, section_epg),
                 sort_key,
                 display_category,
             )
@@ -925,6 +950,7 @@ def generate():
     channels_root = load_epg_channels()
     sources = {s['id']: s for s in load_sources()}
     index = EpgIndex(channels_root, sources=sources)
+    index.preferred_feed = _rules.preferred_feed
     print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens [{elapsed()}]")
     write_epg_icons(index)
 

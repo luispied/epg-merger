@@ -36,8 +36,13 @@ COUNTRY_MISMATCH_PENALTY = 0.35   # ej. no confundir "Canal 26" de Argentina con
 LANGUAGE_HINT_BOOST = 1.15   # "TBS -EN" no dice el país, pero el idioma apunta a EE.UU./UK/CA
 REGION_MATCH_BOOST = 1.15
 REGION_MISMATCH_PENALTY = 0.8
-LATE_FEED_REGIONS = frozenset({'west', 'pacific', 'mountain', 'central'})
-LATE_FEED_PENALTY = 0.97
+# Señales horarias de EE.UU./Canadá. Si el nombre del canal no dice cuál, se prefiere
+# `preferred_feed` (provider_rules.json, por defecto la del Este: la de menos diferencia
+# horaria desde Sudamérica y Europa; alguien en California querría 'pacific').
+FEED_REGIONS = frozenset({'east', 'west', 'pacific', 'mountain', 'central'})
+FEED_ALIASES = {'west': 'pacific'}
+OTHER_FEED_PENALTY = 0.97
+DEFAULT_FEED = 'east'
 
 # Puntaje mínimo para aceptar una coincidencia automática.
 MIN_SCORE = 0.45
@@ -108,6 +113,7 @@ class EpgIndex:
         self._idf = {}
         self._order = {}        # channel_id -> orden de aparición, desempate estable
         self._by_folded_id = None  # ver resolve_id (se arma la primera vez que se usa)
+        self.preferred_feed = DEFAULT_FEED  # ver _other_feed; lo ajusta generate_playlist
 
         for position, channel in enumerate(epg_root.findall('channel')):
             channel_id = channel.get('id')
@@ -156,6 +162,16 @@ class EpgIndex:
         total = max(len(self.parsed), 1)
         for token, ids in self.postings.items():
             self._idf[token] = math.log(1 + total / len(ids))
+
+    def _other_feed(self, cand_region):
+        """True si el candidato es una señal horaria distinta de la preferida. Con la del Este
+        (la señal "por defecto" de casi todos los canales), un candidato sin región cuenta como
+        del Este; con cualquier otra, solo cuenta la que lo dice."""
+        want = FEED_ALIASES.get(self.preferred_feed, self.preferred_feed)
+        have = FEED_ALIASES.get(cand_region, cand_region)
+        if want == DEFAULT_FEED:
+            return have in FEED_REGIONS and have != DEFAULT_FEED
+        return have != want
 
     def __contains__(self, channel_id):
         return channel_id in self.parsed
@@ -265,10 +281,10 @@ class EpgIndex:
             cand_region = self.region.get(channel_id)
             if region and cand_region:
                 score *= REGION_MATCH_BOOST if cand_region == region else REGION_MISMATCH_PENALTY
-            elif not region and cand_region in LATE_FEED_REGIONS:
-                # Sin región en el nombre se prefiere la señal del Este: "TBS HD" no es "TBS HD
+            elif not region and self.preferred_feed and self._other_feed(cand_region):
+                # Sin región en el nombre se prefiere la señal elegida: "TBS HD" no es "TBS HD
                 # (Pacific)", que va 3 horas corrida. Solo desempata; no cambia la banda.
-                score *= LATE_FEED_PENALTY
+                score *= OTHER_FEED_PENALTY
 
             ranked.append(Candidate(channel_id, score, base, reason))
 

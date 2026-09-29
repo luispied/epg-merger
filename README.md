@@ -161,6 +161,19 @@ encuentra guía por su nombre, el matcher prueba con los otros nombres del mismo
 "Canal 13 Cable") y acepta solo un resultado "Bien" del mismo país. Si el archivo no está,
 todo funciona igual sin él.
 
+### Preferencias aprendidas de los overrides (`tools/learn_preferences.py`)
+
+Muchos overrides repiten un criterio ("en PPV DAZN siempre elijo la guía de programadorx-cl").
+La herramienta prueba, para cada categoría con overrides, preferir cada fuente que aparece en
+ellos y mide con el matcher real cuántos overrides pasaría a resolver solo, cuántos rompería y
+qué canales sin override cambiarían. Con `--apply` escribe las seguras (sin roturas ni cambios)
+en `playlist_sections.json` → `category_epg`, que suma fuentes preferidas por categoría a las de
+la sección.
+
+```
+python tools/learn_preferences.py --merged merged.xml.gz --report out/luis/match_report.json
+```
+
 ### Banco de prueba del matcher (`tools/match_benchmark.py`)
 
 Mide qué tan bien asigna el EPG el matcher en listas que **no** son de este proveedor: copias
