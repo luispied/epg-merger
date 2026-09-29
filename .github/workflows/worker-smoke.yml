@@ -1,0 +1,33 @@
+name: Worker smoke test
+
+# Prueba real del Worker de Grilla con el perfil del proveedor (tools/worker_smoke.py). Se
+# corre a mano (Actions → Worker smoke test → Run workflow). No imprime credenciales ni links.
+on:
+  workflow_dispatch:
+    inputs:
+      worker:
+        description: URL del Worker
+        default: https://grilla.luis-piedrahita.workers.dev
+      profile:
+        description: Perfil (vacío = el primero)
+        default: luis
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install requests
+    - name: Smoke test
+      env:
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
+        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
+        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
+        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+      run: python tools/worker_smoke.py --worker "${{ inputs.worker }}" --profile "${{ inputs.profile }}"
