@@ -77,8 +77,8 @@ gratis para el servicio mientras entre en los planes gratuitos.
     CPU, y una lista como la tuya usa ~5.000 canales de guía contando las alternativas. Cuando
     se guarda un cambio, el Worker puede lanzar la corrida (`repository_dispatch`) para que la
     guía se actualice en minutos.
-- **Almacenamiento:** Cloudflare D1 o KV para configuraciones (unos KB cada una), R2 para
-  la guía compartida.
+- **Almacenamiento:** todo en R2: configuraciones (`cfg/<cfgId>.json`), última lista de
+  cada una (`list/`), guía compartida (`guide/`, `ui/`) y guía por configuración (`epg/`).
 - **Grilla web:** la misma interfaz de hoy, con una capa de datos nueva: en vez de leer la
   branch `data` y escribir por la API de GitHub, lee y escribe en el Worker. `applyChanges`,
   Deshacer, selección múltiple, Fuentes de EPG y Categorías siguen igual.
@@ -99,7 +99,12 @@ gratis para el servicio mientras entre en los planes gratuitos.
    toda la guía). Falta crear el bucket y cargar los secretos (ver README →
    "Cloudflare R2").
 3. **Worker:** los endpoints de arriba, con tests (Miniflare), límites por IP y sin logs de
-   credenciales.
+   credenciales. ✅ Código: `worker/` (ver `worker/README.md`), con tests sobre R2, caché y
+   proveedor simulados en vez de Miniflare. Las configuraciones van en R2
+   (`cfg/<cfgId>.json`) y no en D1 ni en KV, así el único recurso es el bucket. La guía de cada
+   configuración la arma la corrida diaria (`tools/config_epgs.py`). Falta: importar el repo en
+   Cloudflare, cargar `TOKEN_KEY` y probar con tus servidores reales. Hay que confirmar que un
+   Worker llega a sus puertos y dominios, y que TiviMate sigue el redirect.
 4. **Grilla web sobre el Worker:** onboarding (Xtream / M3U), matching en el navegador,
    "Tus links" con Copiar y QR, capa de datos nueva, import de tu configuración actual
    (`xtream_channel_map.json` + fuentes).

@@ -1,0 +1,19 @@
+{
+  // Tipos del Worker sin dependencias: la API web estándar (lib WebWorker) y una interfaz
+  // mínima de R2 (src/env.ts). Node 22 corre los .ts directo para los tests.
+  // Correr con: npx -p typescript@5.9 tsc -p worker --noEmit
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}
