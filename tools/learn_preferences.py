@@ -54,6 +54,8 @@ def learn(report, channel_map, index, sections, judge):
 
     suggestions = []
     for cat, channels in by_cat.items():
+        # Solo los overrides a un canal: uno en null ("sin EPG a propósito") además marca el
+        # canal como revisado, y no hay que tratarlo como algo que el matcher pueda reemplazar.
         wanted = {ch['xtream_name']: overrides[ch['xtream_name']] for ch in channels
                   if overrides.get(ch['xtream_name']) and overrides[ch['xtream_name']] in index}
         if len(wanted) < MIN_OVERRIDES:
