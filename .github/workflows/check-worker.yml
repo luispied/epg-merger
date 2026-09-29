@@ -1,0 +1,25 @@
+name: Check worker
+
+# Worker de Grilla (worker/): tipos y tests. La publicación la hace Cloudflare Workers Builds.
+on:
+  pull_request:
+    paths: ['worker/**', '.github/workflows/check-worker.yml']
+  push:
+    branches: [main]
+    paths: ['worker/**', '.github/workflows/check-worker.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Type-check
+      run: npx --yes -p typescript@5.9 tsc -p worker --noEmit
+    - name: Tests
+      run: node --test worker/test/*.test.ts

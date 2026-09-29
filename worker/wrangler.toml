@@ -1,0 +1,13 @@
+# Worker de Grilla (Etapa 1): configuraciones, links de reproducción y guía desde R2.
+# Se publica solo con Cloudflare Workers Builds (repo conectado, carpeta worker/).
+# Secreto: TOKEN_KEY (32 bytes en base64), en el panel del Worker → Settings → Variables.
+name = "grilla"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "grilla"
+
+[observability]
+enabled = true

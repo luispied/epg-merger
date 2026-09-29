@@ -1,0 +1,13 @@
+{
+  "name": "grilla-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npx --yes -p typescript@5.9 tsc -p . --noEmit",
+    "test": "node --test test/*.test.ts",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.143.1"
+  }
+}

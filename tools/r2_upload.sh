@@ -11,6 +11,8 @@
 #   ui/epg_icons.json          logos
 #   ui/sources_report.json     uso de fuentes y sugerencias
 #   ui/schedule/…              programación por canal y por hora
+#   epg/<cfgId>.xml.gz         guía de cada configuración de Grilla web (tools/config_epgs.py,
+#                              a partir de las configuraciones cfg/<cfgId>.json que guarda el Worker)
 set -euo pipefail
 
 if [ -z "${R2_ACCESS_KEY_ID:-}" ] || [ -z "${R2_SECRET_ACCESS_KEY:-}" ] || [ -z "${R2_ACCOUNT_ID:-}" ]; then
@@ -34,3 +36,13 @@ done
 # --delete: los canales que ya no tienen programación dejan de estar.
 [ -d out/schedule ] && s3 sync out/schedule "$BUCKET/ui/schedule" --delete "${json[@]}"
 echo "✅ Subido a R2 ($BUCKET)"
+
+# Guía de cada configuración: se bajan las configuraciones (sin credenciales), se arman todas
+# en una pasada por la guía y se suben. --delete: la de una configuración borrada deja de estar.
+rm -rf out/cfgs out/cfg_epg
+s3 sync "$BUCKET/cfg" out/cfgs --exclude '*' --include '*.json'
+python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg
+if [ -d out/cfg_epg ]; then
+  s3 sync out/cfg_epg "$BUCKET/epg" --delete --content-type application/gzip
+  echo "✅ Guías de Grilla web subidas"
+fi

@@ -5,13 +5,41 @@ guía desde Cloudflare para otras personas.
 
 | Proveedor | Fuentes activas | Qué dice |
 |---|---|---|
-| open-epg.com | 31 | Guías gratis. No publica una licencia ni condiciones de uso. |
-| epgshare01.online | 19 | "Free EPG for LEGAL use only". No habla de redistribución. |
+| open-epg.com | 31 | Guías gratis (se banca con donaciones). Sin licencia formal, pero su FAQ fija reglas: ver abajo. |
+| epgshare01.online | 19 | "Free EPG for LEGAL use only", no apoya la piratería de ningún tipo y pide no mencionar proveedores de IPTV en el soporte. Arma las guías con WebGrab+Plus (datos tomados de sitios de TV). No habla de redistribución. |
 | acidjesuz/EPGTalk (GitHub) | 3 | "Free EPG for LEGAL use only". El repo no tiene archivo de licencia. |
 | davidmuma/EPG_dobleM (GitHub) | 1 | Guía gratis para usar en reproductores. El repo no tiene archivo de licencia. |
 | epg.programadorx.cl | 1 | Guía gratis ("gratis.xml"). No publica condiciones. |
 | iptv-epg.org | 1 | Guías gratis por país. No publica condiciones. |
 | iptv-org/database (diccionario de canales, no es guía) | — | Dominio público (CC0). |
+
+## Lo que dicen sus FAQ (29/09/2026)
+
+Luis pasó los links; lo relevante:
+
+- **open-epg** (https://www.open-epg.com/app/faq.php):
+  - cada archivo se genera una vez por día y piden bajarlo una sola vez, **después de las
+    18:00 CET**;
+  - con más de 20 descargas por día y archivo, cortan: devuelven archivos vacíos;
+  - sus links personales (Crazy EPG) se pueden compartir **con familia o amigos cercanos**, pero
+    si detectan que un link se comparte públicamente ("para todo el mundo en internet"),
+    desactivan la cuenta.
+- **epgshare01** (https://epgshare01.online):
+  - solo para uso legal;
+  - no apoya la piratería;
+  - pide no mencionar proveedores ni IPTV en el soporte.
+
+Qué implica para Grilla:
+1. **Vos y Paola:** está dentro de lo que aceptan. Es uso personal y familiar, y bajamos cada
+   archivo una vez por corrida, mucho menos que un reproductor que lo baja solo.
+2. **Horario:** la corrida diaria es a las 16:00 UTC, que en invierno europeo (CET) son las
+   17:00 CET, antes de que open-epg termine. Conviene pasarla a las 17:30 UTC. Y no lanzar
+   corridas a mano de más: hoy hubo 4, lejos del límite de 20, pero suman.
+3. **Abrirlo al público:** con varias personas usando la guía, se parece a "compartir
+   públicamente" lo de open-epg. Hace falta su permiso antes. Con epgshare01, el producto gira
+   alrededor de listas IPTV, que es justo el tema que pide no tocar, así que es probable que no
+   lo quiera. Para un servicio público, lo prudente es que las fuentes de epgshare01 las agregue
+   cada persona como fuente propia y no vengan en el catálogo del servicio.
 
 ## Conclusión
 
