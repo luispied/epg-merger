@@ -13,6 +13,8 @@ export interface ChannelEdit {
   name?: string;
   group?: string;
   hidden?: boolean;
+  /** Elegido a mano (el EPG no se recalcula al volver a cruzar con la guía). */
+  manual?: boolean;
 }
 
 export interface Config {
@@ -76,6 +78,7 @@ export function parseConfig(raw: unknown): Config {
     if (str(e.name)) edit.name = str(e.name);
     if (str(e.group)) edit.group = str(e.group);
     if (e.hidden === true) edit.hidden = true;
+    if (e.manual === true) edit.manual = true;
     if (Object.keys(edit).length) channels[name.slice(0, 500)] = edit;
   }
   const g = (r.groups ?? {}) as Record<string, unknown>;

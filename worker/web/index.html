@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Grilla</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grilla">
+<script>
+  try {
+    var t = localStorage.getItem('grilla_theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) { /* sin storage: sigue al sistema */ }
+</script>
+<link rel="stylesheet" href="app.css?v=__VERSION__">
+<link rel="stylesheet" href="web.css?v=__VERSION__">
+<script src="icons.js?v=__VERSION__"></script>
+<script type="module" src="app.js?v=__VERSION__"></script>
+</head>
+<body>
+
+<!-- Primera vez: conectar el proveedor. -->
+<section id="onboarding" hidden>
+  <header class="app-header">
+    <div class="title-row"><h1>Grilla</h1></div>
+    <p class="lead">Ordená tu lista de canales, asigná la guía de programación y copiá dos links para tu
+      reproductor (TiviMate, IPTV Smarters…). Sin cuenta: tu configuración queda guardada en este
+      navegador.</p>
+  </header>
+  <main>
+    <div class="card">
+      <div class="field">
+        <span>Tipo de proveedor</span>
+        <div class="seg" role="radiogroup" aria-label="Tipo de proveedor" id="providerSeg">
+          <button type="button" role="radio" data-value="xtream" aria-checked="true">Xtream Codes</button>
+          <button type="button" role="radio" data-value="m3u" aria-checked="false">Lista M3U</button>
+        </div>
+      </div>
+      <form id="xtreamForm" class="stack" autocomplete="off">
+        <label class="field"><span>Servidores (uno por línea)</span>
+          <textarea class="input" id="servers" rows="3" placeholder="http://servidor.com:8080" required></textarea>
+          <small class="help">Si tu proveedor te dio varias direcciones (balanceador), poné todas: si una se cae, se usa la siguiente.</small>
+        </label>
+        <label class="field"><span>Usuario</span><input class="input" id="username" required autocapitalize="off" spellcheck="false"></label>
+        <label class="field"><span>Contraseña</span><input class="input" id="password" type="password" required></label>
+        <button class="btn btn-primary btn-block" type="submit"><span data-icon="download"></span>Cargar canales</button>
+      </form>
+      <form id="m3uForm" class="stack" hidden autocomplete="off">
+        <label class="field"><span>URL de la lista</span>
+          <input class="input" id="m3uUrl" type="url" placeholder="https://…/lista.m3u" required></label>
+        <button class="btn btn-primary btn-block" type="submit"><span data-icon="download"></span>Cargar canales</button>
+      </form>
+      <div id="uploadBox" class="stack" hidden>
+        <p class="help" id="uploadWhy"></p>
+        <ol class="help steps">
+          <li><a id="m3uDownload" href="#" target="_blank" rel="noreferrer noopener">Bajá tu lista desde el proveedor</a> (se descarga un archivo).</li>
+          <li>Subila acá:</li>
+        </ol>
+        <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl">
+      </div>
+      <p class="help">Usuario y contraseña no se guardan en ningún servidor: van cifrados solo dentro de
+        tus links de reproducción.</p>
+      <p class="help"><a href="#" id="restoreLink">Ya tengo una configuración (importar respaldo)</a></p>
+    </div>
+    <div class="status-bar" id="onboardStatus" hidden></div>
+  </main>
+</section>
+
+<!-- Editor. -->
+<section id="editor" hidden>
+  <header class="app-header">
+    <div class="title-row">
+      <h1>Grilla</h1>
+      <div class="header-actions">
+        <button class="btn btn-primary" id="linksBtn"><span data-icon="tv"></span>Tus links</button>
+        <button class="icon-btn" id="categoriesBtn" title="Categorías" aria-label="Categorías"><span data-icon="layers"></span></button>
+        <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
+      </div>
+    </div>
+  </header>
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <label class="search-field">
+        <span data-icon="search"></span>
+        <input type="search" id="searchBox" placeholder="Buscar canal o categoría" enterkeyhint="search" aria-label="Buscar canal o categoría">
+      </label>
+    </div>
+    <nav class="segmented" id="filterTabs" aria-label="Filtros">
+      <button data-filter="todos" data-label="Todos">Todos</button>
+      <button data-filter="revisar" data-label="A revisar">A revisar</button>
+      <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
+      <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
+      <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
+    </nav>
+  </div>
+  <main>
+    <div class="status-bar" id="status" hidden></div>
+    <p class="meta-line" id="statusLine"></p>
+    <div class="cards" id="cards"></div>
+    <button class="btn btn-gray btn-block load-more" id="loadMoreBtn" hidden>Mostrar más</button>
+  </main>
+</section>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<dialog class="sheet settings-sheet" id="channelDialog" aria-labelledby="channelTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="channelTitle"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="channelBody"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="categoriesDialog" aria-labelledby="categoriesTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="categoriesTitle">Categorías</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <p>Orden y visibilidad en la playlist. Las categorías nuevas del proveedor aparecen al final.</p>
+    <div class="menu" id="categoriesList"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="linksDialog" aria-labelledby="linksTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="linksTitle">Tus links</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="linksBody"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="settingsDialog" aria-labelledby="settingsTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="settingsTitle">Configuración</h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div class="menu">
+      <button class="menu-row" id="reloadListBtn">
+        <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
+        <span class="menu-text">Volver a cargar la lista del proveedor<small>Canales nuevos o que ya no están. Tus cambios se conservan.</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <label class="menu-row static">
+        <span class="menu-icon"><span data-icon="list-filter"></span></span>
+        <span class="menu-text">Asignar también las dudosas<small>Coincidencias por debajo de "Bien" quedan asignadas en vez de sugeridas</small></span>
+        <input type="checkbox" class="switch" id="lenientToggle">
+      </label>
+    </div>
+    <div class="section-label">Respaldo</div>
+    <div class="menu">
+      <button class="menu-row" id="exportBtn">
+        <span class="menu-icon"><span data-icon="download"></span></span>
+        <span class="menu-text">Exportar respaldo<small>Para abrir tu configuración en otro dispositivo</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <button class="menu-row" id="importBtn">
+        <span class="menu-icon"><span data-icon="upload"></span></span>
+        <span class="menu-text">Importar respaldo</span>
+        <span data-icon="chevron-right"></span>
+      </button>
+    </div>
+    <div class="section-label">Preferencias</div>
+    <div class="menu">
+      <div class="menu-row static">
+        <span class="menu-icon"><span data-icon="sun-moon"></span></span>
+        <span class="menu-text">Tema</span>
+        <div class="seg" role="radiogroup" aria-label="Tema" id="themeSeg">
+          <button type="button" role="radio" data-value="auto">Auto</button>
+          <button type="button" role="radio" data-value="light">Claro</button>
+          <button type="button" role="radio" data-value="dark">Oscuro</button>
+        </div>
+      </div>
+    </div>
+    <div class="menu danger-zone">
+      <button class="menu-row danger" id="forgetBtn">
+        <span class="menu-icon"><span data-icon="trash-2"></span></span>
+        <span class="menu-text">Borrar configuración<small>Tus links dejan de funcionar</small></span>
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<input type="file" id="backupFile" accept="application/json,.json" hidden>
+</body>
+</html>

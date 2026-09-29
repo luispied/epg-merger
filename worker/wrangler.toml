@@ -7,6 +7,14 @@ compatibility_date = "2026-09-01"
 # Las variables cargadas en el panel no se borran al publicar desde el repo.
 keep_vars = true
 
+# La web (web/ → public/, ver build.mjs). Los archivos se sirven antes que el Worker: las
+# rutas /api, /p y /s no chocan con ninguno.
+[build]
+command = "npm install --no-audit --no-fund && node build.mjs"
+
+[assets]
+directory = "./public"
+
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "grilla"

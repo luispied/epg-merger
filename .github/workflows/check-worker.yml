@@ -1,12 +1,12 @@
 name: Check worker
 
-# Worker de Grilla (worker/): tipos y tests. La publicación la hace Cloudflare Workers Builds.
+# Worker de Grilla (worker/): tipos, tests y la web compilada. La publicación la hace Cloudflare Workers Builds.
 on:
   pull_request:
-    paths: ['worker/**', '.github/workflows/check-worker.yml']
+    paths: ['worker/**', 'core/**', 'docs/app.css', 'docs/icons.js', '.github/workflows/check-worker.yml']
   push:
     branches: [main]
-    paths: ['worker/**', '.github/workflows/check-worker.yml']
+    paths: ['worker/**', 'core/**', 'docs/app.css', 'docs/icons.js', '.github/workflows/check-worker.yml']
 
 permissions:
   contents: read
@@ -19,7 +19,12 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: '22'
-    - name: Type-check
-      run: npx --yes -p typescript@5.9 tsc -p worker --noEmit
+    - name: Type-check (Worker y web)
+      run: |
+        npx --yes -p typescript@5.9 tsc -p worker --noEmit
+        npx --yes -p typescript@5.9 tsc -p worker/web --noEmit
+    - name: Build the web (como Cloudflare antes de publicar)
+      working-directory: worker
+      run: npm ci --no-audit --no-fund && node build.mjs
     - name: Tests
       run: node --test worker/test/*.test.ts

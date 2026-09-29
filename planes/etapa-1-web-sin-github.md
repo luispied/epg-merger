@@ -108,6 +108,20 @@ gratis para el servicio mientras entre en los planes gratuitos.
 4. **Grilla web sobre el Worker:** onboarding (Xtream / M3U), matching en el navegador,
    "Tus links" con Copiar y QR, capa de datos nueva, import de tu configuración actual
    (`xtream_channel_map.json` + fuentes).
+   ✅ Primera versión: `worker/web/`, servida por el mismo Worker (ver `worker/README.md`).
+   Tiene:
+   - onboarding Xtream / M3U, con subida del archivo si el proveedor bloquea al Worker;
+   - cruce con la guía en el navegador;
+   - filtros y búsqueda;
+   - por canal: elegir EPG (alternativas o búsqueda en toda la guía), sin EPG, nombre,
+     categoría y visibilidad;
+   - categorías con orden y visibilidad;
+   - "Tus links" con copiar y QR;
+   - respaldo exportable.
+
+   Es una app aparte: la de `docs/` (GitHub) no se toca y queda como respaldo. Falta, para el
+   paso 5: importar tu configuración actual (overrides, nombres, categorías, ocultos) y las
+   preferencias por sección y categoría (`playlist_sections.json`).
 5. **Migración tuya:** importar tu configuración, comparar la playlist y la guía con las de
    GitHub (mismos canales, mismos EPG) y cambiar los links en tus reproductores.
 

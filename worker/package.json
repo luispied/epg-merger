@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "npx --yes -p typescript@5.9 tsc -p . --noEmit",
+    "build": "node build.mjs",
+    "check": "npx --yes -p typescript@5.9 tsc -p . --noEmit && npx --yes -p typescript@5.9 tsc -p web --noEmit",
     "test": "node --test test/*.test.ts",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "wrangler": "^4.143.1"
   }
 }

@@ -1,0 +1,17 @@
+{
+  // La web (web/app.ts): navegador (lib DOM), importa @grilla/core de ../../core.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["app.ts"]
+}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { b64urlDecode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
-import { parseM3u } from '../src/provider.ts';
+import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
 
 const BASE = 'https://grilla.example';
@@ -246,4 +246,29 @@ test('balanceador: un servidor que responde 403 al Worker cuenta como vivo', asy
   restore = () => void (globalThis.fetch = original);
   const res = await handle(new Request(`${BASE}/s/${t.cfgId}/${t.token}/11.m3u8`), t.env, t.ctx, t.cache);
   assert.equal(res.headers.get('Location'), `${S1}/live/user/pa%20ss/11.m3u8`);
+});
+
+test('lista guardada: se puede leer con la clave de edición (para editar en la web)', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const get = (key?: string) => handle(req(`/api/cfg/${t.cfgId}/list`, { key }), t.env, t.ctx, t.cache);
+  assert.equal((await get(t.editKey)).status, 404);
+  await handle(req(`/api/cfg/${t.cfgId}/list`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ channels: [{ name: 'A', id: 1 }] }) }), t.env, t.ctx, t.cache);
+  assert.equal((await get()).status, 401);
+  const list = await (await get(t.editKey)).json() as { channels: { name: string }[] };
+  assert.deepEqual(list.channels.map((c) => c.name), ['A']);
+});
+
+test('configuración: guarda qué EPG se eligió a mano', async () => {
+  const t = await setup({ channels: { A: { epg: 'x.ar', manual: true }, B: { epg: 'y.ar', manual: 'sí' } } } as unknown as Partial<typeof CONFIG>);
+  const cfg = await (await handle(req(`/api/cfg/${t.cfgId}`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { channels: Record<string, object> };
+  assert.deepEqual(cfg.channels, { A: { epg: 'x.ar', manual: true }, B: { epg: 'y.ar' } });
+});
+
+test('lista M3U de un proveedor Xtream: stream_id y extensión de la URL, sin la URL', () => {
+  const chs = channelsFromXtreamM3u('#EXTM3U\n#EXTINF:-1 tvg-id="t.ar" group-title="AR",AR| Telefe\nhttp://s:8080/live/u/p/123.ts\n'
+    + '#EXTINF:-1 group-title="AR",Sin extensión\nhttp://s:8080/u/p/456\n#EXTINF:-1,Película\nhttp://s/movie/u/p/abc.mkv\n');
+  assert.deepEqual(chs, [
+    { name: 'AR| Telefe', category: 'AR', id: '123', ext: 'ts', icon: '', epgId: 't.ar' },
+    { name: 'Sin extensión', category: 'AR', id: '456', ext: 'ts', icon: '', epgId: null },
+  ]);
 });

@@ -21,6 +21,21 @@ sano del balanceador y la guía desde R2. Endpoints: ver el comentario de `src/i
   `XTREAM_PROFILES`. El redirect `/s/` sigue andando: el que se conecta al servidor es el
   reproductor, y para el Worker un servidor que responde 403 cuenta como vivo.
 
+## La web (Grilla web)
+
+`web/` es la interfaz: conectar el proveedor, cruzar los canales con la guía en el navegador
+(con `@grilla/core`, el mismo matcher que la corrida de Python), corregir y copiar los links.
+`build.mjs` la compila con esbuild a `public/`, junto con los estilos e íconos de `docs/`.
+Cloudflare la sirve en la misma dirección del Worker (`[assets]` en `wrangler.toml`) y corre la
+compilación sola antes de publicar (`[build]`).
+
+- Si el proveedor no deja que el Worker baje la lista (403), la web le pide a la persona que
+  la baje con su navegador (link `get.php` armado con sus datos) y la suba como archivo. Se
+  sube sin URLs y la configuración queda en modo `list: "upload"`.
+- La clave de edición queda en el navegador (`localStorage`) y se puede exportar como respaldo.
+  Usuario y contraseña no se guardan: se piden para generar los links.
+- La interfaz de GitHub (`docs/`) no cambia: sigue siendo el respaldo.
+
 ## Puesta en marcha (una vez)
 
 1. **La clave:** 32 bytes al azar en base64. Se puede generar con `openssl rand -base64 32`
@@ -44,6 +59,11 @@ El bucket `grilla` ya tiene que existir: el Worker lo usa por nombre (`wrangler.
 ## Desarrollo
 
 ```sh
-npx -p typescript@5.9 tsc -p worker --noEmit   # tipos
-node --test worker/test/*.test.ts              # tests, con R2, caché y proveedor simulados
+npx -p typescript@5.9 tsc -p worker --noEmit       # tipos del Worker
+npx -p typescript@5.9 tsc -p worker/web --noEmit   # tipos de la web
+node --test worker/test/*.test.ts                  # tests, con R2, caché y proveedor simulados
+cd worker && npm install && node build.mjs         # compilar la web a public/
+npx wrangler dev --local                           # todo junto en http://localhost:8787
+# (con TOKEN_KEY en worker/.dev.vars y la guía en el R2 local:
+#  npx wrangler r2 object put grilla/guide/index.json --file … --local)
 ```

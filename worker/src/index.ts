@@ -7,6 +7,7 @@
 //   DELETE /api/cfg/<cfgId>              (Bearer editKey) borrarla
 //   POST   /api/cfg/<cfgId>/token        (Bearer editKey) credenciales → token y links
 //   PUT    /api/cfg/<cfgId>/list         (Bearer editKey) subir la lista (proveedores que bloquean Cloudflare)
+//   GET    /api/cfg/<cfgId>/list         (Bearer editKey) la última lista guardada (para editar en la web)
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
@@ -189,6 +190,11 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       return json({ ok: true });
+    }
+    if (action === 'list' && method === 'GET') {
+      const saved = await env.BUCKET.get(r2ListKey(cfgId));
+      if (!saved) return fail(404, 'todavía no hay lista guardada');
+      return new Response(saved.body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
     }
     if (action === 'list' && method === 'PUT') {
       let list: LiveList;
