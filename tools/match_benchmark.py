@@ -187,8 +187,11 @@ def luis_auto(report_path, map_path, sections, index):
         if name in overrides or gp.is_divider_category(ch['category']):
             continue
         section = gp.classify_section(ch['category'], section_rules)
-        _, cid, _, _, _ = gp.match_stream(name, None, index, {}, section_epg.get(section, {}),
-                                          flag_to_country_code(ch['category']))
+        # Igual que la corrida con un perfil Xtream (el id de EPG del proveedor, si el reporte
+        # lo trae, sin confiar en su país).
+        _, cid, _, _, _ = gp.match_stream(name, ch.get('provider_epg_id'), index, {},
+                                          section_epg.get(section, {}), flag_to_country_code(ch['category']),
+                                          trust_list_ids=False)
         out[name] = cid
     return out
 
