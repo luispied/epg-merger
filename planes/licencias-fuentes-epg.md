@@ -32,8 +32,8 @@ Luis pasó los links; lo relevante:
 Qué implica para Grilla:
 1. **Vos y Paola:** está dentro de lo que aceptan. Es uso personal y familiar, y bajamos cada
    archivo una vez por corrida, mucho menos que un reproductor que lo baja solo.
-2. **Horario:** la corrida diaria es a las 16:00 UTC, que en invierno europeo (CET) son las
-   17:00 CET, antes de que open-epg termine. Conviene pasarla a las 17:30 UTC. Y no lanzar
+2. **Horario:** ✅ pasada a las 17:30 UTC. Antes era a las 16:00 UTC, que en invierno europeo (CET) son las
+   17:00 CET, antes de que open-epg termine. Y no lanzar
    corridas a mano de más: hoy hubo 4, lejos del límite de 20, pero suman.
 3. **Abrirlo al público:** con varias personas usando la guía, se parece a "compartir
    públicamente" lo de open-epg. Hace falta su permiso antes. Con epgshare01, el producto gira

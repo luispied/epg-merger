@@ -2,7 +2,9 @@ name: Merge EPGs
 
 on:
   schedule:
-    - cron: '0 16 * * *'
+    # 17:30 UTC: después de las 18:00 CET, cuando open-epg ya generó las guías del día (su FAQ
+    # pide bajarlas una vez por día a partir de esa hora; ver planes/licencias-fuentes-epg.md).
+    - cron: '30 17 * * *'
   workflow_dispatch:
 
 permissions:
