@@ -48,6 +48,14 @@ def main(argv=None):
     ok = True
     print('\n1. Lista del proveedor a través del Worker, servidor por servidor')
     for i, server in enumerate(servers, 1):
+        # Directo desde GitHub (lo que usa la corrida de hoy), para comparar con el Worker.
+        try:
+            d = requests.get(f'{server}/player_api.php', params={**creds, 'action': 'get_live_categories'}, timeout=30)
+            is_json = d.headers.get('content-type', '').startswith('application/json') or d.text[:1] in '[{'
+            print(f"   directo  {i}. {host(server)}: HTTP {d.status_code}{'' if is_json else ' (no es JSON)'}"
+                  f" server={d.headers.get('Server', '?')}")
+        except requests.RequestException as e:
+            print(f'   directo  {i}. {host(server)}: {type(e).__name__}')
         r = requests.post(f'{worker}/api/provider/list', timeout=TIMEOUT,
                           json={'type': 'xtream', 'servers': [server], **creds})
         if r.ok:
