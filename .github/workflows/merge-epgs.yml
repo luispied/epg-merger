@@ -54,6 +54,13 @@ jobs:
         XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
       run: python generate_playlist.py
 
+    # Qué tan bien asigna el EPG el matcher en listas públicas que no son del proveedor de este
+    # repo (bench/, ver tools/match_benchmark.py). Informativo: queda en el log de cada corrida.
+    - name: Matcher benchmark
+      continue-on-error: true
+      timeout-minutes: 5
+      run: python tools/match_benchmark.py --errors 3
+
     # Uso de cada fuente de EPG y fuentes sugeridas para los canales sin guía (baja hasta 20
     # candidatas del catálogo para medirlas). Es informativo para la interfaz: si falla, la
     # corrida sigue igual.

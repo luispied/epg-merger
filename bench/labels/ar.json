@@ -1,0 +1,124 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "AMC Latin America (1080p)": [
+  "210dtv.cl",
+  "AMC HD.bo",
+  "AMC HD.co",
+  "AMC.(Costa.Rica).cr",
+  "AMC.co",
+  "AMC.uy",
+  "Amc.ar"
+ ],
+ "AXN Latin America South (1080p)": [
+  "209dtv.cl",
+  "209dtv.co",
+  "AXN HD.bo",
+  "AXN HD.co",
+  "AXN.ar",
+  "AXN.co",
+  "AXN.uy"
+ ],
+ "Adult Swim Latin America (1080p) [Geo-blocked]": [
+  "AdultSwim.ar",
+  "AdultSwim.co",
+  "AdultSwim.uy"
+ ],
+ "Canal 13 Jujuy (720p)": [
+  "!Canal.13.de.Argentina.(El.Trece).ar"
+ ],
+ "Canal 21 TV (1080p)": [
+  "!CanalOrbe21.ar"
+ ],
+ "Canal 22 (720p)": [
+  "!I743.50119.schedulesdirect.org"
+ ],
+ "Canal 9 Link": [
+  "!122dtv.ar"
+ ],
+ "Ciudad Magica (720p)": [
+  "!TVCiudad.ar"
+ ],
+ "Ciudad TV Resistencia (720p)": [
+  "!TVCiudad.ar"
+ ],
+ "Comedy Central Latin America (1080p)": [
+  "215dtv.cl",
+  "COMEDY CENTRAL.bo",
+  "Comedy Central HD.co",
+  "Comedy Central.co",
+  "Comedy.Central.Centro.(Costa.Rica).cr",
+  "ComedyCentral.ar",
+  "ComedyCentral.uy"
+ ],
+ "DSports (720p)": [
+  "!DSPORTS.+.HD.dtvsp"
+ ],
+ "Dance TV [Geo-blocked]": [
+  "!Stingray.Dance.Clubbin’.ca2"
+ ],
+ "Disney Channel Latin America (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America Panregional HD (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Jr. Latin America South (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "Disney Jr. Latin America South HD (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "E! Latin America (1080p)": [
+  "222dtv.cl",
+  "E! Entertainment TV.co",
+  "E!Entertainment.ar",
+  "EntertainmentTelevision.uy"
+ ],
+ "FX Latin America South (720p)": [
+  "217dtv.cl",
+  "FX HD.co",
+  "FX.ar",
+  "FX.co",
+  "FX.uy"
+ ],
+ "La 100 (1080p)": [
+  "RadioLa100.ar"
+ ],
+ "MTV Latin America (1080p)": [
+  "MTV.ar",
+  "MTV.bo",
+  "MTV.co",
+  "MTV.uy",
+  "mtv.cl"
+ ],
+ "Mercurio Noticias": [
+  "!106dtv.ar"
+ ],
+ "Radio UP (1080p)": [
+  "!I338.44940.schedulesdirect.org"
+ ],
+ "T5 Satelital": [
+  "!ArgentinisimaSatelital.ar"
+ ],
+ "TNT Novelas (1080p)": [
+  "!I245.11164.schedulesdirect.org"
+ ],
+ "Telefe Salta": [
+  "123dtv.ar"
+ ],
+ "Telemundo Internacional (1080p)": [
+  "!I406.77606.schedulesdirect.org"
+ ]
+}

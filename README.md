@@ -153,6 +153,20 @@ Cada corrida deja un **`out/<perfil>/match_report.json`** con el candidato elegi
 el motivo y las alternativas descartadas. No contiene URLs de stream, así que se puede guardar
 y diffear entre corridas para ver si un cambio de heurística mejoró o empeoró el matching.
 
+### Banco de prueba del matcher (`tools/match_benchmark.py`)
+
+Mide qué tan bien asigna el EPG el matcher en listas que **no** son de este proveedor: copias
+congeladas de listas públicas de iptv-org en `bench/lists/` y respuestas correctas en
+`bench/labels/` (revisadas a mano; `"!id"` marca un id que se sabe incorrecto) más las que
+salen del `tvg-id` de cada lista. Reporta cobertura, aciertos y precisión de "Bien" y
+"Dudoso" por lista. Con `--luis <match_report>` mide además contra los overrides de Luis, y
+con `--luis-save` / `--luis-compare` muestra exactamente qué canales suyos cambia un arreglo.
+Corre en cada workflow (informativo) y localmente:
+
+```
+python tools/match_benchmark.py --merged merged.xml.gz
+```
+
 ### Overrides manuales
 
 Si un canal no encuentra su EPG, agregalo a `xtream_channel_map.json`:

@@ -1,0 +1,100 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "13 Festival (1080p)": [
+  "643"
+ ],
+ "AXN Latin America Chile (1080p)": [
+  "209dtv.cl",
+  "209dtv.co",
+  "AXN HD.bo",
+  "AXN HD.co",
+  "AXN.ar",
+  "AXN.co",
+  "AXN.uy"
+ ],
+ "Bio Bio TV (1080p)": [
+  "546"
+ ],
+ "Canal 13 (Chile) (1080p)": [
+  "152dtv.cl"
+ ],
+ "Comedy Central Latin America (1080p)": [
+  "215dtv.cl",
+  "COMEDY CENTRAL.bo",
+  "Comedy Central HD.co",
+  "Comedy Central.co",
+  "Comedy.Central.Centro.(Costa.Rica).cr",
+  "ComedyCentral.ar",
+  "ComedyCentral.uy"
+ ],
+ "Concepcion TV (720p)": [
+  "!586"
+ ],
+ "Disney Channel Latin America (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America Panregional HD (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Jr. Latin America South (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "Disney Jr. Latin America South HD (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "E! Latin America (1080p)": [
+  "222dtv.cl",
+  "E! Entertainment TV.co",
+  "E!Entertainment.ar",
+  "EntertainmentTelevision.uy"
+ ],
+ "ETC TV (1080p)": [
+  "850mvstr.cl"
+ ],
+ "MTV Latin America (1080p)": [
+  "MTV.ar",
+  "MTV.bo",
+  "MTV.co",
+  "MTV.uy",
+  "mtv.cl"
+ ],
+ "Mega (Chile) (1080p)": [
+  "mega.cl",
+  "Canal.Mega.(Chile).cl"
+ ],
+ "Nickelodeon Latin America (1080p)": [
+  "308dtv.cl",
+  "Nickelodeon.ar",
+  "Nickelodeon.uy"
+ ],
+ "Radio Fantasia TV (720p)": [
+  "!615"
+ ],
+ "Radio Universal (720p)": [
+  "!615"
+ ],
+ "TVM (Chile) (720p)": [
+  "598"
+ ],
+ "Teletrak TV (1080p)": [
+  "1638dtv.cl"
+ ],
+ "UCV TV (1080p)": [
+  "ucv-tv.cl"
+ ],
+ "Vision Plus TV (1080i)": [
+  "!Vision.TV.HD.ca2"
+ ]
+}

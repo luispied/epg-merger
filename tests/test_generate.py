@@ -785,3 +785,42 @@ def test_logos_del_epg_para_la_interfaz(proyecto, monkeypatch):
     with open(proyecto / 'out' / 'epg_icons.json', encoding='utf-8') as f:
         icons = json.load(f)
     assert icons == {'TBS.us': 'https://logo/tbs.png'}
+
+
+def test_pais_del_tvg_id():
+    assert generate_playlist.tvg_id_country('Clan.es@SD') == 'es'
+    assert generate_playlist.tvg_id_country('Telefe.ar') == 'ar'
+    assert generate_playlist.tvg_id_country('I245.11164.schedulesdirect.org') is None
+    assert generate_playlist.tvg_id_country(None) is None
+
+
+def _idx(*channels):
+    from lxml import etree
+    from epg_index import EpgIndex
+    xml = '<tv>' + ''.join(f'<channel id="{cid}"><display-name>{n}</display-name></channel>'
+                           for cid, n in channels) + '</tv>'
+    return EpgIndex(etree.fromstring(xml))
+
+
+def test_tvg_id_desempata_el_pais():
+    """"Clan (1080p)" de la lista de España iba a Clan.ar: el tvg-id dice que es de España."""
+    idx = _idx(('Clan.ar', 'Clan'), ('Clan.es', 'Clan'))
+    _, cid, _, _, _ = generate_playlist.match_stream('Clan (1080p)', 'Clan.es@SD', idx, {}, {}, None)
+    assert cid == 'Clan.es'
+
+
+def test_tvg_id_gana_sobre_un_match_por_nombre_dudoso():
+    idx = _idx(('TelefeRosario.ar', 'Telefe Rosario'), ('Rosario.TV.ar', 'Rosario Noticias TV'))
+    _, cid, reason, score, _ = generate_playlist.match_stream(
+        'Telefe Rosario (720p) [Geo-blocked]', 'TelefeRosario.ar@SD', idx, {}, {}, None)
+    assert cid == 'TelefeRosario.ar'
+
+
+def test_bien_requiere_que_el_nombre_coincida():
+    """El refuerzo por país elige entre candidatos, pero un nombre que coincide a medias
+    ("RTL 102.5 Disco" vs "RTL 102.5") queda "Dudoso" (< 0.8) para revisarlo."""
+    idx = _idx(('RTL.102.5.it', 'RTL 102.5'), ('Disco.it', 'Radio Disco'), ('RTL.de', 'RTL'), ('Canale.5.it', 'Canale 5'))
+    _, cid, _, score, ranked = generate_playlist.match_stream('RTL 102.5 Disco', None, idx, {}, {'country': 'it'}, None)
+    assert ranked[0].score >= 0.8, "sin calibrar, el refuerzo por país lo dejaba como Bien"
+    assert cid == 'RTL.102.5.it'
+    assert score < 0.8

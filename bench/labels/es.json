@@ -1,0 +1,81 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "Antena 3 Internacional": [
+  "Antena.3.Internacional.es"
+ ],
+ "BDN (1080p)": [
+  "BDN Televisió.es"
+ ],
+ "Canal 4 Catalunya (1080p)": [
+  "!La 2 Catalunya.es"
+ ],
+ "El 9 TV (1080p)": [
+  "!El Garage TV.es"
+ ],
+ "Elche 7 TV (576p)": [
+  "Elche.7.TV.es"
+ ],
+ "Hamaika Telebista (1080p)": [
+  "!Durangaldeko Telebista.es"
+ ],
+ "MTV Geordies": [
+  "!MTV.de"
+ ],
+ "MTV Jerseys": [
+  "!MTV.de"
+ ],
+ "PTV Malaga (1080p)": [
+  "!Canal Málaga.es"
+ ],
+ "Parlamento de Andalucia (576p) [Not 24/7]": [
+  "!Canal Parlamento.es"
+ ],
+ "Pirineus TV (1080p)": [
+  "Pirineus.TV.es"
+ ],
+ "Pluto TV True Crime (Germany) ES": [
+  "!TopTrueCrime.de"
+ ],
+ "Popular TV Murcia (1080p) [Not 24/7]": [
+  "Popular.TV.Región.de.Murcia.es"
+ ],
+ "RT en Espanol (1080p)": [
+  "560"
+ ],
+ "Radio 3 (720p)": [
+  "!533"
+ ],
+ "Sol Musica (720p)": [
+  "SOL Música.es"
+ ],
+ "TV Ripolles (1080p)": [
+  "TV Ripollès.es"
+ ],
+ "TV Sabadell-Valles (1080p)": [
+  "!Vallès Visió.es"
+ ],
+ "TVE Internacional Europe": [
+  "TVE Internacional.es"
+ ],
+ "TVE Star (576p)": [
+  "!Star.es"
+ ],
+ "TVE Star HD (1080p)": [
+  "!Star.es"
+ ],
+ "TVO Jesus (720p)": [
+  "!TVO.ca2"
+ ],
+ "TVR (Spain) (360p) [Not 24/7]": [
+  "!Stingray Total Hits Spain.es"
+ ],
+ "Tele 7 (720p)": [
+  "!Nuestra Tele.es"
+ ],
+ "Television Canaria (1080p)": [
+  "TV Canaria.es"
+ ],
+ "Urola Telebista (416p)": [
+  "!Durangaldeko Telebista.es"
+ ]
+}

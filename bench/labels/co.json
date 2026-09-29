@@ -1,0 +1,88 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "A&E Latin America (1080p)": [
+  "207dtv.cl",
+  "A&E.bo",
+  "A&E.co",
+  "AandE.uy"
+ ],
+ "Canal RCN (1080p)": [
+  "130dtv.co"
+ ],
+ "Canal TRO + (1080p) [Geo-blocked]": [
+  "Canal TRO.co"
+ ],
+ "Citytv Bogota (1080p)": [
+  "Citytv.co"
+ ],
+ "Comedy Central Latin America (1080p)": [
+  "215dtv.cl",
+  "COMEDY CENTRAL.bo",
+  "Comedy Central HD.co",
+  "Comedy Central.co",
+  "Comedy.Central.Centro.(Costa.Rica).cr",
+  "ComedyCentral.ar",
+  "ComedyCentral.uy"
+ ],
+ "Disney Channel Latin America (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America Center (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America Panregional HD (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Jr. Latin America (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "Disney Jr. Latin America North HD (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "FX Latin America (1080p)": [
+  "217dtv.cl",
+  "FX HD.co",
+  "FX.ar",
+  "FX.co",
+  "FX.uy"
+ ],
+ "History Latin America (1080p)": [
+  "1742dtv.cl",
+  "742dtv.cl",
+  "HISTORY CHANNEL.co",
+  "HISTORY.bo",
+  "History Channel.co",
+  "History HD.co",
+  "History.ar",
+  "History.co",
+  "History.uy"
+ ],
+ "MTV Latin America (1080p)": [
+  "MTV.ar",
+  "MTV.bo",
+  "MTV.co",
+  "MTV.uy",
+  "mtv.cl"
+ ],
+ "Nickelodeon Latin America (1080p)": [
+  "308dtv.cl",
+  "Nickelodeon.ar",
+  "Nickelodeon.uy"
+ ]
+}
