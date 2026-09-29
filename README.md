@@ -484,6 +484,30 @@ commit normal, así que **no se commitea**: cada corrida lo sube como asset del 
 reemplazando la versión anterior (`--clobber`). Así se evitan tanto el límite de tamaño como
 las cuotas de ancho de banda de Git LFS.
 
+## Cloudflare R2 (Grilla web, Etapa 1)
+
+La corrida diaria sube a un bucket de R2 lo que Grilla web va a leer: el índice de la guía
+para `@grilla/core` (`shared_guide.py` → `guide/index.json`) y los datos de la interfaz
+(`ui/`). La subida la hace `tools/r2_upload.sh`. Si faltan los secretos, el paso no hace
+nada; si falla, la corrida sigue igual. El bucket es **privado**: ver
+`planes/licencias-fuentes-epg.md`.
+
+Configuración, una sola vez:
+1. Cloudflare → **R2 Object Storage** → activar R2. Pide una tarjeta aunque sea el plan gratis:
+   hasta 10 GB no se cobra nada.
+2. **Create bucket** → nombre `grilla`, ubicación automática. El acceso público queda
+   desactivado.
+3. R2 → **Manage R2 API Tokens** → **Create API token**. Permiso: *Object Read & Write*, solo
+   para el bucket `grilla`. Guardar el *Access Key ID* y el *Secret Access Key*: el secreto se
+   muestra una sola vez.
+4. GitHub → repo → Settings → Secrets and variables → Actions → **New repository secret**:
+   - `R2_ACCOUNT_ID`: el *Account ID* de Cloudflare (está en la página de R2, a la derecha);
+   - `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY`: los del paso 3.
+
+   Si el bucket no se llama `grilla`, agregar además la *variable* `R2_BUCKET`.
+
+Las claves van solo a los secretos del repo: no se pegan en el chat ni en ningún archivo.
+
 ## Workflow
 
 `.github/workflows/merge-epgs.yml` corre a diario a las 16:00 UTC y también a mano

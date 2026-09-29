@@ -34,21 +34,10 @@ from channel_names import RULES_PATH, flag_to_country_code, rules as default_rul
 from epg_index import EpgIndex  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
 from providers import parse_m3u  # noqa: E402
+from shared_guide import guide_channels, source_info  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BENCH_LISTS = os.path.join(ROOT, 'bench', 'lists', '*.m3u')
-
-
-def guide_channels(root):
-    out = []
-    for channel in root.findall('channel'):
-        if not channel.get('id'):
-            continue
-        icon = channel.find('icon')
-        out.append({'id': channel.get('id'), 'source': channel.get('source'),
-                    'names': [dn.text for dn in channel.findall('display-name') if dn.text],
-                    'icon': icon.get('src') if icon is not None else ''})
-    return out
 
 
 def guide_root(channels):
@@ -136,9 +125,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     channels = guide_channels(gp.load_epg_channels(args.merged))
-    sources = {s['id']: {'country': s.get('country'), 'priority': s.get('priority', 0)}
-               for s in load_sources(os.path.join(ROOT, 'epg_urls.json'),
-                                     os.path.join(ROOT, 'epg_sources_catalog.json'))}
+    sources = source_info(load_sources(os.path.join(ROOT, 'epg_urls.json'),
+                                       os.path.join(ROOT, 'epg_sources_catalog.json')))
     rules = default_rules()
     db_raw = None
     if args.channel_db and os.path.exists(args.channel_db):

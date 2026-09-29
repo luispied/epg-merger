@@ -70,7 +70,13 @@ gratis para el servicio mientras entre en los planes gratuitos.
     playlist; los streams apuntan a `/s/…` (o directo al servidor sano, según el perfil);
   - `GET /s/<cfgId>/<token>/<stream_id>.<ext>` — redirect 302 al primer servidor sano del
     balanceador, con las credenciales del token;
-  - `GET /p/<cfgId>/epg.xml.gz` — concatena de R2 la guía de los canales elegidos.
+  - `GET /p/<cfgId>/epg.xml.gz` — devuelve de R2 la guía de esa configuración
+    (`epg/<cfgId>.xml.gz`). La arma la corrida diaria para todas las configuraciones en una
+    sola pasada por la guía, como hoy la guía de cada perfil. El Worker no la arma al pedirla:
+    en el plan gratis un pedido puede leer como mucho ~1.000 objetos de R2 y ocupar 10 ms de
+    CPU, y una lista como la tuya usa ~5.000 canales de guía contando las alternativas. Cuando
+    se guarda un cambio, el Worker puede lanzar la corrida (`repository_dispatch`) para que la
+    guía se actualice en minutos.
 - **Almacenamiento:** Cloudflare D1 o KV para configuraciones (unos KB cada una), R2 para
   la guía compartida.
 - **Grilla web:** la misma interfaz de hoy, con una capa de datos nueva: en vez de leer la
@@ -84,9 +90,14 @@ gratis para el servicio mientras entre en los planes gratuitos.
    igual (6.173 de 6.173 casos: bancos de prueba con y sin `tvg-id`, y tu lista con tus
    reglas), ~0,8 ms por canal. El CI prueba la paridad con un fixture en cada PR
    (`check-core.yml`) y la corrida diaria con la guía y tu lista reales.
-2. **Guía compartida en R2:** el workflow publica la guía por canal y los índices a R2
-   además de lo de hoy. Revisión de licencias de las fuentes de EPG (antes de abrirlo a
-   otros).
+2. **Guía compartida en R2:** el workflow publica a R2 el índice de la guía para
+   `@grilla/core` y los datos de la interfaz, además de lo de hoy. Incluye la revisión de
+   licencias de las fuentes de EPG, que hay que hacer antes de abrirlo a otros. ✅ Código:
+   `shared_guide.py` arma `guide/index.json` (2,3 MB, 320 KB comprimido) y
+   `tools/r2_upload.sh` lo sube junto con `ui/` (catálogo, logos, programación). Licencias: ver
+   `planes/licencias-fuentes-epg.md` (el bucket queda privado y no hay un link público con
+   toda la guía). Falta crear el bucket y cargar los secretos (ver README →
+   "Cloudflare R2").
 3. **Worker:** los endpoints de arriba, con tests (Miniflare), límites por IP y sin logs de
    credenciales.
 4. **Grilla web sobre el Worker:** onboarding (Xtream / M3U), matching en el navegador,
