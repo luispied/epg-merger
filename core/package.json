@@ -1,0 +1,14 @@
+{
+  "name": "@grilla/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Matcher de EPG de Grilla en TypeScript (port de channel_names.py, epg_index.py, channel_db.py y el matching de generate_playlist.py)",
+  "type": "module",
+  "exports": "./dist/index.js",
+  "scripts": {
+    "build": "npx --yes -p typescript@5.9 tsc -p .",
+    "check": "npx --yes -p typescript@5.9 tsc -p . --noEmit",
+    "test": "node --test test/core.test.ts && node test/parity.ts"
+  },
+  "engines": { "node": ">=22.18" }
+}

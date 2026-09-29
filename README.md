@@ -188,6 +188,14 @@ Corre en cada workflow (informativo) y localmente:
 python tools/match_benchmark.py --merged merged.xml.gz
 ```
 
+### El matcher en TypeScript (`core/`)
+
+`@grilla/core` es el mismo matcher portado a TypeScript, para correrlo en el navegador (Etapa
+1). Tiene que dar exactamente lo mismo que el de Python: **si se cambia el matcher de Python,
+hay que hacer el mismo cambio en `core/src/` y regenerar el fixture de paridad** (ver
+`core/README.md`). `tests/test_core_parity.py` y el workflow `check-core.yml` avisan si quedan
+distintos.
+
 ### Overrides manuales
 
 Si un canal no encuentra su EPG, agregalo a `xtream_channel_map.json`:
