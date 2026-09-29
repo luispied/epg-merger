@@ -510,7 +510,7 @@ Las claves van solo a los secretos del repo: no se pegan en el chat ni en ningú
 
 ## Workflow
 
-`.github/workflows/merge-epgs.yml` corre a diario a las 16:00 UTC y también a mano
+`.github/workflows/merge-epgs.yml` corre a diario a las 17:30 UTC (14:30 en Argentina) y también a mano
 (`workflow_dispatch`). Los pasos son: tests → merge → playlists por perfil → reporte de uso de
 fuentes → publicación de los
 artefactos públicos al release → publicación de las playlists a los gists → subida de los
