@@ -40,6 +40,11 @@ DISPLAY_PREFIX_RE = re.compile(
 )
 
 
+# "(1080p)", "720p", "1080i", "2160p": resolución del stream, como "HD".
+RESOLUTION_RE = re.compile(r'^\d{3,4}[pi]$')
+BRACKET_TAG_RE = re.compile(r'\[[^\]]*\]')
+
+
 def strip_accents(text):
     text = unicodedata.normalize('NFKD', text)
     return ''.join(c for c in text if not unicodedata.combining(c))
@@ -55,6 +60,7 @@ class MatchingRules:
         self.language_countries = data.get('language_countries', {})
         self.quality_tokens = set(data.get('quality_tokens', []))
         self.region_tokens = set(data.get('region_tokens', []))
+        self.country_groups = {k: set(v) for k, v in data.get('country_groups', {}).items()}
 
         # Las entradas de varias palabras ("costa rica") necesitan tolerar cualquier
         # separación en el texto original. El bug que esto arregla: el patrón se armaba con
@@ -68,6 +74,12 @@ class MatchingRules:
 
     def country_of(self, token):
         return self.country_tokens.get(token)
+
+    def country_matches(self, wanted, candidate):
+        """True si el país del candidato cumple con el pedido: el mismo código, o uno de los
+        países del grupo si lo pedido es una región ('latam')."""
+        group = self.country_groups.get(wanted)
+        return candidate in group if group else candidate == wanted
 
     def countries_for_language(self, language):
         return self.language_countries.get(language, [])
@@ -124,7 +136,21 @@ def parse_channel_name(raw, r=None):
             country = country or r.country_of(m.group(1))
             text = text[:m.start()] + ' ' + text[m.end():]
 
+    # Etiquetas entre corchetes que agregan algunas listas ("[Geo-blocked]", "[Not 24/7]"):
+    # dicen algo del stream, no del canal.
+    text = BRACKET_TAG_RE.sub(' ', text)
+    # El "+" distingue canales ("DSports" y "DSports+" son dos señales distintas); sin esto el
+    # tokenizador lo borra y quedan iguales.
+    text = text.replace('+', ' plus ')
+
     tokens = [t for t in re.sub(r'[^a-z0-9]+', ' ', text).split() if t]
+
+    # La calidad del final no cuenta para ubicar el sufijo de idioma: "TLC -EN ᵁᴴᴰ" también
+    # es "TLC" en inglés.
+    trailing_quality = []
+    while tokens and (tokens[-1] in r.quality_tokens or RESOLUTION_RE.match(tokens[-1])):
+        trailing_quality.insert(0, tokens.pop())
+    quality.extend(trailing_quality)
 
     # El sufijo de idioma solo se reconoce al final del nombre, que es donde el proveedor lo
     # pone ("TBS -EN"). En cualquier otra posición "en" es una palabra española corriente.
@@ -134,12 +160,14 @@ def parse_channel_name(raw, r=None):
 
     core = []
     for token in tokens:
-        if token in r.quality_tokens:
+        if token in r.quality_tokens or RESOLUTION_RE.match(token):
             quality.append(token)
         elif token in r.region_tokens:
             region = region or token
         elif token in r.country_tokens:
-            country = country or r.country_of(token)
+            # Un país concreto le gana a una región ("AXN Latin America Mexico" es el de México).
+            if not country or country in r.country_groups:
+                country = r.country_of(token)
         else:
             core.append(token)
 

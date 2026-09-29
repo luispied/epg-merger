@@ -1,0 +1,30 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "Canale 7 (480p)": [
+  "!Canale.5.it"
+ ],
+ "Deejay TV (1080p)": [
+  "Deejay.TV.it"
+ ],
+ "Giornale Radio TV (720p)": [
+  "!Radio.Italia.TV.HD.it"
+ ],
+ "Inter TV (Italy) (1080p)": [
+  "Inter.TV.it"
+ ],
+ "Pluto TV Film (Germany)": [
+  "!Warner.TV.Film.de"
+ ],
+ "QVC (Italy) (540p)": [
+  "!I275.11069.schedulesdirect.org"
+ ],
+ "RTL 102.5 Caliente (1080p)": [
+  "!RTL.102.5.HD.it"
+ ],
+ "RTL 102.5 Disco (1080p)": [
+  "!RTL.102.5.HD.it"
+ ],
+ "Super! Pop": [
+  "!I273.16715.schedulesdirect.org"
+ ]
+}

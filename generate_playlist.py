@@ -314,8 +314,75 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
         country=country,
     )
     if ranked and ranked[0].score >= MIN_SCORE:
-        return ranked[0].channel_id, ranked[0].reason, ranked[0].score, ranked
+        best = ranked[0]
+        return best.channel_id, best.reason, calibrated_score(best), ranked
     return None, None, 0.0, ranked
+
+
+# "Bien" (≥ 0.8) tiene que querer decir que el nombre coincide, no que el país ayudó: el
+# refuerzo por país o fuente preferida sirve para ELEGIR entre candidatos, pero un nombre que
+# coincide a medias ("RTL 102.5 Disco" vs "RTL 102.5") queda como "Dudoso" para revisarlo.
+GOOD_NAME_BASE = 0.75
+GOOD_SCORE = 0.8
+
+
+def calibrated_score(candidate):
+    if candidate.name_score < GOOD_NAME_BASE and candidate.score >= GOOD_SCORE:
+        return GOOD_SCORE - 0.01
+    return candidate.score
+
+
+# El id de EPG del proveedor gana sobre un match por nombre de menos de este puntaje ("Bien"
+# en la interfaz es 0.8), y si además el nombre coincide bastante, queda como "Bien".
+TVG_ID_OVERRIDES_BELOW = 0.8
+TVG_ID_STRONG_NAME = 0.5
+TVG_ID_SCORE = 0.85
+
+# "Clan.es@SD", "Telefe.ar": el sufijo de país del id de EPG que trae la lista.
+_TVG_ID_COUNTRY_RE = re.compile(r'\.([a-z]{2})(?:@[^.]*)?$', re.IGNORECASE)
+
+
+def tvg_id_country(epg_channel_id, rules=None):
+    """País que dice el id de EPG del proveedor, como pista cuando el nombre y la categoría no
+    lo dicen (las listas de iptv-org no traen banderas ni prefijos "AR|")."""
+    m = _TVG_ID_COUNTRY_RE.search(epg_channel_id or '')
+    if not m:
+        return None
+    code = m.group(1).lower()
+    aliases = rules.country_code_aliases if rules else {}
+    return aliases.get(code, code)
+
+
+def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, category_country):
+    """EPG de un canal del proveedor: (nombre_limpio, channel_id, motivo, puntaje, ranking).
+
+    Es todo el matching automático de un canal, en un solo lugar para que la corrida y el banco
+    de prueba (tools/match_benchmark.py) usen exactamente el mismo código.
+    """
+    # Se saca el prefijo que antepone el proveedor (código de país, número de evento) del
+    # nombre que se muestra y del que se matchea — pero los overrides de
+    # xtream_channel_map.json siguen buscándose por el nombre CRUDO, tal como aparece en
+    # Xtream, que es lo que la persona que configura el override tiene copiado del panel.
+    channel_name, prefix_country = strip_display_prefix(raw_name, index.rules)
+    parsed = parse_channel_name(channel_name, index.rules)
+    channel_id, reason, score, ranked = match_channel(
+        raw_name, parsed, index, overrides, epg_config,
+        prefix_country or category_country or tvg_id_country(epg_channel_id, index.rules),
+    )
+
+    # El proveedor trae su propio id de EPG (Xtream: "epg_channel_id"; M3U: "tvg-id"), que es
+    # una adivinanza sin verificar: a veces es el mismo id "por defecto" para una docena de
+    # canales sin relación entre sí. Solo se usa si el canal apuntado existe en nuestra guía
+    # (exacto o con el "@SD" de iptv-org de más) y su nombre real tiene algo que ver con el del
+    # canal. En ese caso gana sobre un match por nombre dudoso: un id que coincide y un nombre
+    # que cierra son más evidencia que un nombre parecido solo.
+    candidate = index.resolve_id(epg_channel_id)
+    if candidate and candidate != channel_id and reason != 'override' and score < TVG_ID_OVERRIDES_BELOW:
+        plausibility = index.best_name_score(parsed, candidate)
+        if plausibility >= PLAUSIBLE_MIN:
+            channel_id, reason = candidate, 'xtream_epg_id'
+            score = max(plausibility, TVG_ID_SCORE if plausibility >= TVG_ID_STRONG_NAME else plausibility)
+    return channel_name, channel_id, reason, score, ranked
 
 
 def load_provider_channels(profile):
@@ -411,12 +478,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         else:
             moved_to = None
 
-        # Se saca el prefijo que antepone el proveedor (código de país, número de evento) del
-        # nombre que se muestra y del que se matchea — pero los overrides de
-        # xtream_channel_map.json siguen buscándose por el nombre CRUDO, tal como aparece en
-        # Xtream, que es lo que la persona que configura el override tiene copiado del panel.
-        channel_name, prefix_country = strip_display_prefix(raw_name, index.rules)
-
         # Un override en `null` (armable desde la interfaz de corrección, botón "Forzar sin
         # EPG") significa "nunca le asignes EPG a este canal, ni de casualidad": sin esto, un
         # canal así de todos modos entraría al matching automático y al fallback de
@@ -430,26 +491,15 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
             # 24/7", que un match débil por los tokens "24"/"7" mandó al mismo channel_id que
             # este separador — y varios reproductores, TiviMate confirmado, esconden uno de los
             # dos cuando dos entradas comparten tvg-id).
+            channel_name = strip_display_prefix(raw_name, index.rules)[0]
             channel_id, reason, score, ranked = None, None, 0.0, []
         elif forced_no_epg:
+            channel_name = strip_display_prefix(raw_name, index.rules)[0]
             channel_id, reason, score, ranked = None, 'override_none', 1.0, []
         else:
-            parsed = parse_channel_name(channel_name, index.rules)
-            channel_id, reason, score, ranked = match_channel(
-                raw_name, parsed, index, overrides, epg_config, prefix_country or category_country,
+            channel_name, channel_id, reason, score, ranked = match_stream(
+                raw_name, stream['epg_channel_id'], index, overrides, epg_config, category_country,
             )
-
-            if not channel_id:
-                # El proveedor trae su propio id de EPG (Xtream: "epg_channel_id"; M3U:
-                # "tvg-id"), que es una adivinanza sin verificar: a veces es el mismo id "por
-                # defecto" para una docena de canales sin relación entre sí. Solo se acepta si
-                # el canal apuntado existe en nuestro EPG y además su nombre real tiene algo que
-                # ver con el del canal del proveedor.
-                candidate = stream['epg_channel_id']
-                if candidate and candidate in index:
-                    plausibility = index.best_name_score(parsed, candidate)
-                    if plausibility >= PLAUSIBLE_MIN:
-                        channel_id, reason, score = candidate, 'xtream_epg_id', plausibility
 
         stream_url = stream['url']
         alternatives = [

@@ -226,3 +226,54 @@ def test_pais_de_la_fuente_cuando_el_id_no_lo_dice():
     idx = _index([('613', ['Canal 613'], 'openepg-bolivia1')],
                  sources={'openepg-bolivia1': {'country': 'bo'}})
     assert idx.country['613'] == 'bo'
+
+
+# ------------------------------------------------ listas genéricas (etapa 0.9, bench/)
+
+def test_resolucion_y_etiquetas_entre_corchetes_no_son_nombre():
+    """Las listas de iptv-org agregan "(1080p)" y "[Geo-blocked]": bajaban el puntaje de
+    matches correctos ("La 1 (1086p)" quedaba dudoso)."""
+    p = parse_channel_name('La 1 (1086p) [Geo-blocked]')
+    assert p.core == ('la', '1')
+    assert '1086p' in p.quality
+
+
+def test_idioma_antes_de_la_calidad_del_final():
+    """"TLC -EN ᵁᴴᴰ": el "UHD" del final escondía el sufijo de idioma y "en" quedaba en el núcleo."""
+    p = parse_channel_name('TLC -EN ᵁᴴᴰ')
+    assert p.core == ('tlc',)
+    assert p.language == 'en'
+
+
+def test_el_mas_distingue_canales():
+    """"DSports" y "DSports+" son dos señales distintas."""
+    assert parse_channel_name('DSports+').core == ('dsports', 'plus')
+    assert parse_channel_name('DSports').core == ('dsports',)
+
+
+def test_latin_america_es_region_no_nombre():
+    """"AMC Latin America" iba a "Playboy TV Latin America" por las palabras compartidas."""
+    p = parse_channel_name('AMC Latin America (1080p)')
+    assert p.core == ('amc',)
+    assert p.country == 'latam'
+
+
+def test_pais_concreto_le_gana_a_la_region():
+    assert parse_channel_name('AXN Latin America Mexico').country == 'mx'
+
+
+def test_region_latam_prefiere_guias_de_la_region():
+    idx = _index([
+        ('I578.38944.schedulesdirect.org', ['Playboy TV Latin America'], 'us-src'),
+        ('I254.10021.schedulesdirect.org', ['AMC'], 'us-src'),
+        ('210dtv.cl', ['AMC'], 'cl-src'),
+    ], sources={'us-src': {'country': 'us'}, 'cl-src': {'country': 'cl'}})
+    assert _best(idx, 'AMC Latin America') == '210dtv.cl'
+
+
+def test_resolver_id_de_iptv_org():
+    idx = _index([('TelefeRosario.ar', ['Telefe Rosario'], None), ('La 1.es', ['La 1'], None)])
+    assert idx.resolve_id('TelefeRosario.ar@SD') == 'TelefeRosario.ar'
+    assert idx.resolve_id('la1.es') == 'La 1.es'
+    assert idx.resolve_id('Otro.ar@SD') is None
+    assert idx.resolve_id(None) is None

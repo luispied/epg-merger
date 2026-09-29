@@ -1,0 +1,79 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta).",
+ "AMC Latin America (1080p)": [
+  "210dtv.cl",
+  "AMC HD.bo",
+  "AMC HD.co",
+  "AMC.(Costa.Rica).cr",
+  "AMC.co",
+  "AMC.uy",
+  "Amc.ar"
+ ],
+ "AXN Latin America South (1080p)": [
+  "209dtv.cl",
+  "209dtv.co",
+  "AXN HD.bo",
+  "AXN HD.co",
+  "AXN.ar",
+  "AXN.co",
+  "AXN.uy"
+ ],
+ "Adult Swim Latin America (1080p) [Geo-blocked]": [
+  "AdultSwim.ar",
+  "AdultSwim.co",
+  "AdultSwim.uy"
+ ],
+ "Comedy Central Latin America (1080p)": [
+  "215dtv.cl",
+  "COMEDY CENTRAL.bo",
+  "Comedy Central HD.co",
+  "Comedy Central.co",
+  "Comedy.Central.Centro.(Costa.Rica).cr",
+  "ComedyCentral.ar",
+  "ComedyCentral.uy"
+ ],
+ "Disney Channel Latin America (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America Panregional HD (1080p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Jr. Latin America South (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "Disney Jr. Latin America South HD (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "E! Latin America (1080p)": [
+  "222dtv.cl",
+  "E! Entertainment TV.co",
+  "E!Entertainment.ar",
+  "EntertainmentTelevision.uy"
+ ],
+ "FX Latin America South (720p)": [
+  "217dtv.cl",
+  "FX HD.co",
+  "FX.ar",
+  "FX.co",
+  "FX.uy"
+ ],
+ "MTV Latin America (1080p)": [
+  "MTV.ar",
+  "MTV.bo",
+  "MTV.co",
+  "MTV.uy",
+  "mtv.cl"
+ ]
+}

@@ -1,5 +1,5 @@
 {
-  "_comment": "Tablas de datos del matching de nombres de canal. 'country_tokens' mapea texto que aparece dentro del nombre (una o varias palabras) al codigo de pais tal como lo usan los channel_id de las fuentes EPG. 'language_tokens' reconoce el sufijo de idioma que el proveedor agrega al final del nombre (ej. 'TBS -EN'); ese idioma se traduce a paises probables via 'language_countries', que sirve para preferir fuentes de esos paises cuando el nombre no dice el pais explicitamente. 'quality_tokens' y 'region_tokens' se extraen del nombre como senales aparte en vez de descartarse.",
+  "_comment": "Tablas de datos del matching de nombres de canal. 'country_tokens' mapea texto que aparece dentro del nombre (una o varias palabras) al codigo de pais tal como lo usan los channel_id de las fuentes EPG. 'language_tokens' reconoce el sufijo de idioma que el proveedor agrega al final del nombre (ej. 'TBS -EN'); ese idioma se traduce a paises probables via 'language_countries', que sirve para preferir fuentes de esos paises cuando el nombre no dice el pais explicitamente. 'quality_tokens' y 'region_tokens' se extraen del nombre como senales aparte en vez de descartarse. 'country_groups' agrupa paises bajo un codigo de region ('latam' = 'Latin America', 'Latinoamerica', 'Latam'): un canal de la region prefiere cualquier guia de esos paises y penaliza las de afuera.",
 
   "country_code_aliases": { "gb": "uk" },
 
@@ -24,6 +24,8 @@
     "honduras": "hn",
     "nicaragua": "ni",
     "venezuela": "ve",
+    "latin america": "latam", "latinoamerica": "latam", "latino america": "latam",
+    "america latina": "latam", "latam": "latam",
     "brasil": "br", "brazil": "br", "br": "br",
     "portugal": "pt", "pt": "pt",
     "italia": "it", "italy": "it",
@@ -42,5 +44,9 @@
 
   "quality_tokens": ["hd", "fhd", "uhd", "4k", "sd", "hevc", "hq"],
 
-  "region_tokens": ["east", "west", "pacific", "mountain", "central"]
+  "country_groups": {
+    "latam": ["ar", "bo", "cl", "co", "cr", "do", "ec", "gt", "hn", "mx", "ni", "pa", "pe", "pr", "py", "sv", "uy", "ve"]
+  },
+
+  "region_tokens": ["east", "west", "pacific", "mountain", "central", "panregional"]
 }

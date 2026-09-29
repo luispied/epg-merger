@@ -65,6 +65,10 @@ def pick_display_name(display_names):
     return max(clean or real_names, key=len)
 
 
+def _fold_id(channel_id):
+    return re.sub(r'\s+', '', channel_id).lower()
+
+
 class EpgIndex:
     """Índice invertido token -> canales, más los metadatos de cada canal."""
 
@@ -85,6 +89,7 @@ class EpgIndex:
         self.postings = {}      # token -> [channel_id, ...] en orden de aparición
         self._idf = {}
         self._order = {}        # channel_id -> orden de aparición, desempate estable
+        self._by_folded_id = None  # ver resolve_id (se arma la primera vez que se usa)
 
         for position, channel in enumerate(epg_root.findall('channel')):
             channel_id = channel.get('id')
@@ -133,6 +138,19 @@ class EpgIndex:
 
     def __contains__(self, channel_id):
         return channel_id in self.parsed
+
+    def resolve_id(self, raw_id):
+        """channel_id de la guía que corresponde a un id de EPG de una lista: exacto, o sin el
+        sufijo "@SD"/"@HD" de iptv-org y sin distinguir mayúsculas ni espacios. None si no hay."""
+        if not raw_id:
+            return None
+        if raw_id in self.parsed:
+            return raw_id
+        if self._by_folded_id is None:
+            self._by_folded_id = {}
+            for channel_id in self.parsed:
+                self._by_folded_id.setdefault(_fold_id(channel_id), channel_id)
+        return self._by_folded_id.get(_fold_id(raw_id.split('@')[0]))
 
     def idf(self, token):
         # Un token que no está en el índice es máximamente raro; se le da el peso del más raro
@@ -212,7 +230,7 @@ class EpgIndex:
 
             cand_country = self.country.get(channel_id)
             if country and cand_country:
-                if cand_country == country:
+                if self.rules.country_matches(country, cand_country):
                     score *= COUNTRY_MATCH_BOOST
                     if reason == 'name':
                         reason = 'country'

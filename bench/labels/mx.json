@@ -1,0 +1,65 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "AXN Latin America Mexico": [
+  "axn.mx",
+  "209dtv.cl",
+  "209dtv.co",
+  "AXN HD.bo",
+  "AXN HD.co",
+  "AXN.ar",
+  "AXN.co",
+  "AXN.uy"
+ ],
+ "Antena TV": [
+  "!I458.16800.schedulesdirect.org"
+ ],
+ "Comedy Central Latin America (1080p)": [
+  "215dtv.cl",
+  "COMEDY CENTRAL.bo",
+  "Comedy Central HD.co",
+  "Comedy Central.co",
+  "Comedy.Central.Centro.(Costa.Rica).cr",
+  "ComedyCentral.ar",
+  "ComedyCentral.uy"
+ ],
+ "Disney Channel Latin America Mexico (720p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Channel Latin America North (576p)": [
+  "312dtv.cl",
+  "314dtv.co",
+  "Disney Channel.co",
+  "DisneyChannel.ar",
+  "DisneyChannel.uy"
+ ],
+ "Disney Jr. Latin America (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "Disney Jr. Latin America North HD (1080p)": [
+  "315dtv.cl",
+  "DISNEY JR..bo",
+  "DisneyJR.uy"
+ ],
+ "E! Latin America Mexico (720p)": [
+  "222dtv.cl",
+  "E! Entertainment TV.co",
+  "E!Entertainment.ar",
+  "EntertainmentTelevision.uy"
+ ],
+ "Golden Premier 2 (1080p)": [
+  "!550"
+ ],
+ "MTV Latin America (1080p)": [
+  "MTV.ar",
+  "MTV.bo",
+  "MTV.co",
+  "MTV.uy",
+  "mtv.cl"
+ ]
+}

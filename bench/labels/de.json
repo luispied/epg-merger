@@ -1,0 +1,87 @@
+{
+ "_comment": "Respuestas correctas revisadas a mano (ver tools/match_benchmark.py): id, lista de ids aceptables o null (no hay guía correcta). \"!id\" = ese id está mal para el canal (se sabe que es un error pero no cuál es el correcto).",
+ "BIG BROTHER CLASSIC": [
+  "BigBrotherClassics.de"
+ ],
+ "Bibel TV Musik (720p)": [
+  "!Bibel.TV.de"
+ ],
+ "Handystar (404p) [Not 24/7]": [
+  "HandystarTV.de"
+ ],
+ "MDR Fernsehen Sachsen Anhalt (1080p) [Geo-blocked]": [
+  "MDRSachsenAnhalt.de"
+ ],
+ "MagentaMusik 360 (1080p)": [
+  "!MagentaMusik2.de"
+ ],
+ "NDR Fernsehen (720p)": [
+  "NDR.de"
+ ],
+ "OK Kaiserslautern (720p) [Geo-blocked]": [
+  "!OKTVLudwigshafen.de"
+ ],
+ "Pluto TV Sci-Fi (Germany)": [
+  "!SkySciFi.de"
+ ],
+ "Pluto TV True Crime (Germany)": [
+  "!TopTrueCrime.de"
+ ],
+ "Radio 21 TV (720p)": [
+  "!DAZN21Live.de"
+ ],
+ "SRF (1080p)": [
+  "SRF.de",
+  "SRF.1.de"
+ ],
+ "SWR Fernsehen Rheinland-Pfalz (720p) [Geo-blocked]": [
+  "SWRRheinlandPfalz.de"
+ ],
+ "TNT International (480p)": [
+  "!I245.11164.schedulesdirect.org"
+ ],
+ "WDR Fernsehen Aachen (720p) [Geo-blocked]": [
+  "WDRAachen.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Bielefeld (720p) [Geo-blocked]": [
+  "WDRBielefeld.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Bonn (720p) [Geo-blocked]": [
+  "WDRBonn.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Dortmund (720p) [Geo-blocked]": [
+  "WDRDortmund.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Duisburg (720p) [Geo-blocked]": [
+  "WDRDuisburg.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Dusseldorf (720p) [Geo-blocked]": [
+  "WDRDuesseldorf.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Essen (720p) [Geo-blocked]": [
+  "WDREssen.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Koln (720p) [Geo-blocked]": [
+  "WDRKoeln.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Munster (720p) [Geo-blocked]": [
+  "WDRMuenster.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Siegen (720p) [Geo-blocked]": [
+  "WDRSiegen.de",
+  "WDRFernsehen.de"
+ ],
+ "WDR Fernsehen Wuppertal (720p) [Geo-blocked]": [
+  "WDRWuppertal.de",
+  "WDRFernsehen.de"
+ ]
+}
