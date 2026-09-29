@@ -178,6 +178,26 @@ export function parseM3u(text: string): Channel[] {
   return channels;
 }
 
+const MAX_UPLOADED_CHANNELS = 30_000;
+
+/** Valida una lista subida (sin credenciales ni URLs de stream: solo lo que usa la playlist). */
+export function parseUploadedList(raw: unknown): { server?: string; channels: Channel[] } {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (!Array.isArray(r.channels)) throw new ProviderError('lista inválida');
+  const s = (v: unknown, max = 500) => (typeof v === 'string' ? v.slice(0, max) : typeof v === 'number' ? String(v) : '');
+  const channels = r.channels.slice(0, MAX_UPLOADED_CHANNELS).flatMap((c): Channel[] => {
+    if (!c || typeof c !== 'object') return [];
+    const ch = c as Record<string, unknown>;
+    const id = s(ch.id, 20);
+    if (!/^\d+$/.test(id)) return [];
+    const ext = /^[A-Za-z0-9]{1,6}$/.test(s(ch.ext)) ? s(ch.ext) : 'm3u8';
+    return [{ name: s(ch.name), category: s(ch.category) || 'General', id, ext, icon: s(ch.icon, 2000),
+      epgId: s(ch.epgId) || null }];
+  });
+  if (!channels.length) throw new ProviderError('la lista no tiene canales');
+  return { channels };
+}
+
 export async function loadM3u(url: string): Promise<Channel[]> {
   let target: URL;
   try {

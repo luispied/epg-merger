@@ -13,6 +13,13 @@ sano del balanceador y la guía desde R2. Endpoints: ver el comentario de `src/i
   En Xtream se guarda 3 horas, sin credenciales ni URLs de stream. Si el proveedor no responde,
   sale la última que se pudo bajar.
 - **Guía:** `epg/<cfgId>.xml.gz`, que arma la corrida diaria (`tools/config_epgs.py`).
+- **Proveedores que bloquean Cloudflare:** el de Luis, por ejemplo, le responde 403 al Worker
+  pero atiende a GitHub y a los reproductores. Para esos casos, la configuración lleva
+  `provider.list: "upload"` y la lista la sube otro con `PUT /api/cfg/<cfgId>/list`, sin
+  credenciales ni URLs. Hoy la sube GitHub cada 3 horas (`refresh-lists.yml` y
+  `tools/push_lists.py`) para los perfiles con `"grilla": {"cfg", "key"}` en
+  `XTREAM_PROFILES`. El redirect `/s/` sigue andando: el que se conecta al servidor es el
+  reproductor, y para el Worker un servidor que responde 403 cuenta como vivo.
 
 ## Puesta en marcha (una vez)
 

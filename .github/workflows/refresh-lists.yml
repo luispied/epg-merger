@@ -1,0 +1,35 @@
+name: Refresh Grilla lists
+
+# Cada 3 horas, la lista del proveedor de cada perfil con Grilla web va al Worker
+# (tools/push_lists.py): el proveedor bloquea los pedidos que salen de Cloudflare, así que la
+# baja GitHub. Así los canales nuevos (eventos del día) aparecen en la playlist sin esperar
+# a la corrida diaria.
+on:
+  schedule:
+    - cron: '15 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-lists
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install requests
+    - name: Push lists to the Worker
+      env:
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
+        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
+        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
+        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+      run: python tools/push_lists.py --worker "${{ vars.GRILLA_WORKER_URL || 'https://grilla.luis-piedrahita.workers.dev' }}"

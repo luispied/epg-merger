@@ -6,6 +6,7 @@
 //   PUT    /api/cfg/<cfgId>              (Bearer editKey) guardarla
 //   DELETE /api/cfg/<cfgId>              (Bearer editKey) borrarla
 //   POST   /api/cfg/<cfgId>/token        (Bearer editKey) credenciales → token y links
+//   PUT    /api/cfg/<cfgId>/list         (Bearer editKey) subir la lista (proveedores que bloquean Cloudflare)
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
@@ -17,7 +18,7 @@ import { decryptToken, encryptToken, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { healthyServer } from './health.ts';
 import { buildPlaylist } from './playlist.ts';
-import { type Channel, loadM3u, loadXtream, normalizeServer, ProviderError, streamUrl } from './provider.ts';
+import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
 const LIST_TTL_S = 3 * 3600;
 const RATE_LIMIT = 20; // pedidos por minuto y por IP a lo que baja listas o crea configuraciones
@@ -78,6 +79,12 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
   if (cfg.provider.type === 'm3u' || 'url' in creds) {
     // Las URLs de una lista M3U pueden llevar credenciales: no se guarda en ningún lado.
     return { channels: await loadM3u((creds as { url: string }).url) };
+  }
+  if (cfg.provider.list === 'upload') {
+    // La sube otro (GitHub o la app): el Worker no le pide nada al proveedor.
+    const uploaded = await env.BUCKET.get(r2ListKey(cfgId));
+    if (!uploaded) throw new ProviderError('la lista todavía no se subió');
+    return JSON.parse(await uploaded.text()) as LiveList;
   }
   const hit = await cache.match(listKey(cfgId));
   if (hit) return await hit.json() as LiveList;
@@ -182,6 +189,17 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       return json({ ok: true });
+    }
+    if (action === 'list' && method === 'PUT') {
+      let list: LiveList;
+      try {
+        list = parseUploadedList(await readJson(request, 16 * 1024 * 1024));
+      } catch (e) {
+        if (e instanceof ProviderError) return fail(400, e.message);
+        throw e;
+      }
+      await env.BUCKET.put(r2ListKey(cfgId), JSON.stringify(list), { httpMetadata: { contentType: 'application/json' } });
+      return json({ ok: true, channels: list.channels.length });
     }
     if (action === 'token' && method === 'POST') {
       const creds = credentialsFrom(await readJson(request, 16 * 1024) as Record<string, unknown>, stored.config);

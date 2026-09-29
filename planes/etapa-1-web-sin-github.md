@@ -111,6 +111,24 @@ gratis para el servicio mientras entre en los planes gratuitos.
 5. **Migración tuya:** importar tu configuración, comparar la playlist y la guía con las de
    GitHub (mismos canales, mismos EPG) y cambiar los links en tus reproductores.
 
+## Prueba real del Worker (29/09/2026)
+
+- Anda: la guía y la interfaz se sirven desde R2, las configuraciones y el link cifrado
+  funcionan, y la playlist en vivo sale bien con una lista M3U pública (179 canales en 0,7 s).
+- **El proveedor de Luis bloquea Cloudflare:** a GitHub le responde 200 y al Worker 403 desde
+  su propio nginx, con cualquier User-Agent. De los 5 servidores del balanceador, 3 no
+  responden ni desde GitHub (`legazy.icu`, `legazy.click`, `zgazy.com`).
+- Solución por ahora: la lista la baja GitHub cada 3 horas y la sube al Worker
+  (`refresh-lists.yml`). Reproducir no cambia: el reproductor se conecta directo.
+- Para no depender de GitHub, hay dos caminos:
+  - **la app** (Expo): un teléfono no tiene CORS y usa la IP de la casa, así que baja la lista y
+    la sube, igual que GitHub hoy;
+  - **un equipo en la casa** (Raspberry Pi, NAS, Android viejo) con un script que corra cada
+    tanto.
+
+  Un hosting que no sea Cloudflare (Deno Deploy, Vercel, un VPS) puede servir, pero depende de
+  que el proveedor no lo bloquee también: hay que probarlo.
+
 ## Seguridad
 - Credenciales: solo dentro del token del link, cifradas; el Worker no las guarda en ningún
   caso (ni en la caché de la lista, que no lleva URLs de stream).
