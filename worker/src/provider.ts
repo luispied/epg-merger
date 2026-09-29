@@ -198,6 +198,17 @@ export function parseUploadedList(raw: unknown): { server?: string; channels: Ch
   return { channels };
 }
 
+/** Canales de la lista M3U que da un proveedor Xtream (get.php): el stream_id y la extensión
+ *  salen de la URL (…/live/usuario/clave/123.ts o …/usuario/clave/123), que no se guarda. Es
+ *  lo que sube la web cuando el proveedor no deja que el Worker baje la lista. */
+export function channelsFromXtreamM3u(text: string): Channel[] {
+  return parseM3u(text).flatMap((c) => {
+    const m = /\/(\d+)(?:\.([A-Za-z0-9]{1,6}))?(?:[?#].*)?$/.exec(c.url ?? '');
+    if (!m) return [];
+    return [{ name: c.name, category: c.category, id: m[1], ext: m[2] || 'ts', icon: c.icon, epgId: c.epgId }];
+  });
+}
+
 export async function loadM3u(url: string): Promise<Channel[]> {
   let target: URL;
   try {

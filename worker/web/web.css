@@ -1,0 +1,21 @@
+/* Grilla web: lo que agrega a app.css (el de la interfaz de docs/, copiado al compilar). */
+.app-header .lead { color: var(--muted); font-size: 15px; margin: 8px 0 0; max-width: 640px; }
+#onboarding main { max-width: 560px; }
+.stack { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bottom: 10px; resize: vertical; font: inherit; }
+.steps { padding-left: 20px; margin: 0; }
+.steps li { margin: 2px 0; }
+.card .help { margin-top: 12px; }
+.header-actions .btn { min-height: 38px; }
+.pick-row { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pick-row:active, .pick-row:hover { background: var(--fill); }
+#channelBody > .epg-row { background: var(--surface-2); border-radius: var(--radius-sm); }
+#channelBody .row-actions { margin-top: 10px; }
+.cat-row { gap: 6px; }
+.cat-row .icon-btn[disabled] { opacity: .3; }
+.input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0 4px; }
+.qr svg { width: 180px; height: 180px; background: #fff; border-radius: 8px; }
+.danger-zone { margin-top: 16px; }
+.muted { color: var(--muted); }
+.card { cursor: pointer; }
