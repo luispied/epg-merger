@@ -4,6 +4,8 @@
 name = "grilla"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+# Las variables cargadas en el panel no se borran al publicar desde el repo.
+keep_vars = true
 
 [[r2_buckets]]
 binding = "BUCKET"

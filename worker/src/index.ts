@@ -203,6 +203,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
 export async function handle(request: Request, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (!env.TOKEN_KEY) {
+    // Sin la clave no se pueden armar ni leer links (ver worker/README.md → TOKEN_KEY).
+    return fail(503, 'falta configurar TOKEN_KEY (tipo Secret) en el Worker');
+  }
   const parts = url.pathname.split('/').filter(Boolean);
   const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
   try {

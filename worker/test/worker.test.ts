@@ -190,3 +190,27 @@ test('parseo M3U igual que providers.py', () => {
   assert.deepEqual(chs.map((c) => [c.name, c.category, c.epgId, c.icon, c.url]), [
     ['Canal A', 'G', 'a.ar', 'l', 'http://a'], ['Canal B', 'Grupo B', null, '', 'http://b'], ['C', 'General', null, '', 'http://c']]);
 });
+
+test('sin TOKEN_KEY: error claro en vez de un 500', async () => {
+  const t = makeEnv();
+  const res = await handle(req('/api/guide/index.json'), { ...t.env, TOKEN_KEY: undefined as unknown as string }, t.ctx, t.cache);
+  assert.equal(res.status, 503);
+  assert.match(((await res.json()) as { error: string }).error, /TOKEN_KEY/);
+});
+
+test('servidor que no es Xtream o que rechaza: el error dice por qué (sin la URL)', async () => {
+  const t = makeEnv();
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const host = new URL(String(input)).hostname;
+    if (host === 'waf.example') return new Response('<h1>Sorry, you have been blocked</h1>', { status: 403, headers: { Server: 'cloudflare' } });
+    return new Response('<div align="center">Parked domain</div>');
+  }) as typeof fetch;
+  restore = () => void (globalThis.fetch = original);
+  const res = await handle(req('/api/provider/list', { method: 'POST', body: JSON.stringify({
+    type: 'xtream', servers: ['http://waf.example:8880', 'http://parked.example'], username: 'user', password: 'secreta' }) }), t.env, t.ctx, t.cache);
+  const { error } = await res.json() as { error: string };
+  assert.match(error, /waf\.example:8880: HTTP 403 \(cloudflare\): Sorry, you have been blocked/);
+  assert.match(error, /parked\.example: no respondió JSON .*Parked domain/);
+  assert.ok(!error.includes('secreta'));
+});

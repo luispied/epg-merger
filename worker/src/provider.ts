@@ -60,10 +60,26 @@ async function readLimited(res: Response, limit = MAX_LIST_BYTES): Promise<strin
   return new TextDecoder().decode(all);
 }
 
+/** Un pedazo del cuerpo de una respuesta inesperada, para diagnosticar (sin HTML). */
+async function snippet(res: Response): Promise<string> {
+  try {
+    const text = (await readLimited(res, 64 * 1024)).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text ? `: ${text.slice(0, 120)}` : '';
+  } catch {
+    return '';
+  }
+}
+
 async function getJson(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown> {
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new ProviderError(`HTTP ${res.status}`);
-  return JSON.parse(await readLimited(res));
+  const server = res.headers.get('Server') ?? '';
+  if (!res.ok) throw new ProviderError(`HTTP ${res.status}${server ? ` (${server})` : ''}${await snippet(res)}`);
+  const text = await readLimited(res);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ProviderError(`no respondió JSON (¿no es un servidor Xtream?)${await snippet(new Response(text))}`);
+  }
 }
 
 export function playerApiUrl(server: string, u: string, p: string, action?: string): string {
