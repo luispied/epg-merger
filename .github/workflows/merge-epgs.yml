@@ -68,6 +68,20 @@ jobs:
       timeout-minutes: 5
       run: python tools/match_benchmark.py --errors 3
 
+    # @grilla/core (el matcher en TypeScript, core/) contra el de Python con la guía y las listas
+    # reales de esta corrida: tienen que elegir exactamente lo mismo. Informativo.
+    - uses: actions/setup-node@v4
+      continue-on-error: true
+      with:
+        node-version: '22'
+    - name: Core parity (TypeScript vs Python)
+      continue-on-error: true
+      timeout-minutes: 10
+      run: |
+        report=$(ls out/*/match_report.json 2>/dev/null | head -1)
+        python tools/core_parity.py ${report:+--luis "$report"} --out /tmp/parity.json
+        node core/test/parity.ts /tmp/parity.json --show 10
+
     # Uso de cada fuente de EPG y fuentes sugeridas para los canales sin guía (baja hasta 20
     # candidatas del catálogo para medirlas). Es informativo para la interfaz: si falla, la
     # corrida sigue igual.

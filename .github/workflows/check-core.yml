@@ -1,0 +1,36 @@
+name: Check core
+
+# @grilla/core (core/): tipos, tests y paridad con el matcher de Python sobre el fixture.
+on:
+  pull_request:
+    paths: ['core/**', 'channel_names.py', 'epg_index.py', 'channel_db.py', 'generate_playlist.py',
+            'matching_rules.json', 'tools/core_parity.py', '.github/workflows/check-core.yml']
+  push:
+    branches: [main]
+    paths: ['core/**', 'channel_names.py', 'epg_index.py', 'channel_db.py', 'generate_playlist.py',
+            'matching_rules.json', 'tools/core_parity.py', '.github/workflows/check-core.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Type-check
+      run: npx --yes -p typescript@5.9 tsc -p core --noEmit
+    - name: Unit tests
+      run: node --test core/test/core.test.ts
+    - name: Parity with Python (fixture)
+      run: node core/test/parity.ts
+    - name: Fixture still matches the Python matcher
+      run: |
+        pip install -r requirements.txt pytest
+        python -m pytest tests/test_core_parity.py -q

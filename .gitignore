@@ -5,3 +5,4 @@ merged.xml.gz
 out/
 .env
 iptv_channels.json
+core/dist/

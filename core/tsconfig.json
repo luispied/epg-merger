@@ -1,0 +1,23 @@
+{
+  // @grilla/core: el matcher de EPG en TypeScript (port de channel_names.py, epg_index.py,
+  // channel_db.py y el matching de generate_playlist.py). Node 22 corre los .ts directo (tests);
+  // tsc chequea tipos y compila a dist/ para el navegador.
+  // Correr con: npx -p typescript@5.9 tsc -p core
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noEmitOnError": true,
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": false,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "declaration": true,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -80,7 +80,10 @@ gratis para el servicio mientras entre en los planes gratuitos.
 ## Trabajo, en PRs separados
 1. **`@grilla/core` en TypeScript:** port de `channel_names.py`, `epg_index.py`,
    `match_channel` y las reglas del proveedor, con **test de paridad ≥ 99 %** contra Python
-   sobre tus reportes reales (mismos `chosen`).
+   sobre tus reportes reales (mismos `chosen`). ✅ `core/` (ver `core/README.md`): 100 %
+   igual (6.173 de 6.173 casos: bancos de prueba con y sin `tvg-id`, y tu lista con tus
+   reglas), ~0,8 ms por canal. El CI prueba la paridad con un fixture en cada PR
+   (`check-core.yml`) y la corrida diaria con la guía y tu lista reales.
 2. **Guía compartida en R2:** el workflow publica la guía por canal y los índices a R2
    además de lo de hoy. Revisión de licencias de las fuentes de EPG (antes de abrirlo a
    otros).

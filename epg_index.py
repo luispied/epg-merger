@@ -195,7 +195,10 @@ class EpgIndex:
         return self._idf.get(token, math.log(1 + max(len(self.parsed), 1)))
 
     def _weight(self, tokens):
-        return sum(self.idf(t) for t in tokens)
+        # En orden fijo: sumar en el orden de un set (que cambia entre corridas) movía los
+        # últimos decimales y, con eso, algún desempate. Así el resultado es reproducible y
+        # el port a TypeScript (core/) da exactamente lo mismo.
+        return sum(self.idf(t) for t in sorted(tokens))
 
     def _score(self, q_tokens, q_weight, target):
         t = set(target.core)
@@ -229,7 +232,8 @@ class EpgIndex:
         )
 
     def _candidate_ids(self, query):
-        tokens = sorted(set(query.core), key=self.idf, reverse=True)[:CANDIDATE_TOKENS]
+        # Los más raros primero; ante el mismo IDF, alfabético (antes dependía del orden del set).
+        tokens = sorted(set(query.core), key=lambda t: (-self.idf(t), t))[:CANDIDATE_TOKENS]
         ids, seen = [], set()
         for token in tokens:
             for channel_id in self.postings.get(token, ()):
