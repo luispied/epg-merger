@@ -43,6 +43,13 @@ jobs:
     - name: Merge EPGs
       run: python merge_epgs.py
 
+    # Diccionario de canales de iptv-org (dominio público): nombres alternativos para los
+    # canales que no encuentran guía por su nombre (channel_db.py). Si no se puede bajar, la
+    # corrida sigue sin él.
+    - name: Download channel dictionary
+      continue-on-error: true
+      run: curl -sSfL --retry 3 -o iptv_channels.json https://iptv-org.github.io/api/channels.json
+
     # Genera, por cada perfil de XTREAM_PROFILES, su out/<perfil>/{playlist.m3u8,epg.xml.gz,match_report.json}.
     # El JSON con las credenciales nunca se expande en el shell: lo lee el propio Python.
     - name: Generate playlists

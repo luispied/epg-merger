@@ -130,6 +130,22 @@ mejor; 8 que no tenían guía ahora la tienen (ADN 40, Cali TV, Tele Islas, NFL 
 TeenNick, WeatherNation, La Tele, MotoGP) y se corrigen "Baby First" (iba a BBC First), "ESPN
 U" (iba a Canal U), "Mega Tiempo" (iba a Nuevo Tiempo), "NOW 80s" (iba a NOW US).
 
-**Siguiente:** diccionario de canales de iptv-org (`iptv-org/database`, dominio público, 31.404
-canales con nombres alternativos, país y cadena) para nombres alternativos, variantes
-regionales ("Telefe Salta" → Telefe) y el país de cada canal.
+## Tercera ronda: diccionario de iptv-org (29/09/2026)
+
+`channel_db.py` con `iptv-org/database` (dominio público, ~30 mil canales abiertos con nombres
+alternativos y país), bajado en cada corrida; si no está, todo sigue igual. Se usa como
+**último recurso**, solo cuando un canal no encontró guía por su nombre: prueba con los otros
+nombres del mismo canal ("13C" = "Canal 13 Cable", "LN+" = "La Nación +") y acepta el resultado
+solo si queda "Bien" y el país coincide de los dos lados (sin eso se colaban "FOX Sports 1 CL" →
+el de EE.UU. y "RTL 102.5 Traffic" → "RTL 102.5").
+
+Medido: aporta poco pero sin errores nuevos. En el banco, ~+1 % de cobertura (las señales del
+13 de Chile, Movistar Plus+, TVG Europa…) con la precisión igual (99 %). En la lista de Luis, 1
+canal ("AR| LN+"). No sirve para variantes regionales: el diccionario no dice que "Telefe Salta"
+es de Telefe. Y como "puente" de ids (nombre → id de iptv-org → la guía) no resolvió ninguno de
+los 462 canales de Luis sin guía: esos canales no están en ninguna fuente activa.
+
+**Conclusión de la etapa:** con lo asignado al 99 % en el banco y 91 % en la muestra revisada a
+mano (los 2 errores son ambiguos), el matcher ya no es el cuello de botella; lo que limita la
+cobertura son las fuentes de EPG. Falta la comparación de cobertura con IPTVEditor / m3u4u
+(`prueba-argentina.m3u`) para decidir la Etapa 1.
