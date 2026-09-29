@@ -70,8 +70,8 @@ async function snippet(res: Response): Promise<string> {
   }
 }
 
-async function getJson(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown> {
-  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(timeoutMs) });
+async function getJson(url: string, userAgent = USER_AGENT, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown> {
+  const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(timeoutMs) });
   const server = res.headers.get('Server') ?? '';
   if (!res.ok) throw new ProviderError(`HTTP ${res.status}${server ? ` (${server})` : ''}${await snippet(res)}`);
   const text = await readLimited(res);
@@ -102,7 +102,7 @@ interface XtreamStream {
 }
 
 /** Prueba cada servidor en orden (como xtream_client.py). Devuelve el que respondió y la lista. */
-export async function loadXtream(servers: string[], u: string, p: string): Promise<{ server: string; channels: Channel[] }> {
+export async function loadXtream(servers: string[], u: string, p: string, userAgent = USER_AGENT): Promise<{ server: string; channels: Channel[] }> {
   const errors: string[] = [];
   for (const raw of servers) {
     let server: string;
@@ -113,11 +113,11 @@ export async function loadXtream(servers: string[], u: string, p: string): Promi
       continue;
     }
     try {
-      const streams = await getJson(playerApiUrl(server, u, p, 'get_live_streams'));
+      const streams = await getJson(playerApiUrl(server, u, p, 'get_live_streams'), userAgent);
       if (!Array.isArray(streams)) throw new ProviderError('respuesta inesperada');
       let categories: Record<string, string> = {};
       try {
-        const cats = await getJson(playerApiUrl(server, u, p, 'get_live_categories'));
+        const cats = await getJson(playerApiUrl(server, u, p, 'get_live_categories'), userAgent);
         if (Array.isArray(cats)) {
           categories = Object.fromEntries(cats.map((c: { category_id: unknown; category_name: string }) =>
             [String(c.category_id), c.category_name]));
