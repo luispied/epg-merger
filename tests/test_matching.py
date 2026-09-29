@@ -300,3 +300,13 @@ def test_sin_region_se_prefiere_la_senal_del_este():
     idx = _index([('TBS.HD.Pacific.us', ['TBS HD (Pacific)'], None), ('TBS.HD.us', ['TBS HD'], None)])
     assert _best(idx, 'TBS HD') == 'TBS.HD.us'
     assert _best(idx, 'TBS Pacific') == 'TBS.HD.Pacific.us'
+
+
+def test_senal_preferida_configurable():
+    idx = _index([('TBS.HD.Pacific.us', ['TBS HD (Pacific)'], None), ('TBS.HD.us', ['TBS HD'], None)])
+    idx.preferred_feed = 'pacific'
+    assert _best(idx, 'TBS HD') == 'TBS.HD.Pacific.us'
+    idx.preferred_feed = 'west'  # alias de Pacific
+    assert _best(idx, 'TBS HD') == 'TBS.HD.Pacific.us'
+    idx.preferred_feed = 'east'
+    assert _best(idx, 'TBS HD') == 'TBS.HD.us'

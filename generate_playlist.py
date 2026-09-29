@@ -83,6 +83,9 @@ DEFAULT_PROVIDER_RULES = {
     # que ninguna), entre 0.7 y 0.8 ~72 %, desde 0.8 ~98 %. Lo que queda debajo no se asigna
     # pero sigue como sugerencia en "A revisar".
     'min_assign_score': 0.7,
+    # Señal horaria preferida de los canales de EE.UU./Canadá cuando el nombre no dice cuál:
+    # 'east', 'pacific' (= 'west'), 'mountain', 'central' o null (sin preferencia).
+    'preferred_feed': 'east',
 }
 
 
@@ -126,6 +129,7 @@ class _Rules:
         self.divider_display = dict(rules['dividers'].get('display_names') or {})
         self.alphabetical = rules.get('category_order') == 'alphabetical'
         self.min_assign_score = float(rules.get('min_assign_score') or MIN_SCORE)
+        self.preferred_feed = (rules.get('preferred_feed') or '').lower() or None
 
 
 _rules = _Rules(DEFAULT_PROVIDER_RULES)
@@ -925,6 +929,7 @@ def generate():
     channels_root = load_epg_channels()
     sources = {s['id']: s for s in load_sources()}
     index = EpgIndex(channels_root, sources=sources)
+    index.preferred_feed = _rules.preferred_feed
     print(f"🗂️  EPG indexado: {len(index.parsed)} canales, {len(index.postings)} tokens [{elapsed()}]")
     write_epg_icons(index)
 
