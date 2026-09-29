@@ -3,6 +3,7 @@
   "order": { "24/7": 70, "DEPORTES": 40, "ENGLISH": 30, "ESPAÑOL": 10, "LATINOS USA": 60, "PAÍSES": 20, "PPV EVENTS": 50 },
   "category_epg": {
     "PPV DAZN": { "prefer_sources": ["programadorx-cl"] },
+    "🎥 Peliculas": { "prefer_sources": ["epgshare-cl1"] },
     "🏈 ESPN": { "prefer_sources": ["epgshare-ec1"] }
   },
   "rules": [
