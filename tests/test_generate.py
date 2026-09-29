@@ -824,3 +824,13 @@ def test_bien_requiere_que_el_nombre_coincida():
     assert ranked[0].score >= 0.8, "sin calibrar, el refuerzo por país lo dejaba como Bien"
     assert cid == 'RTL.102.5.it'
     assert score < 0.8
+
+
+def test_en_xtream_el_id_del_proveedor_no_da_pais():
+    """El epg_channel_id de Xtream es una adivinanza del proveedor: su ".mx" no puede mandar un
+    canal panregional a la guía mexicana (pasó con 300 canales de Luis)."""
+    idx = _idx(('Amc.ar', 'AMC'), ('amc.mx', 'AMC'))
+    _, m3u, _, _, _ = generate_playlist.match_stream('AMC', 'amc.mx', idx, {}, {}, None, trust_list_ids=True)
+    _, xtream, _, _, _ = generate_playlist.match_stream('AMC', 'amc.mx', idx, {}, {}, None, trust_list_ids=False)
+    assert m3u == 'amc.mx'
+    assert xtream == 'Amc.ar', "sin pista de país gana la primera fuente, como antes"

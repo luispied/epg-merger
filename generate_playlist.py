@@ -353,11 +353,18 @@ def tvg_id_country(epg_channel_id, rules=None):
     return aliases.get(code, code)
 
 
-def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, category_country):
+def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, category_country,
+                 trust_list_ids=True):
     """EPG de un canal del proveedor: (nombre_limpio, channel_id, motivo, puntaje, ranking).
 
     Es todo el matching automático de un canal, en un solo lugar para que la corrida y el banco
     de prueba (tools/match_benchmark.py) usen exactamente el mismo código.
+
+    `trust_list_ids`: confiar en el id de EPG del proveedor como pista de país y para ganarle a
+    un match por nombre dudoso. Sirve en listas M3U (el `tvg-id` de iptv-org dice el país real
+    del canal), pero NO en Xtream: ahí el `epg_channel_id` es una adivinanza del proveedor (el
+    de Luis pone ".mx" a canales panregionales y con la pista cambiaban 300 canales de la guía
+    argentina a la mexicana). En Xtream ese id solo se usa si el nombre no encontró nada.
     """
     # Se saca el prefijo que antepone el proveedor (código de país, número de evento) del
     # nombre que se muestra y del que se matchea — pero los overrides de
@@ -367,7 +374,8 @@ def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, categor
     parsed = parse_channel_name(channel_name, index.rules)
     channel_id, reason, score, ranked = match_channel(
         raw_name, parsed, index, overrides, epg_config,
-        prefix_country or category_country or tvg_id_country(epg_channel_id, index.rules),
+        prefix_country or category_country
+        or (tvg_id_country(epg_channel_id, index.rules) if trust_list_ids else None),
     )
 
     # El proveedor trae su propio id de EPG (Xtream: "epg_channel_id"; M3U: "tvg-id"), que es
@@ -377,11 +385,14 @@ def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, categor
     # canal. En ese caso gana sobre un match por nombre dudoso: un id que coincide y un nombre
     # que cierra son más evidencia que un nombre parecido solo.
     candidate = index.resolve_id(epg_channel_id)
-    if candidate and candidate != channel_id and reason != 'override' and score < TVG_ID_OVERRIDES_BELOW:
+    beats = score < TVG_ID_OVERRIDES_BELOW if trust_list_ids else not channel_id
+    if candidate and candidate != channel_id and reason != 'override' and beats:
         plausibility = index.best_name_score(parsed, candidate)
         if plausibility >= PLAUSIBLE_MIN:
             channel_id, reason = candidate, 'xtream_epg_id'
-            score = max(plausibility, TVG_ID_SCORE if plausibility >= TVG_ID_STRONG_NAME else plausibility)
+            score = plausibility
+            if trust_list_ids and plausibility >= TVG_ID_STRONG_NAME:
+                score = max(plausibility, TVG_ID_SCORE)
     return channel_name, channel_id, reason, score, ranked
 
 
@@ -499,6 +510,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         else:
             channel_name, channel_id, reason, score, ranked = match_stream(
                 raw_name, stream['epg_channel_id'], index, overrides, epg_config, category_country,
+                trust_list_ids=profile.get('type') == 'm3u',
             )
 
         stream_url = stream['url']
@@ -511,6 +523,9 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         report.append({
             'xtream_name': raw_name,
             'category': category,
+            # El id de EPG que sugiere el proveedor (no lleva credenciales): con él el banco de
+            # prueba simula exactamente la corrida (tools/match_benchmark.py).
+            'provider_epg_id': stream['epg_channel_id'],
             'section': category_info(category)[0],
             'chosen': channel_id,
             'reason': reason,
