@@ -21,6 +21,7 @@ import unicodedata
 
 from lxml import etree
 
+from channel_db import load_channel_db
 from channel_names import flag_to_country_code, parse_channel_name, strip_accents, strip_display_prefix
 from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex, joined_variant
 from merge_epgs import load_sources
@@ -362,6 +363,35 @@ def tvg_id_country(epg_channel_id, rules=None):
     return aliases.get(code, code)
 
 
+# Diccionario de canales de iptv-org (channel_db.py), si está: último recurso para los canales
+# que no encontraron guía por su nombre. Lo fija generate() (y el banco de prueba).
+_channel_db = None
+
+
+def set_channel_db(db):
+    global _channel_db
+    _channel_db = db
+
+
+def _match_by_alias(raw_name, channel_name, list_id, index, overrides, epg_config, country, ranked):
+    """Prueba con los otros nombres del canal según el diccionario ("13C" es "Canal 13 Cable",
+    "LN+" es "La Nación +"). Solo acepta un resultado "Bien" y del mismo país que dice el
+    diccionario: en el banco de prueba, con menos que eso se colaban canales de otro país."""
+    for alias, alias_country in _channel_db.aliases(channel_name, list_id, country):
+        parsed = parse_channel_name(alias, index.rules)
+        cid, _, score, alt_ranked = match_channel(raw_name, parsed, index, overrides, epg_config,
+                                                  country or alias_country)
+        if not cid or score < GOOD_SCORE:
+            continue
+        # País confirmado de los dos lados: una guía sin país (fuentes multi-país) mandaba
+        # "FOX Sports 1 CL" a la de EE.UU.
+        cand_country = index.country.get(cid)
+        if not alias_country or not cand_country or not index.rules.country_matches(alias_country, cand_country):
+            continue
+        return cid, 'alias', score, alt_ranked
+    return None, None, 0.0, ranked
+
+
 def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, category_country,
                  trust_list_ids=True):
     """EPG de un canal del proveedor: (nombre_limpio, channel_id, motivo, puntaje, ranking).
@@ -401,6 +431,12 @@ def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, categor
     # (exacto o con el "@SD" de iptv-org de más) y su nombre real tiene algo que ver con el del
     # canal. En ese caso gana sobre un match por nombre dudoso: un id que coincide y un nombre
     # que cierra son más evidencia que un nombre parecido solo.
+    if not channel_id and _channel_db is not None:
+        channel_id, reason, score, ranked = _match_by_alias(
+            raw_name, channel_name, epg_channel_id if trust_list_ids else None,
+            index, overrides, epg_config, parsed.country or fallback_country, ranked,
+        )
+
     candidate = index.resolve_id(epg_channel_id)
     beats = score < TVG_ID_OVERRIDES_BELOW if trust_list_ids else not channel_id
     if candidate and candidate != channel_id and reason != 'override' and beats:
@@ -879,6 +915,10 @@ def generate():
         return
 
     set_provider_rules(load_provider_rules())
+    channel_db = load_channel_db()
+    set_channel_db(channel_db)
+    if channel_db:
+        print(f"📖 Diccionario de canales de iptv-org: {len(channel_db)} canales")
     t0 = time.monotonic()
     elapsed = lambda: f"{time.monotonic() - t0:.0f}s"  # noqa: E731
 

@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import generate_playlist as gp  # noqa: E402
 from channel_names import flag_to_country_code, strip_accents  # noqa: E402
+from channel_db import load_channel_db  # noqa: E402
 from epg_index import EpgIndex  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
 from providers import parse_m3u  # noqa: E402
@@ -222,6 +223,8 @@ def main(argv=None):
     ap.add_argument('--merged', default=gp.MERGED_EPG_PATH)
     ap.add_argument('--luis', help='match_report de Luis (JSON) para medir contra sus overrides')
     ap.add_argument('--map', default=os.path.join(ROOT, gp.CHANNEL_MAP_PATH))
+    ap.add_argument('--channel-db', default=os.path.join(ROOT, 'iptv_channels.json'),
+                    help="diccionario de iptv-org (channel_db.py); '' para no usarlo")
     ap.add_argument('--luis-save', help='guardar el EPG automático de los canales de Luis (antes de un cambio)')
     ap.add_argument('--luis-compare', help='comparar contra un --luis-save anterior')
     ap.add_argument('--json', help='guardar métricas y errores en este archivo')
@@ -233,6 +236,9 @@ def main(argv=None):
                                                 os.path.join(ROOT, 'epg_sources_catalog.json'))}
     index = EpgIndex(root, sources=sources)
     judge = Judge(index)
+    db = load_channel_db(args.channel_db, index.rules) if args.channel_db else None
+    gp.set_channel_db(db)
+    print(f"Diccionario de iptv-org: {len(db) if db else 'no'}")
 
     rows, detail = [], {}
     # Listas públicas: reglas genéricas (no son del proveedor de Luis).

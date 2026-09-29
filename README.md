@@ -153,6 +153,14 @@ Cada corrida deja un **`out/<perfil>/match_report.json`** con el candidato elegi
 el motivo y las alternativas descartadas. No contiene URLs de stream, así que se puede guardar
 y diffear entre corridas para ver si un cambio de heurística mejoró o empeoró el matching.
 
+### Diccionario de canales de iptv-org (`channel_db.py`)
+
+El workflow baja `iptv_channels.json` de la API de [iptv-org/database](https://github.com/iptv-org/database)
+(dominio público): ~30 mil canales con sus nombres alternativos y país. Cuando un canal no
+encuentra guía por su nombre, el matcher prueba con los otros nombres del mismo canal ("13C" =
+"Canal 13 Cable") y acepta solo un resultado "Bien" del mismo país. Si el archivo no está,
+todo funciona igual sin él.
+
 ### Banco de prueba del matcher (`tools/match_benchmark.py`)
 
 Mide qué tan bien asigna el EPG el matcher en listas que **no** son de este proveedor: copias

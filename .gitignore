@@ -4,3 +4,4 @@ __pycache__/
 merged.xml.gz
 out/
 .env
+iptv_channels.json
