@@ -172,7 +172,7 @@ def luis_cases(report_path, map_path, sections):
         section = gp.classify_section(ch['category'], section_rules)
         cases.append({'name': ch['xtream_name'], 'category': ch['category'], 'tvg_id': None,
                       'expected': [expected], 'country': flag_to_country_code(ch['category']),
-                      'epg_config': section_epg.get(section, {})})
+                      'epg_config': gp.epg_config_for(section, ch['category'], section_epg)})
     return cases
 
 
@@ -194,7 +194,7 @@ def luis_auto(report_path, map_path, sections, index):
         # Igual que la corrida con un perfil Xtream (el id de EPG del proveedor, si el reporte
         # lo trae, sin confiar en su país).
         _, cid, _, _, _ = gp.match_stream(name, ch.get('provider_epg_id'), index, {},
-                                          section_epg.get(section, {}), flag_to_country_code(ch['category']),
+                                          gp.epg_config_for(section, ch['category'], section_epg), flag_to_country_code(ch['category']),
                                           trust_list_ids=False)
         out[name] = cid
     return out

@@ -149,3 +149,18 @@ los 462 canales de Luis sin guía: esos canales no están en ninguna fuente acti
 mano (los 2 errores son ambiguos), el matcher ya no es el cuello de botella; lo que limita la
 cobertura son las fuentes de EPG. Falta la comparación de cobertura con IPTVEditor / m3u4u
 (`prueba-argentina.m3u`) para decidir la Etapa 1.
+
+## Cuarta ronda: aprender de los overrides (29/09/2026)
+
+- **Señal horaria preferida** configurable (`preferred_feed` en `provider_rules.json`, "east"
+  por defecto): sin región en el nombre, "TBS HD" ya no va a "TBS HD (Pacific)".
+- **Preferencias por categoría** (`category_epg` en `playlist_sections.json`) y
+  `tools/learn_preferences.py`, que las propone a partir de los overrides y mide cada una
+  (overrides que resuelve, que rompe, y qué canales sin override cambian). Aplicadas: PPV DAZN →
+  `programadorx-cl` (resuelve 21 overrides) y ESPN → `epgshare-ec1`. Descartadas: Cultura →
+  `acidjesuz-latino` (mandaba "Discovery en Español" a CNN en Español) y Películas →
+  `epgshare-cl1` (pasa ~49 canales de la señal argentina a la chilena: decisión de Luis).
+- **Nombres:** códecs ("h265") como calidad, "01" = "1", "F 1" = "F1" y "Spain" como país.
+  "E 2" no se pega ("Super Écran 2") y "France" no es país (es parte de "France 24").
+  En la lista de Luis cambian 10 canales visibles, todos para mejor: "DAZN 02/03" (iban a
+  TSN+) y "TUDN XTRA 02…09" (iban a canales beIN).

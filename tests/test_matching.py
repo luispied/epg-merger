@@ -310,3 +310,14 @@ def test_senal_preferida_configurable():
     assert _best(idx, 'TBS HD') == 'TBS.HD.Pacific.us'
     idx.preferred_feed = 'east'
     assert _best(idx, 'TBS HD') == 'TBS.HD.us'
+
+
+def test_ceros_a_la_izquierda_y_formula_1():
+    """"DAZN 01" = "DAZN 1" (antes iba a un beIN) y "Dazn F 1" = "DAZN F1" (antes a DAZN 1)."""
+    assert parse_channel_name('DAZN 01').core == ('dazn', '1')
+    assert parse_channel_name('Spain: Dazn F 1 HD').core == ('dazn', 'f1')
+    assert parse_channel_name('SUPER E 2 FR').core[:3] == ('super', 'e', '2'), "solo F se pega al número"
+
+
+def test_codec_es_calidad():
+    assert parse_channel_name('Spain: Movistar Dazn 2 FHD (h265)').core == ('movistar', 'dazn', '2')

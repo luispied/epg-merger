@@ -144,6 +144,16 @@ def parse_channel_name(raw, r=None):
     text = text.replace('+', ' plus ')
 
     tokens = [t for t in re.sub(r'[^a-z0-9]+', ' ', text).split() if t]
+    # "DAZN 01" = "DAZN 1"; "Dazn F 1" = "DAZN F1" (Fórmula 1; con cualquier letra rompía
+    # otros nombres: "Super E 2" es "Super Écran 2", no "E2").
+    tokens = [t.lstrip('0') or '0' if t.isdigit() else t for t in tokens]
+    joined = []
+    for t in tokens:
+        if joined and t.isdigit() and joined[-1] == 'f':
+            joined[-1] += t
+        else:
+            joined.append(t)
+    tokens = joined
 
     # La calidad del final no cuenta para ubicar el sufijo de idioma: "TLC -EN ᵁᴴᴰ" también
     # es "TLC" en inglés.

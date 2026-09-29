@@ -31,6 +31,7 @@
     "brasil": "br", "brazil": "br", "br": "br",
     "portugal": "pt", "pt": "pt",
     "italia": "it", "italy": "it",
+    "spain": "es",
     "alemania": "de", "germany": "de",
     "reino unido": "uk", "uk": "uk",
     "canada": "ca"
@@ -44,7 +45,7 @@
     "pt": ["pt", "br"]
   },
 
-  "quality_tokens": ["hd", "fhd", "uhd", "4k", "sd", "hevc", "hq"],
+  "quality_tokens": ["hd", "fhd", "uhd", "4k", "sd", "hevc", "hq", "h264", "h265", "x264", "x265"],
 
   "country_groups": {
     "latam": ["ar", "bo", "cl", "co", "cr", "do", "ec", "gt", "hn", "mx", "ni", "pa", "pe", "pr", "py", "sv", "uy", "ve"]
