@@ -22,7 +22,7 @@ import unicodedata
 from lxml import etree
 
 from channel_names import flag_to_country_code, parse_channel_name, strip_accents, strip_display_prefix
-from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex
+from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex, joined_variant
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
 from providers import M3UProvider, ProviderError, XtreamProvider
@@ -77,6 +77,11 @@ DEFAULT_PROVIDER_RULES = {
     'event_sections': {'sections': [], 'editable_categories': []},
     # Lo que no necesita guía por naturaleza: no cuenta en "A revisar" ni "Sin EPG".
     'no_epg': {'categories': [], 'sections': [], 'category_patterns': []},
+    # Puntaje mínimo para asignar una guía automáticamente. Medido con el banco de prueba
+    # (tools/match_benchmark.py): por debajo de 0.7 acierta ~20 % (una guía equivocada es peor
+    # que ninguna), entre 0.7 y 0.8 ~72 %, desde 0.8 ~98 %. Lo que queda debajo no se asigna
+    # pero sigue como sugerencia en "A revisar".
+    'min_assign_score': 0.7,
 }
 
 
@@ -119,6 +124,7 @@ class _Rules:
         self.divider_sections = {_divider_key(k): v for k, v in (rules['dividers'].get('sections') or {}).items()}
         self.divider_display = dict(rules['dividers'].get('display_names') or {})
         self.alphabetical = rules.get('category_order') == 'alphabetical'
+        self.min_assign_score = float(rules.get('min_assign_score') or MIN_SCORE)
 
 
 _rules = _Rules(DEFAULT_PROVIDER_RULES)
@@ -313,7 +319,7 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
         prefer_sources=epg_config.get('prefer_sources', ()),
         country=country,
     )
-    if ranked and ranked[0].score >= MIN_SCORE:
+    if ranked and calibrated_score(ranked[0]) >= _rules.min_assign_score:
         best = ranked[0]
         return best.channel_id, best.reason, calibrated_score(best), ranked
     return None, None, 0.0, ranked
@@ -321,14 +327,17 @@ def match_channel(name, parsed, index, overrides, epg_config, fallback_country):
 
 # "Bien" (≥ 0.8) tiene que querer decir que el nombre coincide, no que el país ayudó: el
 # refuerzo por país o fuente preferida sirve para ELEGIR entre candidatos, pero un nombre que
-# coincide a medias ("RTL 102.5 Disco" vs "RTL 102.5") queda como "Dudoso" para revisarlo.
+# coincide a medias ("RTL 102.5 Disco" vs "RTL 102.5", "Canal 21 TV" vs "Canal Orbe 21") queda
+# debajo del umbral genérico de asignación (0.7): en el banco de prueba esos casos casi
+# siempre eran otro canal. Con un umbral más bajo (el de Luis, 0.45) se asignan como "Dudoso".
 GOOD_NAME_BASE = 0.75
 GOOD_SCORE = 0.8
+PARTIAL_NAME_CAP = 0.69
 
 
 def calibrated_score(candidate):
-    if candidate.name_score < GOOD_NAME_BASE and candidate.score >= GOOD_SCORE:
-        return GOOD_SCORE - 0.01
+    if candidate.name_score < GOOD_NAME_BASE and candidate.score > PARTIAL_NAME_CAP:
+        return PARTIAL_NAME_CAP
     return candidate.score
 
 
@@ -372,11 +381,19 @@ def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, categor
     # Xtream, que es lo que la persona que configura el override tiene copiado del panel.
     channel_name, prefix_country = strip_display_prefix(raw_name, index.rules)
     parsed = parse_channel_name(channel_name, index.rules)
+    fallback_country = (prefix_country or category_country
+                        or (tvg_id_country(epg_channel_id, index.rules) if trust_list_ids else None))
     channel_id, reason, score, ranked = match_channel(
-        raw_name, parsed, index, overrides, epg_config,
-        prefix_country or category_country
-        or (tvg_id_country(epg_channel_id, index.rules) if trust_list_ids else None),
+        raw_name, parsed, index, overrides, epg_config, fallback_country,
     )
+    # Si no quedó "Bien", probar con las palabras pegadas ("RTL Zwei" -> "rtlzwei", que es como
+    # otra fuente escribe el canal) y quedarse con lo mejor.
+    joined = joined_variant(parsed)
+    if joined and reason != 'override' and score < GOOD_SCORE:
+        alt = match_channel(raw_name, joined, index, overrides, epg_config, fallback_country)
+        if alt[0] and alt[2] > score:
+            channel_id, reason, score, ranked = alt
+            parsed = joined
 
     # El proveedor trae su propio id de EPG (Xtream: "epg_channel_id"; M3U: "tvg-id"), que es
     # una adivinanza sin verificar: a veces es el mismo id "por defecto" para una docena de
@@ -387,7 +404,7 @@ def match_stream(raw_name, epg_channel_id, index, overrides, epg_config, categor
     candidate = index.resolve_id(epg_channel_id)
     beats = score < TVG_ID_OVERRIDES_BELOW if trust_list_ids else not channel_id
     if candidate and candidate != channel_id and reason != 'override' and beats:
-        plausibility = index.best_name_score(parsed, candidate)
+        plausibility = max(index.best_name_score(p, candidate) for p in filter(None, (parsed, joined_variant(parsed))))
         if plausibility >= PLAUSIBLE_MIN:
             channel_id, reason = candidate, 'xtream_epg_id'
             score = plausibility

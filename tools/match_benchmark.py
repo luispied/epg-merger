@@ -211,6 +211,7 @@ def summary_row(name, m):
         'aciertos': m['good_ok'] + m['doubtful_ok'] + m['right_none'],
         'errores': m['good_wrong'] + m['doubtful_wrong'],
         'sin_asignar': m['missed'],
+        'precision_asignado': pct(m['good_ok'] + m['doubtful_ok'], good + doubt),
         'precision_bien': pct(m['good_ok'], good),
         'precision_dudoso': pct(m['doubtful_ok'], doubt),
     }

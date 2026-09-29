@@ -65,6 +65,22 @@ def pick_display_name(display_names):
     return max(clean or real_names, key=len)
 
 
+JOIN_MAX_TOKENS = 3
+JOIN_MAX_LENGTH = 16
+
+
+def joined_variant(parsed):
+    """El mismo nombre con las palabras del núcleo pegadas ("rtl zwei" -> "rtlzwei"), para
+    nombres cortos de 2 o 3 palabras. None si no aplica."""
+    core = parsed.core
+    if not 2 <= len(core) <= JOIN_MAX_TOKENS:
+        return None
+    joined = ''.join(core)
+    if len(joined) > JOIN_MAX_LENGTH:
+        return None
+    return parsed._replace(core=(joined,))
+
+
 def _fold_id(channel_id):
     return re.sub(r'\s+', '', channel_id).lower()
 
@@ -108,6 +124,9 @@ class EpgIndex:
                 self.display_name[channel_id] = pick
 
             parsed_names = [parse_channel_name(name, self.rules) for name in display_names]
+            # "RTL Zwei" y "RTLZWEI", "Tv Agro" y "TVAgro": cada fuente separa distinto. La
+            # variante con las palabras pegadas también se indexa (ver joined_variant).
+            parsed_names += [v for v in (joined_variant(p) for p in parsed_names) if v]
             self.parsed[channel_id] = parsed_names
 
             # El sufijo del channel_id manda; si no lo trae, el país que diga el nombre; y como
