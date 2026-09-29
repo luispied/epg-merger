@@ -214,3 +214,36 @@ test('servidor que no es Xtream o que rechaza: el error dice por qué (sin la UR
   assert.match(error, /parked\.example: no respondió JSON .*Parked domain/);
   assert.ok(!error.includes('secreta'));
 });
+
+test('lista subida: el Worker no va al proveedor y usa la que subió GitHub o la app', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1, S2], list: 'upload' } } as Partial<typeof CONFIG>, [S1, S2]);
+  const before = t.mock.calls.length;
+  assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 502, 'sin lista subida todavía');
+  const put = (body: unknown, key = t.editKey) => handle(req(`/api/cfg/${t.cfgId}/list`, { method: 'PUT', key, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  assert.equal((await put({ channels: [] }, 'otra')).status, 401);
+  assert.equal((await put({ channels: [{ name: 'x', id: 'no-numérico' }] })).status, 400);
+  const ok = await put({ channels: [
+    { name: 'AR| Telefe HD', category: '🇦🇷 Argentina', id: 10, ext: 'ts', icon: '', epgId: 'telefe.ar', url: 'http://s/live/u/p/10.ts' },
+    { name: 'Evento', category: 'PPV', id: '12' },
+  ] });
+  assert.deepEqual(await ok.json(), { ok: true, channels: 2 });
+  const saved = (t.env.BUCKET as unknown as { data: Map<string, { value: string }> }).data.get(`list/${t.cfgId}.json`)!.value;
+  assert.ok(!saved.includes('/live/'), 'no guarda URLs aunque vengan');
+  const text = await (await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).text();
+  assert.match(text, /tvg-name="Telefe".*\n.*\/s\/.*\/10\.ts/);
+  assert.match(text, /,Evento\n.*\/12\.m3u8/);
+  assert.equal(t.mock.calls.length, before, 'no le pidió nada al proveedor');
+});
+
+test('balanceador: un servidor que responde 403 al Worker cuenta como vivo', async () => {
+  const t = await setup();
+  restore();
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    if (new URL(String(input)).origin === S1) return new Response('403 Forbidden', { status: 403 });
+    throw new TypeError('timeout');
+  }) as typeof fetch;
+  restore = () => void (globalThis.fetch = original);
+  const res = await handle(new Request(`${BASE}/s/${t.cfgId}/${t.token}/11.m3u8`), t.env, t.ctx, t.cache);
+  assert.equal(res.headers.get('Location'), `${S1}/live/user/pa%20ss/11.m3u8`);
+});

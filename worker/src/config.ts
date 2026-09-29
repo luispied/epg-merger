@@ -17,7 +17,9 @@ export interface ChannelEdit {
 
 export interface Config {
   version: 1;
-  provider: { type: 'xtream'; servers: string[] } | { type: 'm3u' };
+  /** `list: 'upload'`: la lista no la baja el Worker (el proveedor bloquea Cloudflare) sino que
+   *  la sube otro (la corrida de GitHub o la app) con PUT /api/cfg/<cfgId>/list. */
+  provider: { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
   /** Streams directo al servidor sano del momento, sin pasar por el redirect del Worker. */
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
@@ -59,7 +61,7 @@ export function parseConfig(raw: unknown): Config {
         throw new ConfigError(`servidor inválido (sin usuario ni parámetros): ${url.host}`);
       }
     }
-    provider = { type: 'xtream', servers };
+    provider = { type: 'xtream', servers, ...(p.list === 'upload' ? { list: 'upload' as const } : {}) };
   } else throw new ConfigError('proveedor inválido');
 
   const channels: Record<string, ChannelEdit> = {};

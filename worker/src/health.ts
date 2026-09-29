@@ -8,11 +8,14 @@ const PROBE_TIMEOUT_MS = 4_000;
 
 const healthKey = (server: string) => `https://grilla.internal/health/${encodeURIComponent(server)}`;
 
+/** Sano = responde algo. Un 403 cuenta como sano: hay proveedores que bloquean los pedidos
+ *  que salen de Cloudflare pero atienden igual al reproductor, que es el que se conecta. Caído
+ *  = no contesta (timeout o conexión rechazada) o error del servidor (5xx). */
 async function probe(server: string, u: string, p: string): Promise<boolean> {
   try {
     const res = await fetch(playerApiUrl(server, u, p), { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
     await res.body?.cancel();
-    return res.ok;
+    return res.status < 500;
   } catch {
     return false;
   }

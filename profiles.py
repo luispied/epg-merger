@@ -34,7 +34,7 @@ def _clean_servers(raw):
     return [s.strip().rstrip('/') for s in (raw or []) if s and s.strip()]
 
 
-def _build(name, username, password, servers, gist_id=None):
+def _build(name, username, password, servers, gist_id=None, grilla=None):
     return {
         'name': name,
         'type': 'xtream',
@@ -42,7 +42,17 @@ def _build(name, username, password, servers, gist_id=None):
         'password': password,
         'servers': servers,
         'gist_id': gist_id,
+        'grilla': _clean_grilla(grilla),
     }
+
+
+def _clean_grilla(raw):
+    """{"cfg": cfgId, "key": editKey} de la configuración de Grilla web del perfil, si tiene una
+    (tools/push_lists.py le sube la lista al Worker). Si está incompleto, se ignora."""
+    if isinstance(raw, dict) and isinstance(raw.get('cfg'), str) and isinstance(raw.get('key'), str) \
+            and raw['cfg'] and raw['key']:
+        return {'cfg': raw['cfg'], 'key': raw['key']}
+    return None
 
 
 def load_profiles(env=None):
@@ -121,6 +131,6 @@ def load_profiles(env=None):
             print(f"⚠️  Perfil {name!r} ignorado: faltan username, password o servers")
             continue
         seen.add(name)
-        profiles.append(_build(name, username, password, servers, entry.get('gist_id')))
+        profiles.append(_build(name, username, password, servers, entry.get('gist_id'), entry.get('grilla')))
 
     return profiles
