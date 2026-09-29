@@ -99,3 +99,37 @@ ABC Chicago, "FOX 4" → Fox Deportes, "HBO Zone" → Showtime Familyzone).
   guía en ninguna fuente activa (las sugerencias de "Fuentes de EPG" ayudan).
 - Falta comparar la cobertura con IPTVEditor / m3u4u usando `prueba-argentina.m3u` (lo hace
   Luis, porque esos servicios piden cuenta).
+
+## Segunda ronda (29/09/2026)
+
+1. **Umbral de asignación configurable** (`min_assign_score` en `provider_rules.json`):
+   medido por rango de puntaje, debajo de 0,7 acierta ~20 %, entre 0,7 y 0,8 ~72 % y desde 0,8
+   ~98 %. Genérico: 0,7 (lo de abajo queda como sugerencia en "A revisar", sin asignar). Luis:
+   0,45, como siempre.
+2. **Nombre a medias** ("RTL 102.5 Disco" → "RTL 102.5"): el puntaje queda en 0,69, debajo del
+   umbral genérico (para Luis sigue asignado como "Dudoso").
+3. **Palabras pegadas o separadas** ("RTL Zwei" / "RTLZWEI", "TVAgro" / "Tv Agro", "ADN 40" /
+   "ADN40"): la guía indexa también la variante pegada y el canal se prueba así si no quedó "Bien".
+4. **"Latin America South/North/Panregional"** = región latinoamericana.
+5. Guías sin país: no hizo falta; con las fuentes declarando su país (como en la corrida real)
+   QVC de Italia ya no va a QVC de EE.UU.
+
+| | Fin 1ª ronda | Fin 2ª ronda |
+|---|---|---|
+| Cobertura | 37 % | 24 % (se dejan de asignar los matches flojos) |
+| Aciertos sobre lo etiquetado | 302 de 355 | 343 de 358 |
+| Precisión de lo asignado, todo el banco | ~84 % | 99 % |
+| Precisión de "Bien", muestra al azar a mano | 88 % | **91 %** (21 de 23) |
+| Precisión de lo asignado, muestra al azar | ~66 % | **91 %** |
+
+Los 2 errores que quedan en la muestra son ambiguos: la lista de iptv-org dice que el canal
+es de EE.UU. ("DSports" → "DSports +", "Telemundo Internacional" → señal satelital de EE.UU.).
+
+Lista de Luis (misma guía, id del proveedor incluido): 22 canales cambian, casi todos para
+mejor; 8 que no tenían guía ahora la tienen (ADN 40, Cali TV, Tele Islas, NFL RedZone,
+TeenNick, WeatherNation, La Tele, MotoGP) y se corrigen "Baby First" (iba a BBC First), "ESPN
+U" (iba a Canal U), "Mega Tiempo" (iba a Nuevo Tiempo), "NOW 80s" (iba a NOW US).
+
+**Siguiente:** diccionario de canales de iptv-org (`iptv-org/database`, dominio público, 31.404
+canales con nombres alternativos, país y cadena) para nombres alternativos, variantes
+regionales ("Telefe Salta" → Telefe) y el país de cada canal.

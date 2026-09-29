@@ -277,3 +277,19 @@ def test_resolver_id_de_iptv_org():
     assert idx.resolve_id('la1.es') == 'La 1.es'
     assert idx.resolve_id('Otro.ar@SD') is None
     assert idx.resolve_id(None) is None
+
+
+def test_palabras_pegadas_o_separadas_son_el_mismo_canal():
+    """"RTL Zwei" (lista) y "RTLZWEI" (guía), "TVAgro" y "Tv Agro": cada fuente separa distinto."""
+    idx = _index([('RTLZWEI.de', ['RTLZWEI'], None), ('SRF.zwei.de', ['SRF zwei'], None),
+                  ('Tv Agro.co', ['Tv Agro'], None)])
+    from epg_index import joined_variant
+    assert _best(idx, 'Tv Agro') == 'Tv Agro.co'
+    assert idx.best_name_score(joined_variant(parse_channel_name('RTL Zwei')), 'RTLZWEI.de') == 1.0
+    assert idx.best_name_score(parse_channel_name('TVAgro'), 'Tv Agro.co') == 1.0
+
+
+def test_latin_america_south_es_region():
+    p = parse_channel_name('AXN Latin America South (1080p)')
+    assert p.core == ('axn',)
+    assert p.country == 'latam'

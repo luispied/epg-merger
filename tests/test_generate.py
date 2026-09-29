@@ -834,3 +834,23 @@ def test_en_xtream_el_id_del_proveedor_no_da_pais():
     _, xtream, _, _, _ = generate_playlist.match_stream('AMC', 'amc.mx', idx, {}, {}, None, trust_list_ids=False)
     assert m3u == 'amc.mx'
     assert xtream == 'Amc.ar', "sin pista de país gana la primera fuente, como antes"
+
+
+def test_rtl_zwei_no_va_a_srf_zwei():
+    idx = _idx(('RTLZWEI.de', 'RTLZWEI'), ('SRF.zwei.de', 'SRF zwei'), ('RTL.de', 'RTL'))
+    _, cid, _, _, _ = generate_playlist.match_stream('RTL Zwei', None, idx, {}, {'country': 'de'}, None)
+    assert cid == 'RTLZWEI.de'
+
+
+def test_umbral_generico_no_asigna_matches_flojos():
+    """Sin provider_rules.json no se asigna nada debajo de 0.7 (acierta ~20 %); con las reglas
+    de este repo (0.45) se asigna como siempre."""
+    idx = _idx(('Onda.Algeciras.TV.es', 'Onda Algeciras TV'), ('Canal.Sur.es', 'Canal Sur'))
+    try:
+        generate_playlist.set_provider_rules(generate_playlist.load_provider_rules('/no/existe.json'))
+        _, generico, _, _, _ = generate_playlist.match_stream('Onda 15 TV', None, idx, {}, {}, None)
+    finally:
+        generate_playlist.set_provider_rules(generate_playlist.load_provider_rules())
+    _, luis, _, score, _ = generate_playlist.match_stream('Onda 15 TV', None, idx, {}, {}, None)
+    assert generico is None
+    assert luis == 'Onda.Algeciras.TV.es' and score < 0.7

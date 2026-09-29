@@ -25,6 +25,8 @@
     "nicaragua": "ni",
     "venezuela": "ve",
     "latin america": "latam", "latinoamerica": "latam", "latino america": "latam",
+    "latin america south": "latam", "latin america north": "latam", "latin america center": "latam",
+    "latin america panregional": "latam",
     "america latina": "latam", "latam": "latam",
     "brasil": "br", "brazil": "br", "br": "br",
     "portugal": "pt", "pt": "pt",
