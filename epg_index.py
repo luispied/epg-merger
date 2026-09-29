@@ -36,6 +36,8 @@ COUNTRY_MISMATCH_PENALTY = 0.35   # ej. no confundir "Canal 26" de Argentina con
 LANGUAGE_HINT_BOOST = 1.15   # "TBS -EN" no dice el país, pero el idioma apunta a EE.UU./UK/CA
 REGION_MATCH_BOOST = 1.15
 REGION_MISMATCH_PENALTY = 0.8
+LATE_FEED_REGIONS = frozenset({'west', 'pacific', 'mountain', 'central'})
+LATE_FEED_PENALTY = 0.97
 
 # Puntaje mínimo para aceptar una coincidencia automática.
 MIN_SCORE = 0.45
@@ -263,6 +265,10 @@ class EpgIndex:
             cand_region = self.region.get(channel_id)
             if region and cand_region:
                 score *= REGION_MATCH_BOOST if cand_region == region else REGION_MISMATCH_PENALTY
+            elif not region and cand_region in LATE_FEED_REGIONS:
+                # Sin región en el nombre se prefiere la señal del Este: "TBS HD" no es "TBS HD
+                # (Pacific)", que va 3 horas corrida. Solo desempata; no cambia la banda.
+                score *= LATE_FEED_PENALTY
 
             ranked.append(Candidate(channel_id, score, base, reason))
 

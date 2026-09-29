@@ -293,3 +293,10 @@ def test_latin_america_south_es_region():
     p = parse_channel_name('AXN Latin America South (1080p)')
     assert p.core == ('axn',)
     assert p.country == 'latam'
+
+
+def test_sin_region_se_prefiere_la_senal_del_este():
+    """"TBS HD" iba a "TBS HD (Pacific)", 3 horas corrida."""
+    idx = _index([('TBS.HD.Pacific.us', ['TBS HD (Pacific)'], None), ('TBS.HD.us', ['TBS HD'], None)])
+    assert _best(idx, 'TBS HD') == 'TBS.HD.us'
+    assert _best(idx, 'TBS Pacific') == 'TBS.HD.Pacific.us'
