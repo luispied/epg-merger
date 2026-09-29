@@ -181,7 +181,8 @@
     "PPV Dazn BOX 26 HD": null,
     "RD| RTVD Canal 4": null,
     "Sala 24/7 HD": null,
-    "AMC": "AMC HD.mx"
+    "AMC": "AMC HD.mx",
+    "AMC HD": "AMC HD.mx"
   },
   "hidden": {
     "AAA": true,
