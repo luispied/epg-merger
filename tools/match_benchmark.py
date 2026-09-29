@@ -83,6 +83,9 @@ class Judge:
         if chosen not in self.index or expected not in self.index:
             return False
         (a, ca), (b, cb) = self._keys(chosen), self._keys(expected)
+        # La señal Pacific no es la del Este aunque se llamen igual (3 horas de diferencia).
+        if self.index.region.get(chosen) != self.index.region.get(expected):
+            return False
         return ca == cb and bool(a & b)
 
 
