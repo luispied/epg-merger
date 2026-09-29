@@ -67,6 +67,16 @@ def main(argv=None):
             msg = r.json().get('error', r.text[:200]) if 'json' in r.headers.get('content-type', '') else r.text[:200]
             print(f'   ❌ {i}. {host(server)}: HTTP {r.status_code} — {msg}')
 
+    # Algunos proveedores filtran por User-Agent: se prueba con varios en el primer servidor
+    # que responde directo desde GitHub.
+    print('\n1b. Mismo pedido a través del Worker con distintos User-Agent (primer servidor)')
+    for ua in ('Grilla/1.0', 'python-requests/2.32.3', 'okhttp/4.12.0', 'VLC/3.0.21 LibVLC/3.0.21',
+               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36'):
+        r = requests.post(f'{worker}/api/provider/list', timeout=TIMEOUT,
+                          json={'type': 'xtream', 'servers': servers[:1], 'userAgent': ua, **creds})
+        detail = f"{len(r.json()['channels'])} canales" if r.ok else r.json().get('error', '')[:140]
+        print(f"   {'✅' if r.ok else '❌'} {ua[:40]}: {detail}")
+
     print('\n2. Configuración de prueba → link → playlist → redirect')
     r = requests.post(f'{worker}/api/cfg', timeout=TIMEOUT,
                       json={'provider': {'type': 'xtream', 'servers': servers}, 'channels': {}})
