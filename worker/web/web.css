@@ -46,3 +46,11 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 #categoriesList.sorting .cat-row:not(.dragging) { transition: transform .15s ease; }
 .inline-icon .icon, svg.inline-icon { width: 15px; height: 15px; vertical-align: -2px; }
 #themeSeg button .icon { width: 17px; height: 17px; vertical-align: -3px; }
+.ask-sheet h2 { margin: 0 0 6px; }
+.ask-sheet p { margin: 0 0 4px; color: var(--muted); }
+.ask-sheet .field { margin-top: 10px; }
+.ask-sheet .btn-danger { background: var(--red); color: #fff; padding: 0 16px; }
+.cat-row.section-row { background: var(--surface-2); }
+.cat-row.section-row:not(:first-child) { margin-top: 10px; border-top: .5px solid var(--hairline); }
+.section-row .section-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cat-row.dragging.section-row { background: var(--surface); }
