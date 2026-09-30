@@ -287,3 +287,25 @@ test('ids con código (UUID): la lista subida y el redirect los aceptan', async 
   assert.equal(res.status, 302);
   assert.equal(res.headers.get('Location'), `${S1}/live/user/pa%20ss/${uuid}.ts`);
 });
+
+test('vínculo con GitHub: si GitHub conoce la cuenta, la configuración queda anotada para que suba la lista', async () => {
+  const t = makeEnv();
+  const mock = mockXtream({ down: [S1] });
+  restore = mock.restore;
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string }> };
+  const list = (u: string, p: string) => handle(req('/api/provider/list', { method: 'POST', headers: { 'CF-Connecting-IP': `ip-${Math.random()}` }, body: JSON.stringify({
+    type: 'xtream', servers: [S1], username: u, password: p }) }), t.env, t.ctx, t.cache);
+  assert.deepEqual(((await (await list('user', 'pa ss')).json()) as { github: boolean }).github, false);
+  const { linkHash } = await import('../src/link.ts');
+  const hash = await linkHash('user', 'pa ss');
+  await t.env.BUCKET.put(`known/${hash}`, '');
+  const r = await (await list('user', 'pa ss')).json() as { github: boolean; error: string };
+  assert.equal(r.github, true);
+  assert.equal(((await (await list('user', 'otra')).json()) as { github: boolean }).github, false, 'con otra clave no');
+  const created = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'ip-cfg' }, body: JSON.stringify({
+    provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: {}, link: { username: 'user', password: 'pa ss' } }) }), t.env, t.ctx, t.cache)).json() as { cfgId: string; github: boolean };
+  assert.equal(created.github, true);
+  assert.deepEqual(JSON.parse(bucket.data.get(`links/${hash}.json`)!.value), { cfgIds: [created.cfgId], pending: true });
+  const all = [...bucket.data.values()].map((v) => v.value).join('');
+  assert.ok(!all.includes('pa ss'), 'no guarda la contraseña');
+});
