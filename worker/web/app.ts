@@ -575,21 +575,31 @@ function parseServers(text: string): string[] {
     .map((s) => (/^https?:\/\//i.test(s) ? s : `http://${s}`));
 }
 
-// Lo escrito en el onboarding, mientras dure la pestaña: al volver de bajar la lista, el
-// navegador del teléfono suele recargar la página y se perdía todo.
+// Lo escrito en el onboarding: al volver de bajar la lista, el navegador del teléfono suele
+// recargar la página (o volver a una pestaña descartada) y se perdía todo. Servidores, usuario
+// y el paso de subir quedan en el navegador hasta terminar; la contraseña solo en la pestaña.
 const DRAFT_KEY = 'grilla_draft';
-interface Draft { servers?: string; username?: string; password?: string; uploadWhy?: string; download?: string }
+const DRAFT_PW_KEY = 'grilla_draft_pw';
+interface Draft { servers?: string; username?: string; password?: string; upload?: boolean }
 function readDraft(): Draft {
   try {
-    return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}');
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') as Draft;
+    const pw = sessionStorage.getItem(DRAFT_PW_KEY);
+    return pw ? { ...d, password: pw } : d;
   } catch {
     return {};
   }
 }
 function writeDraft(patch: Draft | null) {
   try {
-    if (patch === null) sessionStorage.removeItem(DRAFT_KEY);
-    else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...readDraft(), ...patch }));
+    if (patch === null) {
+      localStorage.removeItem(DRAFT_KEY);
+      sessionStorage.removeItem(DRAFT_PW_KEY);
+      return;
+    }
+    const { password, ...rest } = { ...readDraft(), ...patch };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(rest));
+    if (password) sessionStorage.setItem(DRAFT_PW_KEY, password);
   } catch { /* sin storage */ }
 }
 function restoreDraft() {
@@ -597,12 +607,24 @@ function restoreDraft() {
   if (d.servers && !$<HTMLTextAreaElement>('#servers').value) $<HTMLTextAreaElement>('#servers').value = d.servers;
   if (d.username && !$<HTMLInputElement>('#username').value) $<HTMLInputElement>('#username').value = d.username;
   if (d.password && !$<HTMLInputElement>('#password').value) $<HTMLInputElement>('#password').value = d.password;
-  if (d.download) showUpload(d.uploadWhy ?? '', d.download);
+  if (d.upload) showUpload();
 }
-function showUpload(why: string, download: string) {
-  $('#uploadWhy').textContent = why;
-  $<HTMLAnchorElement>('#m3uDownload').href = download;
+/** El paso de bajar y subir la lista. El link a get.php se arma con lo que está escrito (lleva
+ *  la contraseña, por eso no se guarda): si falta algo, se pide completarlo. */
+function showUpload() {
+  $('#uploadWhy').textContent = 'Tu proveedor no deja que Grilla baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
   $('#uploadBox').hidden = false;
+  updateDownloadLink();
+}
+function updateDownloadLink() {
+  const servers = parseServers($<HTMLTextAreaElement>('#servers').value);
+  const username = $<HTMLInputElement>('#username').value.trim();
+  const password = $<HTMLInputElement>('#password').value;
+  const a = $<HTMLAnchorElement>('#m3uDownload');
+  const ready = servers.length && username && password;
+  a.href = ready ? `${servers[0]}/get.php?${new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' })}` : '#';
+  a.classList.toggle('disabled', !ready);
+  a.title = ready ? '' : 'Completá servidores, usuario y contraseña arriba';
 }
 
 /** Canales en vivo de la lista M3U del proveedor, leída de a partes: hay proveedores que
@@ -705,7 +727,10 @@ function setupOnboarding() {
   };
   const st = $('#onboardStatus');
   for (const [id, key] of [['#servers', 'servers'], ['#username', 'username'], ['#password', 'password']] as const) {
-    $<HTMLInputElement>(id).addEventListener('input', (ev) => writeDraft({ [key]: (ev.target as HTMLInputElement).value }));
+    $<HTMLInputElement>(id).addEventListener('input', (ev) => {
+      writeDraft({ [key]: (ev.target as HTMLInputElement).value });
+      updateDownloadLink();
+    });
   }
   $<HTMLFormElement>('#xtreamForm').onsubmit = async (ev) => {
     ev.preventDefault();
@@ -721,11 +746,9 @@ function setupOnboarding() {
       // Hay proveedores que bloquean los pedidos que salen de Cloudflare: la lista la baja el
       // navegador de la persona (una descarga común, sin CORS) y la sube como archivo.
       status(st, null);
-      const why = 'Tu proveedor no deja que Grilla baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
       console.info('provider/list:', (e as Error).message);
-      const download = `${servers[0]}/get.php?${new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' })}`;
-      writeDraft({ uploadWhy: why, download });
-      showUpload(why, download);
+      writeDraft({ upload: true });
+      showUpload();
     }
   };
   $<HTMLInputElement>('#m3uFile').onchange = async (ev) => {
@@ -761,6 +784,12 @@ function setupOnboarding() {
       status(st, `No se pudo bajar la lista: ${(e as Error).message}`, 'bad');
     }
   };
+  $('#m3uDownload').addEventListener('click', (ev) => {
+    if ($('#m3uDownload').classList.contains('disabled')) {
+      ev.preventDefault();
+      toast('Completá servidores, usuario y contraseña arriba', 'bad');
+    }
+  });
   $('#restoreLink').onclick = (ev) => {
     ev.preventDefault();
     $<HTMLInputElement>('#backupFile').click();
