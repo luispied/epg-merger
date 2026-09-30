@@ -510,6 +510,10 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     unmatched = []
     entries = []               # (orden_seccion, orden_categoria, indice_original, líneas m3u)
     report = []
+    # Lo mismo, para importarlo en Grilla web (ver write_web_import).
+    web_channels = {}
+    web_groups = []            # (orden_seccion, orden_categoria, indice, grupo)
+    web_hidden_groups = set()
 
     section_order = {s: i for i, s in enumerate(section_display_order)}
     no_section_order = len(section_display_order)  # categorías sin sección van al final
@@ -615,6 +619,31 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
             ],
         })
 
+        # Grilla web agrupa por la categoría del proveedor (o la movida a mano); los separadores
+        # llevan como grupo y nombre el título de su sección, igual que en esta playlist.
+        web_group = display_category if category_is_divider else (moved_to or category)
+        web_groups.append((section_order.get(section, no_section_order), cat_order, i, web_group))
+        if (moved_to or category) in hidden_categories:
+            web_hidden_groups.add(web_group)
+        web_edit = {}
+        if channel_id:
+            web_edit['epg'] = channel_id
+            web_logo = index.icon.get(channel_id) or stream['icon']
+            if web_logo:
+                web_edit['logo'] = web_logo
+        if category_is_divider or forced_no_epg or reason == 'override':
+            web_edit['manual'] = True
+            web_edit.setdefault('epg', None)
+        web_display = display_category if category_is_divider else (renames.get(raw_name) or channel_name)
+        if web_display != raw_name:
+            web_edit['name'] = web_display
+        if web_group != category:
+            web_edit['group'] = web_group
+        if raw_name in hidden:
+            web_edit['hidden'] = True
+        if web_edit:
+            web_channels[raw_name] = web_edit
+
         # Canal oculto a mano desde la interfaz: queda en el reporte (para poder volver a
         # mostrarlo, con su EPG ya calculado) pero no entra a la playlist ni a la guía.
         # Lo mismo para una categoría entera oculta: cuenta la categoría donde el canal se
@@ -686,6 +715,8 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     with open(report_path, 'w', encoding='utf-8') as f:
         json.dump({'stats': stats, 'channels': report}, f, ensure_ascii=False, indent=1)
 
+    write_web_import(os.path.join(out_dir, 'grilla_import.json'), web_channels, web_groups, web_hidden_groups)
+
     print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}"
           + (f" | ocultos: {hidden_count}" if hidden_count else ''))
     if unmatched:
@@ -694,6 +725,21 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         print(f"   Alternativas de EPG agregadas a la guía: {stats['alternatives']}")
     print(f"✅ {playlist_path} y {report_path} generados ({epg_path} se escribe al recorrer la guía)")
     return ProfileEpg(epg_path, channels_root, matched_ids, channel_display_labels, stats)
+
+
+def write_web_import(path, channels, groups, hidden_groups):
+    """Lo que Grilla web necesita para quedar igual que esta playlist ("Importar desde Grilla
+    (GitHub)"): la edición de cada canal por su nombre crudo (EPG elegido, logo, nombre visible,
+    categoría, oculto) y el orden de las categorías, con sus separadores. Sin credenciales ni
+    URLs: se publica en la branch `data` junto al match_report."""
+    order = []
+    for *_, group in sorted(groups, key=lambda g: g[:3]):
+        if group not in order:
+            order.append(group)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump({'version': 1, 'channels': channels,
+                   'groups': {'order': order, 'hidden': sorted(hidden_groups)}},
+                  f, ensure_ascii=False, separators=(',', ':'))
 
 
 class ProfileEpg:
