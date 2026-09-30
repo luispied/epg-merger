@@ -114,6 +114,9 @@ const state = {
   reloading: false,
 };
 
+/** Selección múltiple: índices de state.channels. */
+const selection = { active: false, items: new Set<number>() };
+
 // ------------------------------------------------------------------ guía y matching
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
@@ -320,13 +323,177 @@ const BAND_TAG: Record<Band, string> = {
   manual: `<span class="tag manual with-icon">${icon('hand', 'sm')}A mano</span>`,
 };
 
-function epgRowHtml(id: string, extra = ''): string {
+// ------------------------------------------------------------------ programación ("Ahora: …")
+// La corrida diaria sube a R2 (ui/schedule/) un índice por hora UTC con lo que da toda la guía
+// y un archivo por canal con títulos y descripciones (nombre: sha1 del id, 16 caracteres).
+interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
+type ScheduleEntry = [number, number, string, string?];
+interface NowPlaying { title: string; start: number; stop: number }
+
+const hourCache = new Map<string, Promise<HourIndex | null>>();
+function hourIndex(): Promise<HourIndex | null> {
+  const key = new Date().toISOString().slice(0, 13).replace(/\D/g, '');
+  if (!hourCache.has(key)) {
+    hourCache.set(key, fetch(`/api/ui/schedule/hour/${key}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  }
+  return hourCache.get(key)!;
+}
+
+const scheduleCache = new Map<string, Promise<ScheduleEntry[] | null>>();
+function schedule(id: string): Promise<ScheduleEntry[] | null> {
+  if (!scheduleCache.has(id)) {
+    scheduleCache.set(id, crypto.subtle.digest('SHA-1', new TextEncoder().encode(id))
+      .then((d) => [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16))
+      .then((f) => fetch(`/api/ui/schedule/${f}.json`))
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null));
+  }
+  return scheduleCache.get(id)!;
+}
+
+function nowFromHour(idx: HourIndex, id: string): NowPlaying | null {
+  const now = Date.now() / 1000;
+  for (const [s, e, t] of idx.c[id] ?? []) {
+    if (idx.h + s * 60 <= now && now < idx.h + e * 60) return { title: idx.t[t], start: idx.h + s * 60, stop: idx.h + e * 60 };
+  }
+  return null;
+}
+function nowFromEntries(entries: ScheduleEntry[] | null): NowPlaying | null {
+  const now = Date.now() / 1000;
+  const cur = (entries ?? []).find(([s, e]) => s <= now && now < e);
+  return cur ? { title: cur[2], start: cur[0], stop: cur[1] } : null;
+}
+async function nowPlaying(id: string): Promise<NowPlaying | null> {
+  const idx = await hourIndex();
+  return idx ? nowFromHour(idx, id) : nowFromEntries(await schedule(id));
+}
+
+const hhmm = (sec: number) => new Date(sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** La línea "Ahora: …" es un botón que despliega la descripción del programa. */
+function nowHtml(cur: NowPlaying | null, id: string, note = ''): string {
+  const noteHtml = note ? ` <span class="note">${esc(note)}</span>` : '';
+  if (!cur) return `<span>Sin programación para este horario${noteHtml}</span>`;
+  return `<button type="button" class="now-btn" data-desc-for="${esc(id)}" data-start="${cur.start}" aria-expanded="false"`
+    + ` title="Ver descripción del programa">${icon('tv', 'sm')}<span>Ahora: ${esc(cur.title)} · hasta ${hhmm(cur.stop)}${noteHtml}</span>`
+    + `${icon('chevron-down', 'sm chev')}</button>`;
+}
+
+/** Completa las líneas "Ahora" pendientes y los logos de un bloque ya en la página. */
+function fillEpgRows(root: ParentNode) {
+  for (const el of $$('.epg-now[data-now-for]', root)) {
+    const id = el.dataset.nowFor!;
+    el.removeAttribute('data-now-for');
+    nowPlaying(id).then((cur) => {
+      el.innerHTML = nowHtml(cur, id, el.dataset.note ?? '');
+      el.classList.toggle('on-air', !!cur);
+    });
+  }
+  for (const img of $$<HTMLImageElement>('.logo img:not([data-wired])', root)) {
+    img.dataset.wired = '1';
+    const ok = () => img.parentElement?.classList.add('has-img');
+    if (img.complete && img.naturalWidth) ok();
+    else {
+      img.addEventListener('load', ok);
+      img.addEventListener('error', () => img.remove()); // queda el ícono genérico
+    }
+  }
+}
+
+/** Descripción del programa en el aire (del archivo del canal, que se baja recién acá). */
+async function toggleDesc(btn: HTMLElement) {
+  const box = btn.parentElement!;
+  const open = $('.epg-desc', box);
+  if (open) {
+    open.remove();
+    btn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  btn.setAttribute('aria-expanded', 'true');
+  const p = document.createElement('p');
+  p.className = 'epg-desc muted';
+  p.textContent = 'Cargando descripción…';
+  box.appendChild(p);
+  const entries = (await schedule(btn.dataset.descFor!)) ?? [];
+  const start = Number(btn.dataset.start);
+  const now = Date.now() / 1000;
+  const entry = entries.find((e) => e[0] === start) ?? entries.find(([s, e]) => s <= now && now < e);
+  const i = entry ? entries.indexOf(entry) : -1;
+  const next = i >= 0 ? entries[i + 1] : undefined;
+  p.textContent = entry?.[3] || 'La guía no trae descripción para este programa.';
+  p.classList.toggle('muted', !entry?.[3]);
+  if (next) {
+    const after = document.createElement('p');
+    after.className = 'epg-desc muted';
+    after.textContent = `Después: ${next[2]} · ${hhmm(next[0])}`;
+    box.appendChild(after);
+  }
+}
+
+function logoHtml(id: string | null, cls = ''): string {
+  const url = id ? state.index?.icon.get(id) : '';
+  return `<span class="logo ${cls}">${icon('tv')}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
+}
+
+/** Un canal de la guía, siempre igual: nombre, país, fuente y lo que está dando ahora.
+ *  `cur` = lo que da ahora si ya se sabe (búsqueda); si no, se completa con fillEpgRows. */
+function epgRowHtml(id: string, extra = '', opts: { logo?: boolean; cur?: NowPlaying | null; note?: string } = {}): string {
   const idx = state.index;
   const name = idx?.displayName.get(id) ?? id;
   const country = idx?.country.get(id);
   const source = idx?.source.get(id);
-  return `<div class="epg-row"><div class="epg-head"><span class="epg-name">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
-    + `<small class="epg-src">${esc(id)}${source ? ` · ${esc(source)}` : ''}</small></div>`;
+  const logo = opts.logo ?? true;
+  const known = opts.cur !== undefined;
+  const now = known
+    ? `<div class="epg-now${opts.cur ? ' on-air' : ''}">${nowHtml(opts.cur!, id, opts.note)}</div>`
+    : `<div class="epg-now" data-now-for="${esc(id)}"${opts.note ? ` data-note="${esc(opts.note)}"` : ''}><span>Cargando programación…</span></div>`;
+  return `<div class="epg-row${logo ? ' with-logo' : ''}">${logo ? logoHtml(id) : ''}<div class="epg-body">`
+    + `<div class="epg-head"><span class="epg-name">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
+    + `<small class="epg-src">${esc(id)}${source ? ` · ${esc(source)}` : ''}</small>${now}</div></div>`;
+}
+
+/** Busca en toda la guía por nombre o id del canal y por lo que está dando ahora; primero los
+ *  que tienen algo en el aire. */
+const SEARCH_LIMIT = 50;
+let searchSeq = 0;
+async function renderGuideSearch(term: string, results: HTMLElement) {
+  const q = fold(term.trim());
+  if (q.length < 2) {
+    results.hidden = true;
+    results.innerHTML = '';
+    return;
+  }
+  const seq = ++searchSeq;
+  const idx = await hourIndex();
+  if (seq !== searchSeq) return;
+  const hits: { id: string; cur: NowPlaying | null; byProgram: boolean }[] = [];
+  for (const [id, name] of state.index!.displayName) {
+    const byName = fold(name).includes(q) || fold(id).includes(q);
+    const cur = idx ? nowFromHour(idx, id) : null;
+    const byProgram = !!cur && fold(cur.title).includes(q);
+    if (byName || byProgram) hits.push({ id, cur, byProgram });
+  }
+  if (idx) hits.sort((a, b) => Number(!a.cur) - Number(!b.cur));
+  const shown = hits.slice(0, SEARCH_LIMIT);
+  const summary = idx
+    ? `${hits.length} resultado${hits.length === 1 ? '' : 's'}${hits.length > SEARCH_LIMIT ? `, se muestran ${SEARCH_LIMIT}` : ''} · primero los que están dando algo ahora`
+    : 'Programación por hora no disponible: se carga canal por canal.';
+  results.innerHTML = `<div class="list-note">${esc(summary)}</div>`
+    + (shown.map(({ id, cur, byProgram }) => candidateButton(id, undefined, {
+      cur: idx ? cur : undefined, note: byProgram ? '· coincide con la búsqueda' : '',
+    })).join('') || '<div class="list-note">Sin resultados</div>');
+  results.hidden = false;
+  fillEpgRows(results);
+}
+
+function wireGuideSearch(root: HTMLElement) {
+  const input = $<HTMLInputElement>('.catalog-search', root);
+  const results = $('.search-results', root);
+  let t = 0;
+  input.oninput = () => {
+    clearTimeout(t);
+    t = window.setTimeout(() => renderGuideSearch(input.value, results), 150);
+  };
 }
 
 function cardHtml(i: number): string {
@@ -334,12 +501,18 @@ function cardHtml(i: number): string {
   const { edit, epg, hidden, band, suggestion } = info(ch);
   const shown = edit.name || stripDisplayPrefix(ch.name, state.rules!)[0];
   let body: string;
-  if (epg) body = epgRowHtml(epg);
+  if (epg) body = epgRowHtml(epg, '', { logo: false });
   else if (edit.manual) body = '<div class="card-note">Sin EPG, a propósito.</div>';
-  else if (suggestion) body = `<div class="card-note">Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b></div>`;
-  else body = '<div class="card-note">Sin EPG asignado.</div>';
-  return `<article class="card${hidden ? ' is-hidden' : ''}" data-i="${i}">
+  else if (suggestion) {
+    body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b></span>`
+      + `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button></div>`;
+  } else body = '<div class="card-note">Sin EPG asignado.</div>';
+  const sel = selection.active;
+  const picked = selection.items.has(i);
+  return `<article class="card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
     <div class="card-top">
+      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
+      ${logoHtml(epg, 'lg')}
       <div class="card-title">
         <div class="card-name">${esc(shown)}</div>
         ${edit.name ? `<div class="card-sub">En el proveedor: ${esc(ch.name)}</div>` : ''}
@@ -372,14 +545,59 @@ function render() {
   cards.innerHTML = list.length
     ? list.slice(0, state.shown).map(cardHtml).join('')
     : `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${state.channels.length ? 'Ningún canal coincide con el filtro.' : 'Volvé a cargar la lista del proveedor (Configuración).'}</div>`;
+  fillEpgRows(cards);
   $('#loadMoreBtn').hidden = list.length <= state.shown;
   renderStatusLine();
 }
 
 // ------------------------------------------------------------------ canal: diálogo
-function candidateButton(id: string, score?: number) {
+// Fila elegible: no es un <button> porque adentro va el botón de la descripción.
+function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string } = {}) {
   const pct = score === undefined ? '' : `<span class="muted">${Math.round(Math.min(score, 1) * 100)} %</span>`;
-  return `<button type="button" class="pick-row" data-pick="${esc(id)}">${epgRowHtml(id, pct)}</button>`;
+  return `<div class="pick-row" role="button" tabindex="0" data-pick="${esc(id)}">${epgRowHtml(id, pct, opts)}</div>`;
+}
+
+/** Clicks dentro de listas de canales de la guía: la línea "Ahora" despliega la descripción;
+ *  el resto de la fila elige ese EPG. Devuelve el id elegido, si hubo. */
+function epgClick(ev: Event): string | null | undefined {
+  const t = ev.target as HTMLElement;
+  const now = t.closest<HTMLElement>('.now-btn');
+  if (now) {
+    toggleDesc(now);
+    return undefined;
+  }
+  return t.closest<HTMLElement>('[data-pick]')?.dataset.pick;
+}
+
+// ------------------------------------------------------------------ ediciones de EPG
+function pickEpg(e: ChannelEdit, id: string) {
+  e.epg = id;
+  e.manual = true;
+  const logo = state.index?.icon.get(id);
+  if (logo) e.logo = logo;
+  else delete e.logo;
+}
+function autoEpg(e: ChannelEdit, ch: Channel) {
+  const a = state.auto.get(ch.name);
+  delete e.manual;
+  e.epg = a?.cid ?? undefined;
+  e.logo = a?.cid ? state.index?.icon.get(a.cid) : undefined;
+}
+function noEpg(e: ChannelEdit) {
+  e.epg = null;
+  e.manual = true;
+  delete e.logo;
+}
+/** Aplica una edición a varios canales, guarda y vuelve a dibujar. */
+function editChannels(chs: Channel[], fn: (e: ChannelEdit, ch: Channel) => void, msg?: string) {
+  for (const ch of chs) {
+    const e = { ...(state.cfg!.channels[ch.name] ?? {}) };
+    fn(e, ch);
+    setEdit(ch.name, e);
+  }
+  scheduleSave();
+  render();
+  if (msg) toast(msg, 'ok');
 }
 
 function openChannel(i: number) {
@@ -393,7 +611,7 @@ function openChannel(i: number) {
     ${edit.epg ? epgRowHtml(edit.epg) : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
     ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
     <div class="section-label">Buscar en toda la guía</div>
-    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Nombre del canal" enterkeyhint="search"></label>
+    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
     <div class="list search-results" hidden></div>
     <div class="row-actions">
       ${edit.manual ? '<button type="button" class="btn btn-gray" data-act="auto">Volver al automático</button>' : ''}
@@ -411,64 +629,33 @@ function openChannel(i: number) {
     ${hidden && !edit.hidden ? '<p class="help">Está oculto porque su categoría está oculta.</p>' : ''}`;
 
   const body = $('#channelBody');
-  const update = (fn: (e: ChannelEdit) => void, msg?: string) => {
-    const e = { ...(state.cfg!.channels[ch.name] ?? {}) };
-    fn(e);
-    setEdit(ch.name, e);
-    scheduleSave();
-    render();
-    if (msg) toast(msg, 'ok');
-  };
-  const pick = (id: string) => update((e) => {
-    e.epg = id;
-    e.manual = true;
-    const logo = state.index?.icon.get(id);
-    if (logo) e.logo = logo;
-    else delete e.logo;
-  }, 'EPG elegido');
+  const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
 
   body.onclick = (ev) => {
-    const t = ev.target as HTMLElement;
-    const pickBtn = t.closest<HTMLElement>('[data-pick]');
-    if (pickBtn) {
-      pick(pickBtn.dataset.pick!);
+    const picked = epgClick(ev);
+    if (picked) {
+      update((e) => pickEpg(e, picked), 'EPG elegido');
       ($('#channelDialog') as HTMLDialogElement).close();
       return;
     }
-    const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'auto') {
-      const a = state.auto.get(ch.name);
-      update((e) => {
-        delete e.manual;
-        e.epg = a?.cid ?? undefined;
-        e.logo = a?.cid ? state.index?.icon.get(a.cid) : undefined;
-      }, 'Volvió al EPG automático');
+      update((e) => autoEpg(e, ch), 'Volvió al EPG automático');
       openChannel(i);
     } else if (act === 'no-epg') {
-      update((e) => {
-        e.epg = null;
-        e.manual = true;
-        delete e.logo;
-      }, 'Quedó sin EPG');
+      update(noEpg, 'Quedó sin EPG');
       openChannel(i);
     } else if (act === 'rename') {
       const v = $<HTMLInputElement>('.rename', body).value.trim();
       update((e) => { e.name = v || undefined; }, v ? 'Nombre guardado' : 'Vuelve al nombre del proveedor');
     }
   };
-  const search = $<HTMLInputElement>('.catalog-search', body);
-  search.oninput = () => {
-    const q = fold(search.value.trim());
-    const results = $('.search-results', body);
-    results.hidden = q.length < 2;
-    if (results.hidden) return;
-    const hits: string[] = [];
-    for (const [id, name] of state.index!.displayName) {
-      if (fold(name).includes(q) || fold(id).includes(q)) hits.push(id);
-      if (hits.length >= 40) break;
-    }
-    results.innerHTML = hits.length ? hits.map((id) => candidateButton(id)).join('') : '<div class="list-note">Sin resultados</div>';
+  body.onkeydown = (ev) => {
+    const row = ev.target as HTMLElement;
+    if (ev.key === 'Enter' && row.matches('[data-pick]')) row.click();
   };
+  wireGuideSearch(body);
+  fillEpgRows(body);
   $<HTMLSelectElement>('.move', body).onchange = (ev) => {
     const sel = ev.target as HTMLSelectElement;
     let target = sel.value;
@@ -486,6 +673,150 @@ function openChannel(i: number) {
     update((e) => { e.hidden = visible ? undefined : true; }, visible ? 'Visible' : 'Oculto');
   };
   ($('#channelDialog') as HTMLDialogElement).showModal();
+}
+
+// ------------------------------------------------------------------ selección múltiple
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function setSelectMode(on: boolean, first?: number) {
+  selection.active = on;
+  selection.items.clear();
+  if (on && first !== undefined) selection.items.add(first);
+  document.body.classList.toggle('selecting', on);
+  $('#selectBtn').setAttribute('aria-pressed', String(on));
+  $('#bulkBar').hidden = !on;
+  render();
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const n = selection.items.size;
+  $('#bulkCount').textContent = n ? plural(n, 'seleccionado', 'seleccionados') : 'Tocá los canales';
+  $<HTMLButtonElement>('#bulkActions').disabled = !n;
+  const list = visibleChannels();
+  $('#bulkAll').textContent = list.length && list.every((i) => selection.items.has(i)) ? 'Ninguno' : 'Todos';
+}
+
+function toggleSelected(i: number) {
+  if (selection.items.has(i)) selection.items.delete(i);
+  else selection.items.add(i);
+  const card = $(`.card[data-i="${i}"]`);
+  if (card) {
+    const on = selection.items.has(i);
+    card.classList.toggle('selected', on);
+    const box = $('.sel-box', card);
+    if (box) box.innerHTML = icon(on ? 'square-check' : 'square');
+  }
+  updateBulkBar();
+}
+
+function menuRowHtml(iconName: string, label: string, sub: string, action: string, cls = '') {
+  return `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span>`
+    + `<span class="menu-text">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span></button>`;
+}
+
+/** Aplica a los seleccionados y sale del modo selección. */
+function applyBulk(fn: (e: ChannelEdit, ch: Channel) => void, msg: string) {
+  const chs = [...selection.items].map((i) => state.channels[i]);
+  editChannels(chs, fn, msg);
+  setSelectMode(false);
+}
+
+function openBulkMenu() {
+  const chs = [...selection.items].map((i) => state.channels[i]);
+  const n = chs.length;
+  const cfg = state.cfg!;
+  $('#bulkTitle').textContent = plural(n, 'canal seleccionado', 'canales seleccionados');
+  const rows = [
+    menuRowHtml('pencil', 'Cambiar EPG', `El mismo para ${plural(n, 'canal', 'canales')}`, 'epg'),
+    menuRowHtml('folder-input', 'Mover de categoría', 'Todos a la misma categoría', 'category'),
+    menuRowHtml('eye-off', 'Ocultar de la playlist', '', 'hide'),
+    menuRowHtml('eye', 'Mostrar en la playlist', '', 'show'),
+  ];
+  const undo: string[] = [];
+  if (chs.some((ch) => cfg.channels[ch.name]?.manual)) undo.push(menuRowHtml('undo-2', 'Volver al EPG automático', 'Descarta los EPG elegidos a mano', 'auto'));
+  if (chs.some((ch) => cfg.channels[ch.name]?.name)) undo.push(menuRowHtml('rotate-ccw', 'Restaurar nombres originales', '', 'names'));
+  if (chs.some((ch) => cfg.channels[ch.name]?.group)) undo.push(menuRowHtml('folder-input', 'Volver a la categoría original', '', 'orig-cat'));
+  undo.push(menuRowHtml('ban', 'Dejar sin EPG', 'Para cuando ninguna guía sirve', 'no-epg', 'danger'));
+  const body = $('#bulkBody');
+  body.innerHTML = `<div class="menu">${rows.join('')}</div><div class="menu">${undo.join('')}</div>`;
+  const dialog = $('#bulkDialog') as HTMLDialogElement;
+  body.onclick = (ev) => {
+    const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
+    if (!action) return;
+    dialog.close();
+    switch (action) {
+      case 'epg': openBulkEpg(chs); break;
+      case 'category': openBulkCategory(chs); break;
+      case 'hide': applyBulk((e) => { e.hidden = true; }, `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`); break;
+      case 'show': applyBulk((e) => { delete e.hidden; }, `${plural(n, 'canal visible', 'canales visibles')} en la playlist`); break;
+      case 'auto': applyBulk(autoEpg, `${plural(n, 'canal vuelve', 'canales vuelven')} al EPG automático`); break;
+      case 'names': applyBulk((e) => { delete e.name; }, 'Nombres originales restaurados'); break;
+      case 'orig-cat': applyBulk((e) => { delete e.group; }, 'Categorías originales restauradas'); break;
+      case 'no-epg':
+        if (confirm(`¿Dejar ${plural(n, 'canal', 'canales')} sin EPG? No se les asigna guía ni logo. Se puede deshacer.`)) {
+          applyBulk(noEpg, `${plural(n, 'canal', 'canales')} sin EPG a propósito`);
+        }
+        break;
+      default: break;
+    }
+  };
+  dialog.showModal();
+}
+
+// EPG para todos: primero las opciones que más se repiten entre los seleccionados (su EPG
+// actual y sus alternativas), después la búsqueda en toda la guía.
+function openBulkEpg(chs: Channel[]) {
+  const score = new Map<string, number>();
+  for (const ch of chs) {
+    const cur = state.cfg!.channels[ch.name]?.epg;
+    const ids = [...(cur ? [cur] : []), ...(state.auto.get(ch.name)?.ranked ?? []).map((c) => c.channelId)];
+    for (const id of new Set(ids)) score.set(id, (score.get(id) ?? 0) + 1);
+  }
+  const suggestions = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  $('#bulkEpgTitle').textContent = `EPG para ${plural(chs.length, 'canal', 'canales')}`;
+  const body = $('#bulkEpgBody');
+  body.innerHTML = `
+    ${suggestions.length ? `<div class="section-label">Sugerencias</div><div class="list">${suggestions.map(([id, count]) => candidateButton(id, undefined, {
+      note: count > 1 ? `· opción de ${count} de ${chs.length}` : '',
+    })).join('')}</div>` : ''}
+    <div class="section-label">Buscar en toda la guía</div>
+    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
+    <div class="list search-results" hidden></div>`;
+  const dialog = $('#bulkEpgDialog') as HTMLDialogElement;
+  body.onclick = (ev) => {
+    const picked = epgClick(ev);
+    if (!picked) return;
+    dialog.close();
+    applyBulk((e) => pickEpg(e, picked), `EPG elegido para ${plural(chs.length, 'canal', 'canales')}`);
+  };
+  wireGuideSearch(body);
+  fillEpgRows(body);
+  dialog.showModal();
+}
+
+function openBulkCategory(chs: Channel[]) {
+  $('#bulkTitle').textContent = `Mover ${plural(chs.length, 'canal', 'canales')}`;
+  const body = $('#bulkBody');
+  body.innerHTML = `<select class="select bulk-cat" aria-label="Categoría destino">
+      <option value="" selected disabled>Elegí la categoría…</option>
+      ${groups().map((g) => `<option>${esc(g)}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
+    </select>
+    <div class="row-actions"><button type="button" class="btn btn-primary bulk-move" disabled>Mover</button></div>`;
+  body.onclick = null;
+  const select = $<HTMLSelectElement>('.bulk-cat', body);
+  const move = $<HTMLButtonElement>('.bulk-move', body);
+  select.onchange = () => { move.disabled = !select.value; };
+  const dialog = $('#bulkDialog') as HTMLDialogElement;
+  move.onclick = () => {
+    let dest = select.value;
+    if (dest === '__new__') dest = (prompt('Nombre de la categoría nueva') ?? '').trim();
+    if (!dest) return;
+    dialog.close();
+    applyBulk((e, ch) => { e.group = dest === ch.category ? undefined : dest; },
+      `${plural(chs.length, 'canal movido', 'canales movidos')} a ${dest}`);
+  };
+  dialog.showModal();
 }
 
 // ------------------------------------------------------------------ categorías
@@ -1000,10 +1331,74 @@ function setupEditor() {
       render();
     }, 150);
   };
-  $('#cards').onclick = (ev) => {
-    const card = (ev.target as HTMLElement).closest<HTMLElement>('[data-i]');
-    if (card) openChannel(Number(card.dataset.i));
+  const cards = $('#cards');
+  let longPressed = -1;
+  cards.onclick = (ev) => {
+    const t = ev.target as HTMLElement;
+    const card = t.closest<HTMLElement>('.card[data-i]');
+    if (!card) return;
+    const i = Number(card.dataset.i);
+    if (longPressed === i) {
+      longPressed = -1;
+      return;
+    }
+    if (selection.active) {
+      toggleSelected(i);
+      return;
+    }
+    const now = t.closest<HTMLElement>('.now-btn');
+    if (now) {
+      toggleDesc(now);
+      return;
+    }
+    const use = t.closest<HTMLElement>('[data-use]');
+    if (use) {
+      const cid = info(state.channels[i]).suggestion?.channelId;
+      if (cid) editChannels([state.channels[i]], (e) => pickEpg(e, cid), 'Sugerencia aplicada');
+      return;
+    }
+    openChannel(i);
   };
+  // Toque largo en una tarjeta: entra al modo selección con esa tarjeta marcada.
+  let press = 0;
+  let startX = 0;
+  let startY = 0;
+  const cancel = () => {
+    clearTimeout(press);
+    press = 0;
+  };
+  cards.addEventListener('pointerdown', (ev) => {
+    const card = (ev.target as HTMLElement).closest<HTMLElement>('.card[data-i]');
+    if (!card || selection.active || ev.button !== 0) return;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    press = window.setTimeout(() => {
+      press = 0;
+      longPressed = Number(card.dataset.i);
+      setTimeout(() => { longPressed = -1; }, 600);
+      navigator.vibrate?.(15);
+      setSelectMode(true, Number(card.dataset.i));
+    }, 500);
+  });
+  cards.addEventListener('pointermove', (ev) => {
+    if (press && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 10) cancel();
+  });
+  cards.addEventListener('pointerup', cancel);
+  cards.addEventListener('pointercancel', cancel);
+  cards.addEventListener('contextmenu', (ev) => { if (selection.active) ev.preventDefault(); });
+  $('#selectBtn').onclick = () => setSelectMode(!selection.active);
+  $('#bulkCancel').onclick = () => setSelectMode(false);
+  $('#bulkActions').onclick = openBulkMenu;
+  $('#bulkAll').onclick = () => {
+    const list = visibleChannels();
+    if (list.every((i) => selection.items.has(i))) list.forEach((i) => selection.items.delete(i));
+    else list.forEach((i) => selection.items.add(i));
+    render();
+    updateBulkBar();
+  };
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && selection.active && !document.querySelector('dialog[open]')) setSelectMode(false);
+  });
   $('#loadMoreBtn').onclick = () => {
     state.shown += PAGE;
     render();
