@@ -80,6 +80,7 @@
       <h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1>
       <div class="header-actions">
         <button class="btn btn-primary" id="linksBtn"><span data-icon="tv"></span>Tus links</button>
+        <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
         <button class="icon-btn" id="categoriesBtn" title="Categorías" aria-label="Categorías"><span data-icon="layers"></span></button>
         <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
       </div>
@@ -110,6 +111,33 @@
 </section>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="bulk-bar" id="bulkBar" hidden>
+  <button class="icon-btn ghost" id="bulkCancel" title="Salir de la selección" aria-label="Salir de la selección"><span data-icon="x"></span></button>
+  <span class="bulk-count" id="bulkCount" aria-live="polite">Tocá los canales</span>
+  <button class="btn btn-plain" id="bulkAll">Todos</button>
+  <button class="icon-btn filled" id="bulkActions" title="Acciones" aria-label="Acciones para los seleccionados" disabled><span data-icon="ellipsis"></span></button>
+</div>
+
+<dialog class="sheet" id="bulkDialog" aria-labelledby="bulkTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="bulkTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="bulkBody"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="bulkEpgDialog" aria-labelledby="bulkEpgTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="bulkEpgTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="bulkEpgBody"></div>
+  </div>
+</dialog>
 
 <dialog class="sheet settings-sheet" id="channelDialog" aria-labelledby="channelTitle">
   <div class="sheet-body">
