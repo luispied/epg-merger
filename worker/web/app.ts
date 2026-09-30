@@ -721,7 +721,8 @@ function setupOnboarding() {
       // Hay proveedores que bloquean los pedidos que salen de Cloudflare: la lista la baja el
       // navegador de la persona (una descarga común, sin CORS) y la sube como archivo.
       status(st, null);
-      const why = `Grilla no pudo bajar la lista (${(e as Error).message}). Muchos proveedores bloquean los pedidos que no vienen de un reproductor: bajala vos y subila.`;
+      const why = 'Tu proveedor no deja que Grilla baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
+      console.info('provider/list:', (e as Error).message);
       const download = `${servers[0]}/get.php?${new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' })}`;
       writeDraft({ uploadWhy: why, download });
       showUpload(why, download);
