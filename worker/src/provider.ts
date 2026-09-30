@@ -145,19 +145,19 @@ export async function loadXtream(servers: string[], u: string, p: string, userAg
 const EXTINF_RE = /^#EXTINF:\s*-?\d+((?:\s+[\w-]+="[^"]*")*)[^,]*,(.*)$/;
 const ATTR_RE = /([\w-]+)="([^"]*)"/g;
 
-/** Canales de un M3U extendido (port de providers.parse_m3u). */
-export function parseM3u(text: string): Channel[] {
-  const channels: Channel[] = [];
+/** Parser de M3U extendido de a una línea (port de providers.parse_m3u): así una lista enorme
+ *  (hay proveedores que mandan 70 MB con películas y series) se puede leer de a partes. */
+export function m3uLineParser(onChannel: (ch: Channel) => void): (rawLine: string) => void {
   let pending: { name: string; category: string | undefined; icon: string; epgId: string | null } | null = null;
   let group: string | null = null;
-  for (const raw of text.split(/\r\n|\r|\n/)) {
+  return (raw) => {
     const line = raw.trim();
-    if (!line) continue;
+    if (!line) return;
     if (line.startsWith('#EXTINF')) {
       const m = EXTINF_RE.exec(line);
       if (!m) {
         pending = null;
-        continue;
+        return;
       }
       const attrs: Record<string, string> = {};
       for (const a of (m[1] ?? '').matchAll(ATTR_RE)) attrs[a[1]] = a[2];
@@ -167,15 +167,37 @@ export function parseM3u(text: string): Channel[] {
     } else if (line.startsWith('#EXTGRP:')) {
       group = line.slice(8).trim();
     } else if (line.startsWith('#')) {
-      continue;
+      return;
     } else if (pending) {
-      channels.push({ name: pending.name, category: pending.category || group || 'General', id: '', ext: '',
+      onChannel({ name: pending.name, category: pending.category || group || 'General', id: '', ext: '',
         icon: pending.icon, epgId: pending.epgId, url: line });
       pending = null;
       group = null;
     }
-  }
+  };
+}
+
+/** Canales de un M3U extendido. */
+export function parseM3u(text: string): Channel[] {
+  const channels: Channel[] = [];
+  const push = m3uLineParser((ch) => channels.push(ch));
+  for (const line of text.split(/\r\n|\r|\n/)) push(line);
   return channels;
+}
+
+/** Id de stream de Xtream: número o código (hay paneles que usan UUID en las URLs). */
+export const STREAM_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const XTREAM_URL_RE = /\/([A-Za-z0-9_-]{1,64})(?:\.([A-Za-z0-9]{1,6}))?(?:[?#].*)?$/;
+
+/** Canal en vivo de la lista M3U de un proveedor Xtream (get.php), o null si es una película,
+ *  una serie o no se entiende. El id y la extensión salen de la URL
+ *  (…/live/usuario/clave/<id>.ts o …/usuario/clave/<id>), que no se guarda. */
+export function xtreamLiveChannel(ch: Channel): Channel | null {
+  const url = ch.url ?? '';
+  if (/\/(movie|series)\//i.test(url)) return null;
+  const m = XTREAM_URL_RE.exec(url);
+  if (!m) return null;
+  return { name: ch.name, category: ch.category, id: m[1], ext: m[2] || 'ts', icon: ch.icon, epgId: ch.epgId };
 }
 
 const MAX_UPLOADED_CHANNELS = 30_000;
@@ -188,8 +210,8 @@ export function parseUploadedList(raw: unknown): { server?: string; channels: Ch
   const channels = r.channels.slice(0, MAX_UPLOADED_CHANNELS).flatMap((c): Channel[] => {
     if (!c || typeof c !== 'object') return [];
     const ch = c as Record<string, unknown>;
-    const id = s(ch.id, 20);
-    if (!/^\d+$/.test(id)) return [];
+    const id = s(ch.id, 64);
+    if (!STREAM_ID_RE.test(id)) return [];
     const ext = /^[A-Za-z0-9]{1,6}$/.test(s(ch.ext)) ? s(ch.ext) : 'm3u8';
     return [{ name: s(ch.name), category: s(ch.category) || 'General', id, ext, icon: s(ch.icon, 2000),
       epgId: s(ch.epgId) || null }];
@@ -198,15 +220,10 @@ export function parseUploadedList(raw: unknown): { server?: string; channels: Ch
   return { channels };
 }
 
-/** Canales de la lista M3U que da un proveedor Xtream (get.php): el stream_id y la extensión
- *  salen de la URL (…/live/usuario/clave/123.ts o …/usuario/clave/123), que no se guarda. Es
- *  lo que sube la web cuando el proveedor no deja que el Worker baje la lista. */
+/** Canales en vivo de la lista M3U que da un proveedor Xtream (get.php): lo que sube la web
+ *  cuando el proveedor no deja que el Worker baje la lista. */
 export function channelsFromXtreamM3u(text: string): Channel[] {
-  return parseM3u(text).flatMap((c) => {
-    const m = /\/(\d+)(?:\.([A-Za-z0-9]{1,6}))?(?:[?#].*)?$/.exec(c.url ?? '');
-    if (!m) return [];
-    return [{ name: c.name, category: c.category, id: m[1], ext: m[2] || 'ts', icon: c.icon, epgId: c.epgId }];
-  });
+  return parseM3u(text).map(xtreamLiveChannel).filter((c): c is Channel => c !== null);
 }
 
 export async function loadM3u(url: string): Promise<Channel[]> {

@@ -130,7 +130,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
 }
 
 async function serveStream(cfgId: string, token: string, file: string, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
-  const m = /^(\d{1,12})\.([A-Za-z0-9]{1,6})$/.exec(file);
+  const m = /^([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9]{1,6})$/.exec(file);
   if (!m) return new Response('No encontrado', { status: 404 });
   const creds = await decryptToken(env.TOKEN_KEY, cfgId, token);
   if (!creds || !('u' in creds)) return new Response('Link inválido', { status: 403 });

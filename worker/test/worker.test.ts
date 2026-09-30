@@ -266,9 +266,24 @@ test('configuración: guarda qué EPG se eligió a mano', async () => {
 
 test('lista M3U de un proveedor Xtream: stream_id y extensión de la URL, sin la URL', () => {
   const chs = channelsFromXtreamM3u('#EXTM3U\n#EXTINF:-1 tvg-id="t.ar" group-title="AR",AR| Telefe\nhttp://s:8080/live/u/p/123.ts\n'
-    + '#EXTINF:-1 group-title="AR",Sin extensión\nhttp://s:8080/u/p/456\n#EXTINF:-1,Película\nhttp://s/movie/u/p/abc.mkv\n');
+    + '#EXTINF:-1 group-title="AR",Sin extensión\nhttp://s:8080/u/p/456\n#EXTINF:-1,Película\nhttp://s/movie/u/p/abc.mkv\n'
+    + '#EXTINF:-1,Serie\nhttp://s/series/u/p/9.mp4\n#EXTINF:-1 group-title="MX",Con código\nhttp://s:8880/live/u/p/a4d75cbc-a207-4944-81ce-4e3b218bfa87.ts\n');
   assert.deepEqual(chs, [
     { name: 'AR| Telefe', category: 'AR', id: '123', ext: 'ts', icon: '', epgId: 't.ar' },
     { name: 'Sin extensión', category: 'AR', id: '456', ext: 'ts', icon: '', epgId: null },
+    { name: 'Con código', category: 'MX', id: 'a4d75cbc-a207-4944-81ce-4e3b218bfa87', ext: 'ts', icon: '', epgId: null },
   ]);
+});
+
+test('ids con código (UUID): la lista subida y el redirect los aceptan', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const uuid = 'a4d75cbc-a207-4944-81ce-4e3b218bfa87';
+  const put = await handle(req(`/api/cfg/${t.cfgId}/list`, { method: 'PUT', key: t.editKey,
+    body: JSON.stringify({ channels: [{ name: 'A', category: 'X', id: uuid, ext: 'ts' }, { name: 'B', id: '../x' }] }) }), t.env, t.ctx, t.cache);
+  assert.deepEqual(await put.json(), { ok: true, channels: 1 });
+  const text = await (await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).text();
+  assert.ok(text.includes(`/${uuid}.ts`));
+  const res = await handle(new Request(`${BASE}/s/${t.cfgId}/${t.token}/${uuid}.ts`), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('Location'), `${S1}/live/user/pa%20ss/${uuid}.ts`);
 });

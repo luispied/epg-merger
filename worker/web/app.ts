@@ -6,7 +6,7 @@ import {
   EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
-import { channelsFromXtreamM3u } from '../src/provider.ts';
+import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
@@ -503,6 +503,10 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
         creds = p.type === 'xtream'
           ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
           : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
+        if (Object.values(creds).some((v) => !v)) {
+          toast('Completá los datos del proveedor', 'bad');
+          return;
+        }
       }
       try {
         await saveNow();
@@ -571,6 +575,67 @@ function parseServers(text: string): string[] {
     .map((s) => (/^https?:\/\//i.test(s) ? s : `http://${s}`));
 }
 
+// Lo escrito en el onboarding, mientras dure la pestaña: al volver de bajar la lista, el
+// navegador del teléfono suele recargar la página y se perdía todo.
+const DRAFT_KEY = 'grilla_draft';
+interface Draft { servers?: string; username?: string; password?: string; uploadWhy?: string; download?: string }
+function readDraft(): Draft {
+  try {
+    return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+function writeDraft(patch: Draft | null) {
+  try {
+    if (patch === null) sessionStorage.removeItem(DRAFT_KEY);
+    else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...readDraft(), ...patch }));
+  } catch { /* sin storage */ }
+}
+function restoreDraft() {
+  const d = readDraft();
+  if (d.servers && !$<HTMLTextAreaElement>('#servers').value) $<HTMLTextAreaElement>('#servers').value = d.servers;
+  if (d.username && !$<HTMLInputElement>('#username').value) $<HTMLInputElement>('#username').value = d.username;
+  if (d.password && !$<HTMLInputElement>('#password').value) $<HTMLInputElement>('#password').value = d.password;
+  if (d.download) showUpload(d.uploadWhy ?? '', d.download);
+}
+function showUpload(why: string, download: string) {
+  $('#uploadWhy').textContent = why;
+  $<HTMLAnchorElement>('#m3uDownload').href = download;
+  $('#uploadBox').hidden = false;
+}
+
+/** Canales en vivo de la lista M3U del proveedor, leída de a partes: hay proveedores que
+ *  mandan 70 MB (con películas y series) y un teléfono no puede cargarla entera de una vez. */
+async function readXtreamM3u(file: File, progress: (n: number, done: number) => void): Promise<{ channels: Channel[]; total: number }> {
+  const channels: Channel[] = [];
+  let total = 0;
+  const push = m3uLineParser((ch) => {
+    total++;
+    const live = xtreamLiveChannel(ch);
+    if (live) channels.push(live);
+  });
+  const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+  let rest = '';
+  let read = 0;
+  let lastReport = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    read += value.length;
+    const lines = (rest + value).split(/\r\n|\r|\n/);
+    rest = lines.pop() ?? '';
+    for (const line of lines) push(line);
+    if (read - lastReport > 2_000_000) {
+      lastReport = read;
+      progress(channels.length, Math.min(read / Math.max(file.size, 1), 1));
+      await new Promise((r) => setTimeout(r));
+    }
+  }
+  push(rest);
+  return { channels, total };
+}
+
 function showOnboarding(reload = false) {
   state.reloading = reload;
   $('#onboarding').hidden = false;
@@ -591,6 +656,7 @@ function showOnboarding(reload = false) {
     $('#onboarding .card').appendChild(cancel);
   }
   if (cancel) cancel.hidden = !reload;
+  restoreDraft();
 }
 
 function setProviderType(t: 'xtream' | 'm3u') {
@@ -623,6 +689,7 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
       saveLocal(state.local);
     }
     await storeList();
+    writeDraft(null);
     status(st, null);
     showEditor();
     toast(`${channels.length} canales cargados`, 'ok');
@@ -637,6 +704,9 @@ function setupOnboarding() {
     if (v === 'xtream' || v === 'm3u') setProviderType(v);
   };
   const st = $('#onboardStatus');
+  for (const [id, key] of [['#servers', 'servers'], ['#username', 'username'], ['#password', 'password']] as const) {
+    $<HTMLInputElement>(id).addEventListener('input', (ev) => writeDraft({ [key]: (ev.target as HTMLInputElement).value }));
+  }
   $<HTMLFormElement>('#xtreamForm').onsubmit = async (ev) => {
     ev.preventDefault();
     const servers = parseServers($<HTMLTextAreaElement>('#servers').value);
@@ -651,20 +721,32 @@ function setupOnboarding() {
       // Hay proveedores que bloquean los pedidos que salen de Cloudflare: la lista la baja el
       // navegador de la persona (una descarga común, sin CORS) y la sube como archivo.
       status(st, null);
-      $('#uploadWhy').textContent = `Grilla no pudo bajar la lista (${(e as Error).message}). Muchos proveedores bloquean los pedidos que no vienen de un reproductor: bajala vos y subila.`;
-      $<HTMLAnchorElement>('#m3uDownload').href = `${servers[0]}/get.php?${new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' })}`;
-      $('#uploadBox').hidden = false;
+      const why = `Grilla no pudo bajar la lista (${(e as Error).message}). Muchos proveedores bloquean los pedidos que no vienen de un reproductor: bajala vos y subila.`;
+      const download = `${servers[0]}/get.php?${new URLSearchParams({ username, password, type: 'm3u_plus', output: 'ts' })}`;
+      writeDraft({ uploadWhy: why, download });
+      showUpload(why, download);
     }
   };
   $<HTMLInputElement>('#m3uFile').onchange = async (ev) => {
     const file = (ev.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const channels = channelsFromXtreamM3u(await file.text());
-    if (!channels.length) {
-      status(st, 'El archivo no tiene canales de Xtream (¿es la lista correcta?)', 'bad');
-      return;
+    try {
+      const { channels, total } = await readXtreamM3u(file, (n, done) => status(st,
+        `Leyendo la lista… ${Math.round(done * 100)} % (${n} canales en vivo)`));
+      if (!channels.length) {
+        status(st, total
+          ? `El archivo tiene ${total} entradas pero ningún canal en vivo de Xtream (¿es la lista correcta?)`
+          : 'El archivo no parece una lista M3U (¿se bajó bien?)', 'bad');
+        return;
+      }
+      const servers = parseServers($<HTMLTextAreaElement>('#servers').value || readDraft().servers || '');
+      const username = $<HTMLInputElement>('#username').value.trim();
+      const password = $<HTMLInputElement>('#password').value;
+      if (username && password) state.creds = { username, password };
+      await finishOnboarding(channels, { type: 'xtream', servers, list: 'upload' });
+    } catch (e) {
+      status(st, `No se pudo leer el archivo: ${(e as Error).message}`, 'bad');
     }
-    await finishOnboarding(channels, { type: 'xtream', servers: parseServers($<HTMLTextAreaElement>('#servers').value), list: 'upload' });
   };
   $<HTMLFormElement>('#m3uForm').onsubmit = async (ev) => {
     ev.preventDefault();

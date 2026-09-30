@@ -2,11 +2,10 @@
 // la web de web/ compilada con esbuild (incluye @grilla/core de ../core) y los estilos e
 // íconos de la interfaz de docs/. Lo corre wrangler antes de publicar ([build] en wrangler.toml).
 import { build } from 'esbuild';
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 const here = (p) => new URL(p, import.meta.url);
-rmSync(here('./public'), { recursive: true, force: true });
 mkdirSync(here('./public'), { recursive: true });
 
 await build({
