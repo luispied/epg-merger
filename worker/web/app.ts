@@ -215,6 +215,17 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
       await new Promise((r) => setTimeout(r));
     }
     const ch = byName.get(names[i])!;
+    // Los separadores de sección del proveedor no son canales: nunca llevan guía.
+    if (DIVIDER_RE.test(ch.category)) {
+      state.auto.set(ch.name, { cid: null, score: 0, ranked: [] });
+      const edit = cfg.channels[ch.name] ?? {};
+      if (!edit.manual) {
+        delete edit.epg;
+        delete edit.logo;
+      }
+      setEdit(ch.name, edit);
+      continue;
+    }
     const m = matchStream(ch.name, ch.epgId, index, {}, {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
     state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     const edit = cfg.channels[ch.name] ?? {};
@@ -357,15 +368,16 @@ function info(ch: Channel) {
   const band: Band = edit.manual ? 'manual' : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
   // Categoría marcada "Sin guía" (Categorías): no cuenta en "A revisar" ni en "Sin EPG".
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
-  const suggestion = !epg && !edit.manual ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide };
+  const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
+  const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
+  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider };
 }
 
 function matchesFilter(ch: Channel, filter: string) {
   const i = info(ch);
   switch (filter) {
-    case 'revisar': return !i.hidden && !i.noGuide && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
-    case 'sin-epg': return !i.hidden && !i.noGuide && !i.epg;
+    case 'revisar': return !i.hidden && !i.noGuide && !i.divider && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
+    case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg;
     case 'manual': return i.band === 'manual';
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
@@ -561,6 +573,7 @@ async function renderGuideSearch(term: string, results: HTMLElement) {
 function wireGuideSearch(root: HTMLElement) {
   const input = $<HTMLInputElement>('.catalog-search', root);
   const results = $('.search-results', root);
+  if (!input || !results) return;
   let t = 0;
   input.oninput = () => {
     clearTimeout(t);
@@ -570,8 +583,18 @@ function wireGuideSearch(root: HTMLElement) {
 
 function cardHtml(i: number): string {
   const ch = state.channels[i];
-  const { edit, epg, hidden, band, suggestion } = info(ch);
+  const { edit, epg, hidden, band, suggestion, divider } = info(ch);
   const shown = edit.name || stripDisplayPrefix(ch.name, state.rules!)[0];
+  const sel = selection.active;
+  const picked = selection.items.has(i);
+  if (divider) {
+    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
+      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
+      <div class="card-title"><div class="section-name">${esc(sectionTitle(groupOf(ch)))}</div>
+        <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
+      <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del separador">${icon('ellipsis')}</button>
+    </article>`;
+  }
   let body: string;
   if (epg) body = epgRowHtml(epg, '', { logo: false });
   else if (edit.manual) body = '<div class="card-note">Sin EPG, a propósito.</div>';
@@ -579,8 +602,6 @@ function cardHtml(i: number): string {
     body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b></span>`
       + `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button></div>`;
   } else body = '<div class="card-note">Sin EPG asignado.</div>';
-  const sel = selection.active;
-  const picked = selection.items.has(i);
   return `<article class="card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
     <div class="card-top">
       ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
@@ -607,6 +628,7 @@ function renderStatusLine() {
 
 function render() {
   if (!state.cfg) return;
+  headersCache = null;
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
     const f = b.dataset.filter!;
     b.setAttribute('aria-pressed', String(f === state.filter));
@@ -703,11 +725,12 @@ function editGroups(fn: (g: Config['groups']) => void, msg?: string) {
 
 function openChannel(i: number) {
   const ch = state.channels[i];
-  const { edit, auto, hidden } = info(ch);
+  const { edit, auto, hidden, divider } = info(ch);
   $('#channelTitle').textContent = edit.name || ch.name;
   const categories = groups();
   const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
-  $('#channelBody').innerHTML = `
+  // Un separador de sección no es un canal: sin guía, solo nombre, categoría y visibilidad.
+  const epgSection = divider ? '<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>' : `
     <div class="section-label">Guía (EPG)</div>
     ${edit.epg ? epgRowHtml(edit.epg) : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
     ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
@@ -718,6 +741,9 @@ function openChannel(i: number) {
       ${edit.manual ? '<button type="button" class="btn btn-gray" data-act="auto">Volver al automático</button>' : ''}
       ${edit.epg || !edit.manual ? '<button type="button" class="btn btn-gray" data-act="no-epg">Sin EPG</button>' : ''}
     </div>
+`;
+  $('#channelBody').innerHTML = `
+    ${epgSection}
     <div class="section-label">Nombre en la playlist</div>
     <div class="inline-field"><input class="input rename" value="${esc(edit.name ?? '')}" placeholder="${esc(stripDisplayPrefix(ch.name, state.rules!)[0])}">
       <button type="button" class="icon-btn" data-act="rename" aria-label="Guardar nombre">${icon('check')}</button></div>
@@ -891,7 +917,7 @@ function openBulkEpg(chs: Channel[]) {
     const picked = epgClick(ev);
     if (!picked) return;
     dialog.close();
-    applyBulk((e) => pickEpg(e, picked), `EPG elegido para ${plural(chs.length, 'canal', 'canales')}`);
+    applyBulk((e, ch) => { if (!info(ch).divider) pickEpg(e, picked); }, `EPG elegido para ${plural(chs.length, 'canal', 'canales')}`);
   };
   wireGuideSearch(body);
   fillEpgRows(body);
@@ -926,6 +952,9 @@ function openBulkCategory(chs: Channel[]) {
 // Separador de sección del proveedor ("▆▆▆ DEPORTES ▆▆▆"): una categoría decorativa, o una con
 // un solo canal que se llama igual (así quedan los separadores importados de GitHub).
 const DIVIDER_RE = /[\u2580-\u259F]{2,}/;
+let headersCache: Set<string> | null = null;
+/** sectionHeaders() de esta pasada de dibujo (render() y editGroups lo invalidan). */
+const headersNow = () => (headersCache ??= sectionHeaders());
 function sectionHeaders(): Set<string> {
   const members = new Map<string, Channel[]>();
   for (const ch of state.channels) {
@@ -1121,12 +1150,15 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
     body.innerHTML = `
       <p>Los links llevan tus datos del proveedor cifrados: el servidor no los guarda. Si cambiás
         la contraseña del proveedor, generalos de nuevo.</p>
-      ${needsCreds && p.type === 'xtream' ? `
-        <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false"></label>
-        <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password"></label>` : ''}
-      ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url"></label>' : ''}
-      <button type="button" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button>`;
-    $('#makeLinks').onclick = async () => {
+      <form class="stack" id="linksForm" autocomplete="off">
+        ${needsCreds && p.type === 'xtream' ? `
+          <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
+          <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
+        ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
+        <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
+      </form>`;
+    $('#linksForm').onsubmit = async (ev) => {
+      ev.preventDefault();
       let creds = state.creds;
       if (!creds) {
         creds = p.type === 'xtream'
