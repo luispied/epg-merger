@@ -65,11 +65,15 @@ def group_order(entries):
     return out
 
 
-def compare(github, web):
+def compare(github, web, guide_ids=None):
+    """`guide_ids`: los id de la guía compartida. Un tvg-id que no está ahí es un canal sin EPG
+    (cada lado pone ahí un nombre distinto: el crudo o el visible); dos "sin EPG" son iguales."""
     gh = {e['id']: e for e in github}
     wb = {e['id']: e for e in web}
     both = [i for i in gh if i in wb]
     diff = lambda field: [(gh[i]['name'], gh[i][field], wb[i][field]) for i in both if gh[i][field] != wb[i][field]]  # noqa: E731
+    real = (lambda t: t in guide_ids) if guide_ids is not None else (lambda t: True)  # noqa: E731
+    epg = [(n, a, b) for n, a, b in diff('tvg_id') if real(a) or real(b)]
     gh_order = [g for g in group_order(github) if g in set(group_order(web))]
     web_order = [g for g in group_order(web) if g in set(gh_order)]
     first = next((k for k, (a, b) in enumerate(zip(gh_order, web_order)) if a != b), None)
@@ -77,7 +81,8 @@ def compare(github, web):
         'github': len(github), 'web': len(web), 'both': len(both),
         'only_github': [gh[i]['name'] for i in gh if i not in wb],
         'only_web': [wb[i]['name'] for i in wb if i not in gh],
-        'epg': diff('tvg_id'), 'name': diff('name'), 'group': diff('group'),
+        'epg': [(n, a if real(a) else '(sin EPG)', b if real(b) else '(sin EPG)') for n, a, b in epg],
+        'name': diff('name'), 'group': diff('group'),
         'groups_only_github': [g for g in group_order(github) if g not in set(group_order(web))],
         'groups_only_web': [g for g in group_order(web) if g not in set(group_order(github))],
         'order_first_diff': None if first is None else (first, gh_order[first], web_order[first]),
@@ -96,8 +101,11 @@ def guide_ids(xml_gz):
     return channels, with_programmes
 
 
-def report(profile, cfg_id, r, missing_guide):
-    lines = [f"## {profile} · configuración web `{cfg_id[:6]}…`", '',
+def report(profile, cfg_id, r, missing_guide, edited=None):
+    lines = [f"## {profile} · configuración web `{cfg_id[:6]}…`", '']
+    if edited:
+        lines.append(f"- Última edición: {edited:%d/%m %H:%M} UTC")
+    lines += [
              f"- Canales: GitHub **{r['github']}**, web **{r['web']}**, en las dos **{r['both']}**",
              f"- EPG distinto: **{len(r['epg'])}** · nombre distinto: **{len(r['name'])}** · categoría distinta: **{len(r['group'])}**",
              f"- Solo en GitHub: **{len(r['only_github'])}** · solo en la web: **{len(r['only_web'])}**"
@@ -162,6 +170,8 @@ def main():
         aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'], aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
         region_name='auto')
     r2 = R2(client, os.environ.get('R2_BUCKET') or 'grilla')
+    index = r2.get('guide/index.json')
+    known = {c['id'] for c in json.loads(index[0])['channels']} if index else None
     out = ['# Grilla web vs. GitHub', '']
     for profile in load_profiles():
         if not profile.get('gist_id') or profile.get('type', 'xtream') != 'xtream':
@@ -186,9 +196,9 @@ def main():
                     with open(path, 'wb') as f:
                         f.write(epg[0])
                     ids, _ = guide_ids(path)
-                    names = {e['name'] for e in web}
-                    missing = {e['tvg_id'] for e in web if e['tvg_id'] not in ids and e['tvg_id'] not in names}
-            out.append(report(profile['name'], cfg_id, compare(github, web), missing))
+                    missing = {e['tvg_id'] for e in web if e['tvg_id'] and e['tvg_id'] not in ids
+                               and (known is None or e['tvg_id'] in known)}
+            out.append(report(profile['name'], cfg_id, compare(github, web, known), missing, cfg[1]))
     text = '\n'.join(out)
     print(text)
     summary = os.environ.get('GITHUB_STEP_SUMMARY')
