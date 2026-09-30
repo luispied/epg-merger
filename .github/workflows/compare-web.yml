@@ -1,0 +1,37 @@
+name: Compare Grilla web
+
+# Compara la playlist y la guía de Grilla web (Worker) con las de la corrida de GitHub
+# (tools/compare_web.py). El resultado queda en el resumen de la corrida, sin URLs ni
+# credenciales.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - run: pip install -r requirements.txt boto3
+    - name: Compare
+      env:
+        GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
+        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
+        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
+        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+        XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/compare_web.py
