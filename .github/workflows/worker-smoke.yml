@@ -7,7 +7,7 @@ on:
     inputs:
       worker:
         description: URL del Worker
-        default: https://grilla.luis-piedrahita.workers.dev
+        default: https://grilla.grilla.workers.dev
       profile:
         description: Perfil (vacío = el primero)
         default: luis

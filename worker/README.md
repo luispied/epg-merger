@@ -55,7 +55,8 @@ compilación sola antes de publicar (`[build]`).
    - *Root directory* (en Advanced): `worker`;
    - *Deploy command*: `npx wrangler deploy` (el que viene).
 
-   Se publica en `https://grilla.<tu-subdominio>.workers.dev` y se vuelve a publicar solo en
+   Se publica en `https://grilla.<tu-subdominio>.workers.dev` (hoy `https://grilla.grilla.workers.dev`;
+   el subdominio se cambia en Workers & Pages → Subdomain, y con él cambian todos los links) y se vuelve a publicar solo en
    cada cambio de `main`.
 3. En el Worker → **Settings → Variables and Secrets** → **Add** → tipo *Secret*, nombre
    `TOKEN_KEY`, valor: la clave del paso 1.
