@@ -299,7 +299,7 @@
 
     <details>
       <summary>¿Cómo ordeno u oculto categorías?<span data-icon="chevron-down"></span></summary>
-      <p>Con el botón de <b>Categorías</b> (las capas, arriba): arrastrá cada una desde su manija (los puntitos de la izquierda) para cambiar el orden en la playlist, y el switch las muestra u oculta. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
+      <p>Con el botón de <b>Categorías</b> (las capas, arriba): arrastrá cada una desde su manija (los puntitos de la izquierda) para cambiar el orden en la playlist, y el switch las muestra u oculta. Las <b>secciones</b> (Deportes, Países…) agrupan categorías: al arrastrar una se mueve entera, con sus categorías. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
     </details>
 
     <details>
@@ -332,6 +332,19 @@
       <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa, sin la barra del navegador. En iPhone la app instalada guarda sus datos aparte: importá tu respaldo una vez ahí.</p>
     </details>
   </div>
+</dialog>
+
+<dialog class="sheet ask-sheet" id="askDialog" aria-labelledby="askTitle">
+  <form class="sheet-body" method="dialog">
+    <h2 id="askTitle"></h2>
+    <p id="askText"></p>
+    <label class="field" id="askField" hidden><span id="askLabel"></span>
+      <input class="input" id="askInput" autocomplete="off" enterkeyhint="done"></label>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-gray" id="askCancel">Cancelar</button>
+      <button class="btn btn-primary" value="ok" id="askOk"></button>
+    </div>
+  </form>
 </dialog>
 
 <input type="file" id="backupFile" accept="application/json,.json" hidden>

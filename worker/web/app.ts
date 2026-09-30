@@ -79,6 +79,42 @@ function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, un
   setTimeout(() => el.remove(), ms);
 }
 
+// Confirmar y pedir un texto con el estilo de la página (en vez de confirm/prompt del
+// navegador). Van en un <dialog> propio, que queda arriba de cualquier otro abierto.
+interface AskOptions { title: string; text?: string; ok?: string; danger?: boolean; input?: { label: string; value?: string; placeholder?: string } }
+function ask(o: AskOptions): Promise<string | null> {
+  const dlg = $('#askDialog') as HTMLDialogElement;
+  $('#askTitle').textContent = o.title;
+  $('#askText').textContent = o.text ?? '';
+  $('#askText').hidden = !o.text;
+  const field = $('#askField');
+  const input = $<HTMLInputElement>('#askInput');
+  field.hidden = !o.input;
+  $('#askLabel').textContent = o.input?.label ?? '';
+  input.value = o.input?.value ?? '';
+  input.placeholder = o.input?.placeholder ?? '';
+  input.required = !!o.input;
+  const ok = $<HTMLButtonElement>('#askOk');
+  ok.textContent = o.ok ?? 'Aceptar';
+  ok.className = `btn ${o.danger ? 'btn-danger' : 'btn-primary'}`;
+  dlg.returnValue = '';
+  dlg.showModal();
+  if (o.input) {
+    input.focus();
+    input.select();
+  }
+  return new Promise((resolve) => {
+    dlg.addEventListener('close', () => {
+      resolve(dlg.returnValue === 'ok' ? (o.input ? input.value.trim() || null : '') : null);
+    }, { once: true });
+  });
+}
+const confirmDialog = async (o: AskOptions) => (await ask(o)) !== null;
+const promptDialog = (o: AskOptions & { input: NonNullable<AskOptions['input']> }) => ask(o);
+const newCategoryName = () => promptDialog({
+  title: 'Categoría nueva', ok: 'Crear', input: { label: 'Nombre', placeholder: 'Ej.: Deportes AR' },
+});
+
 function status(el: HTMLElement, text: string | null, kind: 'busy' | 'ok' | 'bad' = 'busy') {
   el.hidden = !text;
   if (!text) return;
@@ -721,11 +757,11 @@ function openChannel(i: number) {
   };
   wireGuideSearch(body);
   fillEpgRows(body);
-  $<HTMLSelectElement>('.move', body).onchange = (ev) => {
+  $<HTMLSelectElement>('.move', body).onchange = async (ev) => {
     const sel = ev.target as HTMLSelectElement;
     let target = sel.value;
     if (target === '__new__') {
-      target = (prompt('Nombre de la categoría nueva') ?? '').trim();
+      target = (await newCategoryName()) ?? '';
       if (!target) {
         sel.value = groupOf(ch);
         return;
@@ -819,9 +855,11 @@ function openBulkMenu() {
       case 'names': applyBulk((e) => { delete e.name; }, 'Nombres originales restaurados'); break;
       case 'orig-cat': applyBulk((e) => { delete e.group; }, 'Categorías originales restauradas'); break;
       case 'no-epg':
-        if (confirm(`¿Dejar ${plural(n, 'canal', 'canales')} sin EPG? No se les asigna guía ni logo. Se puede deshacer.`)) {
-          applyBulk(noEpg, `${plural(n, 'canal', 'canales')} sin EPG a propósito`);
-        }
+        confirmDialog({
+          title: `¿Dejar ${plural(n, 'canal', 'canales')} sin EPG?`,
+          text: 'No se les asigna guía ni logo, ni siquiera automáticamente. Se puede deshacer.',
+          ok: 'Dejar sin EPG', danger: true,
+        }).then((yes) => { if (yes) applyBulk(noEpg, `${plural(n, 'canal', 'canales')} sin EPG a propósito`); });
         break;
       default: break;
     }
@@ -873,9 +911,9 @@ function openBulkCategory(chs: Channel[]) {
   const move = $<HTMLButtonElement>('.bulk-move', body);
   select.onchange = () => { move.disabled = !select.value; };
   const dialog = $('#bulkDialog') as HTMLDialogElement;
-  move.onclick = () => {
+  move.onclick = async () => {
     let dest = select.value;
-    if (dest === '__new__') dest = (prompt('Nombre de la categoría nueva') ?? '').trim();
+    if (dest === '__new__') dest = (await newCategoryName()) ?? '';
     if (!dest) return;
     dialog.close();
     applyBulk((e, ch) => { e.group = dest === ch.category ? undefined : dest; },
@@ -885,16 +923,42 @@ function openBulkCategory(chs: Channel[]) {
 }
 
 // ------------------------------------------------------------------ categorías
+// Separador de sección del proveedor ("▆▆▆ DEPORTES ▆▆▆"): una categoría decorativa, o una con
+// un solo canal que se llama igual (así quedan los separadores importados de GitHub).
+const DIVIDER_RE = /[\u2580-\u259F]{2,}/;
+function sectionHeaders(): Set<string> {
+  const members = new Map<string, Channel[]>();
+  for (const ch of state.channels) {
+    const g = groupOf(ch);
+    if (!members.has(g)) members.set(g, []);
+    members.get(g)!.push(ch);
+  }
+  const out = new Set<string>();
+  for (const [g, chs] of members) {
+    const only = chs.length === 1 ? (state.cfg!.channels[chs[0].name]?.name || chs[0].name) : null;
+    if (DIVIDER_RE.test(g) || only === g) out.add(g);
+  }
+  return out;
+}
+/** Nombre legible de una sección: sin la decoración y con los caracteres anchos normales. */
+const sectionTitle = (g: string) => g.replace(/[\u2580-\u259F]+/g, ' ').normalize('NFKC').replace(/\s+/g, ' ').trim() || g;
+
 function renderCategories() {
   const list = groups();
   const hidden = new Set(state.cfg!.groups.hidden);
   const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
+  const headers = sectionHeaders();
   const counts = new Map<string, number>();
   for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
   const q = fold($<HTMLInputElement>('#categoriesFilter').value.trim());
   // Con un filtro el orden no se puede arrastrar (se movería entre categorías que no se ven).
   const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(g).includes(q));
-  $('#categoriesList').innerHTML = rows.map(({ g, i }) => `
+  $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
+    <div class="menu-row static cat-row section-row" data-g="${i}">
+      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(g))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
+      <span class="menu-text"><span class="section-name">${esc(sectionTitle(g))}</span><small>Sección · separador en la playlist</small></span>
+      <input type="checkbox" class="switch" aria-label="Mostrar el separador ${esc(sectionTitle(g))}" ${hidden.has(g) ? '' : 'checked'}>
+    </div>` : `
     <div class="menu-row static cat-row" data-g="${i}">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(g)} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
       <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
@@ -904,13 +968,34 @@ function renderCategories() {
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
 }
 
-/** Mueve la categoría `from` a la posición `to` (índices de groups()). */
+/** Mueve la categoría `from` a la posición `to` (índices de groups()). Una sección se mueve
+ *  entera (el separador y sus categorías) y cae antes o después de otra sección, sin partirla. */
 function moveGroup(from: number, to: number) {
   if (from === to) return;
   const list = groups();
-  const [g] = list.splice(from, 1);
-  list.splice(to, 0, g);
-  editGroups((gr) => { gr.order = list; }, `${g} movida`);
+  const headers = sectionHeaders();
+  if (!headers.has(list[from])) {
+    const [g] = list.splice(from, 1);
+    list.splice(to, 0, g);
+    editGroups((gr) => { gr.order = list; }, `${g} movida`);
+    return;
+  }
+  const end = (i: number) => {
+    let j = i + 1;
+    while (j < list.length && !headers.has(list[j])) j++;
+    return j;
+  };
+  const start = (i: number) => {
+    let j = i;
+    while (j > 0 && !headers.has(list[j])) j--;
+    return j;
+  };
+  const block = list.slice(from, end(from));
+  const rest = [...list.slice(0, from), ...list.slice(end(from))];
+  // Destino en la lista sin el bloque: antes de la sección donde cae (subiendo) o después (bajando).
+  const target = to < from ? start(to) : end(to) - block.length;
+  rest.splice(Math.max(0, Math.min(target, rest.length)), 0, ...block);
+  editGroups((gr) => { gr.order = rest; }, `Sección ${sectionTitle(list[from])} movida`);
 }
 
 /** Arrastrar desde la manija (mouse o dedo): la fila sigue al puntero y las demás se corren. */
@@ -986,10 +1071,16 @@ function setupCategoryDrag(box: HTMLElement) {
     if (!handle || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
     ev.preventDefault();
     const i = Number(handle.closest<HTMLElement>('[data-g]')!.dataset.g);
-    const j = i + (ev.key === 'ArrowUp' ? -1 : 1);
-    if (j < 0 || j >= groups().length) return;
+    const list = groups();
+    const headers = sectionHeaders();
+    let j = i + (ev.key === 'ArrowUp' ? -1 : 1);
+    // Una sección baja saltando la siguiente entera.
+    if (ev.key === 'ArrowDown' && headers.has(list[i])) while (j < list.length && !headers.has(list[j])) j++;
+    if (j < 0 || j >= list.length) return;
+    const moved = list[i];
     moveGroup(i, j);
-    $<HTMLElement>(`.cat-row[data-g="${j}"] .drag-handle`, box)?.focus();
+    const k = groups().indexOf(moved);
+    $<HTMLElement>(`.cat-row[data-g="${k}"] .drag-handle`, box)?.focus();
   });
 }
 
@@ -1426,7 +1517,11 @@ const GITHUB_IMPORT_URL = (profile: string) =>
   `https://raw.githubusercontent.com/luispied/epg-merger/data/grilla-import-${encodeURIComponent(profile)}.json`;
 
 async function importFromGithub() {
-  const profile = (prompt('Nombre de tu perfil en Grilla (GitHub)', 'luis') ?? '').trim();
+  const profile = await promptDialog({
+    title: 'Importar desde Grilla (GitHub)',
+    text: 'Reemplaza la configuración de acá por la de GitHub: orden y títulos de categorías, EPG elegidos, nombres, movidos y ocultos.',
+    ok: 'Importar', input: { label: 'Nombre de tu perfil', value: 'luis' },
+  });
   if (!profile) return;
   try {
     const res = await fetch(GITHUB_IMPORT_URL(profile), { cache: 'no-store' });
@@ -1612,7 +1707,10 @@ function setupEditor() {
     if (f) importBackup(f);
   };
   $('#forgetBtn').onclick = async () => {
-    if (!confirm('¿Borrar tu configuración? Tus links de reproducción dejan de funcionar.')) return;
+    if (!await confirmDialog({
+      title: '¿Borrar tu configuración?', text: 'Tus links de reproducción dejan de funcionar. No se puede deshacer.',
+      ok: 'Borrar', danger: true,
+    })) return;
     try {
       await api(`/api/cfg/${state.local!.cfgId}`, { method: 'DELETE' });
     } catch { /* ya no estaba */ }
@@ -1646,6 +1744,7 @@ function setupEditor() {
 
 // ------------------------------------------------------------------ arranque
 hydrateIcons();
+$('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 setupOnboarding();
 setupEditor();
 if (state.local) openSaved();
