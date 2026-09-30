@@ -882,6 +882,37 @@ async function openSaved() {
   }
 }
 
+// La configuración que arma la corrida de GitHub (generate_playlist.write_web_import), publicada
+// en la branch `data` del repo: con esto la web queda igual que la playlist de GitHub.
+const GITHUB_IMPORT_URL = (profile: string) =>
+  `https://raw.githubusercontent.com/luispied/epg-merger/data/grilla-import-${encodeURIComponent(profile)}.json`;
+
+async function importFromGithub() {
+  const profile = (prompt('Nombre de tu perfil en Grilla (GitHub)', 'luis') ?? '').trim();
+  if (!profile) return;
+  try {
+    const res = await fetch(GITHUB_IMPORT_URL(profile), { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status === 404 ? `no hay un perfil "${profile}"` : `HTTP ${res.status}`);
+    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[] } };
+    // Todo lo importado queda fijo (elegido a mano): así la playlist queda igual que la de
+    // GitHub, que elige el EPG con tus reglas por sección. Los canales nuevos del proveedor
+    // siguen tomando el EPG automático.
+    const channels: Record<string, ChannelEdit> = {};
+    for (const [name, edit] of Object.entries(data.channels ?? {})) {
+      channels[name] = 'epg' in edit ? { ...edit, manual: true } : { ...edit };
+    }
+    state.cfg!.channels = channels;
+    state.cfg!.groups = { order: data.groups?.order ?? [], hidden: data.groups?.hidden ?? [] };
+    await rematch(() => {});
+    await saveNow();
+    ($('#settingsDialog') as HTMLDialogElement).close();
+    render();
+    toast(`Importado: ${Object.keys(channels).length} canales y ${state.cfg!.groups.order.length} categorías`, 'ok', 5000);
+  } catch (e) {
+    toast(`No se pudo importar: ${(e as Error).message}`, 'bad', 6000);
+  }
+}
+
 function exportBackup() {
   const data = { grilla: 1, worker: location.origin, cfgId: state.local!.cfgId, editKey: state.local!.editKey };
   const a = document.createElement('a');
@@ -955,6 +986,7 @@ function setupEditor() {
     render();
   };
   $('#exportBtn').onclick = exportBackup;
+  $('#importGithubBtn').onclick = importFromGithub;
   $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];

@@ -854,3 +854,30 @@ def test_umbral_generico_no_asigna_matches_flojos():
     _, luis, _, score, _ = generate_playlist.match_stream('Onda 15 TV', None, idx, {}, {}, None)
     assert generico is None
     assert luis == 'Onda.Algeciras.TV.es' and score < 0.7
+
+
+def test_exporta_para_grilla_web_lo_mismo_que_la_playlist(proyecto, monkeypatch):
+    """grilla_import.json (para "Importar desde Grilla (GitHub)" en la web): mismo orden de
+    categorías que la playlist y las ediciones de cada canal, sin URLs ni credenciales."""
+    _con_ediciones(proyecto, overrides={'Canal Inexistente': 'Warner.cr'},
+                   renames={'TBS -EN': 'TBS USA'}, ocultos=['Warner TV Costa Rica'])
+    _correr(monkeypatch, PERFILES[:1])
+    playlist = _playlist(proyecto, 'luis')
+    data = json.loads((proyecto / 'out' / 'luis' / 'grilla_import.json').read_text(encoding='utf-8'))
+
+    grupos_playlist = []
+    for l in playlist.splitlines():
+        if l.startswith('#EXTINF'):
+            g = l.split('group-title="')[1].split('"')[0]
+            if g not in grupos_playlist:
+                grupos_playlist.append(g)
+    visibles = [g for g in data['groups']['order'] if g not in data['groups']['hidden']]
+    assert [g.replace('/', '-') for g in visibles if g in grupos_playlist or g.replace('/', '-') in grupos_playlist] == grupos_playlist
+
+    ch = data['channels']
+    assert ch['Canal Inexistente'] == {**ch['Canal Inexistente'], 'epg': 'Warner.cr', 'manual': True}
+    assert ch['TBS -EN']['name'] == 'TBS USA' and ch['TBS -EN']['epg'] == 'TBS.us' and 'manual' not in ch['TBS -EN']
+    assert ch['Warner TV Costa Rica']['hidden'] is True
+    texto = json.dumps(data)
+    perfil = PERFILES[0]
+    assert perfil['password'] not in texto and '/live/' not in texto, 'sin credenciales ni URLs de stream'

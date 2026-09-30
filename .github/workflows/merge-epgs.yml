@@ -152,6 +152,7 @@ jobs:
           [ -f "$dir/match_report.json" ] || continue
           name=$(basename "$dir")
           cp "$dir/match_report.json" "/tmp/data-branch/match_report-$name.json"
+          [ -f "$dir/grilla_import.json" ] && cp "$dir/grilla_import.json" "/tmp/data-branch/grilla-import-$name.json"
         done
         cd /tmp/data-branch
         git init -q -b data
