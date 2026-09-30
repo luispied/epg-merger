@@ -21,6 +21,11 @@ await build({
 cpSync(here('../docs/app.css'), here('./public/app.css'));
 cpSync(here('../docs/icons.js'), here('./public/icons.js'));
 cpSync(here('./web/web.css'), here('./public/web.css'));
+// Íconos de la app (para "Agregar a inicio" en el iPhone y Android): los mismos de docs/.
+cpSync(here('../docs/img'), here('./public/img'), { recursive: true });
+const manifest = JSON.parse(readFileSync(here('../docs/manifest.webmanifest'), 'utf-8'));
+manifest.description = 'Tu lista de canales ordenada, con guía de programación, en tu reproductor.';
+writeFileSync(here('./public/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 
 // ?v= con el hash del contenido: el HTML nuevo nunca carga JS o CSS viejos de la caché.
 const hash = createHash('sha256');

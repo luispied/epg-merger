@@ -531,8 +531,9 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
     ${row('Guía (EPG)', result.epgUrl, 'lnkEpg')}
     <div class="qr" id="qr"></div>
     <p class="help">En TiviMate: Agregar playlist → Ingresar URL → la de arriba; la guía la toma sola
-      (si no, agregala en Ajustes → EPG). La guía se arma una vez por día, a las 14:30 (hora de
-      Argentina): después de guardar cambios, el link de la guía los muestra desde la próxima.</p>
+      (si no, agregala en Ajustes → EPG). Los cambios que guardes llegan a la playlist al
+      instante y a la guía en unos minutos. Los links no cambian: no hace falta volver a
+      cargarlos en el reproductor.</p>
     <p class="help">Son links inadivinables pero no privados: quien los tenga puede ver tus canales. No
       los publiques.</p>`;
   body.onclick = async (ev) => {
@@ -718,7 +719,7 @@ async function waitForList(say: (t: string) => void): Promise<Channel[]> {
   const started = Date.now();
   for (;;) {
     const minutes = Math.floor((Date.now() - started) / 60000);
-    say(`Tu proveedor no deja que Grilla baje la lista, así que la baja GitHub: tarda hasta 10–15 minutos${minutes ? ` (van ${minutes})` : ''}. Podés cerrar esta página y volver más tarde.`);
+    say(`Cargando tu lista de canales… puede tardar unos minutos${minutes ? ` (van ${minutes})` : ''}. Podés cerrar esta página y volver más tarde.`);
     try {
       const list = await api<{ channels: Channel[] }>(`/api/cfg/${state.local!.cfgId}/list`);
       if (list.channels?.length) return list.channels;

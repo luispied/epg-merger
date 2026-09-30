@@ -60,8 +60,11 @@ test('configuración: crear, leer y guardar solo con la clave de edición', asyn
   assert.equal(put.status, 200);
   assert.deepEqual((await (await get(t.editKey)).json() as { channels: object }).channels, {});
   // Lo guardado no tiene credenciales ni el token.
-  const raw = [...(t.env.BUCKET as unknown as { data: Map<string, { value: string }> }).data.values()].map((v) => v.value).join('');
+  // Lo guardado no tiene credenciales; el token (cifrado) solo en el link corto.
+  const data = (t.env.BUCKET as unknown as { data: Map<string, { value: string }> }).data;
+  const raw = [...data.entries()].filter(([k]) => !k.startsWith('short/')).map(([, v]) => v.value).join('');
   assert.ok(!raw.includes('pa ss') && !raw.includes(t.token));
+  assert.ok(![...data.values()].some((v) => v.value.includes('pa ss')));
 });
 
 test('configuración: rechaza credenciales dentro de las URLs de los servidores', async () => {
@@ -77,13 +80,14 @@ test('playlist: lista en vivo con ediciones, ocultos, orden y canales nuevos', a
   assert.equal(res.status, 200);
   const text = await res.text();
   const lines = text.trim().split('\n');
-  assert.equal(lines[0], `#EXTM3U url-tvg="${BASE}/p/${t.cfgId}/epg.xml.gz"`);
+  const code = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
+  assert.equal(lines[0], `#EXTM3U url-tvg="${BASE}/g/${code}.xml.gz"`);
   // Orden: la categoría guardada primero; la nueva ("PPV / Eventos"), al final.
   assert.match(lines[1], /tvg-id="ESPN" .*group-title="Deportes AR",ESPN$/);
   assert.match(lines[3], /tvg-id="Telefe.ar" tvg-name="Telefe" tvg-logo="https:\/\/g\/telefe.png" group-title="🇦🇷 Argentina",Telefe$/);
   // Canal nuevo: tal cual, sin EPG ni logo; '/' fuera del group-title.
   assert.match(lines[5], /tvg-id="Evento del día" tvg-name="Evento del día" tvg-logo="" group-title="PPV - Eventos"/);
-  assert.equal(lines[6], `${BASE}/s/${t.cfgId}/${t.token}/12.ts`);
+  assert.equal(lines[6], `${BASE}/s/${code}/12.ts`);
   assert.ok(!text.includes('Canal oculto'));
   assert.ok(!text.includes('pa ss') && !text.includes('pa%20ss'), 'en modo redirect la playlist no lleva credenciales');
 });
@@ -308,4 +312,23 @@ test('vínculo con GitHub: si GitHub conoce la cuenta, la configuración queda a
   assert.deepEqual(JSON.parse(bucket.data.get(`links/${hash}.json`)!.value), { cfgIds: [created.cfgId], pending: true });
   const all = [...bucket.data.values()].map((v) => v.value).join('');
   assert.ok(!all.includes('pa ss'), 'no guarda la contraseña');
+});
+
+test('links cortos: no muestran la configuración ni el token, y los largos siguen andando', async () => {
+  const t = await setup();
+  const links = await (await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey,
+    body: JSON.stringify({ username: 'user', password: 'pa ss' }) }), t.env, t.ctx, t.cache)).json() as
+    { playlistUrl: string; epgUrl: string; longPlaylistUrl: string; longEpgUrl: string; token: string };
+  assert.match(links.playlistUrl, /^https:\/\/grilla\.example\/l\/[A-Za-z0-9_-]{11}\.m3u8$/);
+  assert.ok(!links.playlistUrl.includes(t.cfgId) && !links.playlistUrl.includes(links.token));
+  const text = await (await handle(new Request(links.playlistUrl), t.env, t.ctx, t.cache)).text();
+  assert.ok(!text.includes(t.cfgId) && !text.includes(links.token), 'la playlist corta tampoco los muestra');
+  const stream = text.split('\n').find((l) => l.includes('/s/'))!;
+  const r = await handle(new Request(stream), t.env, t.ctx, t.cache);
+  assert.equal(r.status, 302);
+  await t.env.BUCKET.put(`epg/${t.cfgId}.xml.gz`, 'gz');
+  assert.equal((await handle(new Request(links.epgUrl), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await handle(new Request(links.longPlaylistUrl), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await handle(new Request(`${BASE}/l/inexistente00.m3u8`), t.env, t.ctx, t.cache)).status, 404);
+  assert.equal((await handle(new Request(links.playlistUrl.replace('.m3u8', '.xml.gz').replace('/l/', '/l/')), t.env, t.ctx, t.cache)).status, 404);
 });
