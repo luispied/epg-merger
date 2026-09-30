@@ -49,8 +49,193 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .ask-sheet h2 { margin: 0 0 6px; }
 .ask-sheet p { margin: 0 0 4px; color: var(--muted); }
 .ask-sheet .field { margin-top: 10px; }
-.ask-sheet .btn-danger { background: var(--red); color: #fff; padding: 0 16px; }
+.ask-sheet .btn-danger { background: var(--red); color: var(--on-danger); padding: 0 24px; }
 .cat-row.section-row { background: var(--surface-2); }
 .cat-row.section-row:not(:first-child) { margin-top: 10px; border-top: .5px solid var(--hairline); }
 .section-row .section-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .cat-row.dragging.section-row { background: var(--surface); }
+
+/* ==================================================================================
+   Material 3: la web nueva sigue sus lineamientos (color por roles, formas, estados,
+   campos delineados, chips, switch, hojas y snackbar). Pisa lo de app.css, que se
+   comparte con la interfaz de docs/ y no se toca.
+   ================================================================================== */
+:root {
+  --bg: #f8f9ff; --surface: #ffffff; --surface-2: #eef1f8; --fill: #e1e5ee;
+  --text: #191c20; --muted: #43474e; --faint: #73777f; --hairline: #c3c6cf;
+  --accent: #0b57d0; --on-accent: #ffffff; --accent-soft: #d8e2ff; --on-accent-soft: #001a41;
+  --green: #146c2e; --orange: #8a5100; --red: #ba1a1a; --on-danger: #ffffff; --blue: #0b57d0; --gray: #5e6168;
+  --inverse-surface: #2e3036; --inverse-text: #eff0f7; --inverse-accent: #adc6ff;
+  --toolbar-bg: rgba(248, 249, 255, .92);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 1px 3px 1px rgba(0, 0, 0, .06);
+  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .12), 0 1px 3px rgba(0, 0, 0, .2);
+  --radius: 12px; --radius-sm: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111318; --surface: #1d2024; --surface-2: #272a2f; --fill: #32353a;
+    --text: #e2e2e9; --muted: #c4c6d0; --faint: #8e9099; --hairline: #44474e;
+    --accent: #adc6ff; --on-accent: #002e69; --accent-soft: #284777; --on-accent-soft: #d8e2ff;
+    --green: #6dd58c; --orange: #ffb870; --red: #ffb4ab; --on-danger: #690005; --blue: #adc6ff; --gray: #a0a3ab;
+    --inverse-surface: #e2e2e9; --inverse-text: #2e3036; --inverse-accent: #0b57d0;
+    --toolbar-bg: rgba(17, 19, 24, .92);
+    --shadow: 0 1px 3px rgba(0, 0, 0, .45); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .6);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111318; --surface: #1d2024; --surface-2: #272a2f; --fill: #32353a;
+  --text: #e2e2e9; --muted: #c4c6d0; --faint: #8e9099; --hairline: #44474e;
+  --accent: #adc6ff; --on-accent: #002e69; --accent-soft: #284777; --on-accent-soft: #d8e2ff;
+  --green: #6dd58c; --orange: #ffb870; --red: #ffb4ab; --on-danger: #690005; --blue: #adc6ff; --gray: #a0a3ab;
+  --inverse-surface: #e2e2e9; --inverse-text: #2e3036; --inverse-accent: #0b57d0;
+  --toolbar-bg: rgba(17, 19, 24, .92);
+  --shadow: 0 1px 3px rgba(0, 0, 0, .45); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .6);
+}
+body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+
+/* Escritorio: encabezado y barra alineados con el contenido (no pegados a los bordes). */
+.app-header, .toolbar { padding-left: max(var(--gutter), calc((100% - 728px) / 2)); padding-right: max(var(--gutter), calc((100% - 728px) / 2)); }
+#onboarding .app-header { padding-left: max(var(--gutter), calc((100% - 528px) / 2)); padding-right: max(var(--gutter), calc((100% - 528px) / 2)); }
+.toolbar { border-bottom-color: var(--hairline); }
+
+/* Botones: píldora de 40 px, etiqueta 14/500, capa de estado al pasar y al tocar. */
+.btn { border-radius: 20px; padding: 0 24px; font-size: 14px; font-weight: 500; letter-spacing: .01em; transition: background-color .15s ease, box-shadow .15s ease, color .15s ease; }
+.btn:active { transform: none; }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 92%, var(--on-accent)); box-shadow: var(--shadow); }
+.btn-primary:active { background: color-mix(in srgb, var(--accent) 88%, var(--on-accent)); box-shadow: none; }
+.btn-tonal { background: var(--accent-soft); color: var(--on-accent-soft); }
+.btn-tonal:hover { background: color-mix(in srgb, var(--accent-soft) 92%, var(--on-accent-soft)); }
+.btn-gray { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--faint); }
+.btn-gray:hover, .btn-plain:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.btn-gray:active, .btn-plain:active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.btn-plain { padding: 0 12px; }
+.btn-danger { padding: 0 12px; }
+.btn-danger:hover { background: color-mix(in srgb, var(--red) 8%, transparent); }
+.btn.sm { min-height: 32px; padding: 0 16px; font-size: 13px; }
+.header-actions .btn { min-height: 40px; }
+.icon-btn { background: transparent; color: var(--muted); transition: background-color .15s ease; }
+.icon-btn:active { transform: none; }
+.icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.icon-btn:active { background: color-mix(in srgb, var(--text) 12%, transparent); }
+.icon-btn.filled, .inline-field .icon-btn { background: var(--accent-soft); color: var(--on-accent-soft); }
+.icon-btn.filled:hover, .inline-field .icon-btn:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); }
+#selectBtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); }
+.card-menu-btn { width: 40px; height: 40px; margin: -8px -8px 0 -4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Campos delineados, etiqueta arriba sin mayúsculas; separación en múltiplos de 8. */
+.input, .select { height: 48px; border-radius: 4px; background-color: transparent; box-shadow: inset 0 0 0 1px var(--faint); padding: 0 14px; transition: box-shadow .15s ease; }
+textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; }
+.input:hover, .select:hover { box-shadow: inset 0 0 0 1px var(--text); }
+.input:focus, .select:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.input[readonly] { background-color: var(--surface-2); box-shadow: none; }
+.select.compact { height: 40px; }
+.field { gap: 6px; margin-top: 16px; }
+.field > span { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; padding-left: 2px; }
+.stack { gap: 16px; margin-top: 16px; }
+.stack > .field { margin-top: 0; }
+.form-actions { margin-top: 8px; }
+.inline-field { gap: 8px; }
+.inline-field .icon-btn { width: 48px; height: 48px; border-radius: 50%; }
+.help { font-size: 13px; line-height: 1.45; margin: 8px 2px 0; }
+.card .help { margin-top: 16px; }
+.notice { border-radius: var(--radius); background: var(--accent-soft); color: var(--on-accent-soft); padding: 12px 16px; }
+
+/* Buscadores: barra de búsqueda de 48 px. */
+.search-field { height: 48px; border-radius: 24px; background: var(--surface-2); padding: 0 16px; gap: 12px; }
+dialog .search-field { background: var(--surface-2); }
+
+/* Chips de filtro (arriba) y de estado ("Sin guía"). */
+.segmented { gap: 8px; }
+.segmented button { height: 32px; padding: 0 12px; border-radius: 8px; background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--hairline); font-weight: 500; }
+.segmented button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; }
+.chip-btn { min-height: 32px; border-radius: 8px; background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--hairline); font-weight: 500; padding: 0 12px; }
+.chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.chip-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; }
+.cat-row .chip-btn { min-height: 28px; }
+
+/* Botones segmentados (tipo de proveedor, tema). */
+.seg { background: transparent; border-radius: 20px; padding: 0; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; }
+.seg button { height: 36px; padding: 0 14px; border-radius: 0; color: var(--text); font-weight: 500; font-size: 13.5px; }
+.seg button + button { box-shadow: inset 1px 0 0 var(--faint); }
+.seg button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; font-weight: 600; }
+.seg button[aria-checked="true"] + button { box-shadow: inset 1px 0 0 var(--faint); }
+#providerSeg { display: flex; }
+#providerSeg button { flex: 1; }
+
+/* Switch de Material 3. */
+.switch { width: 52px; height: 32px; border: 2px solid var(--faint); background: var(--fill); }
+.switch::after { top: 6px; left: 6px; width: 16px; height: 16px; background: var(--faint); box-shadow: none; transition: transform .2s ease, width .2s ease, height .2s ease, top .2s ease, left .2s ease; }
+.switch:checked { background: var(--accent); border-color: var(--accent); }
+.switch:checked::after { top: 2px; left: 2px; width: 24px; height: 24px; background: var(--on-accent); transform: translateX(20px); }
+.switch:disabled { opacity: .38; cursor: default; }
+
+/* Tarjetas y listas. */
+.card { border-radius: var(--radius); padding: 16px; transition: background-color .15s ease, opacity .2s ease; }
+.card:hover { background: color-mix(in srgb, var(--surface) 96%, var(--text)); }
+.card-name { font-size: 16px; font-weight: 500; }
+.card > .epg-row { border-radius: var(--radius-sm); }
+.cards { gap: 12px; }
+.card.section-card { display: flex; align-items: center; gap: 12px; padding: 16px 4px 4px 4px; background: transparent; box-shadow: none; animation: none; }
+.card.section-card:hover { background: transparent; }
+.card.section-card .section-name { font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.card.section-card .card-sub { margin-top: 0; }
+.card.section-card .card-menu-btn { margin: 0; }
+.card.section-card.selected { box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
+.card.section-card .sel-box { margin-top: 0; }
+.pill { border-radius: 8px; background: var(--accent-soft); color: var(--on-accent-soft); padding: 2px 8px; font-weight: 500; }
+.status-bar, .guide-status { border-radius: var(--radius); box-shadow: none; background: var(--surface-2); padding: 12px 16px; }
+.section-label { text-transform: none; letter-spacing: .01em; font-size: 14px; font-weight: 500; color: var(--accent); margin: 24px 4px 8px; }
+#channelBody > .section-label:first-child, #bulkEpgBody > .section-label:first-child { margin-top: 8px; }
+.list { border-radius: var(--radius); margin: 0 0 8px; }
+.menu { border-radius: var(--radius); margin-top: 16px; }
+.menu-row { min-height: 56px; padding: 8px 16px; gap: 16px; transition: background-color .15s ease; }
+.menu-row:not(.static):hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+.menu-row:not(.static):active { background: color-mix(in srgb, var(--surface-2) 88%, var(--text)); }
+.menu-icon { background: transparent; color: var(--muted); width: 24px; height: 24px; border-radius: 0; }
+.menu-icon .icon { width: 22px; height: 22px; }
+.menu-row.danger .menu-icon { background: transparent; color: var(--red); }
+.menu-text small { font-size: 13px; line-height: 1.4; }
+.cat-row.section-row { background: transparent; }
+.section-row .section-name { color: var(--accent); }
+.pick-row:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+
+/* Logos: el recuadro claro solo detrás de un logo real; sin logo, un recuadro del tema. */
+html:root .logo:not(.has-img) { background: var(--surface-2); color: var(--faint); }
+html:root .logo { border-radius: var(--radius-sm); }
+html:root .logo.lg { border-radius: var(--radius); }
+
+/* Hojas (diálogos): esquinas de 28 px, título 22/400, acciones a la derecha y velo al 32 %. */
+dialog.sheet { border-radius: 28px; background: var(--surface); }
+dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
+.sheet-body { padding: 24px; }
+.sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-size: 22px; font-weight: 400; line-height: 1.3; }
+.sheet-body .menu-title { font-size: 20px; font-weight: 400; }
+.sheet-body > .title-row { margin-bottom: 8px; }
+.sheet-body p { font-size: 14px; line-height: 1.5; }
+.sheet-actions { justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.sheet-actions .btn { flex: 0 0 auto; }
+.help-sheet details { border-radius: var(--radius); }
+@media (max-width: 600px) {
+  dialog.sheet { border-radius: 28px 28px 0 0; }
+  /* Manija de la hoja inferior. */
+  dialog.sheet > .sheet-body::before { content: ""; display: block; width: 32px; height: 4px; border-radius: 2px; background: var(--faint); opacity: .4; margin: -12px auto 16px; }
+}
+
+/* Snackbar. */
+.toast { background: var(--inverse-surface); color: var(--inverse-text); border-radius: 4px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
+.toast .icon, .toast.ok .icon, .toast.bad .icon, .toast.info .icon { color: var(--inverse-accent); }
+.toast .btn, .toast .btn-plain { color: var(--inverse-accent); background: transparent; }
+.toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); }
+
+/* Barra de selección múltiple (barra inferior). */
+.bulk-bar { background: var(--surface-2); box-shadow: var(--shadow-lg); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+.bulk-count { font-weight: 500; font-size: 16px; }
+.row-actions { gap: 8px; margin-top: 16px; }
+dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
+#bulkBody > .select { margin-top: 16px; }
+.help-sheet summary { font-weight: 500; }
+.help-sheet details p { font-size: 14px; line-height: 1.5; }
+.card > .field:first-child { margin-top: 0; }
