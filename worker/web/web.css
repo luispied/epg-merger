@@ -19,3 +19,4 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .danger-zone { margin-top: 16px; }
 .muted { color: var(--muted); }
 .card { cursor: pointer; }
+.notice { background: var(--accent-soft); color: var(--text); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; font-size: 14.5px; }
