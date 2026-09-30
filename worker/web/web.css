@@ -23,3 +23,8 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 #m3uDownload.disabled { opacity: .5; }
 .app-header h1.brand { display: flex; align-items: center; line-height: 0; }
 .app-header h1.brand img { width: 44px; height: 44px; border-radius: 10px; box-shadow: 0 0 0 .5px var(--hairline); }
+.guide-status { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 12px; font-size: 14px; box-shadow: var(--shadow); }
+.guide-status .grow { flex: 1; min-width: 0; }
+.guide-status.ok .icon { color: var(--green); }
+.guide-status.pending .icon { color: var(--accent); }
+.guide-status .btn { min-height: 34px; padding: 0 12px; font-size: 14px; flex: none; }

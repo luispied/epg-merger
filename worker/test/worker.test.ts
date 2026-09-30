@@ -349,3 +349,19 @@ test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corr
   assert.equal(await dispatchRefresh(env, t.cache), false, 'no más de una por minuto');
   assert.deepEqual(calls, [{ url: 'https://api.github.com/repos/luispied/epg-merger/actions/workflows/refresh-lists.yml/dispatches', auth: 'Bearer ghp_x' }]);
 });
+
+test('estado de la guía: al día solo si se armó después del último cambio', async () => {
+  const t = await setup();
+  const status = async () => (await handle(req(`/api/cfg/${t.cfgId}/status`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
+    Promise<{ guideUpToDate: boolean; guide: string | null; autoRefresh: boolean }>;
+  assert.deepEqual([(await status()).guideUpToDate, (await status()).guide], [false, null]);
+  await new Promise((r) => setTimeout(r, 5));
+  await t.env.BUCKET.put(`epg/${t.cfgId}.xml.gz`, 'gz');
+  assert.equal((await status()).guideUpToDate, true);
+  await new Promise((r) => setTimeout(r, 5));
+  await handle(req(`/api/cfg/${t.cfgId}`, { method: 'PUT', key: t.editKey, body: JSON.stringify(CONFIG) }), t.env, t.ctx, t.cache);
+  assert.equal((await status()).guideUpToDate, false, 'un cambio deja la guía pendiente');
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/status`), t.env, t.ctx, t.cache)).status, 401);
+  const r = await (await handle(req(`/api/cfg/${t.cfgId}/refresh`, { method: 'POST', key: t.editKey }), t.env, t.ctx, t.cache)).json();
+  assert.deepEqual(r, { started: false, autoRefresh: false });
+});

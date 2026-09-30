@@ -3,14 +3,18 @@ import type { Ctx, Env, R2Bucket, R2ObjectBody, SimpleCache } from '../src/env.t
 import { b64urlEncode } from '../src/crypto.ts';
 
 export class MemoryBucket implements R2Bucket {
-  data = new Map<string, { value: string; meta?: Record<string, string> }>();
+  data = new Map<string, { value: string; meta?: Record<string, string>; uploaded?: Date }>();
+  async head(key: string) {
+    const item = this.data.get(key);
+    return item ? { uploaded: item.uploaded ?? new Date(0) } : null;
+  }
   async get(key: string): Promise<R2ObjectBody | null> {
     const item = this.data.get(key);
     if (!item) return null;
     return { body: new Response(item.value).body as ReadableStream, text: async () => item.value, customMetadata: item.meta };
   }
   async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: { customMetadata?: Record<string, string> }) {
-    this.data.set(key, { value: typeof value === 'string' ? value : await new Response(value).text(), meta: options?.customMetadata });
+    this.data.set(key, { value: typeof value === 'string' ? value : await new Response(value).text(), meta: options?.customMetadata, uploaded: new Date() });
   }
   async delete(key: string) {
     this.data.delete(key);

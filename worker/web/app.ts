@@ -182,9 +182,52 @@ async function saveNow() {
     await api(`/api/cfg/${state.local.cfgId}`, { method: 'PUT', body: state.cfg });
     $('#statusLine').dataset.saved = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     renderStatusLine();
+    refreshGuideStatus();
   } catch (e) {
     toast(`No se pudo guardar: ${(e as Error).message}`, 'bad', 6000);
   }
+}
+
+// ------------------------------------------------------------------ estado de los cambios
+// La playlist toma los cambios al instante (el Worker la arma en cada pedido); la guía la
+// vuelve a armar la corrida de GitHub. Esto muestra si la guía ya los tiene y permite
+// "Aplicar ahora" (como el botón Workflow de la interfaz de GitHub).
+interface GuideStatus { guideUpToDate: boolean; guide: string | null; autoRefresh: boolean }
+let guideTimer = 0;
+
+async function refreshGuideStatus() {
+  clearTimeout(guideTimer);
+  if (!state.local || $('#editor').hidden) return;
+  let st: GuideStatus;
+  try {
+    st = await api<GuideStatus>(`/api/cfg/${state.local.cfgId}/status`);
+  } catch {
+    return;
+  }
+  const el = $('#guideStatus');
+  el.hidden = false;
+  const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+  if (st.guideUpToDate) {
+    el.className = 'guide-status ok';
+    el.innerHTML = `${icon('circle-check')}<span class="grow">Tus cambios están aplicados: playlist y guía (actualizada ${time(st.guide)}).</span>`;
+    return;
+  }
+  el.className = 'guide-status pending';
+  el.innerHTML = `${icon('loader-circle', 'spin')}<span class="grow">La playlist ya tiene tus cambios. La guía se está actualizando: ${st.autoRefresh ? 'un par de minutos' : 'hasta 10 minutos'}.</span>`
+    + (st.autoRefresh ? '<button type="button" class="btn btn-tonal" id="applyNow">Aplicar ahora</button>' : '');
+  const btn = $('#applyNow', el);
+  if (btn) {
+    btn.onclick = async () => {
+      btn.setAttribute('disabled', '');
+      try {
+        const r = await api<{ started: boolean }>(`/api/cfg/${state.local!.cfgId}/refresh`, { method: 'POST' });
+        toast(r.started ? 'Aplicando tus cambios: la guía queda lista en un par de minutos' : 'Ya se están aplicando', 'ok');
+      } catch (e) {
+        toast((e as Error).message, 'bad');
+      }
+    };
+  }
+  guideTimer = window.setTimeout(refreshGuideStatus, 30000);
 }
 
 async function storeList() {
@@ -846,6 +889,7 @@ function showEditor() {
   $('#editor').hidden = false;
   state.shown = PAGE;
   render();
+  refreshGuideStatus();
 }
 
 async function openSaved() {
@@ -872,6 +916,7 @@ async function openSaved() {
     if (await rematch(say)) await saveNow();
     status(st, null);
     render();
+    refreshGuideStatus();
   } catch (e) {
     const msg = (e as Error).message;
     if (/inexistente|clave/.test(msg)) {
