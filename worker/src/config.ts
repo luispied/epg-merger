@@ -25,7 +25,8 @@ export interface Config {
   /** Streams directo al servidor sano del momento, sin pasar por el redirect del Worker. */
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
-  groups?: { order?: string[]; hidden?: string[] };
+  /** `noEpg`: categorías que no necesitan guía (solo para la interfaz: no cuentan en "A revisar"). */
+  groups?: { order?: string[]; hidden?: string[]; noEpg?: string[] };
 }
 
 export class ConfigError extends Error {}
@@ -87,7 +88,11 @@ export function parseConfig(raw: unknown): Config {
     provider,
     ...(r.directUrls === true ? { directUrls: true } : {}),
     channels,
-    groups: { order: strList(g.order, 5000), hidden: strList(g.hidden, 5000) },
+    groups: {
+      order: strList(g.order, 5000),
+      hidden: strList(g.hidden, 5000),
+      ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
+    },
   };
 }
 

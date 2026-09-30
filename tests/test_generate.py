@@ -881,3 +881,14 @@ def test_exporta_para_grilla_web_lo_mismo_que_la_playlist(proyecto, monkeypatch)
     texto = json.dumps(data)
     perfil = PERFILES[0]
     assert perfil['password'] not in texto and '/live/' not in texto, 'sin credenciales ni URLs de stream'
+
+
+def test_exporta_para_grilla_web_las_categorias_sin_guia(proyecto, monkeypatch):
+    """Las categorías marcadas "Sin guía" en la interfaz (no_epg_categories) van a
+    grilla_import.json para que la web tampoco las cuente en "A revisar"."""
+    (proyecto / 'xtream_channel_map.json').write_text(json.dumps({
+        'overrides': {}, 'no_epg_categories': {'USA ENTERTAINMENT': True, 'Otra': False},
+    }), encoding='utf-8')
+    _correr(monkeypatch, PERFILES[:1])
+    data = json.loads((proyecto / 'out' / 'luis' / 'grilla_import.json').read_text(encoding='utf-8'))
+    assert data['groups']['noEpg'] == ['USA ENTERTAINMENT']

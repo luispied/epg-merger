@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
+import { parseConfig } from '../src/config.ts';
 import { b64urlDecode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
@@ -364,4 +365,10 @@ test('estado de la guía: al día solo si se armó después del último cambio',
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/status`), t.env, t.ctx, t.cache)).status, 401);
   const r = await (await handle(req(`/api/cfg/${t.cfgId}/refresh`, { method: 'POST', key: t.editKey }), t.env, t.ctx, t.cache)).json();
   assert.deepEqual(r, { started: false, autoRefresh: false });
+});
+
+test('config: las categorías sin guía se guardan (y no aparecen si no hay)', () => {
+  const withNoEpg = parseConfig({ ...CONFIG, groups: { order: [], hidden: [], noEpg: ['General', 42] } });
+  assert.deepEqual(withNoEpg.groups, { order: [], hidden: [], noEpg: ['General'] });
+  assert.deepEqual(parseConfig(CONFIG).groups, { order: ['Deportes AR', '🇦🇷 Argentina'], hidden: [] });
 });
