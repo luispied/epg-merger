@@ -95,7 +95,7 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
   const res = await fetch(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
   return data as T;
 }
 
@@ -199,15 +199,18 @@ async function storeList() {
 }
 
 async function loadStoredList(): Promise<Channel[]> {
+  // Primero la del Worker (la que se actualiza sola desde GitHub); si no hay, la de este navegador.
+  if (state.cfg?.provider.type === 'xtream') {
+    try {
+      const list = (await api<{ channels: Channel[] }>(`/api/cfg/${state.local!.cfgId}/list`)).channels;
+      if (list?.length) return list;
+    } catch { /* sigue */ }
+  }
   try {
     const cached = localStorage.getItem(LIST_KEY(state.local!.cfgId));
     if (cached) return JSON.parse(cached);
-  } catch { /* sigue */ }
-  try {
-    return (await api<{ channels: Channel[] }>(`/api/cfg/${state.local!.cfgId}/list`)).channels;
-  } catch {
-    return [];
-  }
+  } catch { /* sin storage */ }
+  return [];
 }
 
 // ------------------------------------------------------------------ canales: vista
@@ -689,6 +692,41 @@ function setProviderType(t: 'xtream' | 'm3u') {
   $('#uploadBox').hidden = true;
 }
 
+/** Proveedor que bloquea al Worker pero cuya cuenta tiene la corrida de GitHub: se crea la
+ *  configuración sin lista, GitHub la sube en su próxima corrida (cada 10 minutos) y la web
+ *  espera sola. */
+async function onboardViaGithub(servers: string[], username: string, password: string) {
+  const st = $('#onboardStatus');
+  try {
+    status(st, 'Armando tu configuración…');
+    state.cfg = { version: 1, provider: { type: 'xtream', servers, list: 'upload' }, channels: {}, groups: { order: [], hidden: [] } };
+    const r = await api<{ cfgId: string; editKey: string }>('/api/cfg', {
+      method: 'POST', auth: false, body: { ...state.cfg, link: { username, password } },
+    });
+    state.local = { cfgId: r.cfgId, editKey: r.editKey };
+    saveLocal(state.local);
+    writeDraft(null);
+    status(st, null);
+    await openSaved();
+  } catch (e) {
+    status(st, `No se pudo: ${(e as Error).message}`, 'bad');
+  }
+}
+
+/** Espera la lista que sube GitHub (cada 10 minutos), consultando cada 15 segundos. */
+async function waitForList(say: (t: string) => void): Promise<Channel[]> {
+  const started = Date.now();
+  for (;;) {
+    const minutes = Math.floor((Date.now() - started) / 60000);
+    say(`Tu proveedor no deja que Grilla baje la lista, así que la baja GitHub: tarda hasta 10–15 minutos${minutes ? ` (van ${minutes})` : ''}. Podés cerrar esta página y volver más tarde.`);
+    try {
+      const list = await api<{ channels: Channel[] }>(`/api/cfg/${state.local!.cfgId}/list`);
+      if (list.channels?.length) return list.channels;
+    } catch { /* todavía no está */ }
+    await new Promise((r) => setTimeout(r, 15000));
+  }
+}
+
 async function finishOnboarding(channels: Channel[], provider: Provider) {
   const st = $('#onboardStatus');
   const say = (t: string) => status(st, t);
@@ -743,8 +781,13 @@ function setupOnboarding() {
       const r = await api<{ channels: Channel[] }>('/api/provider/list', { method: 'POST', auth: false, body: { type: 'xtream', servers, username, password } });
       await finishOnboarding(r.channels, { type: 'xtream', servers });
     } catch (e) {
-      // Hay proveedores que bloquean los pedidos que salen de Cloudflare: la lista la baja el
-      // navegador de la persona (una descarga común, sin CORS) y la sube como archivo.
+      // Hay proveedores que bloquean los pedidos que salen de Cloudflare. Si GitHub tiene esta
+      // cuenta, la lista la baja GitHub y no hay que hacer nada más.
+      if ((e as { data?: { github?: boolean } }).data?.github) {
+        await onboardViaGithub(servers, username, password);
+        return;
+      }
+      // Si no, la baja el navegador de la persona (una descarga común, sin CORS) y la sube.
       status(st, null);
       console.info('provider/list:', (e as Error).message);
       writeDraft({ upload: true });
@@ -815,6 +858,14 @@ async function openSaved() {
     cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [] };
     state.cfg = cfg;
     state.channels = await loadStoredList();
+    if (!state.channels.length && cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
+      state.channels = await waitForList(say);
+      if (!cfg.groups.order.length) cfg.groups.order = [...new Set(state.channels.map((c) => c.category))];
+      try {
+        localStorage.setItem(LIST_KEY(state.local!.cfgId), JSON.stringify(state.channels));
+      } catch { /* sin storage */ }
+      toast(`${state.channels.length} canales cargados`, 'ok');
+    }
     await loadGuide(say);
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if (await rematch(say)) await saveNow();

@@ -18,6 +18,7 @@ import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYT
 import { decryptToken, encryptToken, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { healthyServer } from './health.ts';
+import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist } from './playlist.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
@@ -165,15 +166,29 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
         return json({ server, channels });
       }
     } catch (e) {
-      if (e instanceof ProviderError) return fail(502, e.message);
-      throw e;
+      if (!(e instanceof ProviderError)) throw e;
+      // Si el proveedor bloquea al Worker pero GitHub tiene esta cuenta, la lista la baja GitHub.
+      const github = body.type === 'xtream' && await knownToGithub(env.BUCKET, await linkHash(String(body.username), String(body.password)));
+      return json({ error: e.message, github }, 502);
     }
     return fail(400, 'pedido inválido');
   }
 
   if (section === 'cfg' && !cfgId && method === 'POST') {
     if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
-    return json(await createConfig(env.BUCKET, parseConfig(await readJson(request))), 201);
+    const raw = await readJson(request) as Record<string, unknown>;
+    const created = await createConfig(env.BUCKET, parseConfig(raw));
+    // "link": usuario y contraseña, solo para la huella que conecta con GitHub (no se guardan).
+    const link = raw.link as { username?: unknown; password?: unknown } | undefined;
+    let github = false;
+    if (link && typeof link.username === 'string' && typeof link.password === 'string') {
+      const hash = await linkHash(link.username, link.password);
+      if (await knownToGithub(env.BUCKET, hash)) {
+        await linkConfig(env.BUCKET, hash, created.cfgId);
+        github = true;
+      }
+    }
+    return json({ ...created, github }, 201);
   }
 
   if (section === 'cfg' && cfgId) {

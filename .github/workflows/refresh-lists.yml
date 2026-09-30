@@ -1,12 +1,12 @@
 name: Refresh Grilla lists
 
-# Cada 3 horas, la lista del proveedor de cada perfil con Grilla web va al Worker
-# (tools/push_lists.py): el proveedor bloquea los pedidos que salen de Cloudflare, así que la
-# baja GitHub. Así los canales nuevos (eventos del día) aparecen en la playlist sin esperar
-# a la corrida diaria.
+# Lista del proveedor para Grilla web (tools/push_lists.py). El proveedor bloquea los pedidos
+# que salen de Cloudflare, así que la baja GitHub y la deja en R2. Corre cada 10 minutos, pero
+# solo le pide la lista al proveedor cuando hay una configuración nueva esperándola o cuando la
+# que hay tiene más de 3 horas; el resto de las corridas terminan en segundos.
 on:
   schedule:
-    - cron: '15 */3 * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,11 +25,15 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install requests
-    - name: Push lists to the Worker
+    - run: pip install requests boto3
+    - name: Push lists to R2
       env:
         XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
         XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
         XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
         XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
-      run: python tools/push_lists.py --worker "${{ vars.GRILLA_WORKER_URL || 'https://grilla.luis-piedrahita.workers.dev' }}"
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/push_lists.py

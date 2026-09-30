@@ -14,11 +14,19 @@ sano del balanceador y la guía desde R2. Endpoints: ver el comentario de `src/i
   sale la última que se pudo bajar.
 - **Guía:** `epg/<cfgId>.xml.gz`, que arma la corrida diaria (`tools/config_epgs.py`).
 - **Proveedores que bloquean Cloudflare:** el de Luis, por ejemplo, le responde 403 al Worker
-  pero atiende a GitHub y a los reproductores. Para esos casos, la configuración lleva
-  `provider.list: "upload"` y la lista la sube otro con `PUT /api/cfg/<cfgId>/list`, sin
-  credenciales ni URLs. Hoy la sube GitHub cada 3 horas (`refresh-lists.yml` y
-  `tools/push_lists.py`) para los perfiles con `"grilla": {"cfg", "key"}` en
-  `XTREAM_PROFILES`. El redirect `/s/` sigue andando: el que se conecta al servidor es el
+  pero atiende a GitHub y a los reproductores. En esos casos la configuración lleva
+  `provider.list: "upload"` y la lista la pone otro en R2 (`list/<cfgId>.json`, sin credenciales
+  ni URLs):
+  - **GitHub**, si tiene la cuenta en `XTREAM_PROFILES` (`refresh-lists.yml` y
+    `tools/push_lists.py`, cada 10 minutos). El Worker y GitHub se encuentran por una huella de
+    usuario y contraseña (`src/link.ts`): GitHub anota en `known/` las cuentas que tiene. Cuando
+    alguien entra con una de esas cuentas, la web crea la configuración, el Worker la anota en
+    `links/` y GitHub le sube la lista en su próxima corrida, y después cada 3 horas. La persona
+    no tiene que hacer nada más.
+  - **La persona**, si GitHub no la conoce: baja la lista con su navegador y la sube desde la
+    web (`PUT /api/cfg/<cfgId>/list`).
+
+  El redirect `/s/` sigue andando en los dos casos: el que se conecta al servidor es el
   reproductor, y para el Worker un servidor que responde 403 cuenta como vivo.
 
 ## La web (Grilla web)
