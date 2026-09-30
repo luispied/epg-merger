@@ -19,6 +19,7 @@ import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYT
   type Config } from './config.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
+import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist } from './playlist.ts';
@@ -167,7 +168,7 @@ async function serveR2(env: Env, key: string, contentType: string, maxAge: numbe
   return new Response(obj.body, { headers: { 'Content-Type': contentType, 'Cache-Control': `public, max-age=${maxAge}`, ...CORS } });
 }
 
-async function api(request: Request, parts: string[], env: Env, ip: string): Promise<Response> {
+async function api(request: Request, parts: string[], env: Env, ip: string, ctx: Ctx, cache: SimpleCache): Promise<Response> {
   const method = request.method;
   const [, section, cfgId, action] = parts; // ['api', section, …]
 
@@ -205,6 +206,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
       if (await knownToGithub(env.BUCKET, hash)) {
         await linkConfig(env.BUCKET, hash, created.cfgId);
         github = true;
+        ctx.waitUntil(dispatchRefresh(env, cache));
       }
     }
     return json({ ...created, github }, 201);
@@ -217,6 +219,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
     if (!action && method === 'GET') return json(stored.config);
     if (!action && method === 'PUT') {
       await saveConfig(env.BUCKET, cfgId, parseConfig(await readJson(request)), stored.keyHash);
+      // La guía de esta configuración se vuelve a armar con los cambios.
+      ctx.waitUntil(dispatchRefresh(env, cache));
       return json({ ok: true });
     }
     if (!action && method === 'DELETE') {
@@ -278,7 +282,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
   const parts = url.pathname.split('/').filter(Boolean);
   const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
   try {
-    if (parts[0] === 'api') return await api(request, parts, env, ip);
+    if (parts[0] === 'api') return await api(request, parts, env, ip, ctx, cache);
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {
       if (parts.length === 3 && parts[2] === 'epg.xml.gz') {
         return await serveR2(env, `epg/${parts[1]}.xml.gz`, 'application/gzip', 3600);
