@@ -63,6 +63,18 @@ compilación sola antes de publicar (`[build]`).
 
    Si la clave se cambia, dejan de andar los links ya copiados.
 
+4. **Opcional (recomendado): `GITHUB_TOKEN`.** Con este token el Worker lanza la corrida de
+   GitHub (`refresh-lists.yml`) apenas hace falta: cuando hay una configuración nueva
+   esperando su lista o cuando se guarda un cambio que necesita guía nueva. Sin el token hay que
+   esperar el cron de GitHub, que corre cada 10 minutos pero a veces se atrasa o se saltea.
+   Para crearlo:
+   - GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens**
+     → Generate new token;
+   - acceso solo al repositorio `epg-merger`;
+   - Repository permissions → **Actions: Read and write**.
+
+   Se carga en el Worker como *Secret* `GITHUB_TOKEN`.
+
 El bucket `grilla` ya tiene que existir: el Worker lo usa por nombre (`wrangler.toml`).
 
 ## Desarrollo

@@ -26,6 +26,11 @@ export interface Env {
   BUCKET: R2Bucket;
   /** Clave AES-256 en base64 para cifrar las credenciales dentro de los links. */
   TOKEN_KEY: string;
+  /** Opcional: token de GitHub (permiso Actions: escritura en el repo) para lanzar la corrida
+   *  que sube listas y arma guías apenas hace falta, sin esperar el cron (ver src/github.ts). */
+  GITHUB_TOKEN?: string;
+  /** Opcional: "dueño/repo" (por defecto luispied/epg-merger). */
+  GITHUB_REPO?: string;
 }
 
 export interface Ctx {
