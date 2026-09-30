@@ -16,7 +16,7 @@ interface Config {
   provider: Provider;
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
-  groups: { order: string[]; hidden: string[] };
+  groups: { order: string[]; hidden: string[]; noEpg?: string[] };
 }
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string; lenient?: boolean }
@@ -286,15 +286,17 @@ function info(ch: Channel) {
   const epg = edit.epg ?? null;
   const hidden = !!edit.hidden || state.cfg!.groups.hidden.includes(groupOf(ch));
   const band: Band = edit.manual ? 'manual' : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
+  // Categoría marcada "Sin guía" (Categorías): no cuenta en "A revisar" ni en "Sin EPG".
+  const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const suggestion = !epg && !edit.manual ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion };
+  return { edit, auto, epg, hidden, band, suggestion, noGuide };
 }
 
 function matchesFilter(ch: Channel, filter: string) {
   const i = info(ch);
   switch (filter) {
-    case 'revisar': return !i.hidden && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
-    case 'sin-epg': return !i.hidden && !i.epg;
+    case 'revisar': return !i.hidden && !i.noGuide && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
+    case 'sin-epg': return !i.hidden && !i.noGuide && !i.epg;
     case 'manual': return i.band === 'manual';
     case 'ocultos': return i.hidden;
     default: return !i.hidden;
@@ -823,11 +825,14 @@ function openBulkCategory(chs: Channel[]) {
 function renderCategories() {
   const list = groups();
   const hidden = new Set(state.cfg!.groups.hidden);
+  const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
   const counts = new Map<string, number>();
   for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
   $('#categoriesList').innerHTML = list.map((g, i) => `
     <div class="menu-row static cat-row" data-g="${i}">
-      <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canales</small></span>
+      <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canales</small>
+        <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
+          title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button></span>
       <button type="button" class="icon-btn ghost sm" data-move="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button>
       <button type="button" class="icon-btn ghost sm" data-move="1" aria-label="Bajar" ${i === list.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button>
       <input type="checkbox" class="switch" aria-label="Visible" ${hidden.has(g) ? '' : 'checked'}>
@@ -837,6 +842,20 @@ function renderCategories() {
 function setupCategories() {
   const box = $('#categoriesList');
   box.onclick = (ev) => {
+    const chip = (ev.target as HTMLElement).closest<HTMLElement>('.noepg-btn');
+    if (chip) {
+      const g = groups()[Number(chip.closest<HTMLElement>('[data-g]')!.dataset.g)];
+      const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
+      const on = !noEpg.has(g);
+      if (on) noEpg.add(g);
+      else noEpg.delete(g);
+      state.cfg!.groups.noEpg = [...noEpg];
+      scheduleSave();
+      renderCategories();
+      render();
+      toast(on ? `${g}: sin guía` : `${g} vuelve a necesitar guía`, 'ok');
+      return;
+    }
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-move]');
     if (!btn) return;
     const list = groups();
@@ -1231,7 +1250,7 @@ async function openSaved() {
   try {
     say('Abriendo tu configuración…');
     const cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
-    cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [] };
+    cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [] };
     state.cfg = cfg;
     state.channels = await loadStoredList();
     if (!state.channels.length && cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
@@ -1270,7 +1289,7 @@ async function importFromGithub() {
   try {
     const res = await fetch(GITHUB_IMPORT_URL(profile), { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status === 404 ? `no hay un perfil "${profile}"` : `HTTP ${res.status}`);
-    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[] } };
+    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[]; noEpg?: string[] } };
     // Todo lo importado queda fijo (elegido a mano): así la playlist queda igual que la de
     // GitHub, que elige el EPG con tus reglas por sección. Los canales nuevos del proveedor
     // siguen tomando el EPG automático.
@@ -1279,7 +1298,7 @@ async function importFromGithub() {
       channels[name] = 'epg' in edit ? { ...edit, manual: true } : { ...edit };
     }
     state.cfg!.channels = channels;
-    state.cfg!.groups = { order: data.groups?.order ?? [], hidden: data.groups?.hidden ?? [] };
+    state.cfg!.groups = { order: data.groups?.order ?? [], hidden: data.groups?.hidden ?? [], noEpg: data.groups?.noEpg ?? [] };
     await rematch(() => {});
     await saveNow();
     ($('#settingsDialog') as HTMLDialogElement).close();
@@ -1409,8 +1428,13 @@ function setupEditor() {
   };
   setupCategories();
   $('#linksBtn').onclick = () => {
+    ($('#settingsDialog') as HTMLDialogElement).close();
     renderLinks();
     ($('#linksDialog') as HTMLDialogElement).showModal();
+  };
+  $('#helpBtn').onclick = () => {
+    ($('#settingsDialog') as HTMLDialogElement).close();
+    ($('#helpDialog') as HTMLDialogElement).showModal();
   };
   $('#settingsBtn').onclick = () => {
     $<HTMLInputElement>('#lenientToggle').checked = !!state.local?.lenient;

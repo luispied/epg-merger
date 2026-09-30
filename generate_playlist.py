@@ -130,6 +130,15 @@ class _Rules:
         self.alphabetical = rules.get('category_order') == 'alphabetical'
         self.min_assign_score = float(rules.get('min_assign_score') or MIN_SCORE)
         self.preferred_feed = (rules.get('preferred_feed') or '').lower() or None
+        no_epg = rules.get('no_epg') or {}
+        self.no_epg_categories = set(no_epg.get('categories') or [])
+        self.no_epg_sections = set(no_epg.get('sections') or [])
+        self.no_epg_patterns = [re.compile(p) for p in no_epg.get('category_patterns') or []]
+
+    def needs_no_epg(self, category, section):
+        """Categoría que no necesita guía según las reglas del proveedor (General, 24/7…)."""
+        return (category in self.no_epg_categories or (section or '') in self.no_epg_sections
+                or any(p.search(category) for p in self.no_epg_patterns))
 
 
 _rules = _Rules(DEFAULT_PROVIDER_RULES)
@@ -486,7 +495,19 @@ def load_provider_channels(profile):
     ).load()
 
 
-def generate_for_profile(profile, index, channels_root, sections, overrides, edits=({}, {}, set(), set())):
+def load_no_epg_categories(path=CHANNEL_MAP_PATH):
+    """Categorías marcadas "Sin guía" en la interfaz (no_epg_categories de
+    xtream_channel_map.json): no cambian la playlist, solo se exportan a Grilla web."""
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return set()
+    return {k for k, v in (data.get('no_epg_categories') or {}).items() if v}
+
+
+def generate_for_profile(profile, index, channels_root, sections, overrides, edits=({}, {}, set(), set()),
+                         no_epg_categories=frozenset()):
     """Genera playlist y reporte de matching para un perfil. Devuelve un ProfileEpg con lo que
     necesita su guía acotada (se escribe después, en la pasada de programas: ver generate()),
     o None si no se pudo leer el proveedor. `channels_root`: los <channel> de la guía.
@@ -514,6 +535,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     web_channels = {}
     web_groups = []            # (orden_seccion, orden_categoria, indice, grupo)
     web_hidden_groups = set()
+    web_no_epg_groups = set()
 
     section_order = {s: i for i, s in enumerate(section_display_order)}
     no_section_order = len(section_display_order)  # categorías sin sección van al final
@@ -625,6 +647,8 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         web_groups.append((section_order.get(section, no_section_order), cat_order, i, web_group))
         if (moved_to or category) in hidden_categories:
             web_hidden_groups.add(web_group)
+        if not category_is_divider and (web_group in no_epg_categories or _rules.needs_no_epg(web_group, section)):
+            web_no_epg_groups.add(web_group)
         web_edit = {}
         if channel_id:
             web_edit['epg'] = channel_id
@@ -715,7 +739,8 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     with open(report_path, 'w', encoding='utf-8') as f:
         json.dump({'stats': stats, 'channels': report}, f, ensure_ascii=False, indent=1)
 
-    write_web_import(os.path.join(out_dir, 'grilla_import.json'), web_channels, web_groups, web_hidden_groups)
+    write_web_import(os.path.join(out_dir, 'grilla_import.json'), web_channels, web_groups, web_hidden_groups,
+                     web_no_epg_groups)
 
     print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}"
           + (f" | ocultos: {hidden_count}" if hidden_count else ''))
@@ -727,7 +752,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     return ProfileEpg(epg_path, channels_root, matched_ids, channel_display_labels, stats)
 
 
-def write_web_import(path, channels, groups, hidden_groups):
+def write_web_import(path, channels, groups, hidden_groups, no_epg_groups=()):
     """Lo que Grilla web necesita para quedar igual que esta playlist ("Importar desde Grilla
     (GitHub)"): la edición de cada canal por su nombre crudo (EPG elegido, logo, nombre visible,
     categoría, oculto) y el orden de las categorías, con sus separadores. Sin credenciales ni
@@ -738,7 +763,7 @@ def write_web_import(path, channels, groups, hidden_groups):
             order.append(group)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump({'version': 1, 'channels': channels,
-                   'groups': {'order': order, 'hidden': sorted(hidden_groups)}},
+                   'groups': {'order': order, 'hidden': sorted(hidden_groups), 'noEpg': sorted(no_epg_groups)}},
                   f, ensure_ascii=False, separators=(',', ':'))
 
 
@@ -1018,7 +1043,9 @@ def generate():
               f"{len(edits[3])} categoría(s) oculta(s)")
 
     print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
-    guides = [g for g in (generate_for_profile(profile, index, channels_root, sections, overrides, edits)
+    no_epg_categories = load_no_epg_categories()
+    guides = [g for g in (generate_for_profile(profile, index, channels_root, sections, overrides, edits,
+                                                 no_epg_categories)
                           for profile in profiles) if g]
     print(f"\n⏱️  Matching de {len(guides)} perfil(es) listo [{elapsed()}]; recorriendo la guía…")
 
