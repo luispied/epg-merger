@@ -33,3 +33,16 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .btn.sm { min-height: 30px; padding: 0 12px; font-size: 13.5px; flex: none; }
 .pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cat-row .chip-btn { align-self: flex-start; margin-top: 5px; min-height: 26px; }
+.cat-filter { margin: 12px 0 10px; }
+.cat-row { gap: 10px; }
+.drag-handle {
+  flex: none; display: grid; place-items: center; width: 32px; height: 40px; margin: -6px -4px -6px -8px;
+  border: 0; background: none; color: var(--faint); cursor: grab; touch-action: none; border-radius: 8px;
+}
+.drag-handle:focus-visible { outline: 2px solid var(--accent); }
+.cat-row.dragging { position: relative; z-index: 2; background: var(--surface); box-shadow: var(--shadow-lg); border-radius: var(--radius-sm); }
+.cat-row.dragging .drag-handle { cursor: grabbing; color: var(--accent); }
+#categoriesList.sorting { user-select: none; -webkit-user-select: none; }
+#categoriesList.sorting .cat-row:not(.dragging) { transition: transform .15s ease; }
+.inline-icon .icon, svg.inline-icon { width: 15px; height: 15px; vertical-align: -2px; }
+#themeSeg button .icon { width: 17px; height: 17px; vertical-align: -3px; }

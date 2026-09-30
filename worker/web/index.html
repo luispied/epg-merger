@@ -97,6 +97,7 @@
       <button data-filter="revisar" data-label="A revisar">A revisar</button>
       <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
       <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
+      <button data-filter="editados" data-label="Editados">Editados</button>
       <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
     </nav>
   </div>
@@ -154,8 +155,12 @@
       <h2 id="categoriesTitle">Categorías</h2>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <p>Orden y visibilidad en la playlist. Las categorías nuevas del proveedor aparecen al final.
+    <p>Arrastrá desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist; el switch la muestra u oculta. Las categorías nuevas del proveedor aparecen al final.
       <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, canales 24/7…): no cuentan en "A revisar" ni en "Sin EPG".</p>
+    <label class="search-field cat-filter">
+      <span data-icon="search"></span>
+      <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
+    </label>
     <div class="menu" id="categoriesList"></div>
   </div>
 </dialog>
@@ -224,11 +229,25 @@
         <span class="menu-icon"><span data-icon="sun-moon"></span></span>
         <span class="menu-text">Tema</span>
         <div class="seg" role="radiogroup" aria-label="Tema" id="themeSeg">
-          <button type="button" role="radio" data-value="auto">Auto</button>
-          <button type="button" role="radio" data-value="light">Claro</button>
-          <button type="button" role="radio" data-value="dark">Oscuro</button>
+          <button type="button" role="radio" data-value="auto" title="Como el sistema">Sistema</button>
+          <button type="button" role="radio" data-value="light" aria-label="Claro" title="Claro"><span data-icon="sun"></span></button>
+          <button type="button" role="radio" data-value="dark" aria-label="Oscuro" title="Oscuro"><span data-icon="moon"></span></button>
         </div>
       </div>
+      <label class="menu-row static">
+        <span class="menu-icon"><span data-icon="image"></span></span>
+        <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos móviles</small></span>
+        <input type="checkbox" class="switch" id="logosToggle">
+      </label>
+      <label class="menu-row static">
+        <span class="menu-icon"><span data-icon="funnel"></span></span>
+        <span class="menu-text">Filtro al abrir</span>
+        <select class="select compact" id="startFilterSelect">
+          <option value="last">El último usado</option>
+          <option value="todos">Todos</option>
+          <option value="revisar">A revisar</option>
+        </select>
+      </label>
     </div>
     <div class="menu danger-zone">
       <button class="menu-row danger" id="forgetBtn">
@@ -265,7 +284,7 @@
 
     <details>
       <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
-      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG pero con una sugerencia. <b>Sin EPG</b>: canales sin guía. <b>Elegidos a mano</b>: los que elegiste vos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en "A revisar" ni en "Sin EPG".</p>
+      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG pero con una sugerencia. <b>Sin EPG</b>: canales sin guía. <b>Elegidos a mano</b>: los que elegiste vos. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en "A revisar" ni en "Sin EPG".</p>
     </details>
 
     <details>
@@ -280,12 +299,17 @@
 
     <details>
       <summary>¿Cómo ordeno u oculto categorías?<span data-icon="chevron-down"></span></summary>
-      <p>Con el botón de <b>Categorías</b> (las capas, arriba): las flechas cambian el orden en la playlist y el switch las muestra u oculta. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
+      <p>Con el botón de <b>Categorías</b> (las capas, arriba): arrastrá cada una desde su manija (los puntitos de la izquierda) para cambiar el orden en la playlist, y el switch las muestra u oculta. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
     </details>
 
     <details>
       <summary>¿Cuándo se ven los cambios en el reproductor?<span data-icon="chevron-down"></span></summary>
       <p>Cada cambio se guarda solo. La <b>playlist</b> los tiene al instante. La <b>guía</b> se vuelve a armar en unos minutos: arriba de la lista ves si ya está al día, y con <b>Aplicar ahora</b> la pedís en el momento. Después, en el reproductor, actualizá la lista y la guía (o esperá a que lo haga solo).</p>
+    </details>
+
+    <details>
+      <summary>Me equivoqué, ¿cómo deshago?<span data-icon="chevron-down"></span></summary>
+      <p>Después de cada cambio aparece un aviso abajo con <b>Deshacer</b> por unos segundos. Más tarde, cada cambio se revierte desde el mismo canal: <b>Volver al automático</b>, dejar el nombre vacío, elegir su categoría original o prender <b>Visible en la playlist</b>. Con varios canales a la vez, desde la selección múltiple.</p>
     </details>
 
     <details>
