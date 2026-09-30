@@ -13,9 +13,11 @@
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
+//   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
+//                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, saveConfig,
   type Config } from './config.ts';
-import { decryptToken, encryptToken, type Credentials } from './crypto.ts';
+import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
@@ -103,7 +105,24 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
   }
 }
 
-async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
+// Links cortos: un código al azar que apunta a la configuración y al token. El token (las
+// credenciales cifradas con la clave del Worker) queda guardado en R2 a cambio de links que
+// no muestran nada: ni la configuración ni el token.
+const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
+
+async function resolveShort(env: Env, code: string): Promise<{ cfgId: string; token: string } | null> {
+  if (!SHORT_RE.test(code)) return null;
+  const obj = await env.BUCKET.get(`short/${code}.json`);
+  if (!obj) return null;
+  try {
+    const v = JSON.parse(await obj.text()) as { cfgId?: string; token?: string };
+    return v.cfgId && v.token ? { cfgId: v.cfgId, token: v.token } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string): Promise<Response> {
   const stored = await loadConfig(env.BUCKET, cfgId);
   if (!stored) return new Response('Configuración inexistente', { status: 404 });
   const creds = await decryptToken(env.TOKEN_KEY, cfgId, token);
@@ -120,11 +139,11 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     direct = await healthyServer(cfg.provider.servers.map(normalizeServer), creds.u, creds.p, cache, (p) => ctx.waitUntil(p));
   }
   const text = buildPlaylist(list.channels, cfg, {
-    epgUrl: `${url.origin}/p/${cfgId}/epg.xml.gz`,
+    epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {
       if (ch.url) return ch.url;
       if (direct && 'u' in creds) return streamUrl(direct, creds.u, creds.p, ch.id, ch.ext);
-      return `${url.origin}/s/${cfgId}/${token}/${ch.id}.${ch.ext || 'm3u8'}`;
+      return short ? `${url.origin}/s/${short}/${ch.id}.${ch.ext || 'm3u8'}` : `${url.origin}/s/${cfgId}/${token}/${ch.id}.${ch.ext || 'm3u8'}`;
     },
   });
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -226,7 +245,15 @@ async function api(request: Request, parts: string[], env: Env, ip: string): Pro
       const creds = credentialsFrom(await readJson(request, 16 * 1024) as Record<string, unknown>, stored.config);
       const token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
       const origin = new URL(request.url).origin;
-      return json({ token, playlistUrl: `${origin}/p/${cfgId}/${token}/playlist.m3u8`, epgUrl: `${origin}/p/${cfgId}/epg.xml.gz` });
+      const code = randomId(8);
+      await env.BUCKET.put(`short/${code}.json`, JSON.stringify({ cfgId, token }), { httpMetadata: { contentType: 'application/json' } });
+      return json({
+        token,
+        playlistUrl: `${origin}/l/${code}.m3u8`,
+        epgUrl: `${origin}/g/${code}.xml.gz`,
+        longPlaylistUrl: `${origin}/p/${cfgId}/${token}/playlist.m3u8`,
+        longEpgUrl: `${origin}/p/${cfgId}/epg.xml.gz`,
+      });
     }
   }
 
@@ -260,6 +287,18 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 4 && isId(parts[1])) {
       return await serveStream(parts[1], parts[2], parts[3], env, ctx, cache);
+    }
+    if (request.method === 'GET' && parts.length === 2 && ['l', 'g'].includes(parts[0])) {
+      const m = /^([^.]+)\.(m3u8|xml\.gz)$/.exec(parts[1]);
+      const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, m[1]) : null;
+      if (!short) return fail(404, 'no encontrado');
+      if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
+      return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1]);
+    }
+    if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
+      const short = await resolveShort(env, parts[1]);
+      if (!short) return new Response('No encontrado', { status: 404 });
+      return await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
     }
     return fail(404, 'no encontrado');
   } catch (e) {
