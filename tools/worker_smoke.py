@@ -13,6 +13,7 @@ Uso (workflow worker-smoke.yml): `python tools/worker_smoke.py --worker https://
 """
 import argparse
 import os
+import re
 import sys
 import urllib.parse
 
@@ -27,6 +28,50 @@ TIMEOUT = 60
 
 def host(url):
     return urllib.parse.urlsplit(url).netloc or '?'
+
+
+STREAM_ID_RE = re.compile(r'/(\d+)(?:\.([A-Za-z0-9]{1,6}))?(?:[?#].*)?$')
+
+
+def m3u_shape(servers, creds):
+    """Cómo es la lista M3U que da el proveedor (get.php), la que la web le pide subir a la
+    persona. Solo la forma: cantidades, nombres de atributos y URLs con usuario y contraseña
+    tapados."""
+    print('\n0. Forma de la lista M3U del proveedor (get.php, directo desde GitHub)')
+    u, p = creds['username'], creds['password']
+
+    def mask(text):
+        for secret, label in ((p, '<clave>'), (u, '<usuario>'), (urllib.parse.quote(p), '<clave>'),
+                              (urllib.parse.quote(u), '<usuario>')):
+            if secret:
+                text = text.replace(secret, label)
+        return text
+
+    for server in servers:
+        try:
+            r = requests.get(f'{server}/get.php', timeout=60,
+                             params={**creds, 'type': 'm3u_plus', 'output': 'ts'})
+        except requests.RequestException as e:
+            print(f'   {host(server)}: {type(e).__name__}')
+            continue
+        text = r.text
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        extinf = [line for line in lines if line.startswith('#EXTINF')]
+        urls = [line for line in lines if not line.startswith('#')]
+        matching = sum(1 for x in urls if STREAM_ID_RE.search(x))
+        print(f"   {host(server)}: HTTP {r.status_code}, {r.headers.get('content-type', '?')}, "
+              f"{len(r.content) // 1024} KB, {len(extinf)} #EXTINF, {len(urls)} URLs, {matching} con stream_id")
+        print(f'   primera línea: {mask(lines[0][:80]) if lines else "(vacío)"}')
+        if extinf:
+            attrs = re.findall(r'([\w-]+)="', extinf[0])
+            print(f'   atributos del primer #EXTINF: {attrs}; empieza: {extinf[0][:14]!r}')
+        for x in urls[:3]:
+            print(f'   URL: {mask(x)[:120]}')
+        others = [x for x in urls if not STREAM_ID_RE.search(x)]
+        for x in others[:3]:
+            print(f'   URL sin stream_id: {mask(x)[:120]}')
+        if r.ok and extinf:
+            return
 
 
 def main(argv=None):
@@ -46,6 +91,7 @@ def main(argv=None):
     print(f"Perfil '{profile['name']}': {len(servers)} servidor(es) en el balanceador")
 
     ok = True
+    m3u_shape(servers, creds)
     print('\n1. Lista del proveedor a través del Worker, servidor por servidor')
     for i, server in enumerate(servers, 1):
         # Directo desde GitHub (lo que usa la corrida de hoy), para comparar con el Worker.
