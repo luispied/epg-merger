@@ -35,6 +35,9 @@ Object.assign(window.ICONS, {
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
 });
 
 // ------------------------------------------------------------------ utilidades
@@ -51,10 +54,19 @@ function hydrateIcons(root: ParentNode = document) {
   $$('[data-icon]', root).forEach((el) => { el.outerHTML = icon((el as HTMLElement).dataset.icon!, el.className); });
 }
 
-function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500) {
+/** `undo`: agrega "Deshacer" (el aviso dura más). */
+function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, undo?: () => void) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
-  el.innerHTML = `${icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'info')}<span class="msg">${esc(text)}</span>`;
+  el.innerHTML = `${icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'info')}<span class="msg">${esc(text)}</span>`
+    + (undo ? '<button type="button" class="btn btn-plain">Deshacer</button>' : '');
+  if (undo) {
+    ms = Math.max(ms, 7000);
+    $('button', el).onclick = () => {
+      el.remove();
+      undo();
+    };
+  }
   // Dentro del diálogo abierto, si hay uno: si no, queda tapado por el fondo del diálogo.
   const host = $$('dialog[open]').pop() ?? document.body;
   let box = $('.toasts', host);
@@ -99,6 +111,27 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   return data as T;
 }
 
+// Preferencias de este navegador (no viajan con la configuración).
+const pref = (k: string, def: string) => {
+  try {
+    return localStorage.getItem(k) ?? def;
+  } catch {
+    return def;
+  }
+};
+const setPref = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch { /* sin storage */ }
+};
+const FILTERS = ['todos', 'revisar', 'sin-epg', 'manual', 'editados', 'ocultos'];
+function startFilter() {
+  const start = pref('grilla_start_filter', 'last');
+  const f = start === 'last' ? pref('grilla_last_filter', 'todos') : start;
+  return FILTERS.includes(f) ? f : 'todos';
+}
+const logosOn = () => pref('grilla_logos', '1') !== '0';
+
 // ------------------------------------------------------------------ estado
 const state = {
   local: loadLocal() as Local | null,
@@ -108,7 +141,7 @@ const state = {
   rules: null as MatchingRules | null,
   auto: new Map<string, Auto>(),
   creds: null as Creds | null, // solo en memoria, para generar los links sin volver a pedirlos
-  filter: 'todos',
+  filter: startFilter(),
   search: '',
   shown: PAGE,
   reloading: false,
@@ -298,6 +331,7 @@ function matchesFilter(ch: Channel, filter: string) {
     case 'revisar': return !i.hidden && !i.noGuide && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
     case 'sin-epg': return !i.hidden && !i.noGuide && !i.epg;
     case 'manual': return i.band === 'manual';
+    case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
     default: return !i.hidden;
   }
@@ -433,7 +467,7 @@ async function toggleDesc(btn: HTMLElement) {
 }
 
 function logoHtml(id: string | null, cls = ''): string {
-  const url = id ? state.index?.icon.get(id) : '';
+  const url = id && logosOn() ? state.index?.icon.get(id) : '';
   return `<span class="logo ${cls}">${icon('tv')}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
 }
 
@@ -592,6 +626,7 @@ function noEpg(e: ChannelEdit) {
 }
 /** Aplica una edición a varios canales, guarda y vuelve a dibujar. */
 function editChannels(chs: Channel[], fn: (e: ChannelEdit, ch: Channel) => void, msg?: string) {
+  const before = new Map(chs.map((ch) => [ch.name, state.cfg!.channels[ch.name]]));
   for (const ch of chs) {
     const e = { ...(state.cfg!.channels[ch.name] ?? {}) };
     fn(e, ch);
@@ -599,7 +634,35 @@ function editChannels(chs: Channel[], fn: (e: ChannelEdit, ch: Channel) => void,
   }
   scheduleSave();
   render();
-  if (msg) toast(msg, 'ok');
+  if (msg) {
+    toast(msg, 'ok', 3500, () => {
+      for (const [name, e] of before) {
+        if (e) state.cfg!.channels[name] = e;
+        else delete state.cfg!.channels[name];
+      }
+      scheduleSave();
+      render();
+      toast('Cambio deshecho', 'info');
+    });
+  }
+}
+
+/** Cambia las categorías (orden, ocultas, sin guía) con "Deshacer". */
+function editGroups(fn: (g: Config['groups']) => void, msg?: string) {
+  const before = structuredClone(state.cfg!.groups);
+  fn(state.cfg!.groups);
+  scheduleSave();
+  render();
+  if (($('#categoriesDialog') as HTMLDialogElement).open) renderCategories();
+  if (msg) {
+    toast(msg, 'ok', 3500, () => {
+      state.cfg!.groups = before;
+      scheduleSave();
+      render();
+      renderCategories();
+      toast('Cambio deshecho', 'info');
+    });
+  }
 }
 
 function openChannel(i: number) {
@@ -636,8 +699,8 @@ function openChannel(i: number) {
   body.onclick = (ev) => {
     const picked = epgClick(ev);
     if (picked) {
-      update((e) => pickEpg(e, picked), 'EPG elegido');
       ($('#channelDialog') as HTMLDialogElement).close();
+      update((e) => pickEpg(e, picked), 'EPG elegido');
       return;
     }
     const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
@@ -828,54 +891,133 @@ function renderCategories() {
   const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
   const counts = new Map<string, number>();
   for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
-  $('#categoriesList').innerHTML = list.map((g, i) => `
+  const q = fold($<HTMLInputElement>('#categoriesFilter').value.trim());
+  // Con un filtro el orden no se puede arrastrar (se movería entre categorías que no se ven).
+  const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(g).includes(q));
+  $('#categoriesList').innerHTML = rows.map(({ g, i }) => `
     <div class="menu-row static cat-row" data-g="${i}">
-      <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canales</small>
+      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(g)} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
+      <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
         <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
           title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button></span>
-      <button type="button" class="icon-btn ghost sm" data-move="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button>
-      <button type="button" class="icon-btn ghost sm" data-move="1" aria-label="Bajar" ${i === list.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button>
-      <input type="checkbox" class="switch" aria-label="Visible" ${hidden.has(g) ? '' : 'checked'}>
-    </div>`).join('');
+      <input type="checkbox" class="switch" aria-label="Mostrar ${esc(g)}" ${hidden.has(g) ? '' : 'checked'}>
+    </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
+}
+
+/** Mueve la categoría `from` a la posición `to` (índices de groups()). */
+function moveGroup(from: number, to: number) {
+  if (from === to) return;
+  const list = groups();
+  const [g] = list.splice(from, 1);
+  list.splice(to, 0, g);
+  editGroups((gr) => { gr.order = list; }, `${g} movida`);
+}
+
+/** Arrastrar desde la manija (mouse o dedo): la fila sigue al puntero y las demás se corren. */
+function setupCategoryDrag(box: HTMLElement) {
+  box.addEventListener('pointerdown', (ev) => {
+    const handle = (ev.target as HTMLElement).closest<HTMLElement>('.drag-handle');
+    if (!handle || ev.button !== 0) return;
+    ev.preventDefault();
+    const row = handle.closest<HTMLElement>('.cat-row')!;
+    const rows = $$<HTMLElement>('.cat-row', box);
+    const from = rows.indexOf(row);
+    const tops = rows.map((r) => r.getBoundingClientRect());
+    const height = tops[from].height;
+    const scroller = box.closest<HTMLElement>('.sheet-body') ?? box;
+    const startScroll = scroller.scrollTop;
+    const startY = ev.clientY;
+    let to = from;
+    let lastY = ev.clientY;
+    let raf = 0;
+    handle.setPointerCapture(ev.pointerId);
+    row.classList.add('dragging');
+    box.classList.add('sorting');
+
+    const layout = () => {
+      const dy = lastY - startY + (scroller.scrollTop - startScroll);
+      row.style.transform = `translateY(${dy}px)`;
+      const center = tops[from].top + height / 2 + dy;
+      to = from;
+      for (let k = 0; k < rows.length; k++) {
+        const mid = tops[k].top + tops[k].height / 2;
+        if (k < from && center < mid) { to = k; break; }
+        if (k > from && center > mid) to = k;
+      }
+      rows.forEach((r, k) => {
+        if (k === from) return;
+        const shift = from < to && k > from && k <= to ? -height : to < from && k >= to && k < from ? height : 0;
+        r.style.transform = shift ? `translateY(${shift}px)` : '';
+      });
+    };
+    // Cerca del borde de la hoja, se desplaza sola para poder llevarla lejos.
+    const autoScroll = () => {
+      const box2 = scroller.getBoundingClientRect();
+      const edge = 60;
+      const v = lastY < box2.top + edge ? -(box2.top + edge - lastY) / 4 : lastY > box2.bottom - edge ? (lastY - (box2.bottom - edge)) / 4 : 0;
+      if (v) {
+        scroller.scrollTop += v;
+        layout();
+      }
+      raf = requestAnimationFrame(autoScroll);
+    };
+    raf = requestAnimationFrame(autoScroll);
+    const move = (e: PointerEvent) => {
+      lastY = e.clientY;
+      layout();
+    };
+    const end = () => {
+      cancelAnimationFrame(raf);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      rows.forEach((r) => { r.style.transform = ''; });
+      row.classList.remove('dragging');
+      box.classList.remove('sorting');
+      moveGroup(Number(rows[from].dataset.g), Number(rows[to].dataset.g));
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
+  // Teclado: flechas sobre la manija.
+  box.addEventListener('keydown', (ev) => {
+    const handle = (ev.target as HTMLElement).closest<HTMLElement>('.drag-handle');
+    if (!handle || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+    ev.preventDefault();
+    const i = Number(handle.closest<HTMLElement>('[data-g]')!.dataset.g);
+    const j = i + (ev.key === 'ArrowUp' ? -1 : 1);
+    if (j < 0 || j >= groups().length) return;
+    moveGroup(i, j);
+    $<HTMLElement>(`.cat-row[data-g="${j}"] .drag-handle`, box)?.focus();
+  });
 }
 
 function setupCategories() {
   const box = $('#categoriesList');
+  setupCategoryDrag(box);
+  $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
   box.onclick = (ev) => {
     const chip = (ev.target as HTMLElement).closest<HTMLElement>('.noepg-btn');
-    if (chip) {
-      const g = groups()[Number(chip.closest<HTMLElement>('[data-g]')!.dataset.g)];
-      const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
-      const on = !noEpg.has(g);
+    if (!chip) return;
+    const g = groups()[Number(chip.closest<HTMLElement>('[data-g]')!.dataset.g)];
+    const on = !state.cfg!.groups.noEpg?.includes(g);
+    editGroups((gr) => {
+      const noEpg = new Set(gr.noEpg ?? []);
       if (on) noEpg.add(g);
       else noEpg.delete(g);
-      state.cfg!.groups.noEpg = [...noEpg];
-      scheduleSave();
-      renderCategories();
-      render();
-      toast(on ? `${g}: sin guía` : `${g} vuelve a necesitar guía`, 'ok');
-      return;
-    }
-    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-move]');
-    if (!btn) return;
-    const list = groups();
-    const i = Number(btn.closest<HTMLElement>('[data-g]')!.dataset.g);
-    const j = i + Number(btn.dataset.move);
-    [list[i], list[j]] = [list[j], list[i]];
-    state.cfg!.groups.order = list;
-    scheduleSave();
-    renderCategories();
-    render();
+      gr.noEpg = [...noEpg];
+    }, on ? `${g}: sin guía` : `${g} vuelve a necesitar guía`);
   };
   box.onchange = (ev) => {
     const input = ev.target as HTMLInputElement;
     const g = groups()[Number(input.closest<HTMLElement>('[data-g]')!.dataset.g)];
-    const hidden = new Set(state.cfg!.groups.hidden);
-    if (input.checked) hidden.delete(g);
-    else hidden.add(g);
-    state.cfg!.groups.hidden = [...hidden];
-    scheduleSave();
-    render();
+    editGroups((gr) => {
+      const hidden = new Set(gr.hidden);
+      if (input.checked) hidden.delete(g);
+      else hidden.add(g);
+      gr.hidden = [...hidden];
+    }, input.checked ? `${g} visible en la playlist` : `${g} oculta de la playlist`);
   };
 }
 
@@ -1338,6 +1480,7 @@ function setupEditor() {
     const f = (ev.target as HTMLElement).closest<HTMLElement>('[data-filter]')?.dataset.filter;
     if (!f) return;
     state.filter = f;
+    setPref('grilla_last_filter', f);
     state.shown = PAGE;
     render();
   };
@@ -1423,6 +1566,7 @@ function setupEditor() {
     render();
   };
   $('#categoriesBtn').onclick = () => {
+    $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
     ($('#categoriesDialog') as HTMLDialogElement).showModal();
   };
@@ -1438,6 +1582,8 @@ function setupEditor() {
   };
   $('#settingsBtn').onclick = () => {
     $<HTMLInputElement>('#lenientToggle').checked = !!state.local?.lenient;
+    $<HTMLInputElement>('#logosToggle').checked = logosOn();
+    $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
     ($('#settingsDialog') as HTMLDialogElement).showModal();
   };
   $('#reloadListBtn').onclick = () => {
@@ -1450,6 +1596,14 @@ function setupEditor() {
     if (await rematch(() => {})) await saveNow();
     render();
   };
+  document.body.classList.toggle('no-logos', !logosOn());
+  $<HTMLInputElement>('#logosToggle').onchange = (ev) => {
+    const on = (ev.target as HTMLInputElement).checked;
+    setPref('grilla_logos', on ? '1' : '0');
+    document.body.classList.toggle('no-logos', !on);
+    render();
+  };
+  $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
   $('#exportBtn').onclick = exportBackup;
   $('#importGithubBtn').onclick = importFromGithub;
   $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();
