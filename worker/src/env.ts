@@ -11,6 +11,7 @@ export interface R2ObjectBody {
 
 export interface R2Bucket {
   get(key: string): Promise<R2ObjectBody | null>;
+  head(key: string): Promise<{ uploaded: Date } | null>;
   put(key: string, value: string | ArrayBuffer | ReadableStream,
     options?: { customMetadata?: Record<string, string>; httpMetadata?: { contentType?: string } }): Promise<unknown>;
   delete(key: string): Promise<void>;

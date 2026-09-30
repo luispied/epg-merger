@@ -8,6 +8,8 @@
 //   POST   /api/cfg/<cfgId>/token        (Bearer editKey) credenciales → token y links
 //   PUT    /api/cfg/<cfgId>/list         (Bearer editKey) subir la lista (proveedores que bloquean Cloudflare)
 //   GET    /api/cfg/<cfgId>/list         (Bearer editKey) la última lista guardada (para editar en la web)
+//   GET    /api/cfg/<cfgId>/status       (Bearer editKey) si la guía ya tiene los últimos cambios
+//   POST   /api/cfg/<cfgId>/refresh      (Bearer editKey) aplicar ahora (lanza la corrida de GitHub)
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
@@ -228,6 +230,21 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       return json({ ok: true });
+    }
+    if (action === 'status' && method === 'GET') {
+      // La playlist usa la configuración al instante; la guía la arma la corrida de GitHub.
+      const [cfgObj, epgObj, listObj] = await Promise.all([
+        env.BUCKET.head(`cfg/${cfgId}.json`), env.BUCKET.head(`epg/${cfgId}.xml.gz`), env.BUCKET.head(`list/${cfgId}.json`),
+      ]);
+      const iso = (o: { uploaded: Date } | null) => (o ? o.uploaded.toISOString() : null);
+      return json({
+        config: iso(cfgObj), guide: iso(epgObj), list: iso(listObj),
+        guideUpToDate: !!(cfgObj && epgObj && epgObj.uploaded >= cfgObj.uploaded),
+        autoRefresh: !!env.GITHUB_TOKEN,
+      }, 200, { 'Cache-Control': 'no-store' });
+    }
+    if (action === 'refresh' && method === 'POST') {
+      return json({ started: await dispatchRefresh(env, cache), autoRefresh: !!env.GITHUB_TOKEN });
     }
     if (action === 'list' && method === 'GET') {
       const saved = await env.BUCKET.get(r2ListKey(cfgId));
