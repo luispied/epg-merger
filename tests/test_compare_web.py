@@ -46,6 +46,16 @@ def test_compara_epg_nombre_categoria_y_orden():
     assert 'Hay diferencias' in texto and 'ESPN2.ar' in texto
 
 
+def test_dos_sin_epg_son_iguales_aunque_el_tvg_id_difiera():
+    """Sin EPG, GitHub pone de tvg-id el nombre crudo y la web el visible: no es diferencia."""
+    gh = cw.parse_playlist('#EXTINF:-1 tvg-id="Dazn 4 PPV 38 HD" group-title="PPV",Dazn 4\nhttp://s/live/u/p/7.ts\n'
+                           '#EXTINF:-1 tvg-id="Baby First" group-title="Kids",Baby First\nhttp://s/live/u/p/8.ts\n')
+    web = cw.parse_playlist('#EXTINF:-1 tvg-id="Dazn 4" group-title="PPV",Dazn 4\n/s/7.ts\n'
+                            '#EXTINF:-1 tvg-id="BabyFirst.us" group-title="Kids",Baby First\n/s/8.ts\n')
+    r = cw.compare(gh, web, {'BabyFirst.us'})
+    assert r['epg'] == [('Baby First', '(sin EPG)', 'BabyFirst.us')]
+
+
 def test_iguales():
     e = cw.parse_playlist(GITHUB)
     r = cw.compare(e, e)
