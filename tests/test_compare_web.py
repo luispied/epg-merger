@@ -83,3 +83,26 @@ def test_la_playlist_web_sale_del_codigo_del_worker(tmp_path):
     ]
     e = cw.parse_playlist(cw.web_playlist(cfg, channels, str(tmp_path)))
     assert [(x['id'], x['tvg_id'], x['group']) for x in e] == [('102', 'ESPN.ar', 'Deportes'), ('101', 'Telefe', 'Argentina')]
+
+
+class _MemR2:
+    def __init__(self):
+        self.d = {}
+
+    def get(self, k):
+        return (self.d[k], None) if k in self.d else None
+
+    def put(self, k, body):
+        self.d[k] = body
+
+
+def test_alerta_solo_con_diferencias_nuevas():
+    gh = cw.parse_playlist(GITHUB)
+    web = cw.parse_playlist(GITHUB.replace('ESPN.ar', 'ESPN2.ar'))
+    r2 = _MemR2()
+    keys = cw.diff_keys(cw.compare(gh, web), set())
+    assert cw.new_since_last(r2, 'cfg', keys) is None, 'la primera vez es la referencia'
+    assert cw.new_since_last(r2, 'cfg', keys) == [], 'las mismas de siempre no avisan'
+    web2 = cw.parse_playlist(GITHUB.replace('ESPN.ar', 'ESPN2.ar').replace('Telefe.ar', 'Otro.ar'))
+    new = cw.new_since_last(r2, 'cfg', cw.diff_keys(cw.compare(gh, web2), set()))
+    assert new == ['epg|Telefe|Telefe.ar|Otro.ar']

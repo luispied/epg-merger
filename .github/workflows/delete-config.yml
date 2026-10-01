@@ -1,0 +1,32 @@
+name: Delete Grilla config
+
+# Borra una configuración de Grilla web de R2 (tools/delete_cfg.py): para limpiar las de prueba.
+# Se corre a mano con el id o su comienzo (como lo muestra "Compare Grilla web").
+on:
+  workflow_dispatch:
+    inputs:
+      cfg:
+        description: 'Id de la configuración o su comienzo (al menos 4 caracteres)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install -r requirements.txt boto3
+    - name: Delete
+      env:
+        CFG: ${{ inputs.cfg }}
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/delete_cfg.py

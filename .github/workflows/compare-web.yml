@@ -2,8 +2,12 @@ name: Compare Grilla web
 
 # Compara la playlist y la guía de Grilla web (Worker) con las de la corrida de GitHub
 # (tools/compare_web.py). El resultado queda en el resumen de la corrida, sin URLs ni
-# credenciales.
+# credenciales. Corre sola después de cada corrida diaria y falla (GitHub avisa por mail) solo
+# si aparece una diferencia nueva desde la comparación anterior.
 on:
+  workflow_run:
+    workflows: ['Merge EPGs']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +15,7 @@ permissions:
 
 jobs:
   compare:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,4 +39,4 @@ jobs:
         R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         R2_BUCKET: ${{ vars.R2_BUCKET }}
-      run: python tools/compare_web.py
+      run: python tools/compare_web.py --alert

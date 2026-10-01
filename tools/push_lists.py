@@ -62,6 +62,14 @@ class R2:
     def put(self, key, body):
         self.client.put_object(Bucket=self.bucket, Key=key, Body=body, ContentType='application/json')
 
+    def keys(self, prefix):
+        for page in self.client.get_paginator('list_objects_v2').paginate(Bucket=self.bucket, Prefix=prefix):
+            for obj in page.get('Contents', []):
+                yield obj['Key']
+
+    def delete(self, key):
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
 
 def due(r2, cfg_ids, pending, now):
     if pending:
