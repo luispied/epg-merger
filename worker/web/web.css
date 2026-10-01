@@ -284,3 +284,33 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 .demo-text { flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px; }
 .demo-text small { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
 .legal { margin-top: 16px; text-align: center; }
+
+/* Hojas: el título y el botón de cerrar quedan fijos arriba al desplazarse. */
+.settings-sheet .sheet-body, .help-sheet .sheet-body { padding-top: 0; }
+.settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row {
+  position: sticky; top: 0; z-index: 4; background: var(--surface); margin: 0; padding: 20px 0 8px;
+}
+.settings-sheet .sheet-body > .title-row::after, .help-sheet .sheet-body > .title-row::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; pointer-events: none;
+  background: linear-gradient(var(--surface), transparent);
+}
+@media (max-width: 600px) {
+  .settings-sheet > .sheet-body::before, .help-sheet > .sheet-body::before { margin: 10px auto 0; }
+  .settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row { padding-top: 12px; }
+}
+
+/* Con una hoja abierta no se mueve la página de atrás (ni al llegar al final de la hoja). */
+html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
+dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
+
+/* Avisos: se ajustan al ancho de la pantalla y el texto largo baja de renglón. */
+.toasts { padding: 0 12px; }
+.toast { width: auto; max-width: min(480px, calc(100vw - 24px)); }
+.toast .msg { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; }
+
+/* Crear categorías y secciones. */
+.cat-actions { margin: 4px 0 10px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cat-chips .chip-btn { min-height: 30px; }
+.cat-chips .chip-btn.danger { color: var(--red); }
+@media (max-width: 600px) { dialog.sheet { width: 100%; max-width: 100%; } }

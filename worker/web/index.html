@@ -168,12 +168,16 @@
       <h2 id="categoriesTitle">Categorías</h2>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <p>Arrastrá desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist; el switch la muestra u oculta. Las categorías nuevas del proveedor aparecen al final.
+    <p>Arrastrá desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist; el switch la muestra u oculta y el lápiz cambia su nombre. Las categorías nuevas del proveedor aparecen al final.
       <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, canales 24/7…): no cuentan en "A revisar" ni en "Sin EPG".</p>
     <label class="search-field cat-filter">
       <span data-icon="search"></span>
       <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
     </label>
+    <div class="row-actions cat-actions">
+      <button type="button" class="btn btn-gray sm" id="newCategoryBtn"><span data-icon="plus"></span>Nueva categoría</button>
+      <button type="button" class="btn btn-gray sm" id="newSectionBtn"><span data-icon="plus"></span>Nueva sección</button>
+    </div>
     <div class="menu" id="categoriesList"></div>
   </div>
 </dialog>
@@ -312,7 +316,7 @@
 
     <details>
       <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
-      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG pero con una sugerencia. <b>Sin EPG</b>: canales sin guía. <b>Elegidos a mano</b>: los que elegiste vos. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en "A revisar" ni en "Sin EPG".</p>
+      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con EPG dudoso o sin EPG pero con una sugerencia. <b>Sin EPG</b>: canales que todavía no tienen guía. <b>Elegidos a mano</b>: los que elegiste vos, incluidos los que dejaste sin EPG a propósito (se marcan <i>Sin EPG a mano</i>). <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en "A revisar" ni en "Sin EPG".</p>
     </details>
 
     <details>
@@ -342,7 +346,7 @@
 
     <details>
       <summary>¿Cómo ordeno u oculto categorías?<span data-icon="chevron-down"></span></summary>
-      <p>Con el botón de <b>Categorías</b> (las capas, arriba): arrastrá cada una desde su manija (los puntitos de la izquierda) para cambiar el orden en la playlist, y el switch las muestra u oculta. Las <b>secciones</b> (Deportes, Países…) agrupan categorías: al arrastrar una se mueve entera, con sus categorías. <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
+      <p>Con el botón de <b>Categorías</b> (las capas, arriba): arrastrá cada una desde su manija (los puntitos de la izquierda) para cambiar el orden en la playlist, el switch las muestra u oculta y el lápiz cambia su nombre. Las <b>secciones</b> (Deportes, Países…) agrupan categorías: al arrastrar una se mueve entera, con sus categorías. Con <b>Nueva categoría</b> y <b>Nueva sección</b> creás las tuyas (quedan al final: arrastralas a su lugar; una sección nueva abre un grupo desde donde la sueltes). <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, 24/7…) para que no te llenen "A revisar".</p>
     </details>
 
     <details>

@@ -400,3 +400,36 @@ test('config: preferencias de cruce importadas de GitHub (validadas)', () => {
   assert.deepEqual(cfg.matching, { minScore: 0.45, feed: 'east', categories: { 'USA ENTERTAINMENT': { country: 'us', prefer_sources: ['a'] } } });
   assert.equal(parseConfig({ ...CONFIG, matching: { minScore: 7 } }).matching, undefined);
 });
+
+test('playlist: categorías renombradas, separadores propios y categorías creadas a mano', () => {
+  const cfg = parseConfig({
+    provider: { type: 'm3u' },
+    channels: { B: { group: 'Mi categoría' } },
+    groups: {
+      order: ['Nueva sección', 'G', 'Mi categoría'], hidden: [],
+      rename: { G: 'Argentina HD', 'Nueva sección': 'Deportes', X: '', Y: 5 },
+      custom: ['Mi categoría', 'Vacía'], separators: ['Nueva sección'],
+    },
+  });
+  assert.deepEqual(cfg.groups?.rename, { G: 'Argentina HD', 'Nueva sección': 'Deportes' });
+  assert.deepEqual(cfg.groups?.custom, ['Mi categoría', 'Vacía']);
+  const ch = (name: string) => ({ name, category: 'G', id: name, ext: 'ts', icon: '', epgId: null });
+  const text = buildPlaylist([ch('A'), ch('B')], cfg, { epgUrl: '', streamUrl: (c) => `/s/${c.id}`, separatorUrl: 'https://x/sep' });
+  const lines = text.split('\n').filter((l) => l.startsWith('#EXTINF'));
+  assert.match(lines[0], /group-title="Deportes",Deportes/, 'el separador propio va primero, con su nombre');
+  assert.match(lines[1], /group-title="Argentina HD",A/);
+  assert.match(lines[2], /group-title="Mi categoría",B/);
+  assert.match(text, /Deportes\nhttps:\/\/x\/sep\n/);
+  // Un separador del proveedor (canal con el nombre de su categoría) toma el nombre nuevo.
+  const prov = buildPlaylist([{ ...ch('▆▆ DEP ▆▆'), category: '▆▆ DEP ▆▆' }], parseConfig({
+    provider: { type: 'm3u' }, channels: {}, groups: { rename: { '▆▆ DEP ▆▆': 'DEPORTES' } },
+  }), { epgUrl: '', streamUrl: () => '/s/x' });
+  assert.match(prov, /group-title="DEPORTES",DEPORTES/);
+});
+
+test('GET /sep responde sin pedirle nada al proveedor', async () => {
+  const t = makeEnv();
+  const res = await handle(req('/sep'), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /Separador/);
+});
