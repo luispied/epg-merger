@@ -311,18 +311,42 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(saveNow, 700);
 }
+// Sin conexión, los cambios quedan en este navegador y se mandan solos cuando vuelve.
+const PENDING_KEY = (cfgId: string) => `grilla_pending_${cfgId}`;
+const offlineError = (e: unknown) => !navigator.onLine || e instanceof TypeError;
+
 async function saveNow() {
   clearTimeout(saveTimer);
   if (!state.local || !state.cfg) return;
+  const cfgId = state.local.cfgId;
   try {
-    await api(`/api/cfg/${state.local.cfgId}`, { method: 'PUT', body: state.cfg });
+    await api(`/api/cfg/${cfgId}`, { method: 'PUT', body: state.cfg });
+    try {
+      localStorage.removeItem(PENDING_KEY(cfgId));
+    } catch { /* sin storage */ }
     $('#statusLine').dataset.saved = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    delete $('#statusLine').dataset.pending;
     renderStatusLine();
     refreshGuideStatus();
   } catch (e) {
+    if (offlineError(e)) {
+      try {
+        localStorage.setItem(PENDING_KEY(cfgId), JSON.stringify(state.cfg));
+      } catch { /* sin storage */ }
+      $('#statusLine').dataset.pending = '1';
+      renderStatusLine();
+      return;
+    }
     toast(`No se pudo guardar: ${(e as Error).message}`, 'bad', 6000);
   }
 }
+window.addEventListener('online', () => {
+  if (state.local && state.cfg && $('#statusLine').dataset.pending) {
+    saveNow().then(() => {
+      if (!$('#statusLine').dataset.pending) toast('Volvió la conexión: tus cambios se guardaron', 'ok');
+    });
+  }
+});
 
 // ------------------------------------------------------------------ estado de los cambios
 // La playlist toma los cambios al instante (el Worker la arma en cada pedido); la guía la
@@ -707,7 +731,8 @@ function renderStatusLine() {
   const el = $('#statusLine');
   const total = state.channels.length;
   const withEpg = state.channels.filter((c) => state.cfg!.channels[c.name]?.epg).length;
-  const saved = el.dataset.saved ? ` · guardado ${el.dataset.saved}` : '';
+  const saved = el.dataset.pending ? ' · sin conexión: se guarda cuando vuelva'
+    : el.dataset.saved ? ` · guardado ${el.dataset.saved}` : '';
   el.textContent = `${total} canales · ${withEpg} con guía${saved}`;
 }
 
@@ -1756,7 +1781,16 @@ async function openSaved() {
   const say = (t: string) => status(st, t);
   try {
     say('Abriendo tu configuración…');
-    const cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
+    let cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
+    // Cambios hechos sin conexión que todavía no llegaron: mandan sobre lo guardado.
+    let pending = false;
+    try {
+      const raw = localStorage.getItem(PENDING_KEY(state.local!.cfgId));
+      if (raw) {
+        cfg = JSON.parse(raw) as Config;
+        pending = true;
+      }
+    } catch { /* sin storage */ }
     cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
     state.cfg = cfg;
     state.channels = await loadStoredList();
@@ -1770,7 +1804,7 @@ async function openSaved() {
     }
     await loadGuide(say);
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
-    if (await rematch(say)) await saveNow();
+    if ((await rematch(say)) || pending) await saveNow();
     status(st, null);
     detectNew();
     render();
@@ -2086,6 +2120,10 @@ new MutationObserver((records) => {
 }).observe(document.body, { childList: true, subtree: true });
 
 // ------------------------------------------------------------------ arranque
+// Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* sin SW: anda igual */ }));
+}
 hydrateIcons();
 addSearchClear(document);
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
