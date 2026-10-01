@@ -17,6 +17,8 @@ interface Config {
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
   groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
+  /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
+  matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
 }
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string; lenient?: boolean }
@@ -252,7 +254,12 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   if (!cfg || !index || !rules) return false;
   const before = JSON.stringify(cfg.channels);
   const trust = cfg.provider.type === 'm3u';
-  const minAssignScore = state.local?.lenient ? 0.45 : 0.7;
+  // Con las preferencias importadas de GitHub se elige igual que allá (su umbral, su señal
+  // horaria y las fuentes/país de cada categoría); "Asignar también las dudosas" lo baja.
+  const prefs = cfg.matching ?? {};
+  const baseScore = prefs.minScore ?? 0.7;
+  const minAssignScore = state.local?.lenient ? Math.min(baseScore, 0.45) : baseScore;
+  if ('feed' in prefs) index.preferredFeed = prefs.feed ?? null;
   const names = [...new Set(state.channels.map((c) => c.name))];
   const byName = new Map(state.channels.map((c) => [c.name, c]));
   for (let i = 0; i < names.length; i++) {
@@ -272,7 +279,7 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
       setEdit(ch.name, edit);
       continue;
     }
-    const m = matchStream(ch.name, ch.epgId, index, {}, {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
+    const m = matchStream(ch.name, ch.epgId, index, {}, prefs.categories?.[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
     state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     const edit = cfg.channels[ch.name] ?? {};
     if (!edit.manual) {
@@ -1794,7 +1801,7 @@ async function importFromGithub() {
   try {
     const res = await fetch(GITHUB_IMPORT_URL(profile), { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status === 404 ? `no hay un perfil "${profile}"` : `HTTP ${res.status}`);
-    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[]; noEpg?: string[] } };
+    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[]; noEpg?: string[] }; matching?: Config['matching'] };
     // Todo lo importado queda fijo (elegido a mano): así la playlist queda igual que la de
     // GitHub, que elige el EPG con tus reglas por sección. Los canales nuevos del proveedor
     // siguen tomando el EPG automático.
@@ -1804,6 +1811,8 @@ async function importFromGithub() {
     }
     state.cfg!.channels = channels;
     state.cfg!.groups = { order: data.groups?.order ?? [], hidden: data.groups?.hidden ?? [], noEpg: data.groups?.noEpg ?? [] };
+    if (data.matching) state.cfg!.matching = data.matching;
+    else delete state.cfg!.matching;
     await rematch(() => {});
     await saveNow();
     ($('#settingsDialog') as HTMLDialogElement).close();

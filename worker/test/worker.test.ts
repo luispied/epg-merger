@@ -391,3 +391,12 @@ test('playlist: logo propio y orden propio de los canales dentro de la categorí
   assert.match(text, /tvg-name="B" tvg-logo="https:\/\/mi\.logo\/b\.png"/);
   assert.match(text, /tvg-name="C" tvg-logo="https:\/\/guia\/c\.png"/);
 });
+
+test('config: preferencias de cruce importadas de GitHub (validadas)', () => {
+  const cfg = parseConfig({
+    ...CONFIG,
+    matching: { minScore: 0.45, feed: 'east', categories: { 'USA ENTERTAINMENT': { country: 'us', prefer_sources: ['a', 3] }, X: 'basura' } },
+  });
+  assert.deepEqual(cfg.matching, { minScore: 0.45, feed: 'east', categories: { 'USA ENTERTAINMENT': { country: 'us', prefer_sources: ['a'] } } });
+  assert.equal(parseConfig({ ...CONFIG, matching: { minScore: 7 } }).matching, undefined);
+});

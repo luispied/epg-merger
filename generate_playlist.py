@@ -536,6 +536,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     web_groups = []            # (orden_seccion, orden_categoria, indice, grupo)
     web_hidden_groups = set()
     web_no_epg_groups = set()
+    web_epg_config = {}        # categoría cruda → preferencias de EPG (país, fuentes)
 
     section_order = {s: i for i, s in enumerate(section_display_order)}
     no_section_order = len(section_display_order)  # categorías sin sección van al final
@@ -583,6 +584,8 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         category = stream['category']
         raw_name = stream['name']
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
+        if epg_config and not category_is_divider:
+            web_epg_config.setdefault(category, epg_config)
 
         # Canal movido de categoría a mano desde la interfaz: solo cambia DÓNDE aparece en la
         # playlist (sección, orden, group-title). El matching de EPG sigue usando la categoría
@@ -740,7 +743,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         json.dump({'stats': stats, 'channels': report}, f, ensure_ascii=False, indent=1)
 
     write_web_import(os.path.join(out_dir, 'grilla_import.json'), web_channels, web_groups, web_hidden_groups,
-                     web_no_epg_groups)
+                     web_no_epg_groups, web_epg_config)
 
     print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}"
           + (f" | ocultos: {hidden_count}" if hidden_count else ''))
@@ -752,7 +755,7 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     return ProfileEpg(epg_path, channels_root, matched_ids, channel_display_labels, stats)
 
 
-def write_web_import(path, channels, groups, hidden_groups, no_epg_groups=()):
+def write_web_import(path, channels, groups, hidden_groups, no_epg_groups=(), epg_config=None):
     """Lo que Grilla web necesita para quedar igual que esta playlist ("Importar desde Grilla
     (GitHub)"): la edición de cada canal por su nombre crudo (EPG elegido, logo, nombre visible,
     categoría, oculto) y el orden de las categorías, con sus separadores. Sin credenciales ni
@@ -763,7 +766,11 @@ def write_web_import(path, channels, groups, hidden_groups, no_epg_groups=()):
             order.append(group)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump({'version': 1, 'channels': channels,
-                   'groups': {'order': order, 'hidden': sorted(hidden_groups), 'noEpg': sorted(no_epg_groups)}},
+                   'groups': {'order': order, 'hidden': sorted(hidden_groups), 'noEpg': sorted(no_epg_groups)},
+                   # Cómo elige la guía esta corrida, para que la web elija igual en los canales
+                   # nuevos: umbral, señal horaria preferida y país/fuentes por categoría cruda.
+                   'matching': {'minScore': _rules.min_assign_score, 'feed': _rules.preferred_feed,
+                                'categories': epg_config or {}}},
                   f, ensure_ascii=False, separators=(',', ':'))
 
 

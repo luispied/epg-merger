@@ -892,3 +892,13 @@ def test_exporta_para_grilla_web_las_categorias_sin_guia(proyecto, monkeypatch):
     _correr(monkeypatch, PERFILES[:1])
     data = json.loads((proyecto / 'out' / 'luis' / 'grilla_import.json').read_text(encoding='utf-8'))
     assert data['groups']['noEpg'] == ['USA ENTERTAINMENT']
+
+
+def test_exporta_para_grilla_web_como_elige_la_guia(proyecto, monkeypatch):
+    """grilla_import.json lleva el umbral y las preferencias de EPG por categoría cruda, para que
+    la web elija igual que esta corrida en los canales nuevos."""
+    _correr(monkeypatch, PERFILES[:1])
+    data = json.loads((proyecto / 'out' / 'luis' / 'grilla_import.json').read_text(encoding='utf-8'))
+    m = data['matching']
+    assert m['minScore'] == generate_playlist._rules.min_assign_score
+    assert m['categories'] == {'USA ENTERTAINMENT': {'country': 'us', 'prefer_sources': ['acidjesuz-us']}}
