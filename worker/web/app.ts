@@ -1683,7 +1683,15 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
   }
 }
 
+// Lista de demostración: canales públicos y gratuitos (iptv-org), legales para probar.
+const DEMO_M3U = 'https://iptv-org.github.io/iptv/countries/ar.m3u';
+
 function setupOnboarding() {
+  $('#demoBtn').onclick = () => {
+    setProviderType('m3u');
+    $<HTMLInputElement>('#m3uUrl').value = DEMO_M3U;
+    $<HTMLFormElement>('#m3uForm').requestSubmit();
+  };
   $('#providerSeg').onclick = (ev) => {
     const v = (ev.target as HTMLElement).closest<HTMLElement>('[data-value]')?.dataset.value;
     if (v === 'xtream' || v === 'm3u') setProviderType(v);
