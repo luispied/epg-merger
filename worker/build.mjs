@@ -32,4 +32,6 @@ const hash = createHash('sha256');
 for (const f of ['app.js', 'app.css', 'icons.js', 'web.css']) hash.update(readFileSync(here(`./public/${f}`)));
 const version = hash.digest('hex').slice(0, 10);
 writeFileSync(here('./public/index.html'), readFileSync(here('./web/index.html'), 'utf-8').replaceAll('__VERSION__', version));
+// El service worker (sin conexión) guarda la app de esta versión.
+writeFileSync(here('./public/sw.js'), readFileSync(here('./web/sw.js'), 'utf-8').replaceAll('__VERSION__', version));
 console.log(`public/ listo (v=${version})`);
