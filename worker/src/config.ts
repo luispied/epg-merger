@@ -15,6 +15,8 @@ export interface ChannelEdit {
   hidden?: boolean;
   /** Elegido a mano (el EPG no se recalcula al volver a cruzar con la guía). */
   manual?: boolean;
+  /** Logo propio (URL http/https): manda sobre el de la guía, también sin EPG. */
+  customLogo?: string;
 }
 
 export interface Config {
@@ -26,7 +28,9 @@ export interface Config {
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
   /** `noEpg`: categorías que no necesitan guía (solo para la interfaz: no cuentan en "A revisar"). */
-  groups?: { order?: string[]; hidden?: string[]; noEpg?: string[] };
+  /** `channels`: orden propio de los canales dentro de una categoría ({categoría: [nombres]});
+   *  los que no están en la lista van después, en el orden del proveedor. */
+  groups?: { order?: string[]; hidden?: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
 }
 
 export class ConfigError extends Error {}
@@ -80,9 +84,18 @@ export function parseConfig(raw: unknown): Config {
     if (str(e.group)) edit.group = str(e.group);
     if (e.hidden === true) edit.hidden = true;
     if (e.manual === true) edit.manual = true;
+    const logo = str(e.customLogo, 2000);
+    if (logo && /^https?:\/\/[^\s"]+$/i.test(logo)) edit.customLogo = logo;
     if (Object.keys(edit).length) channels[name.slice(0, 500)] = edit;
   }
   const g = (r.groups ?? {}) as Record<string, unknown>;
+  const channelOrder: Record<string, string[]> = {};
+  if (g.channels && typeof g.channels === 'object') {
+    for (const [group, names] of Object.entries(g.channels as Record<string, unknown>).slice(0, 2000)) {
+      const list = strList(names, 5000);
+      if (list.length) channelOrder[group.slice(0, 500)] = list;
+    }
+  }
   return {
     version: 1,
     provider,
@@ -92,6 +105,7 @@ export function parseConfig(raw: unknown): Config {
       order: strList(g.order, 5000),
       hidden: strList(g.hidden, 5000),
       ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
+      ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
     },
   };
 }

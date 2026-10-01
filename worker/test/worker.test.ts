@@ -3,6 +3,7 @@ import { afterEach, test } from 'node:test';
 import { parseConfig } from '../src/config.ts';
 import { b64urlDecode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
+import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
 
@@ -371,4 +372,22 @@ test('config: las categorías sin guía se guardan (y no aparecen si no hay)', (
   const withNoEpg = parseConfig({ ...CONFIG, groups: { order: [], hidden: [], noEpg: ['General', 42] } });
   assert.deepEqual(withNoEpg.groups, { order: [], hidden: [], noEpg: ['General'] });
   assert.deepEqual(parseConfig(CONFIG).groups, { order: ['Deportes AR', '🇦🇷 Argentina'], hidden: [] });
+});
+
+test('playlist: logo propio y orden propio de los canales dentro de la categoría', () => {
+  const cfg = parseConfig({
+    provider: { type: 'm3u' },
+    channels: {
+      B: { customLogo: 'https://mi.logo/b.png' },
+      C: { epg: 'c.ar', logo: 'https://guia/c.png', customLogo: 'javascript:alert(1)' },
+    },
+    groups: { order: ['G'], hidden: [], channels: { G: ['C', 'A'] } },
+  });
+  assert.equal(cfg.channels.C.customLogo, undefined, 'solo URLs http/https');
+  const ch = (name: string) => ({ name, category: 'G', id: name, ext: 'ts', icon: '', epgId: null });
+  const text = buildPlaylist([ch('A'), ch('B'), ch('C')], cfg, { epgUrl: '', streamUrl: (c) => `/s/${c.id}` });
+  const names = [...text.matchAll(/,(.+)\n/g)].map((m) => m[1]);
+  assert.deepEqual(names, ['C', 'A', 'B']);
+  assert.match(text, /tvg-name="B" tvg-logo="https:\/\/mi\.logo\/b\.png"/);
+  assert.match(text, /tvg-name="C" tvg-logo="https:\/\/guia\/c\.png"/);
 });

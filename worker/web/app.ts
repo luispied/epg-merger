@@ -10,13 +10,13 @@ import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
-interface ChannelEdit { epg?: string | null; logo?: string; name?: string; group?: string; hidden?: boolean; manual?: boolean }
+interface ChannelEdit { epg?: string | null; logo?: string; name?: string; group?: string; hidden?: boolean; manual?: boolean; customLogo?: string }
 interface Config {
   version: 1;
   provider: Provider;
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
-  groups: { order: string[]; hidden: string[]; noEpg?: string[] };
+  groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
 }
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string; lenient?: boolean }
@@ -37,6 +37,12 @@ Object.assign(window.ICONS, {
   'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sparkles: '<path d="M9.94 14.06 4 20"/><path d="M12 3 13.9 8.1 19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
+  calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  'share-2': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/>',
+  mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  'message-circle': '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  'list-ordered': '<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
   'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
 });
 
@@ -168,6 +174,45 @@ function startFilter() {
 }
 const logosOn = () => pref('grilla_logos', '1') !== '0';
 
+// ------------------------------------------------------------------ canales nuevos
+// Los nombres ya vistos de cada configuración quedan en este navegador; los que aparecen después
+// en la lista del proveedor (y no están ocultos) se marcan como nuevos hasta "Marcar como vistos".
+const SEEN_KEY = (cfgId: string) => `grilla_seen_${cfgId}`;
+function detectNew() {
+  if (!state.local) return;
+  let seen: Set<string> | null = null;
+  try {
+    const raw = localStorage.getItem(SEEN_KEY(state.local.cfgId));
+    if (raw) seen = new Set(JSON.parse(raw) as string[]);
+  } catch { /* sin storage */ }
+  if (!seen) {
+    // Primera vez: todo es conocido.
+    markSeen();
+    return;
+  }
+  state.newNames = new Set(state.channels.filter((c) => !seen!.has(c.name) && !info(c).hidden && !info(c).divider).map((c) => c.name));
+}
+function markSeen() {
+  if (!state.local) return;
+  try {
+    localStorage.setItem(SEEN_KEY(state.local.cfgId), JSON.stringify([...new Set(state.channels.map((c) => c.name))]));
+  } catch { /* sin storage */ }
+  state.newNames = new Set();
+}
+function renderNewBanner() {
+  const n = state.newNames.size;
+  const el = $('#newBanner');
+  el.hidden = !n;
+  $('#filterTabs [data-filter="nuevos"]').hidden = !n;
+  if (!n) {
+    if (state.filter === 'nuevos') state.filter = 'todos';
+    return;
+  }
+  el.innerHTML = `${icon('sparkles')}<span class="grow">${n === 1 ? 'Hay 1 canal nuevo' : `Hay ${n} canales nuevos`} en tu lista.</span>`
+    + `${state.filter === 'nuevos' ? '' : '<button type="button" class="btn btn-tonal sm" data-new="show">Ver</button>'}`
+    + '<button type="button" class="btn btn-plain sm" data-new="seen">Marcar como vistos</button>';
+}
+
 // ------------------------------------------------------------------ estado
 const state = {
   local: loadLocal() as Local | null,
@@ -181,6 +226,7 @@ const state = {
   search: '',
   shown: PAGE,
   reloading: false,
+  newNames: new Set<string>(),
 };
 
 /** Selección múltiple: índices de state.channels. */
@@ -379,6 +425,7 @@ function matchesFilter(ch: Channel, filter: string) {
     case 'revisar': return !i.hidden && !i.noGuide && !i.divider && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
     case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg;
     case 'manual': return i.band === 'manual';
+    case 'nuevos': return state.newNames.has(ch.name);
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
     default: return !i.hidden;
@@ -404,6 +451,13 @@ function programMatch(ch: Channel, q: string): NowPlaying | null {
   return cur && fold(cur.title).includes(q) ? cur : null;
 }
 
+/** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
+function withinPos(i: number): number {
+  const ch = state.channels[i];
+  const k = state.cfg!.groups.channels?.[groupOf(ch)]?.indexOf(ch.name) ?? -1;
+  return k >= 0 ? k : state.channels.length + i;
+}
+
 function visibleChannels(): number[] {
   const q = fold(state.search.trim());
   const order = new Map(groups().map((g, i) => [g, i]));
@@ -417,7 +471,8 @@ function visibleChannels(): number[] {
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? edit.epg : '';
       return fold(`${ch.name} ${edit.name ?? ''} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
     })
-    .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0) || a - b);
+    .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0)
+      || withinPos(a) - withinPos(b));
 }
 
 const BAND_TAG: Record<Band, string> = {
@@ -534,8 +589,8 @@ async function toggleDesc(btn: HTMLElement) {
   }
 }
 
-function logoHtml(id: string | null, cls = ''): string {
-  const url = id && logosOn() ? state.index?.icon.get(id) : '';
+function logoHtml(id: string | null, cls = '', custom?: string): string {
+  const url = !logosOn() ? '' : custom || (id ? state.index?.icon.get(id) : '');
   return `<span class="logo ${cls}">${icon('tv')}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
 }
 
@@ -628,11 +683,11 @@ function cardHtml(i: number): string {
   return `<article class="card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
     <div class="card-top">
       ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
-      ${logoHtml(epg, 'lg')}
+      ${logoHtml(epg, 'lg', edit.customLogo)}
       <div class="card-title">
         <div class="card-name">${esc(shown)}</div>
         ${edit.name ? `<div class="card-sub">En el proveedor: ${esc(ch.name)}</div>` : ''}
-        <div class="card-sub"><span>${esc(groupOf(ch))}</span>${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
+        <div class="card-sub"><span>${esc(groupOf(ch))}</span>${state.newNames.has(ch.name) ? `<span class="pill">${icon('sparkles', 'sm')}Nuevo</span>` : ''}${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
       </div>
       ${BAND_TAG[band]}
       <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
@@ -652,6 +707,7 @@ function renderStatusLine() {
 function render() {
   if (!state.cfg) return;
   headersCache = null;
+  renderNewBanner();
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
     const f = b.dataset.filter!;
     b.setAttribute('aria-pressed', String(f === state.filter));
@@ -746,6 +802,42 @@ function editGroups(fn: (g: Config['groups']) => void, msg?: string) {
   }
 }
 
+/** Lo que da el canal desde ahora hasta el final de la ventana publicada (~30 h), por día. */
+async function toggleDay(root: HTMLElement, id: string) {
+  const btn = $<HTMLElement>('.day-btn', root);
+  const box = $('.day-list', root);
+  const open = box.hidden;
+  box.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+  if (!open || box.dataset.loaded) return;
+  box.innerHTML = '<div class="list-note">Cargando programación…</div>';
+  const now = Date.now() / 1000;
+  const entries = ((await schedule(id)) ?? []).filter(([, stop]) => stop > now);
+  box.dataset.loaded = '1';
+  if (!entries.length) {
+    box.innerHTML = '<div class="list-note">La guía no trae programación para las próximas horas.</div>';
+    return;
+  }
+  const dayName = (sec: number) => {
+    const d = new Date(sec * 1000);
+    const today = new Date();
+    const tomorrow = new Date(Date.now() + 86400000);
+    if (d.toDateString() === today.toDateString()) return 'Hoy';
+    if (d.toDateString() === tomorrow.toDateString()) return 'Mañana';
+    return d.toLocaleDateString([], { weekday: 'long', day: 'numeric' });
+  };
+  let last = '';
+  box.innerHTML = entries.map(([start, stop, title, desc]) => {
+    const day = dayName(start);
+    const head = day !== last ? `<div class="day-head">${esc(day)}</div>` : '';
+    last = day;
+    const live = start <= now && now < stop;
+    return `${head}<details class="day-item${live ? ' live' : ''}"><summary><span class="day-time">${hhmm(start)}</span>`
+      + `<span class="day-title">${esc(title)}${live ? ' <span class="note">· ahora</span>' : ''}</span></summary>`
+      + `<p>${desc ? esc(desc) : '<span class="muted">Sin descripción.</span>'}</p></details>`;
+  }).join('');
+}
+
 function openChannel(i: number) {
   const ch = state.channels[i];
   const { edit, auto, hidden, divider } = info(ch);
@@ -756,6 +848,8 @@ function openChannel(i: number) {
   const epgSection = divider ? '<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>' : `
     <div class="section-label">Guía (EPG)</div>
     ${edit.epg ? epgRowHtml(edit.epg) : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
+    ${edit.epg ? `<button type="button" class="btn btn-gray sm day-btn" data-act="day" aria-expanded="false">${icon('calendar', 'sm')}Programación de hoy y mañana</button>
+      <div class="day-list" hidden></div>` : ''}
     ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
     <div class="section-label">Buscar en toda la guía</div>
     <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
@@ -770,6 +864,11 @@ function openChannel(i: number) {
     <div class="section-label">Nombre en la playlist</div>
     <div class="inline-field"><input class="input rename" value="${esc(edit.name ?? '')}" placeholder="${esc(stripDisplayPrefix(ch.name, state.rules!)[0])}">
       <button type="button" class="icon-btn" data-act="rename" aria-label="Guardar nombre">${icon('check')}</button></div>
+    <div class="section-label">Logo propio</div>
+    <div class="inline-field">${logoHtml(edit.epg ?? null, 'logo-preview', edit.customLogo)}
+      <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="https://…/logo.png" aria-label="URL del logo propio">
+      <button type="button" class="icon-btn" data-act="logo" aria-label="Guardar logo">${icon('check')}</button></div>
+    <p class="help">Para canales sin logo o con uno feo: pegá la dirección de una imagen. Vacío = el de la guía.</p>
     <div class="section-label">Categoría</div>
     <select class="select move">${categories.map((g) => `<option${g === groupOf(ch) ? ' selected' : ''}>${esc(g)}</option>`).join('')}
       <option value="__new__">Nueva categoría…</option></select>
@@ -794,6 +893,16 @@ function openChannel(i: number) {
       openChannel(i);
     } else if (act === 'no-epg') {
       update(noEpg, 'Quedó sin EPG');
+      openChannel(i);
+    } else if (act === 'day') {
+      toggleDay(body, edit.epg!);
+    } else if (act === 'logo') {
+      const v = $<HTMLInputElement>('.custom-logo', body).value.trim();
+      if (v && !/^https?:\/\/\S+$/i.test(v)) {
+        toast('Tiene que ser una dirección http:// o https://', 'bad');
+        return;
+      }
+      update((e) => { e.customLogo = v || undefined; }, v ? 'Logo guardado' : 'Vuelve al logo de la guía');
       openChannel(i);
     } else if (act === 'rename') {
       const v = $<HTMLInputElement>('.rename', body).value.trim();
@@ -1016,6 +1125,7 @@ function renderCategories() {
       <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
         <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
           title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button></span>
+      <button type="button" class="icon-btn ghost sm" data-order="${i}" aria-label="Ordenar los canales de ${esc(g)}" title="Ordenar canales">${icon('list-ordered')}</button>
       <input type="checkbox" class="switch" aria-label="Mostrar ${esc(g)}" ${hidden.has(g) ? '' : 'checked'}>
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
 }
@@ -1051,13 +1161,16 @@ function moveGroup(from: number, to: number) {
 }
 
 /** Arrastrar desde la manija (mouse o dedo): la fila sigue al puntero y las demás se corren. */
-function setupCategoryDrag(box: HTMLElement) {
+/** Arrastrar filas desde su manija (mouse o dedo) y moverlas con las flechas del teclado.
+ *  `drop(desde, hasta)` recibe las filas; `key(fila, arriba)` el movimiento por teclado. */
+function setupDrag(box: HTMLElement, rowSel: string, drop: (from: HTMLElement, to: HTMLElement) => void,
+  key: (row: HTMLElement, up: boolean) => void) {
   box.addEventListener('pointerdown', (ev) => {
     const handle = (ev.target as HTMLElement).closest<HTMLElement>('.drag-handle');
     if (!handle || ev.button !== 0) return;
     ev.preventDefault();
-    const row = handle.closest<HTMLElement>('.cat-row')!;
-    const rows = $$<HTMLElement>('.cat-row', box);
+    const row = handle.closest<HTMLElement>(rowSel)!;
+    const rows = $$<HTMLElement>(rowSel, box);
     const from = rows.indexOf(row);
     const tops = rows.map((r) => r.getBoundingClientRect());
     const height = tops[from].height;
@@ -1111,7 +1224,7 @@ function setupCategoryDrag(box: HTMLElement) {
       rows.forEach((r) => { r.style.transform = ''; });
       row.classList.remove('dragging');
       box.classList.remove('sorting');
-      moveGroup(Number(rows[from].dataset.g), Number(rows[to].dataset.g));
+      if (from !== to) drop(rows[from], rows[to]);
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', end);
@@ -1122,12 +1235,18 @@ function setupCategoryDrag(box: HTMLElement) {
     const handle = (ev.target as HTMLElement).closest<HTMLElement>('.drag-handle');
     if (!handle || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
     ev.preventDefault();
-    const i = Number(handle.closest<HTMLElement>('[data-g]')!.dataset.g);
+    key(handle.closest<HTMLElement>(rowSel)!, ev.key === 'ArrowUp');
+  });
+}
+
+function setupCategoryDrag(box: HTMLElement) {
+  setupDrag(box, '.cat-row', (from, to) => moveGroup(Number(from.dataset.g), Number(to.dataset.g)), (row, up) => {
+    const i = Number(row.dataset.g);
     const list = groups();
     const headers = sectionHeaders();
-    let j = i + (ev.key === 'ArrowUp' ? -1 : 1);
+    let j = i + (up ? -1 : 1);
     // Una sección baja saltando la siguiente entera.
-    if (ev.key === 'ArrowDown' && headers.has(list[i])) while (j < list.length && !headers.has(list[j])) j++;
+    if (!up && headers.has(list[i])) while (j < list.length && !headers.has(list[j])) j++;
     if (j < 0 || j >= list.length) return;
     const moved = list[i];
     moveGroup(i, j);
@@ -1136,11 +1255,87 @@ function setupCategoryDrag(box: HTMLElement) {
   });
 }
 
+// ------------------------------------------------------------------ orden de canales
+/** Canales de una categoría en el orden de la playlist (el propio primero). */
+function groupChannels(g: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  state.channels.map((ch, i) => i).filter((i) => groupOf(state.channels[i]) === g)
+    .sort((a, b) => withinPos(a) - withinPos(b))
+    .forEach((i) => {
+      const n = state.channels[i].name;
+      if (!seen.has(n)) {
+        seen.add(n);
+        names.push(n);
+      }
+    });
+  return names;
+}
+
+function renderChannelOrder(g: string) {
+  const names = groupChannels(g);
+  const custom = !!state.cfg!.groups.channels?.[g];
+  $('#orderTitle').textContent = g;
+  $('#orderBody').innerHTML = `
+    <p class="help">Arrastrá desde <span class="inline-icon">${icon('grip-vertical')}</span> para ordenar los canales de esta categoría en la playlist. Los canales nuevos del proveedor van al final.</p>
+    <div class="menu" id="orderList">${names.map((n, k) => {
+      const shown = state.cfg!.channels[n]?.name || stripDisplayPrefix(n, state.rules!)[0];
+      return `<div class="menu-row static ord-row" data-k="${k}">
+        <button type="button" class="drag-handle" aria-label="Mover ${esc(shown)}">${icon('grip-vertical')}</button>
+        <span class="menu-text">${esc(shown)}</span></div>`;
+    }).join('')}</div>
+    ${custom ? '<div class="row-actions"><button type="button" class="btn btn-plain" data-reset-order>Volver al orden del proveedor</button></div>' : ''}`;
+}
+
+function setChannelOrder(g: string, names: string[] | null, msg: string) {
+  editGroups((gr) => {
+    const all = { ...(gr.channels ?? {}) };
+    if (names) all[g] = names;
+    else delete all[g];
+    gr.channels = all;
+  }, msg);
+  renderChannelOrder(g);
+}
+
+function openChannelOrder(g: string) {
+  renderChannelOrder(g);
+  const dlg = $('#orderDialog') as HTMLDialogElement;
+  dlg.dataset.group = g;
+  dlg.showModal();
+}
+
+function setupChannelOrder() {
+  const body = $('#orderBody');
+  const move = (from: number, to: number) => {
+    const g = ($('#orderDialog') as HTMLDialogElement).dataset.group!;
+    const names = groupChannels(g);
+    const [n] = names.splice(from, 1);
+    names.splice(to, 0, n);
+    setChannelOrder(g, names, 'Orden de canales guardado');
+    $<HTMLElement>(`.ord-row[data-k="${to}"] .drag-handle`, body)?.focus();
+  };
+  setupDrag(body, '.ord-row', (a, b) => move(Number(a.dataset.k), Number(b.dataset.k)), (row, up) => {
+    const k = Number(row.dataset.k);
+    const j = k + (up ? -1 : 1);
+    if (j >= 0 && j < $$('.ord-row', body).length) move(k, j);
+  });
+  body.addEventListener('click', (ev) => {
+    if (!(ev.target as HTMLElement).closest('[data-reset-order]')) return;
+    const g = ($('#orderDialog') as HTMLDialogElement).dataset.group!;
+    setChannelOrder(g, null, 'Vuelve al orden del proveedor');
+  });
+}
+
 function setupCategories() {
   const box = $('#categoriesList');
   setupCategoryDrag(box);
   $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
   box.onclick = (ev) => {
+    const ord = (ev.target as HTMLElement).closest<HTMLElement>('[data-order]');
+    if (ord) {
+      openChannelOrder(groups()[Number(ord.dataset.order)]);
+      return;
+    }
     const chip = (ev.target as HTMLElement).closest<HTMLElement>('.noepg-btn');
     if (!chip) return;
     const g = groups()[Number(chip.closest<HTMLElement>('[data-g]')!.dataset.g)];
@@ -1165,6 +1360,9 @@ function setupCategories() {
 }
 
 // ------------------------------------------------------------------ links
+const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
+  `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
+
 function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
   const p = state.cfg!.provider;
   const body = $('#linksBody');
@@ -1210,6 +1408,11 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
   body.innerHTML = `
     ${row('Playlist (M3U)', result.playlistUrl, 'lnkPlaylist')}
     ${row('Guía (EPG)', result.epgUrl, 'lnkEpg')}
+    <div class="share-row">
+      ${'share' in navigator ? `<button type="button" class="btn btn-tonal" data-share="native">${icon('share-2')}Compartir</button>` : ''}
+      <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(shareText(result))}">${icon('message-circle')}WhatsApp</a>
+      <a class="btn btn-gray" href="mailto:?subject=${encodeURIComponent('Grilla: mis links')}&body=${encodeURIComponent(shareText(result))}">${icon('mail')}Mail</a>
+    </div>
     <div class="qr" id="qr"></div>
     <p class="help">En TiviMate: Agregar playlist → Ingresar URL → la de arriba; la guía la toma sola
       (si no, agregala en Ajustes → EPG). Los cambios que guardes llegan a la playlist al
@@ -1218,6 +1421,12 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
     <p class="help">Son links inadivinables pero no privados: quien los tenga puede ver tus canales. No
       los publiques.</p>`;
   body.onclick = async (ev) => {
+    if ((ev.target as HTMLElement).closest('[data-share]')) {
+      try {
+        await navigator.share({ title: 'Grilla: mis links', text: shareText(result) });
+      } catch { /* cancelado */ }
+      return;
+    }
     const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-copy]')?.dataset.copy;
     if (!id) return;
     const input = $<HTMLInputElement>(`#${id}`);
@@ -1433,6 +1642,8 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
     await storeList();
     writeDraft(null);
     status(st, null);
+    if (keep) detectNew();
+    else markSeen();
     showEditor();
     toast(`${channels.length} canales cargados`, 'ok');
   } catch (e) {
@@ -1539,7 +1750,7 @@ async function openSaved() {
   try {
     say('Abriendo tu configuración…');
     const cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
-    cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [] };
+    cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
     state.cfg = cfg;
     state.channels = await loadStoredList();
     if (!state.channels.length && cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
@@ -1554,6 +1765,7 @@ async function openSaved() {
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if (await rematch(say)) await saveNow();
     status(st, null);
+    detectNew();
     render();
     refreshGuideStatus();
   } catch (e) {
@@ -1723,6 +1935,35 @@ function setupEditor() {
     ($('#categoriesDialog') as HTMLDialogElement).showModal();
   };
   setupCategories();
+  setupChannelOrder();
+  $('#newBanner').onclick = (ev) => {
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-new]')?.dataset.new;
+    if (act === 'show') {
+      state.filter = 'nuevos';
+      state.shown = PAGE;
+      render();
+    } else if (act === 'seen') {
+      markSeen();
+      render();
+      toast('Canales marcados como vistos', 'ok');
+    }
+  };
+  // Atajos (escritorio): "/" busca; Escape en el buscador lo borra.
+  document.addEventListener('keydown', (ev) => {
+    if ($('#editor').hidden || document.querySelector('dialog[open]')) return;
+    const t = ev.target as HTMLElement;
+    const typing = t.matches('input, textarea, select, [contenteditable]');
+    const box = $<HTMLInputElement>('#searchBox');
+    if (ev.key === '/' && !typing) {
+      ev.preventDefault();
+      box.focus();
+      box.select();
+    } else if (ev.key === 'Escape' && t === box && box.value) {
+      ev.preventDefault();
+      box.value = '';
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
   $('#linksBtn').onclick = () => {
     ($('#settingsDialog') as HTMLDialogElement).close();
     renderLinks();
