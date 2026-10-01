@@ -11,7 +11,12 @@ Los canales se emparejan por el id de stream del proveedor. Informa canales que 
 sola, EPG distinto (tvg-id), nombre distinto, categoría distinta, el orden de las categorías, y
 los EPG de la playlist web que su guía no trae. Nunca muestra URLs ni credenciales.
 
-Uso: `python tools/compare_web.py` (con GIST_TOKEN, XTREAM_PROFILES y las variables de R2).
+Con `--alert` (lo usa el workflow después de cada corrida diaria) recuerda en R2 las
+diferencias de cada configuración (`compare/<cfgId>.json`) y termina con error solo si aparece
+alguna **nueva** desde la vez anterior: las que ya estaban (tus ediciones) no vuelven a avisar.
+La primera vez solo guarda la referencia.
+
+Uso: `python tools/compare_web.py [--alert]` (con GIST_TOKEN, XTREAM_PROFILES y las variables de R2).
 """
 import gzip
 import json
@@ -89,6 +94,27 @@ def compare(github, web, guide_ids=None):
     }
 
 
+def diff_keys(r, missing_guide):
+    """Las diferencias como texto estable, para comparar entre corridas (sin los canales que
+    están en una sola: son los eventos del día)."""
+    keys = {f'epg|{n}|{a}|{b}' for n, a, b in r['epg']}
+    keys |= {f'nombre|{n}|{a}|{b}' for n, a, b in r['name']}
+    keys |= {f'categoria|{n}|{a}|{b}' for n, a, b in r['group']}
+    if r['order_first_diff']:
+        keys.add('orden|{}|{}|{}'.format(*r['order_first_diff']))
+    keys |= {f'sin-guia|{t}' for t in (missing_guide or ())}
+    return keys
+
+
+def new_since_last(r2, cfg_id, keys):
+    """Las diferencias que no estaban la vez anterior (None la primera vez) y guarda las de hoy."""
+    prev = r2.get(f'compare/{cfg_id}.json')
+    r2.put(f'compare/{cfg_id}.json', json.dumps(sorted(keys), ensure_ascii=False).encode('utf-8'))
+    if prev is None:
+        return None
+    return sorted(keys - set(json.loads(prev[0])))
+
+
 def guide_ids(xml_gz):
     """(ids de <channel>, ids con al menos un <programme>) de una guía."""
     channels, with_programmes = set(), set()
@@ -158,7 +184,8 @@ def web_playlist(cfg, channels, tmp):
                           check=True, capture_output=True, text=True).stdout
 
 
-def main():
+def main(argv=None):
+    alert = '--alert' in (sys.argv[1:] if argv is None else argv)
     token = os.environ.get('GIST_TOKEN')
     needed = ('R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY')
     if not token or not all(os.environ.get(k) for k in needed):
@@ -173,6 +200,7 @@ def main():
     index = r2.get('guide/index.json')
     known = {c['id'] for c in json.loads(index[0])['channels']} if index else None
     out = ['# Grilla web vs. GitHub', '']
+    news = 0
     for profile in load_profiles():
         if not profile.get('gist_id') or profile.get('type', 'xtream') != 'xtream':
             continue
@@ -198,14 +226,27 @@ def main():
                     ids, _ = guide_ids(path)
                     missing = {e['tvg_id'] for e in web if e['tvg_id'] and e['tvg_id'] not in ids
                                and (known is None or e['tvg_id'] in known)}
-            out.append(report(profile['name'], cfg_id, compare(github, web, known), missing, cfg[1]))
+            r = compare(github, web, known)
+            out.append(report(profile['name'], cfg_id, r, missing, cfg[1]))
+            if alert:
+                new = new_since_last(r2, cfg_id, diff_keys(r, missing))
+                if new is None:
+                    out.append('_Primera comparación: queda como referencia._\n')
+                elif new:
+                    news += len(new)
+                    out.append(f'**⚠️ {len(new)} diferencia(s) nueva(s) desde la comparación anterior:**\n')
+                    out.extend(f'- {k.replace("|", " · ")}' for k in new[:30])
+                    out.append('')
+                else:
+                    out.append('_Sin diferencias nuevas desde la comparación anterior._\n')
     text = '\n'.join(out)
     print(text)
     summary = os.environ.get('GITHUB_STEP_SUMMARY')
     if summary:
         with open(summary, 'a', encoding='utf-8') as f:
             f.write(text)
-    return 0
+    # Con --alert, fallar avisa por mail (GitHub notifica las corridas con error).
+    return 1 if alert and news else 0
 
 
 if __name__ == '__main__':

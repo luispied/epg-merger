@@ -25,6 +25,23 @@ sano del balanceador y la guía desde R2. Endpoints: ver el comentario de `src/i
     no tiene que hacer nada más.
   - **La persona**, si GitHub no la conoce: baja la lista con su navegador y la sube desde la
     web (`PUT /api/cfg/<cfgId>/list`).
+  - **Un equipo de la casa** (Raspberry Pi, NAS, PC, Android con Termux), para no depender de
+    GitHub: `tools/grilla_home.py` baja la lista con la conexión de la casa (la misma IP que el
+    reproductor) y la sube con la clave de edición. Las credenciales del proveedor no salen del
+    equipo. Pasos:
+    1. En la web: Configuración → Exportar respaldo. El archivo trae `cfgId` y `editKey`.
+    2. En el equipo: clonar el repo, `pip install requests`, y crear `~/.grilla.env` (con
+       `chmod 600`, porque tiene tus credenciales):
+       ```
+       GRILLA_CFG=<cfgId del respaldo>
+       GRILLA_KEY=<editKey del respaldo>
+       XTREAM_SERVERS=http://servidor1:8080,http://servidor2
+       XTREAM_USERNAME=<usuario>
+       XTREAM_PASSWORD=<contraseña>
+       ```
+    3. Probarlo: `python3 tools/grilla_home.py --env ~/.grilla.env`.
+    4. Dejarlo cada 3 horas con `crontab -e`:
+       `0 */3 * * * cd ~/epg-merger && python3 tools/grilla_home.py --env ~/.grilla.env`.
 
   El redirect `/s/` sigue andando en los dos casos: el que se conecta al servidor es el
   reproductor, y para el Worker un servidor que responde 403 cuenta como vivo.

@@ -61,3 +61,47 @@ salen, en última instancia, de los canales y de servicios de guías comerciales
    epgshare01 contando el uso (organizador personal, sin cobro, guía acotada a los canales de
    cada persona) y dejar acá la respuesta. Si alguna se opone, se saca del catálogo del
    servicio. Cada persona podría seguir agregándola como fuente propia.
+
+## Cuánto depende Grilla de cada proveedor (01/10/2026)
+
+Del reporte de la última corrida de `luis` (`match_report-luis.json` y `epg_catalog.json`):
+
+| Proveedor | Canales con guía | % |
+|---|---|---|
+| open-epg | 609 | 36 % |
+| epgshare01 | 394 | 23 % |
+| acidjesuz | 356 | 21 % |
+| programadorx | 277 | 16 % |
+| davidmuma | 63 | 4 % |
+| iptv-epg.org | 3 | 0 % |
+
+De los 394 canales con guía de epgshare01, **330 tienen una alternativa de otra fuente** entre
+sus candidatos. Solo **64** dependen de epgshare01. Si hubiera que sacarla del catálogo de un
+servicio público, se pierde la guía de esos 64, y los otros 330 pasan a la alternativa (que
+puede ser un poco peor). Para tu uso personal y familiar no cambia nada.
+
+## Pedido de permiso a open-epg (borrador para mandar desde tu mail)
+
+> **Asunto:** Using open-epg guides in a small, free channel organizer
+>
+> Hi! I'm building Grilla, a small free tool that helps people organize the channel list they
+> already have (bring-your-own-list: it doesn't provide channels or streams) and match each
+> channel with its program guide. Right now it's used by me and my family.
+>
+> I'd like to know if it's OK to use open-epg guides like this:
+> - our server downloads each guide **once a day, after 18:00 CET**, as your FAQ asks;
+> - each user only receives the guide for **their own channels** (a filtered XMLTV), never a
+>   public link to your files;
+> - **no charge** for the guide; it's credited to open-epg in the app with a link to your site.
+>
+> If you'd rather we didn't, or want it done differently (attribution, limits, a donation), just
+> tell me and I'll adjust. Thanks for the great work!
+>
+> Luis
+
+La respuesta se anota acá. Hasta tener un sí, Grilla queda para uso personal y familiar, como
+permite su FAQ.
+
+**epgshare01:** el tema de las listas IPTV es justo el que pide no tocar, así que no se le
+escribe. Si Grilla se abre al público, epgshare01 sale del catálogo del servicio (ver arriba
+cuánto se pierde) y quien quiera lo agrega como fuente propia.

@@ -119,11 +119,34 @@ gratis para el servicio mientras entre en los planes gratuitos.
    - "Tus links" con copiar y QR;
    - respaldo exportable.
 
-   Es una app aparte: la de `docs/` (GitHub) no se toca y queda como respaldo. Falta, para el
-   paso 5: importar tu configuración actual (overrides, nombres, categorías, ocultos) y las
-   preferencias por sección y categoría (`playlist_sections.json`).
-5. **Migración tuya:** importar tu configuración, comparar la playlist y la guía con las de
-   GitHub (mismos canales, mismos EPG) y cambiar los links en tus reproductores.
+   Después se sumó (PR #117 a #131, 30/09 y 01/10):
+   - programación ("Ahora", descripción, grilla de hoy y mañana) y búsqueda por programa, también
+     en la lista principal; logos;
+   - selección múltiple con sugerencias; categorías con secciones, arrastrar y soltar, "Sin guía"
+     y orden propio de los canales; logo propio por canal;
+   - estado de la guía con "Aplicar ahora" (`GITHUB_TOKEN` en el Worker); "Deshacer";
+   - canales nuevos del proveedor (aviso y filtro); ayuda; estilo Material 3;
+   - funciona sin conexión (service worker; los cambios se guardan al volver);
+   - inicio con "cómo funciona" y lista de demo legal (iptv-org).
+
+   Es una app aparte: la de `docs/` (GitHub) no se toca y queda como respaldo.
+5. **Migración tuya:** ✅ en curso.
+   - "Importar desde Grilla (GitHub)" trae overrides, nombres, categorías, ocultos, categorías
+     sin guía y las preferencias de cruce (umbral y país/fuentes por categoría de
+     `playlist_sections.json`), así los canales nuevos eligen la guía como GitHub.
+   - `tools/compare_web.py` (workflow "Compare Grilla web") compara la playlist y la guía de la
+     web con las de GitHub. Corre solo después de cada corrida diaria y avisa (falla) solo si
+     aparece una diferencia nueva. Primera comparación (30/09): la configuración importada da
+     lo mismo que GitHub; las diferencias que quedan son ediciones propias.
+   - Falta: usar los links nuevos en TiviMate unos días y decidir si el flujo de GitHub queda
+     solo de respaldo. La corrida diaria sigue igual: arma la guía compartida.
+
+**Herramientas de operación:**
+- `tools/delete_cfg.py` (workflow "Delete Grilla config"): borra una configuración de prueba con
+  todo lo suyo (lista, guía, links cortos, enlaces).
+- `tools/grilla_home.py`: sube la lista desde un equipo de la casa (Raspberry Pi, NAS, Termux)
+  cada 3 horas, para no depender de GitHub cuando el proveedor bloquea a Cloudflare (ver
+  `worker/README.md`).
 
 ## Prueba real del Worker (29/09/2026)
 
