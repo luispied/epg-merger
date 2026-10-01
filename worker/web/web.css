@@ -239,3 +239,12 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 .help-sheet summary { font-weight: 500; }
 .help-sheet details p { font-size: 14px; line-height: 1.5; }
 .card > .field:first-child { margin-top: 0; }
+/* Cruz para borrar la búsqueda (propia: la nativa no sale en todos los navegadores). */
+.search-field { padding-right: 4px; }
+.search-field input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.search-clear {
+  flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.search-clear[hidden] { display: none; }
