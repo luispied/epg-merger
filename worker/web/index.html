@@ -94,6 +94,7 @@
     </div>
     <nav class="segmented" id="filterTabs" aria-label="Filtros">
       <button data-filter="todos" data-label="Todos">Todos</button>
+      <button data-filter="nuevos" data-label="Nuevos" hidden>Nuevos</button>
       <button data-filter="revisar" data-label="A revisar">A revisar</button>
       <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
       <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
@@ -105,6 +106,7 @@
     <div class="status-bar" id="status" hidden></div>
     <p class="meta-line" id="statusLine"></p>
     <div class="guide-status" id="guideStatus" hidden></div>
+    <div class="guide-status new-banner" id="newBanner" hidden></div>
     <div class="cards" id="cards"></div>
     <button class="btn btn-gray btn-block load-more" id="loadMoreBtn" hidden>Mostrar más</button>
   </main>
@@ -162,6 +164,16 @@
       <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
     </label>
     <div class="menu" id="categoriesList"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="orderDialog" aria-labelledby="orderTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="orderTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div id="orderBody"></div>
   </div>
 </dialog>
 
@@ -268,7 +280,7 @@
 
     <details open>
       <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
-      <p>En <b>Configuración → Tus links</b> generás dos links: la <b>playlist</b> y la <b>guía</b>. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. También podés escanear el código QR desde la tele.</p>
+      <p>En <b>Configuración → Tus links</b> generás dos links: la <b>playlist</b> y la <b>guía</b>. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. También podés mandártelos por WhatsApp o mail desde ahí. También podés escanear el código QR desde la tele.</p>
     </details>
 
     <details>
@@ -295,6 +307,21 @@
     <details>
       <summary>¿Puedo cambiar varios canales a la vez?<span data-icon="chevron-down"></span></summary>
       <p>Sí. Tocá el botón de <b>selección</b> (arriba, el de la lista con tildes) o mantené apretado un canal. Marcá los canales (o <b>Todos</b>, que toma los del filtro y la búsqueda actuales) y tocá <b>…</b>: cambiar EPG (con sugerencias de las opciones que comparten), mover de categoría, ocultar o mostrar, volver al EPG automático, restaurar nombres o categorías y dejar sin EPG.</p>
+    </details>
+
+    <details>
+      <summary>¿Qué está dando un canal hoy?<span data-icon="chevron-down"></span></summary>
+      <p>Tocá el canal → <b>Programación de hoy y mañana</b>: la grilla completa de su guía; tocando un programa ves la descripción.</p>
+    </details>
+
+    <details>
+      <summary>Canales nuevos del proveedor<span data-icon="chevron-down"></span></summary>
+      <p>Cuando tu lista trae canales que no estaban, arriba aparece "Hay N canales nuevos" y el filtro <b>Nuevos</b> (también se marcan con la etiqueta <i>Nuevo</i>). Revisalos y tocá <b>Marcar como vistos</b>.</p>
+    </details>
+
+    <details>
+      <summary>¿Puedo cambiar el logo o el orden de los canales?<span data-icon="chevron-down"></span></summary>
+      <p><b>Logo:</b> en el canal, <b>Logo propio</b>: pegá la dirección de una imagen. <b>Orden:</b> en <b>Categorías</b>, el botón de lista de cada categoría abre sus canales para ordenarlos arrastrando.</p>
     </details>
 
     <details>

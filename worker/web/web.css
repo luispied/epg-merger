@@ -248,3 +248,28 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 }
 .search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .search-clear[hidden] { display: none; }
+
+/* Canales nuevos, programación del día, logo propio, compartir. */
+.new-banner .icon { color: var(--accent); }
+.new-banner .btn { min-height: 32px; }
+.day-btn { margin-top: 12px; }
+.day-list { margin-top: 8px; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; max-height: 360px; overflow-y: auto; }
+.day-head { font-size: 13px; font-weight: 500; color: var(--accent); padding: 12px 16px 4px; text-transform: capitalize; }
+.day-item summary { list-style: none; display: flex; gap: 12px; padding: 8px 16px; cursor: pointer; font-size: 14px; }
+.day-item summary::-webkit-details-marker { display: none; }
+.day-item summary:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+.day-item.live summary { font-weight: 500; }
+.day-time { flex: none; width: 64px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day-title { flex: 1; min-width: 0; }
+.day-title .note { color: var(--accent); }
+.day-item p { margin: 0; padding: 0 16px 10px 92px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.inline-field .logo-preview { width: 48px; height: 48px; }
+.share-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.share-row .btn { flex: 1 1 auto; text-decoration: none; }
+.cat-row .icon-btn.sm { width: 40px; height: 40px; margin: 0; }
+.ord-row { gap: 10px; }
+.day-time { width: 76px; white-space: nowrap; }
+.day-item p { padding-left: 104px; }
+.new-banner { flex-wrap: wrap; row-gap: 4px; }
+.new-banner .grow { min-width: calc(100% - 40px); }
+.new-banner .btn:first-of-type { margin-left: 30px; }

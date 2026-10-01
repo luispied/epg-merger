@@ -19,6 +19,8 @@ export interface PlaylistOptions {
 export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOptions): string {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
   const order = new Map((cfg.groups?.order ?? []).map((g, i) => [g, i]));
+  // Orden propio dentro de la categoría: los listados primero, el resto en el orden del proveedor.
+  const within = new Map(Object.entries(cfg.groups?.channels ?? {}).map(([g, names]) => [g, new Map(names.map((n, i) => [n, i]))]));
   const rows: { group: number; pos: number; text: string }[] = [];
   channels.forEach((ch, pos) => {
     const edit = cfg.channels[ch.name] ?? {};
@@ -26,11 +28,13 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
     if (edit.hidden || hiddenGroups.has(group)) return;
     const name = edit.name || ch.name;
     const epg = edit.epg ?? null;
-    // Sin EPG elegido, sin logo: el del proveedor suele ser genérico o de otro canal.
-    const logo = epg ? edit.logo || ch.icon : '';
+    // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
+    // que la persona haya puesto uno propio.
+    const logo = edit.customLogo || (epg ? edit.logo || ch.icon : '');
+    const custom = within.get(group)?.get(ch.name);
     rows.push({
       group: order.get(group) ?? order.size,
-      pos,
+      pos: custom ?? channels.length + pos,
       text: `#EXTINF:-1 tvg-id="${attr(epg ?? name)}" tvg-name="${attr(name)}" tvg-logo="${attr(logo)}" ` +
         `group-title="${groupTitle(group)}",${attr(name)}\n${opts.streamUrl(ch)}`,
     });
