@@ -31,6 +31,39 @@ export interface Config {
   /** `channels`: orden propio de los canales dentro de una categoría ({categoría: [nombres]});
    *  los que no están en la lista van después, en el orden del proveedor. */
   groups?: { order?: string[]; hidden?: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
+  /** Cómo elegir la guía (importado de la corrida de GitHub): umbral, señal horaria preferida y
+   *  país/fuentes preferidas por categoría cruda del proveedor. Solo lo usa la interfaz. */
+  matching?: Matching;
+}
+
+export interface Matching {
+  minScore?: number;
+  feed?: string | null;
+  categories?: Record<string, { country?: string | null; prefer_sources?: string[] }>;
+}
+
+function parseMatching(v: unknown): Matching | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const m = v as Record<string, unknown>;
+  const out: Matching = {};
+  if (typeof m.minScore === 'number' && m.minScore >= 0 && m.minScore <= 1) out.minScore = m.minScore;
+  if (m.feed === null) out.feed = null;
+  else if (str(m.feed, 20)) out.feed = str(m.feed, 20);
+  if (m.categories && typeof m.categories === 'object') {
+    const cats: NonNullable<Matching['categories']> = {};
+    for (const [cat, raw] of Object.entries(m.categories as Record<string, unknown>).slice(0, 3000)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const c = raw as Record<string, unknown>;
+      const cfg: { country?: string | null; prefer_sources?: string[] } = {};
+      if (c.country === null) cfg.country = null;
+      else if (str(c.country, 10)) cfg.country = str(c.country, 10);
+      const prefer = strList(c.prefer_sources, 50).map((x) => x.slice(0, 100));
+      if (prefer.length) cfg.prefer_sources = prefer;
+      if (Object.keys(cfg).length) cats[cat.slice(0, 500)] = cfg;
+    }
+    if (Object.keys(cats).length) out.categories = cats;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export class ConfigError extends Error {}
@@ -96,10 +129,12 @@ export function parseConfig(raw: unknown): Config {
       if (list.length) channelOrder[group.slice(0, 500)] = list;
     }
   }
+  const matching = parseMatching(r.matching);
   return {
     version: 1,
     provider,
     ...(r.directUrls === true ? { directUrls: true } : {}),
+    ...(matching ? { matching } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),
