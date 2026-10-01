@@ -273,3 +273,14 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 .new-banner { flex-wrap: wrap; row-gap: 4px; }
 .new-banner .grow { min-width: calc(100% - 40px); }
 .new-banner .btn:first-of-type { margin-left: 30px; }
+
+/* Inicio: cómo funciona y demo. */
+.how { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; max-width: 640px; }
+.how li { display: flex; gap: 12px; align-items: flex-start; }
+.how li > span:last-child { display: flex; flex-direction: column; }
+.how small { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.how-n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--on-accent-soft); display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+.demo-card { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.demo-text { flex: 1 1 220px; display: flex; flex-direction: column; gap: 2px; }
+.demo-text small { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.legal { margin-top: 16px; text-align: center; }
