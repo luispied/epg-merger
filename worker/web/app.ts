@@ -385,6 +385,25 @@ function matchesFilter(ch: Channel, filter: string) {
   }
 }
 
+// Lo que está dando ahora cada canal (índice de la hora actual), para buscar por programa en
+// la lista principal. Se carga al abrir el editor y al buscar; mientras no llega, se busca solo
+// por nombre y categoría.
+let hourNow: HourIndex | null = null;
+function loadHourNow() {
+  hourIndex().then((idx) => {
+    if (!idx || idx === hourNow) return;
+    hourNow = idx;
+    if (state.search.trim()) render();
+  });
+}
+/** El programa en el aire del EPG del canal, si coincide con la búsqueda. */
+function programMatch(ch: Channel, q: string): NowPlaying | null {
+  const epg = state.cfg!.channels[ch.name]?.epg;
+  if (!q || !hourNow || !epg) return null;
+  const cur = nowFromHour(hourNow, epg);
+  return cur && fold(cur.title).includes(q) ? cur : null;
+}
+
 function visibleChannels(): number[] {
   const q = fold(state.search.trim());
   const order = new Map(groups().map((g, i) => [g, i]));
@@ -395,7 +414,8 @@ function visibleChannels(): number[] {
       if (!matchesFilter(ch, state.filter)) return false;
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
-      return fold(`${ch.name} ${edit.name ?? ''} ${groupOf(ch)}`).includes(q);
+      const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? edit.epg : '';
+      return fold(`${ch.name} ${edit.name ?? ''} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
     })
     .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0) || a - b);
 }
@@ -596,7 +616,10 @@ function cardHtml(i: number): string {
     </article>`;
   }
   let body: string;
-  if (epg) body = epgRowHtml(epg, '', { logo: false });
+  if (epg) {
+    const cur = programMatch(ch, fold(state.search.trim()));
+    body = epgRowHtml(epg, '', cur ? { logo: false, cur, note: '· coincide con la búsqueda' } : { logo: false });
+  }
   else if (edit.manual) body = '<div class="card-note">Sin EPG, a propósito.</div>';
   else if (suggestion) {
     body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b></span>`
@@ -1505,6 +1528,7 @@ function showEditor() {
   state.shown = PAGE;
   render();
   refreshGuideStatus();
+  loadHourNow();
 }
 
 async function openSaved() {
@@ -1614,6 +1638,7 @@ function setupEditor() {
   let t = 0;
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);
+    loadHourNow(); // por si cambió la hora desde que se abrió
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;
