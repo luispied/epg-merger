@@ -1799,8 +1799,45 @@ function setupEditor() {
   };
 }
 
+// ------------------------------------------------------------------ buscadores
+// Cada buscador (también los que se arman en los diálogos) lleva una cruz para borrarlo: la
+// del navegador no aparece en todos (Safari del iPhone) y es chica para el dedo.
+function addSearchClear(root: ParentNode) {
+  for (const field of $$('.search-field', root)) {
+    if ($('.search-clear', field)) continue;
+    const input = $<HTMLInputElement>('input', field);
+    if (!input) continue;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'search-clear';
+    btn.setAttribute('aria-label', 'Borrar la búsqueda');
+    btn.title = 'Borrar';
+    btn.innerHTML = icon('x');
+    btn.hidden = !input.value;
+    field.appendChild(btn);
+  }
+}
+document.addEventListener('input', (ev) => {
+  const input = ev.target as HTMLElement;
+  const btn = input.closest?.('.search-field')?.querySelector<HTMLElement>('.search-clear');
+  if (btn) btn.hidden = !(input as HTMLInputElement).value;
+});
+document.addEventListener('click', (ev) => {
+  const btn = (ev.target as HTMLElement).closest?.<HTMLElement>('.search-clear');
+  if (!btn) return;
+  ev.preventDefault();
+  const input = btn.parentElement!.querySelector<HTMLInputElement>('input')!;
+  input.value = '';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+});
+new MutationObserver((records) => {
+  for (const r of records) for (const n of r.addedNodes) if (n instanceof Element) addSearchClear(n.parentElement ?? n);
+}).observe(document.body, { childList: true, subtree: true });
+
 // ------------------------------------------------------------------ arranque
 hydrateIcons();
+addSearchClear(document);
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 setupOnboarding();
 setupEditor();
