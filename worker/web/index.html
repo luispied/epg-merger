@@ -191,10 +191,13 @@
 <dialog class="sheet settings-sheet" id="catMenuDialog" aria-labelledby="catMenuTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <h2 id="catMenuTitle" class="menu-title"></h2>
+      <span class="title-left">
+        <h2 id="catMenuTitle" class="menu-title"></h2>
+        <button type="button" class="icon-btn" id="catMenuVis"></button>
+      </span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <div class="menu" id="catMenuBody"></div>
+    <div id="catMenuBody"></div>
   </div>
 </dialog>
 
@@ -401,11 +404,15 @@
 
 <dialog class="sheet ask-sheet" id="askDialog" aria-labelledby="askTitle">
   <form class="sheet-body" method="dialog">
-    <h2 id="askTitle"></h2>
+    <div class="title-row">
+      <h2 id="askTitle"></h2>
+      <button type="button" class="icon-btn" id="askClose" aria-label="Cerrar"><span data-icon="x"></span></button>
+    </div>
     <p id="askText"></p>
-    <label class="field" id="askField" hidden><span id="askLabel"></span>
-      <input class="input" id="askInput" autocomplete="off" enterkeyhint="done"></label>
-    <div class="sheet-actions">
+    <label class="ch-field" id="askField" hidden><span id="askIcon"></span>
+      <input class="input" id="askInput" autocomplete="off" enterkeyhint="done">
+      <button class="icon-btn" value="ok" id="askCheck" aria-label="Aceptar"><span data-icon="check"></span></button></label>
+    <div class="sheet-actions" id="askActions">
       <button type="button" class="btn btn-plain" id="askCancel">Cancelar</button>
       <button class="btn btn-primary" value="ok" id="askOk"></button>
     </div>

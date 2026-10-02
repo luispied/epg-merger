@@ -104,7 +104,7 @@ function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, un
 
 // Confirmar y pedir un texto con el estilo de la página (en vez de confirm/prompt del
 // navegador). Van en un <dialog> propio, que queda arriba de cualquier otro abierto.
-interface AskOptions { title: string; text?: string; ok?: string; danger?: boolean; input?: { label: string; value?: string; placeholder?: string } }
+interface AskOptions { title: string; text?: string; ok?: string; danger?: boolean; icon?: string; input?: { label: string; value?: string; placeholder?: string } }
 function ask(o: AskOptions): Promise<string | null> {
   const dlg = $('#askDialog') as HTMLDialogElement;
   $('#askTitle').textContent = o.title;
@@ -113,13 +113,18 @@ function ask(o: AskOptions): Promise<string | null> {
   const field = $('#askField');
   const input = $<HTMLInputElement>('#askInput');
   field.hidden = !o.input;
-  $('#askLabel').textContent = o.input?.label ?? '';
+  // Pedir un texto: campo con ícono y la tilde para confirmar (sin botones con texto).
+  // Confirmar: el texto y los dos botones.
+  $('#askActions').hidden = !!o.input;
+  $('#askIcon').innerHTML = icon(o.icon ?? 'text-cursor-input');
   input.value = o.input?.value ?? '';
-  input.placeholder = o.input?.placeholder ?? '';
+  input.placeholder = o.input?.placeholder ?? o.input?.label ?? '';
+  input.setAttribute('aria-label', o.input?.label ?? '');
   input.required = !!o.input;
   const ok = $<HTMLButtonElement>('#askOk');
   ok.textContent = o.ok ?? 'Aceptar';
   ok.className = `btn ${o.danger ? 'btn-danger' : 'btn-primary'}`;
+  $('#askCheck').setAttribute('aria-label', o.ok ?? 'Aceptar');
   dlg.returnValue = '';
   dlg.showModal();
   if (o.input) {
@@ -135,7 +140,7 @@ function ask(o: AskOptions): Promise<string | null> {
 const confirmDialog = async (o: AskOptions) => (await ask(o)) !== null;
 const promptDialog = (o: AskOptions & { input: NonNullable<AskOptions['input']> }) => ask(o);
 const newCategoryName = () => promptDialog({
-  title: 'Categoría nueva', ok: 'Crear', input: { label: 'Nombre', placeholder: 'Ej.: Deportes AR' },
+  title: 'Categoría nueva', ok: 'Crear', icon: 'folder-plus', input: { label: 'Nombre', placeholder: 'Nombre de la categoría' },
 });
 
 function status(el: HTMLElement, text: string | null, kind: 'busy' | 'ok' | 'bad' = 'busy') {
@@ -1371,26 +1376,36 @@ function renderCategories() {
   toggle.dataset.mode = allFolded ? 'expand' : 'collapse';
 }
 
-/** Menú "…" de una categoría o sección: todo lo que antes eran botones sueltos en cada fila. */
+/** La hoja "…" de una categoría o sección, con el mismo patrón que la del canal: el ojo junto al
+ *  título, el nombre con su ícono y las demás acciones como filas con ícono. */
 function openCategoryMenu(i: number) {
   const g = groups()[i];
   const isSection = sectionHeaders().has(g);
   const noEpg = !!state.cfg!.groups.noEpg?.includes(g);
+  const hidden = state.cfg!.groups.hidden.includes(g);
   const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
   const empty = !state.channels.some((ch) => groupOf(ch) === g);
   const dlg = $('#catMenuDialog') as HTMLDialogElement;
   dlg.dataset.g = String(i);
-  $('#catMenuTitle').textContent = isSection ? sectionTitle(groupLabel(g)) : groupLabel(g);
-  $('#catMenuBody').innerHTML = [
-    menuRowHtml('pencil', 'Cambiar nombre', 'Es el que sale en tu playlist; el del proveedor no cambia', 'rename'),
-    !isSection ? menuRowHtml('list-ordered', 'Ordenar los canales', 'Elegí el orden dentro de la categoría', 'order') : '',
-    !isSection ? menuRowHtml('ban', noEpg ? 'Volver a pedir guía' : 'Sin guía', noEpg
-      ? 'Marcada: no cuenta en "A revisar" ni en "Sin EPG". Tocá para que vuelva a contar'
-      : 'Para eventos sueltos o canales 24/7: no cuenta en "A revisar" ni en "Sin EPG"', 'noepg') : '',
-    state.cfg!.groups.rename?.[g] ? menuRowHtml('rotate-ccw', 'Volver al nombre original', g, 'unrename') : '',
-    mine.has(g) && empty ? menuRowHtml('trash-2', 'Borrar', 'Solo las que creaste vos y están vacías', 'delete', 'danger') : '',
+  const label = isSection ? sectionTitle(groupLabel(g)) : groupLabel(g);
+  $('#catMenuTitle').textContent = label;
+  const eye = $<HTMLButtonElement>('#catMenuVis');
+  eye.innerHTML = icon(hidden ? 'eye-off' : 'eye');
+  eye.title = eye.ariaLabel = hidden ? 'Oculta: tocá para mostrarla' : 'Visible: tocá para ocultarla';
+  const row = (iconName: string, text: string, action: string, cls = '') =>
+    `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span><span class="menu-text">${esc(text)}</span>${cls.includes('on') ? icon('check') : ''}</button>`;
+  const rows = [
+    !isSection ? row('list-ordered', 'Ordenar los canales', 'order') : '',
+    !isSection ? row('ban', 'Sin guía', 'noepg', noEpg ? 'on' : '') : '',
+    state.cfg!.groups.rename?.[g] ? row('rotate-ccw', 'Volver al nombre original', 'unrename') : '',
+    mine.has(g) && empty ? row('trash-2', 'Borrar', 'delete', 'danger') : '',
   ].join('');
-  dlg.showModal();
+  $('#catMenuBody').innerHTML = `
+    <div class="ch-fields first"><label class="ch-field" title="Nombre en la playlist">${icon('text-cursor-input')}
+      <input class="input cat-name" value="${esc(state.cfg!.groups.rename?.[g] ? label : '')}" placeholder="${esc(isSection ? sectionTitle(g) : g)}" aria-label="Nombre en la playlist">
+      <button type="button" class="icon-btn" data-action="rename" aria-label="Guardar nombre">${icon('check')}</button></label></div>
+    ${rows ? `<div class="menu">${rows}</div>` : ''}`;
+  if (!dlg.open) dlg.showModal();
 }
 
 /** Crea una categoría o un separador de sección propio: queda al final, para arrastrarlo a su lugar. */
@@ -1398,10 +1413,8 @@ async function createGroup(kind: 'category' | 'separator') {
   const sep = kind === 'separator';
   const name = await promptDialog({
     title: sep ? 'Sección nueva' : 'Categoría nueva',
-    text: sep
-      ? 'Un separador agrupa las categorías que le siguen en la playlist. Después arrastralo al lugar que quieras.'
-      : 'Se crea vacía: movele canales desde su ficha o con la selección múltiple, y arrastrala a su lugar.',
-    ok: 'Crear', input: { label: 'Nombre', placeholder: sep ? 'Ej.: DEPORTES' : 'Ej.: Mis favoritos' },
+    ok: 'Crear', icon: sep ? 'separator-horizontal' : 'folder-plus',
+    input: { label: 'Nombre', placeholder: sep ? 'Nombre de la sección (ej.: DEPORTES)' : 'Nombre de la categoría' },
   });
   if (!name) return;
   const taken = new Set([...groups(), ...groups().map(groupLabel)]);
@@ -1419,18 +1432,18 @@ async function createGroup(kind: 'category' | 'separator') {
   requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
 }
 
-async function renameGroup(g: string) {
+/** Cambia el nombre con el que sale en la playlist (vacío o igual al del proveedor = el original). */
+function applyRename(g: string, value: string) {
   const sep = sectionHeaders().has(g);
-  const next = await promptDialog({
-    title: sep ? 'Cambiar el nombre de la sección' : 'Cambiar el nombre de la categoría',
-    text: 'Es el nombre que sale en tu playlist; lo de tu proveedor no cambia. Los canales siguen siendo los mismos.',
-    ok: 'Guardar', input: { label: 'Nombre', value: sep ? sectionTitle(groupLabel(g)) : groupLabel(g) },
-  });
-  if (!next || next === groupLabel(g)) return;
+  const next = value.trim();
+  if (!next || next === g || (sep && next === sectionTitle(g))) {
+    if (state.cfg!.groups.rename?.[g]) unrenameGroup(g);
+    return;
+  }
+  if (next === groupLabel(g) || (sep && next === sectionTitle(groupLabel(g)))) return;
   editGroups((gr) => {
     const rename = { ...(gr.rename ?? {}) };
-    if (next === g) delete rename[g];
-    else rename[g] = next;
+    rename[g] = next;
     gr.rename = rename;
   }, `Nombre cambiado a "${next}"`);
 }
@@ -1713,17 +1726,39 @@ function setupCategories() {
       renderCategories();
     }
   };
+  const menu = () => ($('#catMenuDialog') as HTMLDialogElement);
+  const menuGroup = () => groups()[Number(menu().dataset.g)];
+  const rename = () => {
+    const g = menuGroup();
+    applyRename(g, $<HTMLInputElement>('.cat-name', $('#catMenuBody')).value);
+    openCategoryMenu(Number(menu().dataset.g));
+  };
+  $('#catMenuVis').onclick = () => {
+    const g = menuGroup();
+    const show = state.cfg!.groups.hidden.includes(g);
+    editGroups((gr) => {
+      const hidden = new Set(gr.hidden);
+      if (show) hidden.delete(g);
+      else hidden.add(g);
+      gr.hidden = [...hidden];
+    }, show ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
+    openCategoryMenu(Number(menu().dataset.g));
+  };
+  $('#catMenuBody').onkeydown = (ev) => {
+    if (ev.key === 'Enter' && (ev.target as HTMLElement).matches('.cat-name')) {
+      ev.preventDefault();
+      rename();
+    }
+  };
   $('#catMenuBody').onclick = (ev) => {
     const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
     if (!action) return;
-    const dlg = $('#catMenuDialog') as HTMLDialogElement;
-    const g = groups()[Number(dlg.dataset.g)];
-    dlg.close();
-    if (action === 'rename') renameGroup(g);
-    else if (action === 'unrename') unrenameGroup(g);
-    else if (action === 'delete') deleteGroup(g);
-    else if (action === 'order') openChannelOrder(g);
-    else if (action === 'noepg') {
+    const g = menuGroup();
+    if (action === 'rename') {
+      rename();
+      return;
+    }
+    if (action === 'noepg') {
       const on = !state.cfg!.groups.noEpg?.includes(g);
       editGroups((gr) => {
         const noEpg = new Set(gr.noEpg ?? []);
@@ -1731,7 +1766,13 @@ function setupCategories() {
         else noEpg.delete(g);
         gr.noEpg = [...noEpg];
       }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
+      openCategoryMenu(Number(menu().dataset.g));
+      return;
     }
+    menu().close();
+    if (action === 'unrename') unrenameGroup(g);
+    else if (action === 'delete') deleteGroup(g);
+    else if (action === 'order') openChannelOrder(g);
   };
 }
 
@@ -2559,6 +2600,7 @@ if ('serviceWorker' in navigator) {
 hydrateIcons();
 addSearchClear(document);
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
+$('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 if (/[?&]importar\b/.test(location.search)) {
   setPref('grilla_show_import', '1');
   history.replaceState(null, '', location.pathname + location.hash);

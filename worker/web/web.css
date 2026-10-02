@@ -460,3 +460,11 @@ dialog.sheet { border-radius: 20px; }
 .ch-current { margin-bottom: 16px; }
 /* Categorías: mismo patrón que la hoja de canal (acciones arriba, línea, y lo demás). */
 .cat-toolbar { padding-bottom: 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 4px; }
+
+/* Hojas de nombre (nueva categoría, sección, renombrar): título con X y el campo con su ícono y la tilde. */
+.ask-sheet .title-row { margin-bottom: 12px; }
+.ask-sheet h2 { margin: 0; }
+.ask-sheet .ch-field { margin-top: 4px; }
+.ch-fields.first { margin-top: 8px; padding-top: 0; border-top: 0; }
+#catMenuBody .menu { margin-top: 12px; }
+#catMenuBody .menu-row > .icon { flex: none; color: var(--accent); }
