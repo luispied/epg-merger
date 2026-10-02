@@ -324,6 +324,10 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
     const m = matchStream(ch.name, ch.epgId, index, {}, prefs.categories?.[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
     state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     const edit = cfg.channels[ch.name] ?? {};
+    // Lo que trajo la importación de GitHub entra marcado "a mano" para no recalcularlo, pero si
+    // coincide con lo que elige el cruce automático no es una elección propia: vuelve a ser
+    // automático (muestra su porcentaje y sigue la guía del día, como en GitHub).
+    if (cfg.matching && edit.manual && edit.epg && m.channelId === edit.epg) delete edit.manual;
     if (!edit.manual) {
       if (m.channelId) {
         edit.epg = m.channelId;
@@ -867,7 +871,7 @@ function render() {
 // ------------------------------------------------------------------ canal: diálogo
 // Fila elegible: no es un <button> porque adentro va el botón de la descripción.
 function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string } = {}) {
-  const pct = score === undefined ? '' : `<span class="muted">${Math.round(Math.min(score, 1) * 100)} %</span>`;
+  const pct = score === undefined ? '' : `<span class="pct ${score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(score, 1) * 100)} %</span>`;
   return `<div class="pick-row" role="button" tabindex="0" data-pick="${esc(id)}">${epgRowHtml(id, pct, opts)}</div>`;
 }
 
@@ -988,7 +992,7 @@ function openChannel(i: number) {
   // Un separador de sección no es un canal: sin guía, solo nombre, categoría y visibilidad.
   const epgSection = divider ? '<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>' : `
     <div class="section-label">Guía (EPG)</div>
-    ${edit.epg ? epgRowHtml(edit.epg) : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
+    ${edit.epg ? epgRowHtml(edit.epg, !edit.manual && auto?.cid === edit.epg ? `<span class="pct ${auto.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(auto.score, 1) * 100)} %</span>` : '') : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
     ${edit.epg ? `<button type="button" class="btn btn-gray sm day-btn" data-act="day" aria-expanded="false">${icon('calendar', 'sm')}Programación de hoy y mañana</button>
       <div class="day-list" hidden></div>` : ''}
     ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
