@@ -491,3 +491,28 @@ test('dispositivos: el último uso se anota como mucho una vez por hora', async 
   await touchDevice(t.env.BUCKET, 'codigo0001', first, new Date('2026-10-02T11:01:00Z'));
   assert.equal(JSON.parse(await (await t.env.BUCKET.get('short/codigo0001.json'))!.text()).lastUsed, '2026-10-02T11:01:00.000Z');
 });
+
+test('categorías nuevas: se ubican solas junto a las que se les parecen', async () => {
+  const { placeNewGroups } = await import('../src/groups.ts');
+  const order = ['▆▆ PPV EVENTS ▆▆', 'PPV FUTBOL PREMIER', 'PPV FUTBOL CHAMPIONS', '▆▆ PAÍSES ▆▆', 'AR| DEPORTES', 'AR| CINE', 'ES| DEPORTES'];
+  const present = [...order, 'PPV FUTBOL LALIGA', 'PPV FUTBOL SERIE A', 'AR| NOTICIAS', 'Misc'];
+  assert.deepEqual(placeNewGroups(order, present), [
+    '▆▆ PPV EVENTS ▆▆', 'PPV FUTBOL PREMIER', 'PPV FUTBOL CHAMPIONS', 'PPV FUTBOL LALIGA', 'PPV FUTBOL SERIE A',
+    '▆▆ PAÍSES ▆▆', 'AR| DEPORTES', 'AR| CINE', 'AR| NOTICIAS', 'ES| DEPORTES', 'Misc',
+  ]);
+  // Sin orden guardado se respeta el del proveedor; lo ya ordenado no se toca.
+  assert.deepEqual(placeNewGroups([], ['B', 'A']), ['B', 'A']);
+  assert.deepEqual(placeNewGroups(order, order), order);
+  // Una categoría que hoy no está conserva su lugar en el orden guardado.
+  assert.deepEqual(placeNewGroups(['A', 'GONE', 'B'], ['A', 'B']), ['A', 'GONE', 'B']);
+});
+
+test('playlist: una categoría nueva del proveedor sale junto a las de su familia', async () => {
+  const { buildPlaylist } = await import('../src/playlist.ts');
+  const ch = (name: string, category: string) => ({ id: name, name, category, icon: '', ext: 'm3u8' });
+  const out = buildPlaylist([ch('c1', 'AR| CINE'), ch('c2', 'PPV FUTBOL LALIGA'), ch('c3', 'PPV FUTBOL PREMIER')],
+    { version: 1, provider: { type: 'xtream', servers: [] }, channels: {}, groups: { order: ['PPV FUTBOL PREMIER', 'AR| CINE'], hidden: [] } } as never,
+    { epgUrl: '', streamUrl: (c) => `/s/${c.id}` });
+  const groups = [...out.matchAll(/group-title="([^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(groups, ['PPV FUTBOL PREMIER', 'PPV FUTBOL LALIGA', 'AR| CINE']);
+});
