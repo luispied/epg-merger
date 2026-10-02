@@ -405,10 +405,14 @@ window.addEventListener('online', () => {
 
 // ------------------------------------------------------------------ estado de los cambios
 // La playlist toma los cambios al instante (el Worker la arma en cada pedido); la guía la
-// vuelve a armar la corrida de GitHub. Esto muestra si la guía ya los tiene y permite
-// "Aplicar ahora" (como el botón Workflow de la interfaz de GitHub).
+// vuelve a armar la corrida de GitHub. No hay un cartel fijo: al guardar se avisa una vez que
+// la guía se está actualizando y otra cuando está lista. "Actualizar la guía ahora" está en
+// Configuración (como el botón Workflow de la interfaz de GitHub).
 interface GuideStatus { guideUpToDate: boolean; guide: string | null; autoRefresh: boolean }
 let guideTimer = 0;
+let guidePending = false; // ya se avisó que la guía se está actualizando
+
+const guideTime = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
 async function refreshGuideStatus() {
   clearTimeout(guideTimer);
@@ -419,28 +423,16 @@ async function refreshGuideStatus() {
   } catch {
     return;
   }
-  const el = $('#guideStatus');
-  el.hidden = false;
-  const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
   if (st.guideUpToDate) {
-    el.className = 'guide-status ok';
-    el.innerHTML = `${icon('circle-check')}<span class="grow">Tus cambios están aplicados: playlist y guía (actualizada ${time(st.guide)}).</span>`;
+    if (guidePending) {
+      guidePending = false;
+      toast(`La guía ya está lista con tus cambios (${guideTime(st.guide)})`, 'ok');
+    }
     return;
   }
-  el.className = 'guide-status pending';
-  el.innerHTML = `${icon('loader-circle', 'spin')}<span class="grow">La playlist ya tiene tus cambios. La guía se está actualizando: ${st.autoRefresh ? 'un par de minutos' : 'hasta 10 minutos'}.</span>`
-    + (st.autoRefresh ? '<button type="button" class="btn btn-tonal" id="applyNow">Aplicar ahora</button>' : '');
-  const btn = $('#applyNow', el);
-  if (btn) {
-    btn.onclick = async () => {
-      btn.setAttribute('disabled', '');
-      try {
-        const r = await api<{ started: boolean }>(`/api/cfg/${state.local!.cfgId}/refresh`, { method: 'POST' });
-        toast(r.started ? 'Aplicando tus cambios: la guía queda lista en un par de minutos' : 'Ya se están aplicando', 'ok');
-      } catch (e) {
-        toast((e as Error).message, 'bad');
-      }
-    };
+  if (!guidePending) {
+    guidePending = true;
+    toast(`La playlist ya tiene tus cambios; la guía se actualiza en ${st.autoRefresh ? 'un par de minutos' : 'unos 10 minutos'}`, 'info', 4500);
   }
   guideTimer = window.setTimeout(refreshGuideStatus, 30000);
 }
@@ -2496,9 +2488,30 @@ function setupEditor() {
   $('#settingsBtn').onclick = () => {
     // Importar desde GitHub es solo para quien venía de la versión anterior: se muestra con el link `?importar`.
     $('#importGithubBtn').hidden = pref('grilla_show_import', '0') !== '1';
+    const apply = $('#applyGuideBtn');
+    apply.hidden = true;
+    if (state.local) {
+      api<GuideStatus>(`/api/cfg/${state.local.cfgId}/status`).then((st) => {
+        if (!st.autoRefresh) return;
+        apply.hidden = false;
+        $('#applyGuideSub').textContent = st.guideUpToDate ? `Al día${st.guide ? ` · última actualización ${guideTime(st.guide)}` : ''}` : 'Se está actualizando';
+      }).catch(() => {});
+    }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
     ($('#settingsDialog') as HTMLDialogElement).showModal();
+  };
+  $('#applyGuideBtn').onclick = async () => {
+    try {
+      const r = await api<{ started: boolean }>(`/api/cfg/${state.local!.cfgId}/refresh`, { method: 'POST' });
+      toast(r.started ? 'Actualizando la guía: queda lista en un par de minutos' : 'Ya se está actualizando', 'ok');
+      guidePending = true;
+      clearTimeout(guideTimer);
+      guideTimer = window.setTimeout(refreshGuideStatus, 20000);
+      ($('#settingsDialog') as HTMLDialogElement).close();
+    } catch (e) {
+      toast((e as Error).message, 'bad');
+    }
   };
   $('#reloadListBtn').onclick = () => {
     ($('#settingsDialog') as HTMLDialogElement).close();
