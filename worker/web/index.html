@@ -121,7 +121,6 @@
         <button class="icon-btn" id="viewBtn" title="Ver como tarjetas" aria-label="Ver como tarjetas"></button>
       </span>
     </div>
-    <div class="guide-status" id="guideStatus" hidden></div>
     <div class="guide-status new-banner" id="newBanner" hidden></div>
     <div class="cards" id="cards"></div>
     <div class="load-sentinel" id="loadMoreSentinel" aria-hidden="true" hidden></div>
@@ -247,6 +246,11 @@
       <button class="menu-row" id="reloadListBtn">
         <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
         <span class="menu-text">Volver a cargar la lista del proveedor<small>Canales nuevos o que ya no están. Tus cambios se conservan.</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <button class="menu-row" id="applyGuideBtn" hidden>
+        <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
+        <span class="menu-text">Actualizar la guía ahora<small id="applyGuideSub"></small></span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="importGithubBtn">
