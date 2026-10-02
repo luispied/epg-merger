@@ -303,9 +303,10 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
 dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 
-/* Avisos: se ajustan al ancho de la pantalla y el texto largo baja de renglón. */
+/* Avisos: ocupan todo el ancho de la pantalla (hasta 640 px) y el texto largo baja de renglón. */
 .toasts { padding: 0 12px; }
-.toast { width: auto; max-width: min(480px, calc(100vw - 24px)); }
+.toasts { align-items: stretch; }
+.toast { width: 100%; max-width: 640px; margin: 0 auto; box-sizing: border-box; }
 .toast .msg { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; }
 
 /* Crear categorías y secciones. */
