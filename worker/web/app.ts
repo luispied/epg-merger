@@ -22,7 +22,7 @@ interface Config {
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
 }
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
-interface Local { cfgId: string; editKey: string; lenient?: boolean }
+interface Local { cfgId: string; editKey: string }
 type Creds = { username: string; password: string } | { url: string };
 interface Auto { cid: string | null; score: number; ranked: Candidate[] }
 
@@ -297,10 +297,10 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   const before = JSON.stringify(cfg.channels);
   const trust = cfg.provider.type === 'm3u';
   // Con las preferencias importadas de GitHub se elige igual que allá (su umbral, su señal
-  // horaria y las fuentes/país de cada categoría); "Asignar también las dudosas" lo baja.
+  // horaria y las fuentes/país de cada categoría); sin ellas, lo dudoso queda como sugerencia.
   const prefs = cfg.matching ?? {};
   const baseScore = prefs.minScore ?? 0.7;
-  const minAssignScore = state.local?.lenient ? Math.min(baseScore, 0.45) : baseScore;
+  const minAssignScore = baseScore;
   if ('feed' in prefs) index.preferredFeed = prefs.feed ?? null;
   const names = [...new Set(state.channels.map((c) => c.name))];
   const byName = new Map(state.channels.map((c) => [c.name, c]));
@@ -819,7 +819,7 @@ function cardHtml(i: number): string {
   }
   else if (edit.manual) body = '<div class="card-note">Sin EPG, a propósito.</div>';
   else if (suggestion) {
-    body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b></span>`
+    body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span></span>`
       + `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button></div>`;
   } else body = '<div class="card-note">Sin EPG asignado.</div>';
   return `<article class="card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
@@ -2393,9 +2393,8 @@ function setupEditor() {
     ($('#helpDialog') as HTMLDialogElement).showModal();
   };
   $('#settingsBtn').onclick = () => {
-    $<HTMLInputElement>('#lenientToggle').checked = !!state.local?.lenient;
-    // Con el umbral de GitHub (0,45 o menos) ya se asignan las dudosas: la opción no cambiaría nada.
-    $<HTMLElement>('#lenientToggle').closest<HTMLElement>('.menu-row')!.hidden = (state.cfg?.matching?.minScore ?? 0.7) <= 0.45;
+    // Importar desde GitHub es solo para quien venía de la versión anterior: se muestra con el link `?importar`.
+    $('#importGithubBtn').hidden = pref('grilla_show_import', '0') !== '1';
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
     ($('#settingsDialog') as HTMLDialogElement).showModal();
@@ -2403,12 +2402,6 @@ function setupEditor() {
   $('#reloadListBtn').onclick = () => {
     ($('#settingsDialog') as HTMLDialogElement).close();
     showOnboarding(true);
-  };
-  $<HTMLInputElement>('#lenientToggle').onchange = async (ev) => {
-    state.local = { ...state.local!, lenient: (ev.target as HTMLInputElement).checked };
-    saveLocal(state.local);
-    if (await rematch(() => {})) await saveNow();
-    render();
   };
   document.body.classList.toggle('no-logos', !logosOn());
   $<HTMLInputElement>('#logosToggle').onchange = (ev) => {
@@ -2506,6 +2499,10 @@ if ('serviceWorker' in navigator) {
 hydrateIcons();
 addSearchClear(document);
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
+if (/[?&]importar\b/.test(location.search)) {
+  setPref('grilla_show_import', '1');
+  history.replaceState(null, '', location.pathname + location.hash);
+}
 setupOnboarding();
 setupEditor();
 if (state.local) openSaved();
