@@ -360,3 +360,4 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .cat-row.section-row .section-name { white-space: normal; }
 .cat-row .fold-btn { margin: 0 -2px 0 -10px; }
 .cat-row .icon-btn.sm.fold-btn { width: 32px; height: 32px; margin: 0 -2px 0 -10px; }
+.menu-row[hidden] { display: none; }
