@@ -47,6 +47,7 @@ Object.assign(window.ICONS, {
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   'message-circle': '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   'list-ordered': '<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   'rows-3': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M21 9H3"/><path d="M21 15H3"/>',
   'folder-plus': '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
@@ -595,8 +596,8 @@ function bandTag(band: Band, score?: number): string {
     case 'ok': return `<span class="tag ok" title="Coincidencia buena${pct ? `: ${pct}` : ''}">${pct || 'Bien'}</span>`;
     case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
     case 'none': return '<span class="tag bad">Sin EPG</span>';
-    case 'manual': return `<span class="tag manual with-icon">${icon('hand', 'sm')}A mano</span>`;
-    case 'purpose': return `<span class="tag muted with-icon">${icon('hand', 'sm')}Sin EPG a mano</span>`;
+    case 'manual': return `<span class="tag manual with-icon" title="Elegida por vos: no cambia sola">${icon('pin', 'sm')}</span>`;
+    case 'purpose': return `<span class="tag muted with-icon" title="Sin guía a propósito">${icon('ban', 'sm')}</span>`;
   }
 }
 
@@ -732,8 +733,8 @@ function epgRowHtml(id: string, extra = '', opts: { logo?: boolean; cur?: NowPla
     ? `<div class="epg-now${opts.cur ? ' on-air' : ''}">${nowHtml(opts.cur!, id, opts.note)}</div>`
     : `<div class="epg-now" data-now-for="${esc(id)}"${opts.note ? ` data-note="${esc(opts.note)}"` : ''}><span>Cargando programación…</span></div>`;
   return `<div class="epg-row${logo ? ' with-logo' : ''}">${logo ? logoHtml(id) : ''}<div class="epg-body">`
-    + `<div class="epg-head"><span class="epg-name">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
-    + `<small class="epg-src">${esc(id)}${source ? ` · ${esc(source)}` : ''}</small>${now}</div></div>`;
+    + `<div class="epg-head"><span class="epg-name" title="${esc(id)}${source ? ` · ${esc(source)}` : ''}">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
+    + `${now}</div></div>`;
 }
 
 /** Scroll infinito: llama a `more` cada vez que el centinela entra en pantalla (también si sigue
@@ -828,7 +829,7 @@ function cardHtml(i: number): string {
     const shownName = esc(state.index?.displayName.get(suggestion?.channelId ?? '') ?? suggestion?.channelId ?? '');
     const sug = !epg && !edit.manual && suggestion;
     const sub = sug
-      ? `<span class="cat">Sugerencia: <b>${shownName}</b> <span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span></span>`
+      ? `<span class="cat sug">Sugerencia: <b>${shownName}</b> <span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span></span>`
       : `<span class="cat">${esc(groupLabel(groupOf(ch)))}${state.newNames.has(ch.name) ? ' · nuevo' : ''}${edit.group ? ' · movido' : ''}${hidden ? ' · oculto' : ''}</span>`
         + (epg ? `<span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span>` : '');
     return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
@@ -1013,63 +1014,126 @@ async function toggleDay(root: HTMLElement, id: string) {
   }).join('');
 }
 
-function openChannel(i: number) {
+type ChannelView = 'main' | 'epg' | 'more' | 'category';
+
+/** Fila de navegación de una hoja: ícono, texto y flecha. */
+function navRow(iconName: string, label: string, sub: string, action: string, cls = '') {
+  return `<button type="button" class="menu-row ${cls}" data-act="${action}"><span class="menu-icon">${icon(iconName)}</span>`
+    + `<span class="menu-text">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>${icon('chevron-right')}</button>`;
+}
+
+/** La hoja de un canal (o de un separador de sección): un resumen y pocas acciones. "Cambiar
+ *  guía", "Categoría" y "Más opciones" abren su propia pantalla dentro de la misma hoja. */
+function openChannel(i: number, view: ChannelView = 'main') {
   const ch = state.channels[i];
-  const { edit, auto, hidden, divider } = info(ch);
-  $('#channelTitle').textContent = edit.name || ch.name;
-  const categories = groups();
-  const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
-  // Un separador de sección no es un canal: sin guía, solo nombre, categoría y visibilidad.
-  const epgSection = divider ? '<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>' : `
-    <div class="section-label">Guía (EPG)</div>
-    ${edit.epg ? epgRowHtml(edit.epg, !edit.manual && auto?.cid === edit.epg ? `<span class="pct ${auto.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(auto.score, 1) * 100)} %</span>` : '') : `<div class="card-note">${edit.manual ? 'Sin EPG, a propósito.' : 'Sin EPG asignado.'}</div>`}
-    ${edit.epg ? `<button type="button" class="btn btn-gray sm day-btn" data-act="day" aria-expanded="false">${icon('calendar', 'sm')}Programación de hoy y mañana</button>
-      <div class="day-list" hidden></div>` : ''}
-    ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
-    <div class="section-label">Buscar en toda la guía</div>
-    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
-    <div class="list search-results" hidden></div>
-    <div class="row-actions">
-      ${edit.manual ? '<button type="button" class="btn btn-gray" data-act="auto">Volver al automático</button>' : ''}
-      ${edit.epg || !edit.manual ? '<button type="button" class="btn btn-gray" data-act="no-epg">Sin EPG</button>' : ''}
-    </div>
-`;
-  $('#channelBody').innerHTML = `
-    ${epgSection}
-    <div class="section-label">Nombre en la playlist</div>
-    <div class="inline-field"><input class="input rename" value="${esc(edit.name ?? '')}" placeholder="${esc(stripDisplayPrefix(ch.name, state.rules!)[0])}">
-      <button type="button" class="icon-btn" data-act="rename" aria-label="Guardar nombre">${icon('check')}</button></div>
-    <div class="section-label">Logo propio</div>
-    <div class="inline-field">${logoHtml(edit.epg ?? null, 'logo-preview', edit.customLogo)}
-      <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="https://…/logo.png" aria-label="URL del logo propio">
-      <button type="button" class="icon-btn" data-act="logo" aria-label="Guardar logo">${icon('check')}</button></div>
-    <p class="help">Para canales sin logo o con uno feo: pegá la dirección de una imagen. Vacío = el de la guía.</p>
-    <div class="section-label">Categoría</div>
-    <select class="select move">${categories.filter((g) => g === groupOf(ch) || !headersNow().has(g))
-      .map((g) => `<option value="${esc(g)}"${g === groupOf(ch) ? ' selected' : ''}>${esc(groupLabel(g))}</option>`).join('')}
-      <option value="__new__">Nueva categoría…</option></select>
-    <div class="menu" style="margin-top:12px"><label class="menu-row static">
-      <span class="menu-icon">${icon('eye')}</span><span class="menu-text">Visible en la playlist</span>
-      <input type="checkbox" class="switch vis" ${edit.hidden ? '' : 'checked'} ${hidden && !edit.hidden ? 'disabled' : ''}></label></div>
-    ${hidden && !edit.hidden ? '<p class="help">Está oculto porque su categoría está oculta.</p>' : ''}`;
-
+  const { edit, auto, epg, hidden, divider, suggestion } = info(ch);
+  const dlg = $('#channelDialog') as HTMLDialogElement;
   const body = $('#channelBody');
-  const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
+  const defaultName = stripDisplayPrefix(ch.name, state.rules!)[0];
+  const shownName = edit.name || defaultName;
+  const categoryLabel = groupLabel(groupOf(ch));
+  $('#channelTitle').textContent = divider ? sectionTitle(categoryLabel) : edit.name || ch.name;
+  const back = `<button type="button" class="btn btn-gray sm back-btn" data-act="back">${icon('arrow-left')}Volver</button>`;
+  const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
+  const catHidden = hidden && !edit.hidden;
+  const visRow = navRow(edit.hidden ? 'eye-off' : 'eye', edit.hidden ? 'Mostrar en la playlist' : 'Ocultar de la playlist',
+    catHidden ? 'Está oculto porque su categoría está oculta' : '', 'vis');
 
-  body.onclick = (ev) => {
+  let html = '';
+  if (view === 'main' && divider) {
+    html = `<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>
+      <div class="menu">
+        ${navRow('text-cursor-input', 'Cambiar nombre', shownName, 'rename')}
+        ${navRow('folder-input', 'Categoría', categoryLabel, 'nav-category')}
+        ${visRow}
+      </div>`;
+  } else if (view === 'main') {
+    const pct = !edit.manual && auto?.cid === edit.epg && auto
+      ? `<span class="pct ${auto.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(auto.score, 1) * 100)} %</span>` : '';
+    const pinned = edit.manual && edit.epg ? `<span class="tag manual with-icon" title="Elegida por vos">${icon('pin', 'sm')}</span>` : '';
+    const summary = epg
+      ? epgRowHtml(epg, pct || pinned)
+      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}${
+        suggestion ? ` Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b>` : ''}</div>`;
+    html = `${summary}
+      <div class="menu">
+        ${navRow('pencil', 'Cambiar guía', '', 'nav-epg')}
+        ${navRow('text-cursor-input', 'Cambiar nombre', edit.name ? shownName : '', 'rename')}
+        ${navRow('folder-input', 'Categoría', categoryLabel, 'nav-category')}
+        ${navRow('ellipsis', 'Más opciones', '', 'nav-more')}
+      </div>`;
+  } else if (view === 'epg') {
+    html = `${back}
+      ${ranked.length ? `<div class="section-label">Alternativas</div><div class="list">${ranked.map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
+      <div class="section-label">Buscar en toda la guía</div>
+      <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
+      <div class="list search-results" hidden></div>
+      ${edit.manual || edit.epg || !edit.manual ? `<div class="row-actions">
+        ${edit.manual ? '<button type="button" class="btn btn-gray" data-act="auto">Volver al automático</button>' : ''}
+        ${edit.epg || !edit.manual ? '<button type="button" class="btn btn-gray" data-act="no-epg">Dejar sin guía</button>' : ''}
+      </div>` : ''}`;
+  } else if (view === 'category') {
+    const categories = groups();
+    html = `${back}
+      <div class="section-label">Categoría</div>
+      <select class="select move">${categories.filter((g) => g === groupOf(ch) || !headersNow().has(g))
+        .map((g) => `<option value="${esc(g)}"${g === groupOf(ch) ? ' selected' : ''}>${esc(groupLabel(g))}</option>`).join('')}
+        <option value="__new__">Nueva categoría…</option></select>
+      ${edit.group ? `<div class="menu">${navRow('rotate-ccw', 'Volver a la categoría original', ch.category, 'orig-cat')}</div>` : ''}`;
+  } else {
+    html = `${back}
+      <div class="menu">
+        ${visRow}
+        ${edit.name ? navRow('rotate-ccw', 'Volver al nombre original', defaultName, 'unrename') : ''}
+        ${edit.manual ? navRow('undo-2', 'Volver a la guía automática', '', 'auto') : ''}
+        ${epg || !edit.manual ? navRow('ban', 'Dejar sin guía', 'Para cuando ninguna sirve', 'no-epg', 'danger') : ''}
+      </div>
+      ${epg ? `<button type="button" class="btn btn-gray sm day-btn" data-act="day" aria-expanded="false">${icon('calendar', 'sm')}Programación de hoy y mañana</button>
+        <div class="day-list" hidden></div>` : ''}
+      <div class="section-label">Logo propio</div>
+      <div class="inline-field">${logoHtml(edit.epg ?? null, 'logo-preview', edit.customLogo)}
+        <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="https://…/logo.png" aria-label="URL del logo propio">
+        <button type="button" class="icon-btn" data-act="logo" aria-label="Guardar logo">${icon('check')}</button></div>
+      <p class="help">Para canales sin logo o con uno feo: pegá la dirección de una imagen. Vacío = el de la guía.</p>`;
+  }
+  body.innerHTML = html;
+
+  const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
+  const again = (v: ChannelView = view) => openChannel(i, v);
+
+  body.onclick = async (ev) => {
     const picked = epgClick(ev);
     if (picked) {
-      ($('#channelDialog') as HTMLDialogElement).close();
-      update((e) => pickEpg(e, picked), 'EPG elegido');
+      dlg.close();
+      update((e) => pickEpg(e, picked), 'Guía elegida');
       return;
     }
     const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
-    if (act === 'auto') {
-      update((e) => autoEpg(e, ch), 'Volvió al EPG automático');
-      openChannel(i);
+    if (!act) return;
+    if (act === 'back') again('main');
+    else if (act === 'nav-epg') again('epg');
+    else if (act === 'nav-category') again('category');
+    else if (act === 'nav-more') again('more');
+    else if (act === 'auto') {
+      update((e) => autoEpg(e, ch), 'Volvió a la guía automática');
+      again('main');
     } else if (act === 'no-epg') {
-      update(noEpg, 'Quedó sin EPG');
-      openChannel(i);
+      update(noEpg, 'Quedó sin guía');
+      again('main');
+    } else if (act === 'vis') {
+      update((e) => { e.hidden = e.hidden ? undefined : true; }, edit.hidden ? 'Visible' : 'Oculto');
+      again();
+    } else if (act === 'unrename') {
+      update((e) => { e.name = undefined; }, 'Vuelve al nombre del proveedor');
+      again();
+    } else if (act === 'orig-cat') {
+      update((e) => { e.group = undefined; }, `Vuelve a ${ch.category}`);
+      again('main');
+    } else if (act === 'rename') {
+      const v = await promptDialog({ title: divider ? 'Cambiar el nombre de la sección' : 'Cambiar nombre', ok: 'Guardar', input: { label: 'Nombre', value: shownName } });
+      if (v === null) return;
+      update((e) => { e.name = v === defaultName ? undefined : v; }, 'Nombre guardado');
+      again();
     } else if (act === 'day') {
       toggleDay(body, edit.epg!);
     } else if (act === 'logo') {
@@ -1079,35 +1143,31 @@ function openChannel(i: number) {
         return;
       }
       update((e) => { e.customLogo = v || undefined; }, v ? 'Logo guardado' : 'Vuelve al logo de la guía');
-      openChannel(i);
-    } else if (act === 'rename') {
-      const v = $<HTMLInputElement>('.rename', body).value.trim();
-      update((e) => { e.name = v || undefined; }, v ? 'Nombre guardado' : 'Vuelve al nombre del proveedor');
+      again();
     }
   };
   body.onkeydown = (ev) => {
     const row = ev.target as HTMLElement;
     if (ev.key === 'Enter' && row.matches('[data-pick]')) row.click();
   };
-  wireGuideSearch(body);
+  if (view === 'epg') wireGuideSearch(body);
   fillEpgRows(body);
-  $<HTMLSelectElement>('.move', body).onchange = async (ev) => {
-    const sel = ev.target as HTMLSelectElement;
-    let target = sel.value;
-    if (target === '__new__') {
-      target = (await newCategoryName()) ?? '';
-      if (!target) {
-        sel.value = groupOf(ch);
-        return;
+  const move = body.querySelector<HTMLSelectElement>('.move');
+  if (move) {
+    move.onchange = async () => {
+      let target = move.value;
+      if (target === '__new__') {
+        target = (await newCategoryName()) ?? '';
+        if (!target) {
+          move.value = groupOf(ch);
+          return;
+        }
       }
-    }
-    update((e) => { e.group = target === ch.category ? undefined : target; }, `Movido a ${target}`);
-  };
-  $<HTMLInputElement>('.vis', body).onchange = (ev) => {
-    const visible = (ev.target as HTMLInputElement).checked;
-    update((e) => { e.hidden = visible ? undefined : true; }, visible ? 'Visible' : 'Oculto');
-  };
-  ($('#channelDialog') as HTMLDialogElement).showModal();
+      update((e) => { e.group = target === ch.category ? undefined : target; }, `Movido a ${target}`);
+      again('main');
+    };
+  }
+  if (!dlg.open) dlg.showModal();
 }
 
 // ------------------------------------------------------------------ selección múltiple
@@ -1322,18 +1382,19 @@ function renderCategories() {
   const folded = (g: string) => !q && !headers.has(g) && collapsed.has(owner.get(g) ?? '\u0000');
   const flags = (g: string) => (state.newGroups.has(g) ? ' · nueva' : '') + (noEpg.has(g) ? ' · sin guía' : '') + (hidden.has(g) ? ' · oculta' : '');
   const more = (g: string, i: number) => `<button type="button" class="icon-btn" data-more="${i}" aria-haspopup="dialog" aria-label="Más opciones de ${esc(sectionTitle(groupLabel(g)))}">${icon('ellipsis')}</button>`;
+  const eye = (g: string, i: number) => `<button type="button" class="icon-btn vis-btn${hidden.has(g) ? ' off' : ''}" data-vis="${i}" aria-pressed="${!hidden.has(g)}" title="${hidden.has(g) ? 'Oculta: tocá para mostrarla' : 'Visible: tocá para ocultarla'}" aria-label="${hidden.has(g) ? 'Mostrar' : 'Ocultar'} ${esc(sectionTitle(groupLabel(g)))}">${icon(hidden.has(g) ? 'eye-off' : 'eye')}</button>`;
   $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
-    <div class="menu-row static cat-row section-row" data-g="${i}">
+    <div class="menu-row static cat-row section-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(groupLabel(g)))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
       <button type="button" class="icon-btn sm fold-btn" data-fold="${i}" aria-expanded="${!collapsed.has(g)}" aria-label="${collapsed.has(g) ? 'Expandir' : 'Contraer'} la sección ${esc(sectionTitle(groupLabel(g)))}">${icon(collapsed.has(g) ? 'chevron-right' : 'chevron-down')}</button>
       <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>${plural(size.get(g) ?? 0, 'categoría', 'categorías')}${flags(g)}</small></span>
-      <input type="checkbox" class="switch" aria-label="Mostrar el separador ${esc(sectionTitle(groupLabel(g)))}" ${hidden.has(g) ? '' : 'checked'}>
+      ${eye(g, i)}
       ${more(g, i)}
     </div>` : `
-    <div class="menu-row static cat-row" data-g="${i}"${folded(g) ? ' hidden' : ''}>
+    <div class="menu-row static cat-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}"${folded(g) ? ' hidden' : ''}>
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
       <span class="menu-text">${esc(groupLabel(g))}<small>${plural(counts.get(g) ?? 0, 'canal', 'canales')}${flags(g)}</small></span>
-      <input type="checkbox" class="switch" aria-label="Mostrar ${esc(groupLabel(g))}" ${hidden.has(g) ? '' : 'checked'}>
+      ${eye(g, i)}
       ${more(g, i)}
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
   // Contraer o expandir todas las secciones, según lo que haya.
@@ -1668,6 +1729,18 @@ function setupCategories() {
       openCategoryMenu(Number(more.dataset.more));
       return;
     }
+    const vis = t.closest<HTMLElement>('[data-vis]');
+    if (vis) {
+      const g = groups()[Number(vis.dataset.vis)];
+      const show = vis.getAttribute('aria-pressed') !== 'true';
+      editGroups((gr) => {
+        const hidden = new Set(gr.hidden);
+        if (show) hidden.delete(g);
+        else hidden.add(g);
+        gr.hidden = [...hidden];
+      }, show ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
+      return;
+    }
     const fold = t.closest<HTMLElement>('[data-fold]');
     if (fold) {
       const g = groups()[Number(fold.dataset.fold)];
@@ -1676,16 +1749,6 @@ function setupCategories() {
       saveCollapsed(set);
       renderCategories();
     }
-  };
-  box.onchange = (ev) => {
-    const input = ev.target as HTMLInputElement;
-    const g = groups()[Number(input.closest<HTMLElement>('[data-g]')!.dataset.g)];
-    editGroups((gr) => {
-      const hidden = new Set(gr.hidden);
-      if (input.checked) hidden.delete(g);
-      else hidden.add(g);
-      gr.hidden = [...hidden];
-    }, input.checked ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
   };
   $('#catMenuBody').onclick = (ev) => {
     const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;

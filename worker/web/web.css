@@ -409,3 +409,16 @@ dialog.sheet { border-radius: 20px; }
 .cards.rows .card.row-card.selected, .cards.rows .card.section-card.selected { background: var(--accent-soft); box-shadow: none; }
 .cards.rows .card.row-card .sel-box { margin: 0; flex: none; }
 .cards.rows .card.row-card.is-hidden { opacity: .5; }
+
+/* Hoja de canal: resumen y pocas acciones. */
+#channelBody > .epg-row { margin-bottom: 4px; }
+.back-btn { margin: 0 0 4px; }
+#channelBody .menu { margin-top: 12px; }
+#channelBody .menu-row > .icon { flex: none; color: var(--faint); }
+#channelBody .day-btn { margin-top: 12px; }
+.tag.with-icon .icon { width: 16px; height: 16px; }
+/* Categorías: ojo para mostrar u ocultar. */
+.vis-btn { flex: none; color: var(--accent); }
+.vis-btn.off { color: var(--faint); }
+.cat-row.is-off .menu-text, .cat-row.is-off .drag-handle { opacity: .5; }
+.cards.rows .row-sub .cat.sug { flex: 1; min-width: 0; max-width: none; }
