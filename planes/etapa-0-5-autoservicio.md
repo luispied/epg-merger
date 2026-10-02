@@ -1,5 +1,8 @@
 # Etapa 0.5: que otra persona pueda usar Grilla sin tocar código
 
+> **Cerrada (02/10/2026): no se hace.** La reemplazó la Etapa 1 (Grilla web sin GitHub), que ya
+> está en producción y resuelve lo mismo sin forks ni tokens por persona.
+
 > **Opcional (28/09/2026).** El camino principal pasó a ser `planes/etapa-1-web-sin-github.md`
 > (Grilla web sin GitHub, sin repo, gist ni token por persona). Esta etapa solo tiene sentido
 > si antes de eso se quiere que alguien use su propio fork. Puntos que conviene hacer igual,

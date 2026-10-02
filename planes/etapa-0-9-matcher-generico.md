@@ -1,5 +1,9 @@
 # Etapa 0.9: matcher genérico (antes de la Etapa 1)
 
+> **Completada (02/10/2026).** La decisión de seguir con la Etapa 1 ya se tomó y está en
+> producción. Los límites de abajo quedan como mejoras futuras que no bloquean nada; la
+> comparación con IPTVEditor / m3u4u ya no es necesaria para decidir.
+
 Prerrequisito: Etapa 0 (✅). Va **antes** de `planes/etapa-1-web-sin-github.md` y decide si
 vale la pena seguir con ella.
 
