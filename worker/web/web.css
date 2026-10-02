@@ -314,3 +314,12 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .cat-chips .chip-btn { min-height: 30px; }
 .cat-chips .chip-btn.danger { color: var(--red); }
 @media (max-width: 600px) { dialog.sheet { width: 100%; max-width: 100%; } }
+
+/* Hojas con scroll: la hoja no se desplaza sola (solo su contenido). En el iPhone la zona segura
+   inferior le suma un relleno, y con el tope de altura de antes la hoja quedaba un poco más
+   alta que su marco y se movía aparte, cortando el borde de arriba. */
+.settings-sheet, .help-sheet { max-height: 88vh; max-height: 88dvh; overflow: hidden; }
+.settings-sheet .sheet-body, .help-sheet .sheet-body {
+  max-height: calc(88vh - env(safe-area-inset-bottom, 0px));
+  max-height: calc(88dvh - env(safe-area-inset-bottom, 0px));
+}
