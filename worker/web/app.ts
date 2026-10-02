@@ -1906,6 +1906,7 @@ function setupOnboarding() {
 function showEditor() {
   $('#onboarding').hidden = true;
   $('#editor').hidden = false;
+  window.scrollTo(0, 0); // si no, queda la posición de la pantalla anterior y la barra tapa las primeras tarjetas
   state.shown = PAGE;
   render();
   refreshGuideStatus();
@@ -1916,6 +1917,7 @@ async function openSaved() {
   const st = $('#status');
   $('#onboarding').hidden = true;
   $('#editor').hidden = false;
+  window.scrollTo(0, 0);
   const say = (t: string) => status(st, t);
   try {
     say('Abriendo tu configuración…');
