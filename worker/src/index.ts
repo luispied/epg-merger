@@ -142,6 +142,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     direct = await healthyServer(cfg.provider.servers.map(normalizeServer), creds.u, creds.p, cache, (p) => ctx.waitUntil(p));
   }
   const text = buildPlaylist(list.channels, cfg, {
+    separatorUrl: `${url.origin}/sep`,
     epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {
       if (ch.url) return ch.url;
@@ -300,6 +301,11 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
   const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
   try {
     if (parts[0] === 'api') return await api(request, parts, env, ip, ctx, cache);
+    // Lo que apunta el canal de aviso de un separador: no hay nada para reproducir.
+    if (request.method === 'GET' && parts.length === 1 && parts[0] === 'sep') {
+      return new Response('Separador de sección de Grilla: no es un canal.\n', {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    }
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {
       if (parts.length === 3 && parts[2] === 'epg.xml.gz') {
         return await serveR2(env, `epg/${parts[1]}.xml.gz`, 'application/gzip', 3600);

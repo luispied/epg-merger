@@ -30,7 +30,7 @@ export interface Config {
   /** `noEpg`: categorías que no necesitan guía (solo para la interfaz: no cuentan en "A revisar"). */
   /** `channels`: orden propio de los canales dentro de una categoría ({categoría: [nombres]});
    *  los que no están en la lista van después, en el orden del proveedor. */
-  groups?: { order?: string[]; hidden?: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
+  groups?: Groups;
   /** Cómo elegir la guía (importado de la corrida de GitHub): umbral, señal horaria preferida y
    *  país/fuentes preferidas por categoría cruda del proveedor. Solo lo usa la interfaz. */
   matching?: Matching;
@@ -64,6 +64,20 @@ function parseMatching(v: unknown): Matching | undefined {
     if (Object.keys(cats).length) out.categories = cats;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+export interface Groups {
+  order?: string[];
+  hidden?: string[];
+  noEpg?: string[];
+  channels?: Record<string, string[]>;
+  /** Nombre a mostrar de una categoría o sección ({nombre original: nombre nuevo}). Todo lo demás
+   *  (orden, ocultas…) sigue yendo por el nombre original. */
+  rename?: Record<string, string>;
+  /** Categorías creadas a mano (pueden estar vacías hasta que se les mueva un canal). */
+  custom?: string[];
+  /** Separadores de sección creados a mano: la playlist lleva un canal de aviso con su nombre. */
+  separators?: string[];
 }
 
 export class ConfigError extends Error {}
@@ -130,6 +144,15 @@ export function parseConfig(raw: unknown): Config {
     }
   }
   const matching = parseMatching(r.matching);
+  const rename: Record<string, string> = {};
+  if (g.rename && typeof g.rename === 'object') {
+    for (const [from, to] of Object.entries(g.rename as Record<string, unknown>).slice(0, 3000)) {
+      const label = str(to, 200)?.trim();
+      if (label && label !== from) rename[from.slice(0, 500)] = label;
+    }
+  }
+  const custom = strList(g.custom, 2000);
+  const separators = strList(g.separators, 2000);
   return {
     version: 1,
     provider,
@@ -141,6 +164,9 @@ export function parseConfig(raw: unknown): Config {
       hidden: strList(g.hidden, 5000),
       ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
       ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
+      ...(Object.keys(rename).length ? { rename } : {}),
+      ...(custom.length ? { custom } : {}),
+      ...(separators.length ? { separators } : {}),
     },
   };
 }

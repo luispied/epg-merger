@@ -16,7 +16,7 @@ interface Config {
   provider: Provider;
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
-  groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]> };
+  groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] };
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
 }
@@ -64,6 +64,7 @@ function hydrateIcons(root: ParentNode = document) {
 
 /** `undo`: agrega "Deshacer" (el aviso dura más). */
 function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, undo?: () => void) {
+  ms = Math.max(ms, Math.min(12000, 2500 + text.length * 45)); // los largos se leen enteros
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.innerHTML = `${icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'info')}<span class="msg">${esc(text)}</span>`
@@ -83,7 +84,10 @@ function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, un
     box.className = 'toasts';
     host.appendChild(box);
   }
+  // El mismo aviso no se repite (mover varias veces seguidas) y quedan como mucho 3.
+  for (const old of $$('.toast', box)) if ($('.msg', old)?.textContent === text) old.remove();
   box.appendChild(el);
+  while (box.children.length > 3) box.firstElementChild!.remove();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -421,6 +425,9 @@ function groupOf(ch: Channel) {
   return state.cfg!.channels[ch.name]?.group || ch.category;
 }
 
+/** El nombre de una categoría o sección tal como se ve (el que le puso la persona, si lo cambió). */
+const groupLabel = (g: string) => state.cfg?.groups.rename?.[g] || g;
+
 /** Categorías en el orden guardado; las que no están en él, al final en el orden del proveedor. */
 function groups(): string[] {
   const present: string[] = [];
@@ -432,17 +439,25 @@ function groups(): string[] {
       present.push(g);
     }
   }
+  // Las creadas a mano existen aunque todavía no tengan canales.
+  for (const g of [...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]) {
+    if (!seen.has(g)) {
+      seen.add(g);
+      present.push(g);
+    }
+  }
   const order = state.cfg!.groups.order.filter((g) => seen.has(g));
   return [...order, ...present.filter((g) => !order.includes(g))];
 }
 
-type Band = 'ok' | 'warn' | 'none' | 'manual';
+type Band = 'ok' | 'warn' | 'none' | 'manual' | 'purpose';
 function info(ch: Channel) {
   const edit = state.cfg!.channels[ch.name] ?? {};
   const auto = state.auto.get(ch.name);
   const epg = edit.epg ?? null;
   const hidden = !!edit.hidden || state.cfg!.groups.hidden.includes(groupOf(ch));
-  const band: Band = edit.manual ? 'manual' : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
+  // "purpose": lo dejaste sin EPG a propósito (es una decisión tuya, no un canal sin resolver).
+  const band: Band = edit.manual ? (epg ? 'manual' : 'purpose') : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
   // Categoría marcada "Sin guía" (Categorías): no cuenta en "A revisar" ni en "Sin EPG".
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
@@ -454,8 +469,10 @@ function matchesFilter(ch: Channel, filter: string) {
   const i = info(ch);
   switch (filter) {
     case 'revisar': return !i.hidden && !i.noGuide && !i.divider && (i.band === 'warn' || (i.band === 'none' && !!i.suggestion));
-    case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg;
-    case 'manual': return i.band === 'manual';
+    // "Sin EPG" = los que todavía no tienen guía; los que dejaste sin EPG a propósito están en
+    // "Elegidos a mano", con lo demás que decidiste vos.
+    case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg && i.band !== 'purpose';
+    case 'manual': return i.band === 'manual' || i.band === 'purpose';
     case 'nuevos': return state.newNames.has(ch.name);
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
@@ -500,7 +517,7 @@ function visibleChannels(): number[] {
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? edit.epg : '';
-      return fold(`${ch.name} ${edit.name ?? ''} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
+      return fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
     })
     .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0)
       || withinPos(a) - withinPos(b));
@@ -511,6 +528,7 @@ const BAND_TAG: Record<Band, string> = {
   warn: '<span class="tag warn">Dudoso</span>',
   none: '<span class="tag bad">Sin EPG</span>',
   manual: `<span class="tag manual with-icon">${icon('hand', 'sm')}A mano</span>`,
+  purpose: `<span class="tag muted with-icon">${icon('hand', 'sm')}Sin EPG a mano</span>`,
 };
 
 // ------------------------------------------------------------------ programación ("Ahora: …")
@@ -696,8 +714,8 @@ function cardHtml(i: number): string {
   if (divider) {
     return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
       ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
-      <div class="card-title"><div class="section-name">${esc(sectionTitle(groupOf(ch)))}</div>
-        <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
+      <div class="card-title"><div class="section-name">${esc(sectionTitle(groupLabel(groupOf(ch))))}</div>
+        <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
       <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del separador">${icon('ellipsis')}</button>
     </article>`;
   }
@@ -718,7 +736,7 @@ function cardHtml(i: number): string {
       <div class="card-title">
         <div class="card-name">${esc(shown)}</div>
         ${edit.name ? `<div class="card-sub">En el proveedor: ${esc(ch.name)}</div>` : ''}
-        <div class="card-sub"><span>${esc(groupOf(ch))}</span>${state.newNames.has(ch.name) ? `<span class="pill">${icon('sparkles', 'sm')}Nuevo</span>` : ''}${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
+        <div class="card-sub"><span>${esc(groupLabel(groupOf(ch)))}</span>${state.newNames.has(ch.name) ? `<span class="pill">${icon('sparkles', 'sm')}Nuevo</span>` : ''}${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
       </div>
       ${BAND_TAG[band]}
       <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
@@ -902,7 +920,8 @@ function openChannel(i: number) {
       <button type="button" class="icon-btn" data-act="logo" aria-label="Guardar logo">${icon('check')}</button></div>
     <p class="help">Para canales sin logo o con uno feo: pegá la dirección de una imagen. Vacío = el de la guía.</p>
     <div class="section-label">Categoría</div>
-    <select class="select move">${categories.map((g) => `<option${g === groupOf(ch) ? ' selected' : ''}>${esc(g)}</option>`).join('')}
+    <select class="select move">${categories.filter((g) => g === groupOf(ch) || !headersNow().has(g))
+      .map((g) => `<option value="${esc(g)}"${g === groupOf(ch) ? ' selected' : ''}>${esc(groupLabel(g))}</option>`).join('')}
       <option value="__new__">Nueva categoría…</option></select>
     <div class="menu" style="margin-top:12px"><label class="menu-row static">
       <span class="menu-icon">${icon('eye')}</span><span class="menu-text">Visible en la playlist</span>
@@ -1093,7 +1112,7 @@ function openBulkCategory(chs: Channel[]) {
   const body = $('#bulkBody');
   body.innerHTML = `<select class="select bulk-cat" aria-label="Categoría destino">
       <option value="" selected disabled>Elegí la categoría…</option>
-      ${groups().map((g) => `<option>${esc(g)}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
+      ${groups().filter((g) => !headersNow().has(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
     </select>
     <div class="row-actions"><button type="button" class="btn btn-primary bulk-move" disabled>Mover</button></div>`;
   body.onclick = null;
@@ -1126,7 +1145,7 @@ function sectionHeaders(): Set<string> {
     if (!members.has(g)) members.set(g, []);
     members.get(g)!.push(ch);
   }
-  const out = new Set<string>();
+  const out = new Set<string>(state.cfg!.groups.separators ?? []);
   for (const [g, chs] of members) {
     const only = chs.length === 1 ? (state.cfg!.channels[chs[0].name]?.name || chs[0].name) : null;
     if (DIVIDER_RE.test(g) || only === g) out.add(g);
@@ -1141,25 +1160,113 @@ function renderCategories() {
   const hidden = new Set(state.cfg!.groups.hidden);
   const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
   const headers = sectionHeaders();
+  const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
   const counts = new Map<string, number>();
   for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
   const q = fold($<HTMLInputElement>('#categoriesFilter').value.trim());
   // Con un filtro el orden no se puede arrastrar (se movería entre categorías que no se ven).
-  const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(g).includes(q));
+  const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(`${groupLabel(g)} ${g}`).includes(q));
+  const renamed = (g: string) => !!state.cfg!.groups.rename?.[g];
+  /** Acciones de la fila, debajo del nombre: nombre, volver al original y, si la creó la persona y
+   *  está vacía, borrar. */
+  const tools = (g: string, i: number) => `
+        <button type="button" class="chip-btn" data-rename="${i}" aria-label="Cambiar el nombre de ${esc(groupLabel(g))}">${icon('pencil', 'sm')}Nombre</button>
+        ${renamed(g) ? `<button type="button" class="chip-btn" data-unrename="${i}" title="Volver a «${esc(g)}»">${icon('rotate-ccw', 'sm')}Original</button>` : ''}
+        ${mine.has(g) && !(counts.get(g) ?? 0) ? `<button type="button" class="chip-btn danger" data-del="${i}" aria-label="Borrar ${esc(groupLabel(g))}">${icon('trash-2', 'sm')}Borrar</button>` : ''}`;
   $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
     <div class="menu-row static cat-row section-row" data-g="${i}">
-      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(g))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text"><span class="section-name">${esc(sectionTitle(g))}</span><small>Sección · separador en la playlist</small></span>
-      <input type="checkbox" class="switch" aria-label="Mostrar el separador ${esc(sectionTitle(g))}" ${hidden.has(g) ? '' : 'checked'}>
+      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(groupLabel(g)))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
+      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>Sección · separador en la playlist${hidden.has(g) ? ' · oculta' : ''}</small>
+        <span class="cat-chips">${tools(g, i)}</span></span>
+      <input type="checkbox" class="switch" aria-label="Mostrar el separador ${esc(sectionTitle(groupLabel(g)))}" ${hidden.has(g) ? '' : 'checked'}>
     </div>` : `
     <div class="menu-row static cat-row" data-g="${i}">
-      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(g)} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text">${esc(g)}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
-        <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
-          title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button></span>
-      <button type="button" class="icon-btn ghost sm" data-order="${i}" aria-label="Ordenar los canales de ${esc(g)}" title="Ordenar canales">${icon('list-ordered')}</button>
-      <input type="checkbox" class="switch" aria-label="Mostrar ${esc(g)}" ${hidden.has(g) ? '' : 'checked'}>
+      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
+      <span class="menu-text">${esc(groupLabel(g))}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
+        <span class="cat-chips">
+          <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
+            title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button>
+          <button type="button" class="chip-btn" data-order="${i}" aria-label="Ordenar los canales de ${esc(groupLabel(g))}">${icon('list-ordered', 'sm')}Orden</button>
+          ${tools(g, i)}
+        </span></span>
+      <input type="checkbox" class="switch" aria-label="Mostrar ${esc(groupLabel(g))}" ${hidden.has(g) ? '' : 'checked'}>
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
+}
+
+/** Crea una categoría o un separador de sección propio: queda al final, para arrastrarlo a su lugar. */
+async function createGroup(kind: 'category' | 'separator') {
+  const sep = kind === 'separator';
+  const name = await promptDialog({
+    title: sep ? 'Sección nueva' : 'Categoría nueva',
+    text: sep
+      ? 'Un separador agrupa las categorías que le siguen en la playlist. Después arrastralo al lugar que quieras.'
+      : 'Se crea vacía: movele canales desde su ficha o con la selección múltiple, y arrastrala a su lugar.',
+    ok: 'Crear', input: { label: 'Nombre', placeholder: sep ? 'Ej.: DEPORTES' : 'Ej.: Mis favoritos' },
+  });
+  if (!name) return;
+  const taken = new Set([...groups(), ...groups().map(groupLabel)]);
+  if (taken.has(name)) {
+    toast(`Ya hay una categoría o sección "${name}"`, 'bad');
+    return;
+  }
+  const base = groups();
+  editGroups((gr) => {
+    const key = sep ? 'separators' : 'custom';
+    gr[key] = [...(gr[key] ?? []), name];
+    gr.order = [...base, name];
+  }, `${sep ? 'Sección' : 'Categoría'} "${name}" creada al final: arrastrala a su lugar`);
+  const scroller = $('#categoriesDialog .sheet-body');
+  requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
+}
+
+async function renameGroup(g: string) {
+  const sep = sectionHeaders().has(g);
+  const next = await promptDialog({
+    title: sep ? 'Cambiar el nombre de la sección' : 'Cambiar el nombre de la categoría',
+    text: 'Es el nombre que sale en tu playlist; lo de tu proveedor no cambia. Los canales siguen siendo los mismos.',
+    ok: 'Guardar', input: { label: 'Nombre', value: sep ? sectionTitle(groupLabel(g)) : groupLabel(g) },
+  });
+  if (!next || next === groupLabel(g)) return;
+  editGroups((gr) => {
+    const rename = { ...(gr.rename ?? {}) };
+    if (next === g) delete rename[g];
+    else rename[g] = next;
+    gr.rename = rename;
+  }, `Nombre cambiado a "${next}"`);
+}
+
+function unrenameGroup(g: string) {
+  editGroups((gr) => {
+    const rename = { ...(gr.rename ?? {}) };
+    delete rename[g];
+    gr.rename = rename;
+  }, `Vuelve a llamarse "${g}"`);
+}
+
+/** Borra una categoría o separador creado a mano (una categoría con canales no se borra). */
+function deleteGroup(g: string) {
+  editGroups((gr) => {
+    const without = (l?: string[]) => (l ?? []).filter((x) => x !== g);
+    gr.custom = without(gr.custom);
+    gr.separators = without(gr.separators);
+    gr.order = without(gr.order);
+    gr.hidden = without(gr.hidden);
+    gr.noEpg = without(gr.noEpg);
+    for (const k of ['rename', 'channels'] as const) {
+      if (gr[k]) {
+        const copy = { ...gr[k] } as Record<string, unknown>;
+        delete copy[g];
+        (gr as Record<string, unknown>)[k] = copy;
+      }
+    }
+  }, `"${groupLabel(g)}" borrada`);
+}
+
+/** Un separador que se mueve solo, sin arrastrar las categorías que le siguen: los que creó la
+ *  persona (son una marca de dónde empieza su sección) y los que no tienen categorías propias. */
+function isLoneHeader(list: string[], i: number, headers: Set<string>): boolean {
+  return headers.has(list[i])
+    && (!!state.cfg!.groups.separators?.includes(list[i]) || i + 1 >= list.length || headers.has(list[i + 1]));
 }
 
 /** Mueve la categoría `from` a la posición `to` (índices de groups()). Una sección se mueve
@@ -1168,10 +1275,11 @@ function moveGroup(from: number, to: number) {
   if (from === to) return;
   const list = groups();
   const headers = sectionHeaders();
-  if (!headers.has(list[from])) {
+  // Un separador propio cae justo donde se lo suelta, y desde ahí abre una sección nueva.
+  if (!headers.has(list[from]) || isLoneHeader(list, from, headers)) {
     const [g] = list.splice(from, 1);
     list.splice(to, 0, g);
-    editGroups((gr) => { gr.order = list; }, `${g} movida`);
+    editGroups((gr) => { gr.order = list; }, `${groupLabel(g)} movida`);
     return;
   }
   const end = (i: number) => {
@@ -1189,7 +1297,7 @@ function moveGroup(from: number, to: number) {
   // Destino en la lista sin el bloque: antes de la sección donde cae (subiendo) o después (bajando).
   const target = to < from ? start(to) : end(to) - block.length;
   rest.splice(Math.max(0, Math.min(target, rest.length)), 0, ...block);
-  editGroups((gr) => { gr.order = rest; }, `Sección ${sectionTitle(list[from])} movida`);
+  editGroups((gr) => { gr.order = rest; }, `Sección ${sectionTitle(groupLabel(list[from]))} movida`);
 }
 
 /** Arrastrar desde la manija (mouse o dedo): la fila sigue al puntero y las demás se corren. */
@@ -1278,7 +1386,7 @@ function setupCategoryDrag(box: HTMLElement) {
     const headers = sectionHeaders();
     let j = i + (up ? -1 : 1);
     // Una sección baja saltando la siguiente entera.
-    if (!up && headers.has(list[i])) while (j < list.length && !headers.has(list[j])) j++;
+    if (!up && headers.has(list[i]) && !isLoneHeader(list, i, headers)) while (j < list.length && !headers.has(list[j])) j++;
     if (j < 0 || j >= list.length) return;
     const moved = list[i];
     moveGroup(i, j);
@@ -1307,7 +1415,7 @@ function groupChannels(g: string): string[] {
 function renderChannelOrder(g: string) {
   const names = groupChannels(g);
   const custom = !!state.cfg!.groups.channels?.[g];
-  $('#orderTitle').textContent = g;
+  $('#orderTitle').textContent = groupLabel(g);
   $('#orderBody').innerHTML = `
     <p class="help">Arrastrá desde <span class="inline-icon">${icon('grip-vertical')}</span> para ordenar los canales de esta categoría en la playlist. Los canales nuevos del proveedor van al final.</p>
     <div class="menu" id="orderList">${names.map((n, k) => {
@@ -1362,10 +1470,32 @@ function setupCategories() {
   const box = $('#categoriesList');
   setupCategoryDrag(box);
   $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
+  $('#newCategoryBtn').onclick = () => createGroup('category');
+  $('#newSectionBtn').onclick = () => createGroup('separator');
   box.onclick = (ev) => {
-    const ord = (ev.target as HTMLElement).closest<HTMLElement>('[data-order]');
-    if (ord) {
-      openChannelOrder(groups()[Number(ord.dataset.order)]);
+    const t = ev.target as HTMLElement;
+    const pick = (attr: string) => {
+      const el = t.closest<HTMLElement>(`[${attr}]`);
+      return el ? groups()[Number(el.getAttribute(attr))] : undefined;
+    };
+    const ord = pick('data-order');
+    if (ord !== undefined) {
+      openChannelOrder(ord);
+      return;
+    }
+    const ren = pick('data-rename');
+    if (ren !== undefined) {
+      renameGroup(ren);
+      return;
+    }
+    const unren = pick('data-unrename');
+    if (unren !== undefined) {
+      unrenameGroup(unren);
+      return;
+    }
+    const del = pick('data-del');
+    if (del !== undefined) {
+      deleteGroup(del);
       return;
     }
     const chip = (ev.target as HTMLElement).closest<HTMLElement>('.noepg-btn');
@@ -1377,7 +1507,7 @@ function setupCategories() {
       if (on) noEpg.add(g);
       else noEpg.delete(g);
       gr.noEpg = [...noEpg];
-    }, on ? `${g}: sin guía` : `${g} vuelve a necesitar guía`);
+    }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
   };
   box.onchange = (ev) => {
     const input = ev.target as HTMLInputElement;
@@ -1387,7 +1517,7 @@ function setupCategories() {
       if (input.checked) hidden.delete(g);
       else hidden.add(g);
       gr.hidden = [...hidden];
-    }, input.checked ? `${g} visible en la playlist` : `${g} oculta de la playlist`);
+    }, input.checked ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
   };
 }
 
@@ -1799,7 +1929,7 @@ async function openSaved() {
         pending = true;
       }
     } catch { /* sin storage */ }
-    cfg.groups = { order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
+    cfg.groups = { ...cfg.groups, order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
     state.cfg = cfg;
     state.channels = await loadStoredList();
     if (!state.channels.length && cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
