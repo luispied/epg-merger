@@ -468,3 +468,9 @@ dialog.sheet { border-radius: 20px; }
 .ch-fields.first { margin-top: 8px; padding-top: 0; border-top: 0; }
 #catMenuBody .menu { margin-top: 12px; }
 #catMenuBody .menu-row > .icon { flex: none; color: var(--accent); }
+
+/* Barra de la lista: el estado a la izquierda y, a la derecha, lo que actúa sobre la lista. */
+.list-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.list-bar .meta-line { flex: 1; min-width: 0; margin: 0; }
+.list-tools { display: flex; flex: none; margin: -4px -8px -4px 0; }
+.list-tools .icon-btn { width: 40px; height: 40px; }

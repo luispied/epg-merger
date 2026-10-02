@@ -90,8 +90,6 @@
     <div class="title-row">
       <h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1>
       <div class="header-actions">
-        <button class="icon-btn" id="viewBtn" title="Ver como tarjetas" aria-label="Ver como tarjetas"></button>
-        <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
         <button class="icon-btn" id="categoriesBtn" title="Categorías" aria-label="Categorías"><span data-icon="layers"></span></button>
         <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
       </div>
@@ -116,7 +114,13 @@
   </div>
   <main>
     <div class="status-bar" id="status" hidden></div>
-    <p class="meta-line" id="statusLine"></p>
+    <div class="list-bar">
+      <p class="meta-line" id="statusLine"></p>
+      <span class="list-tools">
+        <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
+        <button class="icon-btn" id="viewBtn" title="Ver como tarjetas" aria-label="Ver como tarjetas"></button>
+      </span>
+    </div>
     <div class="guide-status" id="guideStatus" hidden></div>
     <div class="guide-status new-banner" id="newBanner" hidden></div>
     <div class="cards" id="cards"></div>
