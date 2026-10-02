@@ -581,13 +581,18 @@ function visibleChannels(): number[] {
       || withinPos(a) - withinPos(b));
 }
 
-const BAND_TAG: Record<Band, string> = {
-  ok: '<span class="tag ok">Bien</span>',
-  warn: '<span class="tag warn">Dudoso</span>',
-  none: '<span class="tag bad">Sin EPG</span>',
-  manual: `<span class="tag manual with-icon">${icon('hand', 'sm')}A mano</span>`,
-  purpose: `<span class="tag muted with-icon">${icon('hand', 'sm')}Sin EPG a mano</span>`,
-};
+/** La etiqueta de estado de una tarjeta: el porcentaje de coincidencia (verde si es "Bien",
+ *  naranja si es dudosa); "A mano" y "Sin EPG" no tienen porcentaje. */
+function bandTag(band: Band, score?: number): string {
+  const pct = score && score > 0 ? `${Math.round(Math.min(score, 1) * 100)} %` : '';
+  switch (band) {
+    case 'ok': return `<span class="tag ok" title="Coincidencia buena${pct ? `: ${pct}` : ''}">${pct || 'Bien'}</span>`;
+    case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
+    case 'none': return '<span class="tag bad">Sin EPG</span>';
+    case 'manual': return `<span class="tag manual with-icon">${icon('hand', 'sm')}A mano</span>`;
+    case 'purpose': return `<span class="tag muted with-icon">${icon('hand', 'sm')}Sin EPG a mano</span>`;
+  }
+}
 
 // ------------------------------------------------------------------ programación ("Ahora: …")
 // La corrida diaria sube a R2 (ui/schedule/) un índice por hora UTC con lo que da toda la guía
@@ -791,7 +796,7 @@ function wireGuideSearch(root: HTMLElement) {
 
 function cardHtml(i: number): string {
   const ch = state.channels[i];
-  const { edit, epg, hidden, band, suggestion, divider } = info(ch);
+  const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
   const shown = edit.name || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
   const picked = selection.items.has(i);
@@ -822,7 +827,7 @@ function cardHtml(i: number): string {
         ${edit.name ? `<div class="card-sub">En el proveedor: ${esc(ch.name)}</div>` : ''}
         <div class="card-sub"><span>${esc(groupLabel(groupOf(ch)))}</span>${state.newNames.has(ch.name) ? `<span class="pill">${icon('sparkles', 'sm')}Nuevo</span>` : ''}${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
       </div>
-      ${BAND_TAG[band]}
+      ${bandTag(band, auto?.score)}
       <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
     </div>
     ${body}
@@ -2385,6 +2390,8 @@ function setupEditor() {
   };
   $('#settingsBtn').onclick = () => {
     $<HTMLInputElement>('#lenientToggle').checked = !!state.local?.lenient;
+    // Con el umbral de GitHub (0,45 o menos) ya se asignan las dudosas: la opción no cambiaría nada.
+    $<HTMLElement>('#lenientToggle').closest<HTMLElement>('.menu-row')!.hidden = (state.cfg?.matching?.minScore ?? 0.7) <= 0.45;
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
     ($('#settingsDialog') as HTMLDialogElement).showModal();
