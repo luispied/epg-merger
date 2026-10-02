@@ -1056,11 +1056,10 @@ function openChannel(i: number) {
     const mine = edit.manual && edit.epg ? `<span class="tag manual with-icon" title="Elegida por vos">${icon('user-check', 'sm')}</span>` : '';
     const dayBtn = epg ? `<button type="button" class="icon-btn day-btn" data-act="day" aria-expanded="false" aria-label="Programación de hoy y mañana" title="Programación de hoy y mañana">${icon('calendar')}</button>` : '';
     const summary = epg
-      ? epgRowHtml(epg, `${pct}${mine}${dayBtn}`)
+      ? epgRowHtml(epg, `<span class="ch-extras">${pct}${mine}${dayBtn}</span>`)
       : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}${
         suggestion ? ` Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b>` : ''}</div>`;
-    body.innerHTML = `${summary}
-      <div class="day-list" hidden></div>
+    body.innerHTML = `<div class="ch-current">${summary}<div class="day-list" hidden></div></div>
       <div class="ch-search">
         <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía"></label>
         <button type="button" class="icon-btn" data-act="auto" title="Volver a la guía automática" aria-label="Volver a la guía automática"${edit.manual ? '' : ' disabled'}>${icon('undo-2')}</button>
