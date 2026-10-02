@@ -323,3 +323,7 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
   max-height: calc(88vh - env(safe-area-inset-bottom, 0px));
   max-height: calc(88dvh - env(safe-area-inset-bottom, 0px));
 }
+
+/* Scroll infinito: el centinela solo ocupa lo justo para entrar en pantalla. */
+.load-sentinel { height: 1px; }
+.load-sentinel[hidden] { display: none; }

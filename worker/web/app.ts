@@ -660,9 +660,22 @@ function epgRowHtml(id: string, extra = '', opts: { logo?: boolean; cur?: NowPla
     + `<small class="epg-src">${esc(id)}${source ? ` · ${esc(source)}` : ''}</small>${now}</div></div>`;
 }
 
+/** Scroll infinito: llama a `more` cada vez que el centinela entra en pantalla (también si sigue
+ *  a la vista después de cargar, para llenar pantallas altas). `more` devuelve false cuando ya no
+ *  queda nada. */
+function infiniteScroll(sentinel: HTMLElement, more: () => boolean): () => void {
+  if (!('IntersectionObserver' in window)) return () => {};
+  const io = new IntersectionObserver((entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    if (more()) { io.unobserve(sentinel); io.observe(sentinel); } // vuelve a evaluar si sigue visible
+  }, { rootMargin: '400px 0px' });
+  io.observe(sentinel);
+  return () => { io.unobserve(sentinel); io.observe(sentinel); };
+}
+
 /** Busca en toda la guía por nombre o id del canal y por lo que está dando ahora; primero los
  *  que tienen algo en el aire. */
-const SEARCH_LIMIT = 50;
+const SEARCH_PAGE = 50;
 let searchSeq = 0;
 async function renderGuideSearch(term: string, results: HTMLElement) {
   const q = fold(term.trim());
@@ -682,16 +695,29 @@ async function renderGuideSearch(term: string, results: HTMLElement) {
     if (byName || byProgram) hits.push({ id, cur, byProgram });
   }
   if (idx) hits.sort((a, b) => Number(!a.cur) - Number(!b.cur));
-  const shown = hits.slice(0, SEARCH_LIMIT);
   const summary = idx
-    ? `${hits.length} resultado${hits.length === 1 ? '' : 's'}${hits.length > SEARCH_LIMIT ? `, se muestran ${SEARCH_LIMIT}` : ''} · primero los que están dando algo ahora`
+    ? `${hits.length} resultado${hits.length === 1 ? '' : 's'} · primero los que están dando algo ahora`
     : 'Programación por hora no disponible: se carga canal por canal.';
+  const row = ({ id, cur, byProgram }: (typeof hits)[number]) => candidateButton(id, undefined, {
+    cur: idx ? cur : undefined, note: byProgram ? '· coincide con la búsqueda' : '',
+  });
+  let count = Math.min(SEARCH_PAGE, hits.length);
   results.innerHTML = `<div class="list-note">${esc(summary)}</div>`
-    + (shown.map(({ id, cur, byProgram }) => candidateButton(id, undefined, {
-      cur: idx ? cur : undefined, note: byProgram ? '· coincide con la búsqueda' : '',
-    })).join('') || '<div class="list-note">Sin resultados</div>');
+    + (hits.slice(0, count).map(row).join('') || '<div class="list-note">Sin resultados</div>')
+    + '<div class="load-sentinel" aria-hidden="true"></div>';
   results.hidden = false;
   fillEpgRows(results);
+  const sentinel = $('.load-sentinel', results);
+  sentinel.hidden = count >= hits.length;
+  infiniteScroll(sentinel, () => {
+    if (seq !== searchSeq || count >= hits.length) return false;
+    const next = Math.min(count + SEARCH_PAGE, hits.length);
+    sentinel.insertAdjacentHTML('beforebegin', hits.slice(count, next).map(row).join(''));
+    count = next;
+    sentinel.hidden = count >= hits.length;
+    fillEpgRows(results);
+    return !sentinel.hidden;
+  });
 }
 
 function wireGuideSearch(root: HTMLElement) {
@@ -754,6 +780,7 @@ function renderStatusLine() {
   el.textContent = `${total} canales · ${withEpg} con guía${saved}`;
 }
 
+let recheckGrid: () => void = () => {};
 function render() {
   if (!state.cfg) return;
   headersCache = null;
@@ -769,7 +796,8 @@ function render() {
     ? list.slice(0, state.shown).map(cardHtml).join('')
     : `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${state.channels.length ? 'Ningún canal coincide con el filtro.' : 'Volvé a cargar la lista del proveedor (Configuración).'}</div>`;
   fillEpgRows(cards);
-  $('#loadMoreBtn').hidden = list.length <= state.shown;
+  $('#loadMoreSentinel').hidden = list.length <= state.shown;
+  recheckGrid();
   renderStatusLine();
 }
 
@@ -2108,10 +2136,16 @@ function setupEditor() {
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && selection.active && !document.querySelector('dialog[open]')) setSelectMode(false);
   });
-  $('#loadMoreBtn').onclick = () => {
+  recheckGrid = infiniteScroll($('#loadMoreSentinel'), () => {
+    const list = visibleChannels();
+    if (list.length <= state.shown) return false;
+    const from = state.shown;
     state.shown += PAGE;
-    render();
-  };
+    $('#cards').insertAdjacentHTML('beforeend', list.slice(from, state.shown).map(cardHtml).join(''));
+    fillEpgRows($('#cards'));
+    $('#loadMoreSentinel').hidden = list.length <= state.shown;
+    return !$('#loadMoreSentinel').hidden;
+  });
   $('#categoriesBtn').onclick = () => {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
