@@ -228,13 +228,43 @@ const state = {
   index: null as EpgIndex | null,
   rules: null as MatchingRules | null,
   auto: new Map<string, Auto>(),
-  creds: null as Creds | null, // solo en memoria, para generar los links sin volver a pedirlos
+  creds: null as Creds | null, // de la pestaña (ver CREDS_KEY): para generar los links sin volver a pedirlos
   filter: startFilter(),
   search: '',
   shown: PAGE,
   reloading: false,
   newNames: new Set<string>(),
 };
+
+// Usuario y contraseña del proveedor: quedan solo en esta pestaña (sessionStorage; se borran al
+// cerrarla, nunca viajan ni van a localStorage) para no volver a pedirlos al generar links si la
+// página se recarga. Van atados a la configuración con la que se usaron.
+const CREDS_KEY = 'grilla_creds';
+{
+  let mem: Creds | null = null;
+  const read = (): { cfgId: string | null; creds: Creds } | null => {
+    try {
+      return JSON.parse(sessionStorage.getItem(CREDS_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  };
+  Object.defineProperty(state, 'creds', {
+    get(): Creds | null {
+      if (mem) return mem;
+      const saved = read();
+      if (!saved?.creds || (saved.cfgId && state.local && saved.cfgId !== state.local.cfgId)) return null;
+      return saved.creds;
+    },
+    set(v: Creds | null) {
+      mem = v;
+      try {
+        if (v) sessionStorage.setItem(CREDS_KEY, JSON.stringify({ cfgId: state.local?.cfgId ?? null, creds: v }));
+        else sessionStorage.removeItem(CREDS_KEY);
+      } catch { /* sin storage: queda en memoria */ }
+    },
+  });
+}
 
 /** Selección múltiple: índices de state.channels. */
 const selection = { active: false, items: new Set<number>() };
@@ -2051,6 +2081,7 @@ async function openSaved() {
       status(st, null);
       toast(`Tu configuración ya no está (${msg}). Empezá de nuevo o importá un respaldo.`, 'bad', 8000);
       saveLocal((state.local = null));
+      state.creds = null;
       showOnboarding();
     } else status(st, `No se pudo abrir: ${msg}`, 'bad');
   }
@@ -2106,6 +2137,7 @@ async function importBackup(file: File) {
   try {
     const data = JSON.parse(await file.text());
     if (!data?.cfgId || !data?.editKey) throw new Error('no es un respaldo de Grilla');
+    state.creds = null;
     state.local = { cfgId: data.cfgId, editKey: data.editKey };
     await api(`/api/cfg/${data.cfgId}`);
     saveLocal(state.local);
@@ -2301,6 +2333,7 @@ function setupEditor() {
       localStorage.removeItem(LIST_KEY(state.local!.cfgId));
     } catch { /* sin storage */ }
     saveLocal((state.local = null));
+      state.creds = null;
     state.cfg = null;
     ($('#settingsDialog') as HTMLDialogElement).close();
     showOnboarding();
