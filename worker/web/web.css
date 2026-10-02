@@ -32,7 +32,6 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .card-note.suggest > span { flex: 1; min-width: 0; }
 .btn.sm { min-height: 30px; padding: 0 12px; font-size: 13.5px; flex: none; }
 .pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.cat-row .chip-btn { align-self: flex-start; margin-top: 5px; min-height: 26px; }
 .cat-filter { margin: 12px 0 10px; }
 .cat-row { gap: 10px; }
 .drag-handle {
@@ -340,3 +339,24 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 
 /* Que el primer elemento de la hoja no quede pegado (ni tapado) por el título fijo. */
 #linksBody { padding-top: 8px; }
+
+/* Categorías: una fila limpia (arrastrar · nombre · switch · …) y el resto en el menú. */
+.title-tools { display: flex; align-items: center; gap: 2px; }
+.title-tools form { display: contents; }
+.cat-toolbar { display: flex; align-items: center; gap: 2px; margin: 8px 0 6px; }
+.cat-toolbar .cat-filter { flex: 1; min-width: 0; margin: 0; }
+.cat-toolbar .icon-btn { flex: none; }
+.cat-row[hidden] { display: none; }
+.cat-row .menu-text { min-width: 0; flex: 1; }
+.cat-row .menu-text small { display: block; }
+.cat-row .fold-btn { margin: 0 -6px 0 0; }
+.cat-row > .icon-btn { flex: none; margin-right: -6px; }
+.cat-row.section-row .section-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
+.cat-row .fold-btn { width: 32px; height: 32px; min-width: 32px; margin: 0 -6px 0 0; padding: 0; flex: none; }
+.cat-row .fold-btn .icon { width: 20px; height: 20px; }
+.cat-row > .icon-btn:not(.fold-btn) { width: 40px; height: 40px; }
+.cat-row .switch { flex: none; }
+.cat-row.section-row .section-name { white-space: normal; }
+.cat-row .fold-btn { margin: 0 -2px 0 -10px; }
+.cat-row .icon-btn.sm.fold-btn { width: 32px; height: 32px; margin: 0 -2px 0 -10px; }

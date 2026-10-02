@@ -47,6 +47,11 @@ Object.assign(window.ICONS, {
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   'message-circle': '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   'list-ordered': '<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+  'folder-plus': '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'separator-horizontal': '<line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/>',
+  'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
+  'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  'chevron-up': '<path d="m18 15-6-6-6 6"/>',
   'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
 });
 
@@ -1236,42 +1241,93 @@ function sectionHeaders(): Set<string> {
 /** Nombre legible de una sección: sin la decoración y con los caracteres anchos normales. */
 const sectionTitle = (g: string) => g.replace(/[\u2580-\u259F]+/g, ' ').normalize('NFKC').replace(/\s+/g, ' ').trim() || g;
 
+// Secciones plegadas en Categorías (se recuerda por configuración en este navegador).
+const COLLAPSED_KEY = (cfgId: string) => `grilla_cat_collapsed_${cfgId}`;
+function collapsedSections(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY(state.local?.cfgId ?? '')) || '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+function saveCollapsed(set: Set<string>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY(state.local?.cfgId ?? ''), JSON.stringify([...set]));
+  } catch { /* sin storage */ }
+}
+
 function renderCategories() {
   const list = groups();
   const hidden = new Set(state.cfg!.groups.hidden);
   const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
   const headers = sectionHeaders();
-  const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
+  const collapsed = collapsedSections();
   const counts = new Map<string, number>();
   for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
   const q = fold($<HTMLInputElement>('#categoriesFilter').value.trim());
+  // Categorías que tiene cada sección (hasta la siguiente), y a qué sección pertenece cada una.
+  const owner = new Map<string, string>();
+  const size = new Map<string, number>();
+  let current = '';
+  for (const g of list) {
+    if (headers.has(g)) {
+      current = g;
+      size.set(g, 0);
+    } else if (current) {
+      owner.set(g, current);
+      size.set(current, (size.get(current) ?? 0) + 1);
+    }
+  }
   // Con un filtro el orden no se puede arrastrar (se movería entre categorías que no se ven).
   const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(`${groupLabel(g)} ${g}`).includes(q));
-  const renamed = (g: string) => !!state.cfg!.groups.rename?.[g];
-  /** Acciones de la fila, debajo del nombre: nombre, volver al original y, si la creó la persona y
-   *  está vacía, borrar. */
-  const tools = (g: string, i: number) => `
-        <button type="button" class="chip-btn" data-rename="${i}" aria-label="Cambiar el nombre de ${esc(groupLabel(g))}">${icon('pencil', 'sm')}Nombre</button>
-        ${renamed(g) ? `<button type="button" class="chip-btn" data-unrename="${i}" title="Volver a «${esc(g)}»">${icon('rotate-ccw', 'sm')}Original</button>` : ''}
-        ${mine.has(g) && !(counts.get(g) ?? 0) ? `<button type="button" class="chip-btn danger" data-del="${i}" aria-label="Borrar ${esc(groupLabel(g))}">${icon('trash-2', 'sm')}Borrar</button>` : ''}`;
+  const folded = (g: string) => !q && !headers.has(g) && collapsed.has(owner.get(g) ?? '\u0000');
+  const flags = (g: string) => (state.newGroups.has(g) ? ' · nueva' : '') + (noEpg.has(g) ? ' · sin guía' : '') + (hidden.has(g) ? ' · oculta' : '');
+  const more = (g: string, i: number) => `<button type="button" class="icon-btn" data-more="${i}" aria-haspopup="dialog" aria-label="Más opciones de ${esc(sectionTitle(groupLabel(g)))}">${icon('ellipsis')}</button>`;
   $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
     <div class="menu-row static cat-row section-row" data-g="${i}">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(groupLabel(g)))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>Sección · separador en la playlist${hidden.has(g) ? ' · oculta' : ''}</small>
-        <span class="cat-chips">${tools(g, i)}</span></span>
+      <button type="button" class="icon-btn sm fold-btn" data-fold="${i}" aria-expanded="${!collapsed.has(g)}" aria-label="${collapsed.has(g) ? 'Expandir' : 'Contraer'} la sección ${esc(sectionTitle(groupLabel(g)))}">${icon(collapsed.has(g) ? 'chevron-right' : 'chevron-down')}</button>
+      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>${plural(size.get(g) ?? 0, 'categoría', 'categorías')}${flags(g)}</small></span>
       <input type="checkbox" class="switch" aria-label="Mostrar el separador ${esc(sectionTitle(groupLabel(g)))}" ${hidden.has(g) ? '' : 'checked'}>
+      ${more(g, i)}
     </div>` : `
-    <div class="menu-row static cat-row" data-g="${i}">
+    <div class="menu-row static cat-row" data-g="${i}"${folded(g) ? ' hidden' : ''}>
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text">${esc(groupLabel(g))}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${state.newGroups.has(g) ? ' · nueva' : ''}${hidden.has(g) ? ' · oculta' : ''}</small>
-        <span class="cat-chips">
-          <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
-            title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button>
-          <button type="button" class="chip-btn" data-order="${i}" aria-label="Ordenar los canales de ${esc(groupLabel(g))}">${icon('list-ordered', 'sm')}Orden</button>
-          ${tools(g, i)}
-        </span></span>
+      <span class="menu-text">${esc(groupLabel(g))}<small>${plural(counts.get(g) ?? 0, 'canal', 'canales')}${flags(g)}</small></span>
       <input type="checkbox" class="switch" aria-label="Mostrar ${esc(groupLabel(g))}" ${hidden.has(g) ? '' : 'checked'}>
+      ${more(g, i)}
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
+  // Contraer o expandir todas las secciones, según lo que haya.
+  const sections = list.filter((g) => headers.has(g) && (size.get(g) ?? 0) > 0);
+  const allFolded = sections.length > 0 && sections.every((g) => collapsed.has(g));
+  const toggle = $('#foldAllBtn');
+  toggle.hidden = !sections.length;
+  toggle.innerHTML = icon(allFolded ? 'chevrons-up-down' : 'chevrons-down-up');
+  toggle.setAttribute('aria-label', allFolded ? 'Expandir todas las secciones' : 'Contraer todas las secciones');
+  toggle.title = toggle.getAttribute('aria-label')!;
+  toggle.dataset.mode = allFolded ? 'expand' : 'collapse';
+}
+
+/** Menú "…" de una categoría o sección: todo lo que antes eran botones sueltos en cada fila. */
+function openCategoryMenu(i: number) {
+  const g = groups()[i];
+  const isSection = sectionHeaders().has(g);
+  const noEpg = !!state.cfg!.groups.noEpg?.includes(g);
+  const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
+  const empty = !state.channels.some((ch) => groupOf(ch) === g);
+  const dlg = $('#catMenuDialog') as HTMLDialogElement;
+  dlg.dataset.g = String(i);
+  $('#catMenuTitle').textContent = isSection ? sectionTitle(groupLabel(g)) : groupLabel(g);
+  $('#catMenuBody').innerHTML = [
+    menuRowHtml('pencil', 'Cambiar nombre', 'Es el que sale en tu playlist; el del proveedor no cambia', 'rename'),
+    !isSection ? menuRowHtml('list-ordered', 'Ordenar los canales', 'Elegí el orden dentro de la categoría', 'order') : '',
+    !isSection ? menuRowHtml('ban', noEpg ? 'Volver a pedir guía' : 'Sin guía', noEpg
+      ? 'Marcada: no cuenta en "A revisar" ni en "Sin EPG". Tocá para que vuelva a contar'
+      : 'Para eventos sueltos o canales 24/7: no cuenta en "A revisar" ni en "Sin EPG"', 'noepg') : '',
+    state.cfg!.groups.rename?.[g] ? menuRowHtml('rotate-ccw', 'Volver al nombre original', g, 'unrename') : '',
+    mine.has(g) && empty ? menuRowHtml('trash-2', 'Borrar', 'Solo las que creaste vos y están vacías', 'delete', 'danger') : '',
+  ].join('');
+  dlg.showModal();
 }
 
 /** Crea una categoría o un separador de sección propio: queda al final, para arrastrarlo a su lugar. */
@@ -1461,7 +1517,7 @@ function setupDrag(box: HTMLElement, rowSel: string, drop: (from: HTMLElement, t
 }
 
 function setupCategoryDrag(box: HTMLElement) {
-  setupDrag(box, '.cat-row', (from, to) => moveGroup(Number(from.dataset.g), Number(to.dataset.g)), (row, up) => {
+  setupDrag(box, '.cat-row:not([hidden])', (from, to) => moveGroup(Number(from.dataset.g), Number(to.dataset.g)), (row, up) => {
     const i = Number(row.dataset.g);
     const list = groups();
     const headers = sectionHeaders();
@@ -1553,42 +1609,34 @@ function setupCategories() {
   $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
   $('#newCategoryBtn').onclick = () => createGroup('category');
   $('#newSectionBtn').onclick = () => createGroup('separator');
+  $('#categoriesHelpBtn').onclick = () => {
+    const help = $('#helpDialog') as HTMLDialogElement;
+    for (const d of $$<HTMLDetailsElement>('details', help)) d.open = d.id === 'helpCategories';
+    help.showModal();
+    $('#helpCategories').scrollIntoView({ block: 'start' });
+  };
+  $('#foldAllBtn').onclick = () => {
+    const headers = sectionHeaders();
+    const list = groups();
+    const withMembers = list.filter((g, i) => headers.has(g) && i + 1 < list.length && !headers.has(list[i + 1]));
+    saveCollapsed($('#foldAllBtn').dataset.mode === 'collapse' ? new Set(withMembers) : new Set());
+    renderCategories();
+  };
   box.onclick = (ev) => {
     const t = ev.target as HTMLElement;
-    const pick = (attr: string) => {
-      const el = t.closest<HTMLElement>(`[${attr}]`);
-      return el ? groups()[Number(el.getAttribute(attr))] : undefined;
-    };
-    const ord = pick('data-order');
-    if (ord !== undefined) {
-      openChannelOrder(ord);
+    const more = t.closest<HTMLElement>('[data-more]');
+    if (more) {
+      openCategoryMenu(Number(more.dataset.more));
       return;
     }
-    const ren = pick('data-rename');
-    if (ren !== undefined) {
-      renameGroup(ren);
-      return;
+    const fold = t.closest<HTMLElement>('[data-fold]');
+    if (fold) {
+      const g = groups()[Number(fold.dataset.fold)];
+      const set = collapsedSections();
+      if (!set.delete(g)) set.add(g);
+      saveCollapsed(set);
+      renderCategories();
     }
-    const unren = pick('data-unrename');
-    if (unren !== undefined) {
-      unrenameGroup(unren);
-      return;
-    }
-    const del = pick('data-del');
-    if (del !== undefined) {
-      deleteGroup(del);
-      return;
-    }
-    const chip = (ev.target as HTMLElement).closest<HTMLElement>('.noepg-btn');
-    if (!chip) return;
-    const g = groups()[Number(chip.closest<HTMLElement>('[data-g]')!.dataset.g)];
-    const on = !state.cfg!.groups.noEpg?.includes(g);
-    editGroups((gr) => {
-      const noEpg = new Set(gr.noEpg ?? []);
-      if (on) noEpg.add(g);
-      else noEpg.delete(g);
-      gr.noEpg = [...noEpg];
-    }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
   };
   box.onchange = (ev) => {
     const input = ev.target as HTMLInputElement;
@@ -1599,6 +1647,26 @@ function setupCategories() {
       else hidden.add(g);
       gr.hidden = [...hidden];
     }, input.checked ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
+  };
+  $('#catMenuBody').onclick = (ev) => {
+    const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
+    if (!action) return;
+    const dlg = $('#catMenuDialog') as HTMLDialogElement;
+    const g = groups()[Number(dlg.dataset.g)];
+    dlg.close();
+    if (action === 'rename') renameGroup(g);
+    else if (action === 'unrename') unrenameGroup(g);
+    else if (action === 'delete') deleteGroup(g);
+    else if (action === 'order') openChannelOrder(g);
+    else if (action === 'noepg') {
+      const on = !state.cfg!.groups.noEpg?.includes(g);
+      editGroups((gr) => {
+        const noEpg = new Set(gr.noEpg ?? []);
+        if (on) noEpg.add(g);
+        else noEpg.delete(g);
+        gr.noEpg = [...noEpg];
+      }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
+    }
   };
 }
 

@@ -166,19 +166,31 @@
   <div class="sheet-body">
     <div class="title-row">
       <h2 id="categoriesTitle">Categorías</h2>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+      <span class="title-tools">
+        <button type="button" class="icon-btn" id="categoriesHelpBtn" aria-label="Cómo funciona" title="Cómo funciona"><span data-icon="circle-help"></span></button>
+        <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+      </span>
     </div>
-    <p>Arrastrá desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist; el switch la muestra u oculta y el lápiz cambia su nombre. Las categorías nuevas del proveedor aparecen al final.
-      <b>Sin guía</b> marca las que no necesitan EPG (eventos sueltos, canales 24/7…): no cuentan en "A revisar" ni en "Sin EPG".</p>
-    <label class="search-field cat-filter">
-      <span data-icon="search"></span>
-      <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
-    </label>
-    <div class="row-actions cat-actions">
-      <button type="button" class="btn btn-gray sm" id="newCategoryBtn"><span data-icon="plus"></span>Nueva categoría</button>
-      <button type="button" class="btn btn-gray sm" id="newSectionBtn"><span data-icon="plus"></span>Nueva sección</button>
+    <div class="cat-toolbar">
+      <label class="search-field cat-filter">
+        <span data-icon="search"></span>
+        <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
+      </label>
+      <button type="button" class="icon-btn" id="newCategoryBtn" aria-label="Nueva categoría" title="Nueva categoría"><span data-icon="folder-plus"></span></button>
+      <button type="button" class="icon-btn" id="newSectionBtn" aria-label="Nueva sección" title="Nueva sección"><span data-icon="separator-horizontal"></span></button>
+      <button type="button" class="icon-btn" id="foldAllBtn" hidden></button>
     </div>
     <div class="menu" id="categoriesList"></div>
+  </div>
+</dialog>
+
+<dialog class="sheet settings-sheet" id="catMenuDialog" aria-labelledby="catMenuTitle">
+  <div class="sheet-body">
+    <div class="title-row">
+      <h2 id="catMenuTitle" class="menu-title"></h2>
+      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+    </div>
+    <div class="menu" id="catMenuBody"></div>
   </div>
 </dialog>
 
@@ -296,6 +308,13 @@
     <details open>
       <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
       <p>En <b>Configuración → Tus links</b> agregás un <b>dispositivo</b> (por ejemplo «TV del living») y se generan dos links: la <b>playlist</b> y la <b>guía</b>. Cada dispositivo tiene el suyo: podés ver cuándo se usó, cambiarle el nombre o quitarlo sin afectar a los demás. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. También podés mandártelos por WhatsApp o mail desde ahí. También podés escanear el código QR desde la tele.</p>
+    </details>
+
+    <details id="helpCategories">
+      <summary>¿Cómo organizo las categorías y secciones?<span data-icon="chevron-down"></span></summary>
+      <p>En <b>Configuración → Categorías</b> arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist y el switch las muestra u oculta. Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una sección, o el botón de arriba para contraer o expandir todas, y así ordenarlas más fácil.</p>
+      <p>El menú <b>…</b> de cada fila tiene: <b>Cambiar nombre</b> (el que sale en tu playlist; el del proveedor no cambia), <b>Ordenar los canales</b> de la categoría, <b>Sin guía</b> (para eventos sueltos o canales 24/7: no cuentan en "A revisar" ni en "Sin EPG"), <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
+      <p>Con los botones de arriba creás una <b>categoría</b> o una <b>sección</b> nuevas; quedan al final para arrastrarlas a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
     </details>
 
     <details>
