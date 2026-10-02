@@ -142,6 +142,7 @@ gratis para el servicio mientras entre en los planes gratuitos.
      solo de respaldo. La corrida diaria sigue igual: arma la guía compartida.
 
 **Herramientas de operación:**
+- 02/10: se sacó "Asignar también las dudosas" (lo dudoso queda como sugerencia con su porcentaje y botón Usar) y "Importar desde Grilla (GitHub)" quedó oculto: se muestra abriendo `/?importar` (para Paola). Pendiente: sacarlo del todo el 08/10, cuando termine la semana de prueba.
 - Dispositivos (02/10): cada link corto es un dispositivo con nombre, fecha y último uso (`worker/src/devices.ts`); se quita uno sin afectar a los demás. `tools/delete_short_links.py` (workflow "Delete Grilla short links") borra todos los links cortos.
 - `tools/delete_cfg.py` (workflow "Delete Grilla config"): borra una configuración de prueba con
   todo lo suyo (lista, guía, links cortos, enlaces).
