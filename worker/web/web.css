@@ -59,36 +59,37 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
    campos delineados, chips, switch, hojas y snackbar). Pisa lo de app.css, que se
    comparte con la interfaz de docs/ y no se toca.
    ================================================================================== */
+/* "Guía de TV": oscuro con acento ámbar por defecto; el claro es cálido (papel y ámbar oscuro). */
 :root {
-  --bg: #f8f9ff; --surface: #ffffff; --surface-2: #eef1f8; --fill: #e1e5ee;
-  --text: #191c20; --muted: #43474e; --faint: #73777f; --hairline: #c3c6cf;
-  --accent: #0b57d0; --on-accent: #ffffff; --accent-soft: #d8e2ff; --on-accent-soft: #001a41;
-  --green: #146c2e; --orange: #8a5100; --red: #ba1a1a; --on-danger: #ffffff; --blue: #0b57d0; --gray: #5e6168;
-  --inverse-surface: #2e3036; --inverse-text: #eff0f7; --inverse-accent: #adc6ff;
-  --toolbar-bg: rgba(248, 249, 255, .92);
-  --shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 1px 3px 1px rgba(0, 0, 0, .06);
-  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .12), 0 1px 3px rgba(0, 0, 0, .2);
+  --bg: #f5f2ec; --surface: #ffffff; --surface-2: #efebe3; --fill: #e4dfd4;
+  --text: #1c1a15; --muted: #4d4a40; --faint: #8a8579; --hairline: #d9d3c6;
+  --accent: #a35f00; --on-accent: #ffffff; --accent-soft: #ffe3b8; --on-accent-soft: #3b2400;
+  --green: #1e7a43; --orange: #b34a12; --red: #b3261e; --on-danger: #ffffff; --blue: #1d5fb8; --gray: #6a665b;
+  --inverse-surface: #2b2820; --inverse-text: #f1ede3; --inverse-accent: #ffc15c;
+  --toolbar-bg: rgba(245, 242, 236, .92);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 1px 3px 1px rgba(0, 0, 0, .05);
+  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .18);
   --radius: 12px; --radius-sm: 8px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111318; --surface: #1d2024; --surface-2: #272a2f; --fill: #32353a;
-    --text: #e2e2e9; --muted: #c4c6d0; --faint: #8e9099; --hairline: #44474e;
-    --accent: #adc6ff; --on-accent: #002e69; --accent-soft: #284777; --on-accent-soft: #d8e2ff;
-    --green: #6dd58c; --orange: #ffb870; --red: #ffb4ab; --on-danger: #690005; --blue: #adc6ff; --gray: #a0a3ab;
-    --inverse-surface: #3b3f47; --inverse-text: #e2e2e9; --inverse-accent: #adc6ff;
-    --toolbar-bg: rgba(17, 19, 24, .92);
-    --shadow: 0 1px 3px rgba(0, 0, 0, .45); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .6);
+    --bg: #0c0d10; --surface: #15171c; --surface-2: #1d2026; --fill: #272b33;
+    --text: #eceef2; --muted: #b4bac6; --faint: #767d8b; --hairline: #2a2e37;
+    --accent: #ffb224; --on-accent: #1d1300; --accent-soft: #3d2d09; --on-accent-soft: #ffd98a;
+    --green: #52d49a; --orange: #ff9a66; --red: #ff7b72; --on-danger: #3c0a07; --blue: #7fb2ff; --gray: #98a0ae;
+    --inverse-surface: #2d3139; --inverse-text: #eceef2; --inverse-accent: #ffb224;
+    --toolbar-bg: rgba(12, 13, 16, .92);
+    --shadow: 0 1px 3px rgba(0, 0, 0, .5); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #111318; --surface: #1d2024; --surface-2: #272a2f; --fill: #32353a;
-  --text: #e2e2e9; --muted: #c4c6d0; --faint: #8e9099; --hairline: #44474e;
-  --accent: #adc6ff; --on-accent: #002e69; --accent-soft: #284777; --on-accent-soft: #d8e2ff;
-  --green: #6dd58c; --orange: #ffb870; --red: #ffb4ab; --on-danger: #690005; --blue: #adc6ff; --gray: #a0a3ab;
-  --inverse-surface: #3b3f47; --inverse-text: #e2e2e9; --inverse-accent: #adc6ff;
-  --toolbar-bg: rgba(17, 19, 24, .92);
-  --shadow: 0 1px 3px rgba(0, 0, 0, .45); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .6);
+  --bg: #0c0d10; --surface: #15171c; --surface-2: #1d2026; --fill: #272b33;
+  --text: #eceef2; --muted: #b4bac6; --faint: #767d8b; --hairline: #2a2e37;
+  --accent: #ffb224; --on-accent: #1d1300; --accent-soft: #3d2d09; --on-accent-soft: #ffd98a;
+  --green: #52d49a; --orange: #ff9a66; --red: #ff7b72; --on-danger: #3c0a07; --blue: #7fb2ff; --gray: #98a0ae;
+  --inverse-surface: #2d3139; --inverse-text: #eceef2; --inverse-accent: #ffb224;
+  --toolbar-bg: rgba(12, 13, 16, .92);
+  --shadow: 0 1px 3px rgba(0, 0, 0, .5); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
 }
 body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
 
@@ -366,3 +367,45 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .pct { font-weight: 600; }
 .pct.ok { color: var(--green); }
 .pct.warn { color: var(--orange); }
+
+/* ==================================================================================
+   Guía de TV: formas más rectas (sin píldoras), números en monoespaciada, filas compactas.
+   ================================================================================== */
+.btn { border-radius: 10px; }
+.search-field { border-radius: 12px; }
+.seg { border-radius: 10px; }
+.input, .select { border-radius: 8px; }
+.inline-field .icon-btn { border-radius: 10px; }
+dialog.sheet { border-radius: 20px; }
+@media (max-width: 560px) { dialog.sheet { border-radius: 20px 20px 0 0; } }
+.pill { border-radius: 6px; }
+.segmented button, .chip-btn { border-radius: 8px; }
+.tag, .pct, .day-time, .count, .epg-src { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.tag { font-weight: 600; letter-spacing: -.01em; }
+.app-header h1.brand img { border-radius: 8px; }
+.card { box-shadow: none; box-shadow: inset 0 0 0 1px var(--hairline); }
+.card:hover { background: var(--surface-2); }
+.cards { gap: 8px; }
+
+/* Fila compacta (modo por defecto): logo chico, nombre, programa en el aire y estado. */
+.cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: hidden; }
+.cards.rows .card.row-card { border-radius: 0; box-shadow: none; background: transparent; padding: 8px 4px 8px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); min-height: 56px; }
+.cards.rows .card.row-card:first-child { border-top: 0; }
+.cards.rows .card.row-card:hover { background: var(--surface-2); }
+.cards.rows .card.row-card .logo { width: 36px; height: 36px; flex: none; }
+.cards.rows .card.row-card .card-title { flex: 1; min-width: 0; }
+.cards.rows .card.row-card .card-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cards.rows .row-sub { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; color: var(--muted); min-width: 0; margin-top: 1px; }
+.cards.rows .row-sub .cat { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards.rows .row-sub .epg-now { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); }
+.cards.rows .row-sub .epg-now.on-air { color: var(--muted); }
+.cards.rows .row-sub .epg-now.on-air::before { content: "· "; }
+.cards.rows .row-sub .live { color: var(--accent); }
+.cards.rows .card.row-card .tag { flex: none; margin: 0; font-size: 12px; }
+.cards.rows .card.row-card .card-menu-btn { margin: 0; flex: none; width: 40px; height: 40px; }
+.cards.rows .card.row-card .btn.sm { flex: none; }
+.cards.rows .card.section-card { background: transparent; padding: 14px 4px 6px 12px; border-top: 1px solid var(--hairline); border-radius: 0; box-shadow: none; min-height: 0; }
+.cards.rows .card.section-card:first-child { border-top: 0; }
+.cards.rows .card.row-card.selected, .cards.rows .card.section-card.selected { background: var(--accent-soft); box-shadow: none; }
+.cards.rows .card.row-card .sel-box { margin: 0; flex: none; }
+.cards.rows .card.row-card.is-hidden { opacity: .5; }

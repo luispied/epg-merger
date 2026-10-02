@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f8f9ff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0d10" media="(prefers-color-scheme: dark)">
 <title>Grilla</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png?v=__VERSION__">
 <script>
   try {
-    var t = localStorage.getItem('grilla_theme');
+    var t = localStorage.getItem('grilla_theme') || 'dark';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
@@ -90,6 +90,7 @@
     <div class="title-row">
       <h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1>
       <div class="header-actions">
+        <button class="icon-btn" id="viewBtn" title="Ver como tarjetas" aria-label="Ver como tarjetas"></button>
         <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
         <button class="icon-btn" id="categoriesBtn" title="Categorías" aria-label="Categorías"><span data-icon="layers"></span></button>
         <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>

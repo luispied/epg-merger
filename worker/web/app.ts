@@ -47,6 +47,8 @@ Object.assign(window.ICONS, {
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   'message-circle': '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   'list-ordered': '<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+  'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  'rows-3': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M21 9H3"/><path d="M21 15H3"/>',
   'folder-plus': '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   'separator-horizontal': '<line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/>',
   'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
@@ -659,6 +661,13 @@ function fillEpgRows(root: ParentNode) {
   for (const el of $$('.epg-now[data-now-for]', root)) {
     const id = el.dataset.nowFor!;
     el.removeAttribute('data-now-for');
+    if (el.dataset.compact) {
+      nowPlaying(id).then((cur) => {
+        el.textContent = cur ? cur.title : '';
+        el.classList.toggle('on-air', !!cur);
+      });
+      continue;
+    }
     nowPlaying(id).then((cur) => {
       el.innerHTML = nowHtml(cur, id, el.dataset.note ?? '');
       el.classList.toggle('on-air', !!cur);
@@ -798,6 +807,9 @@ function wireGuideSearch(root: HTMLElement) {
   };
 }
 
+/** Cómo se ve la lista: filas compactas (por defecto) o tarjetas. Es una preferencia de este navegador. */
+const viewMode = (): 'row' | 'card' => (pref('grilla_view', 'row') === 'card' ? 'card' : 'row');
+
 function cardHtml(i: number): string {
   const ch = state.channels[i];
   const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
@@ -810,6 +822,21 @@ function cardHtml(i: number): string {
       <div class="card-title"><div class="section-name">${esc(sectionTitle(groupLabel(groupOf(ch))))}</div>
         <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
       <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del separador">${icon('ellipsis')}</button>
+    </article>`;
+  }
+  if (viewMode() === 'row') {
+    const shownName = esc(state.index?.displayName.get(suggestion?.channelId ?? '') ?? suggestion?.channelId ?? '');
+    const sug = !epg && !edit.manual && suggestion;
+    const sub = sug
+      ? `<span class="cat">Sugerencia: <b>${shownName}</b> <span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span></span>`
+      : `<span class="cat">${esc(groupLabel(groupOf(ch)))}${state.newNames.has(ch.name) ? ' · nuevo' : ''}${edit.group ? ' · movido' : ''}${hidden ? ' · oculto' : ''}</span>`
+        + (epg ? `<span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span>` : '');
+    return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
+      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
+      ${logoHtml(epg, '', edit.customLogo)}
+      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${sub}</div></div>
+      ${sug ? `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button>` : bandTag(band, auto?.score)}
+      <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
     </article>`;
   }
   let body: string;
@@ -859,6 +886,9 @@ function render() {
   }
   const list = visibleChannels();
   const cards = $('#cards');
+  cards.classList.toggle('rows', viewMode() === 'row');
+  $('#viewBtn').innerHTML = icon(viewMode() === 'row' ? 'layout-grid' : 'rows-3');
+  $('#viewBtn').title = $('#viewBtn').ariaLabel = viewMode() === 'row' ? 'Ver como tarjetas' : 'Ver como filas';
   cards.innerHTML = list.length
     ? list.slice(0, state.shown).map(cardHtml).join('')
     : `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${state.channels.length ? 'Ningún canal coincide con el filtro.' : 'Volvé a cargar la lista del proveedor (Configuración).'}</div>`;
@@ -2348,6 +2378,10 @@ function setupEditor() {
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
   });
+  $('#viewBtn').onclick = () => {
+    setPref('grilla_view', viewMode() === 'row' ? 'card' : 'row');
+    render();
+  };
   $('#categoriesBtn').onclick = () => {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
@@ -2437,7 +2471,7 @@ function setupEditor() {
   };
   const theme = (() => {
     try {
-      return localStorage.getItem('grilla_theme') || 'auto';
+      return localStorage.getItem('grilla_theme') || 'dark';
     } catch {
       return 'auto';
     }
