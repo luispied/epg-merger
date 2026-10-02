@@ -2,6 +2,7 @@
 // Canales conocidos → su EPG, nombre, categoría y ocultos; canales nuevos (los eventos del
 // día) → tal cual, sin EPG; los que ya no están, no salen.
 import type { Config } from './config.ts';
+import { placeNewGroups } from './groups.ts';
 import type { Channel } from './provider.ts';
 
 // Sin mecanismo de escape en M3U: un '"' literal rompería el atributo (ver _m3u_attr).
@@ -20,7 +21,9 @@ export interface PlaylistOptions {
 
 export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOptions): string {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
-  const order = new Map((cfg.groups?.order ?? []).map((g, i) => [g, i]));
+  // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
+  const present = [...new Set(channels.map((ch) => cfg.channels[ch.name]?.group || ch.category))];
+  const order = new Map(placeNewGroups(cfg.groups?.order ?? [], present, new Set(cfg.groups?.separators ?? [])).map((g, i) => [g, i]));
   // Orden propio dentro de la categoría: los listados primero, el resto en el orden del proveedor.
   const within = new Map(Object.entries(cfg.groups?.channels ?? {}).map(([g, names]) => [g, new Map(names.map((n, i) => [n, i]))]));
   const rename = cfg.groups?.rename ?? {};
@@ -55,7 +58,7 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
         + (opts.separatorUrl ?? ''),
     });
   }
-  // Las categorías en el orden guardado; las nuevas, al final en el orden del proveedor.
+  // Las categorías en el orden guardado, con las nuevas ya ubicadas.
   rows.sort((a, b) => a.group - b.group || a.pos - b.pos);
   return [`#EXTM3U url-tvg="${attr(opts.epgUrl)}"`, ...rows.map((r) => r.text)].join('\n') + '\n';
 }

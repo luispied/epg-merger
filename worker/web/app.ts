@@ -6,6 +6,7 @@ import {
   EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
+import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
@@ -234,6 +235,7 @@ const state = {
   shown: PAGE,
   reloading: false,
   newNames: new Set<string>(),
+  newGroups: new Set<string>(), // categorías que el proveedor trajo en esta apertura
 };
 
 // Usuario y contraseña del proveedor: quedan solo en esta pestaña (sessionStorage; se borran al
@@ -477,8 +479,28 @@ function groups(): string[] {
       present.push(g);
     }
   }
-  const order = state.cfg!.groups.order.filter((g) => seen.has(g));
-  return [...order, ...present.filter((g) => !order.includes(g))];
+  return placeNewGroups(state.cfg!.groups.order, present, new Set(state.cfg!.groups.separators ?? [])).filter((g) => seen.has(g));
+}
+
+/** Categorías que el proveedor trajo y todavía no estaban en el orden guardado: se ubican solas
+ *  junto a las que se les parecen (igual que en la playlist) y se avisa, con "Deshacer". */
+function placeNewCategories() {
+  const gr = state.cfg!.groups;
+  state.newGroups = new Set();
+  if (!gr.order.length) return;
+  const present = [...new Set(state.channels.map(groupOf))];
+  const known = new Set(gr.order);
+  const fresh = present.filter((g) => !known.has(g));
+  if (!fresh.length) return;
+  const placed = placeNewGroups(gr.order, present, new Set(gr.separators ?? []));
+  state.newGroups = new Set(fresh);
+  const where = (g: string) => {
+    const prev = placed.slice(0, placed.indexOf(g)).reverse().find((h) => present.includes(h));
+    return prev && !sectionHeaders().has(prev) ? `«${groupLabel(g)}» quedó después de «${groupLabel(prev)}»` : `«${groupLabel(g)}» quedó al final`;
+  };
+  const shown = fresh.slice(0, 3).map(where).join('; ');
+  editGroups((g) => { g.order = placed; },
+    `${fresh.length === 1 ? 'Categoría nueva del proveedor' : `${fresh.length} categorías nuevas del proveedor`}, ubicada${fresh.length === 1 ? '' : 's'} sola${fresh.length === 1 ? '' : 's'}: ${shown}${fresh.length > 3 ? ` y ${fresh.length - 3} más` : ''}. Podés moverla${fresh.length === 1 ? '' : 's'} en Categorías.`);
 }
 
 type Band = 'ok' | 'warn' | 'none' | 'manual' | 'purpose';
@@ -1241,7 +1263,7 @@ function renderCategories() {
     </div>` : `
     <div class="menu-row static cat-row" data-g="${i}">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text">${esc(groupLabel(g))}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${hidden.has(g) ? ' · oculta' : ''}</small>
+      <span class="menu-text">${esc(groupLabel(g))}<small>${counts.get(g) ?? 0} canal${counts.get(g) === 1 ? '' : 'es'}${state.newGroups.has(g) ? ' · nueva' : ''}${hidden.has(g) ? ' · oculta' : ''}</small>
         <span class="cat-chips">
           <button type="button" class="chip-btn noepg-btn" aria-pressed="${noEpg.has(g)}"
             title="${noEpg.has(g) ? 'Marcada como sin guía: tocá para que vuelva a contar en &quot;A revisar&quot;' : 'Tocá si esta categoría no necesita guía (no cuenta en &quot;A revisar&quot; ni &quot;Sin EPG&quot;)'}">${icon('ban', 'sm')}Sin guía</button>
@@ -1930,8 +1952,10 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
     await storeList();
     writeDraft(null);
     status(st, null);
-    if (keep) detectNew();
-    else markSeen();
+    if (keep) {
+      detectNew();
+      placeNewCategories();
+    } else markSeen();
     showEditor();
     toast(`${channels.length} canales cargados`, 'ok');
   } catch (e) {
@@ -2073,6 +2097,7 @@ async function openSaved() {
     if ((await rematch(say)) || pending) await saveNow();
     status(st, null);
     detectNew();
+    placeNewCategories();
     render();
     refreshGuideStatus();
   } catch (e) {
