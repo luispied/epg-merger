@@ -30,11 +30,13 @@ const CONFIG = {
   groups: { order: ['Deportes AR', '🇦🇷 Argentina'] },
 };
 
+// Cada configuración de prueba entra con su propia IP: el límite por IP es de todo el archivo.
+let setups = 0;
 async function setup(extra: Partial<typeof CONFIG> = {}, down: string[] = []) {
   const t = makeEnv();
   const mock = mockXtream({ streams: STREAMS, categories: CATEGORIES, down });
   restore = mock.restore;
-  const created = await (await handle(req('/api/cfg', { method: 'POST', body: JSON.stringify({ ...CONFIG, ...extra }) }), t.env, t.ctx, t.cache)).json() as { cfgId: string; editKey: string };
+  const created = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': `setup-${++setups}` }, body: JSON.stringify({ ...CONFIG, ...extra }) }), t.env, t.ctx, t.cache)).json() as { cfgId: string; editKey: string };
   const links = await (await handle(req(`/api/cfg/${created.cfgId}/token`, {
     method: 'POST', key: created.editKey, body: JSON.stringify({ username: 'user', password: 'pa ss' }),
   }), t.env, t.ctx, t.cache)).json() as { token: string; playlistUrl: string; epgUrl: string };
@@ -432,4 +434,60 @@ test('GET /sep responde sin pedirle nada al proveedor', async () => {
   const res = await handle(req('/sep'), t.env, t.ctx, t.cache);
   assert.equal(res.status, 200);
   assert.match(await res.text(), /Separador/);
+});
+
+test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo corta solo ese link', async () => {
+  const t = await setup();
+  const mk = async (name: string) => await (await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey,
+    body: JSON.stringify({ username: 'user', password: 'pa ss', name }) }), t.env, t.ctx, t.cache)).json() as { code: string; playlistUrl: string; epgUrl: string };
+  const living = await mk('  TV   del living ');
+  const cuarto = await mk('TV cuarto');
+  const list = async () => (await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
+    { devices: { code: string; name: string; created: string; lastUsed?: string; playlistUrl: string }[] }).devices;
+  let devices = await list();
+  // El link de arriba (setup) también se anotó, sin nombre.
+  assert.deepEqual(devices.map((d) => d.name), ['Sin nombre', 'TV del living', 'TV cuarto']);
+  assert.equal(devices[1].playlistUrl, living.playlistUrl);
+  assert.ok(devices[1].created);
+  // Usar el link anota el último uso.
+  assert.equal(devices[1].lastUsed, undefined);
+  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  await Promise.all(t.pending ?? []);
+  // Renombrar.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${cuarto.code}`, { method: 'PATCH', key: t.editKey, body: JSON.stringify({ name: 'Cuarto' }) }), t.env, t.ctx, t.cache)).status, 200);
+  // Quitar uno: ese link muere, el otro sigue.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${cuarto.code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await handle(new Request(cuarto.playlistUrl), t.env, t.ctx, t.cache)).status, 404);
+  assert.equal((await handle(new Request(cuarto.epgUrl), t.env, t.ctx, t.cache)).status, 404);
+  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  devices = await list();
+  assert.deepEqual(devices.map((d) => d.name), ['Sin nombre', 'TV del living']);
+  // Sin la clave de edición no se ve ni se toca nada.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices`, {}), t.env, t.ctx, t.cache)).status, 401);
+  // Borrar la configuración borra todos sus links.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 404);
+});
+
+test('dispositivos: una configuración no puede tocar los links de otra', async () => {
+  const a = await setup();
+  const b = await setup();
+  const [dev] = (await (await handle(req(`/api/cfg/${a.cfgId}/devices`, { key: a.editKey }), a.env, a.ctx, a.cache)).json() as { devices: { code: string }[] }).devices;
+  const res = await handle(req(`/api/cfg/${b.cfgId}/devices/${dev.code}`, { method: 'DELETE', key: b.editKey }), b.env, b.ctx, b.cache);
+  assert.equal(res.status, 404);
+});
+
+test('dispositivos: el último uso se anota como mucho una vez por hora', async () => {
+  const { touchDevice } = await import('../src/devices.ts');
+  const t = makeEnv();
+  const rec = { cfgId: 'cfgAAAAAAAAAAAAAAAAA', token: 'tk' };
+  await t.env.BUCKET.put('short/codigo0001.json', JSON.stringify(rec));
+  const t0 = new Date('2026-10-02T10:00:00Z');
+  await touchDevice(t.env.BUCKET, 'codigo0001', rec, t0);
+  const first = JSON.parse(await (await t.env.BUCKET.get('short/codigo0001.json'))!.text());
+  assert.equal(first.lastUsed, t0.toISOString());
+  await touchDevice(t.env.BUCKET, 'codigo0001', first, new Date('2026-10-02T10:30:00Z'));
+  assert.equal(JSON.parse(await (await t.env.BUCKET.get('short/codigo0001.json'))!.text()).lastUsed, t0.toISOString());
+  await touchDevice(t.env.BUCKET, 'codigo0001', first, new Date('2026-10-02T11:01:00Z'));
+  assert.equal(JSON.parse(await (await t.env.BUCKET.get('short/codigo0001.json'))!.text()).lastUsed, '2026-10-02T11:01:00.000Z');
 });

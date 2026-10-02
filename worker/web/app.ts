@@ -1553,49 +1553,112 @@ function setupCategories() {
 const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
-function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
+interface Device { code: string; name: string; created?: string; lastUsed?: string; playlistUrl: string; epgUrl: string }
+type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
+
+const ago = (iso?: string) => {
+  if (!iso) return 'sin uso todavía';
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (min < 60) return 'usado hace un rato';
+  if (min < 1440) return `usado hace ${Math.round(min / 60)} h`;
+  return `usado hace ${Math.round(min / 1440)} d`;
+};
+
+/** Pantalla de "Tus links": la lista de dispositivos (un link por cada uno) y el formulario para
+ *  agregar otro. Con `result`, los links de un dispositivo. */
+async function renderLinks(result?: LinkResult) {
+  if (result) return renderLinkResult(result);
   const p = state.cfg!.provider;
   const body = $('#linksBody');
-  if (!result) {
-    const needsCreds = !state.creds;
-    body.innerHTML = `
-      <p>Los links llevan tus datos del proveedor cifrados: el servidor no los guarda. Si cambiás
-        la contraseña del proveedor, generalos de nuevo.</p>
-      <form class="stack" id="linksForm" autocomplete="off">
-        ${needsCreds && p.type === 'xtream' ? `
-          <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
-          <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
-        ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
-        <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
-      </form>`;
-    $('#linksForm').onsubmit = async (ev) => {
-      ev.preventDefault();
-      let creds = state.creds;
-      if (!creds) {
-        creds = p.type === 'xtream'
-          ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
-          : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
-        if (Object.values(creds).some((v) => !v)) {
-          toast('Completá los datos del proveedor', 'bad');
-          return;
-        }
-      }
+  body.onclick = null;
+  body.innerHTML = '<p class="help">Cargando…</p>';
+  let devices: Device[] = [];
+  try {
+    devices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local!.cfgId}/devices`)).devices;
+  } catch { /* sin lista: se puede agregar igual */ }
+  const needsCreds = !state.creds;
+  body.innerHTML = `
+    <p>Un link por dispositivo: así sabés cuál es cuál y podés quitar uno sin afectar a los demás.
+      Todos muestran lo mismo (tu configuración). Los links llevan tus datos del proveedor cifrados:
+      el servidor no los guarda en claro.</p>
+    ${devices.length ? `<div class="device-list">${devices.map((d) => `
+      <div class="device" data-code="${esc(d.code)}">
+        <div class="device-info"><strong>${esc(d.name)}</strong><small>${esc(ago(d.lastUsed))}</small></div>
+        <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
+        <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
+        <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
+      </div>`).join('')}</div>` : '<p class="help">Todavía no tenés dispositivos.</p>'}
+    <h3 class="sub-title">Agregar dispositivo</h3>
+    <form class="stack" id="linksForm" autocomplete="off">
+      <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
+      ${needsCreds && p.type === 'xtream' ? `
+        <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
+        <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
+      ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
+    </form>`;
+  body.onclick = async (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-dev]');
+    if (!btn) return;
+    const row = btn.closest<HTMLElement>('.device')!;
+    const dev = devices.find((d) => d.code === row.dataset.code)!;
+    if (btn.dataset.dev === 'show') {
+      renderLinkResult(dev);
+    } else if (btn.dataset.dev === 'rename') {
+      const name = await promptDialog({ title: 'Nombre del dispositivo', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
+      if (name === null || !name.trim()) return;
       try {
-        await saveNow();
-        const r = await api<{ playlistUrl: string; epgUrl: string }>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: creds });
-        state.creds = creds;
-        renderLinks(r);
+        await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { name } });
+        renderLinks();
       } catch (e) {
         toast((e as Error).message, 'bad', 6000);
       }
-    };
-    return;
-  }
+    } else if (btn.dataset.dev === 'remove') {
+      if (!(await confirmDialog({
+        title: `¿Quitar “${dev.name}”?`, text: 'Su link deja de funcionar al instante. Los demás dispositivos no se tocan.', ok: 'Quitar', danger: true,
+      }))) return;
+      try {
+        await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'DELETE' });
+        toast(`“${dev.name}” quitado`, 'ok');
+        renderLinks();
+      } catch (e) {
+        toast((e as Error).message, 'bad', 6000);
+      }
+    }
+  };
+  $('#linksForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    let creds = state.creds;
+    if (!creds) {
+      creds = p.type === 'xtream'
+        ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
+        : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
+      if (Object.values(creds).some((v) => !v)) {
+        toast('Completá los datos del proveedor', 'bad');
+        return;
+      }
+    }
+    try {
+      await saveNow();
+      const name = $<HTMLInputElement>('#lnkName').value.trim();
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, name } });
+      state.creds = creds;
+      renderLinkResult({ ...r, name });
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
+function renderLinkResult(result: LinkResult) {
+  const body = $('#linksBody');
   const row = (label: string, url: string, id: string) => `
     <label class="field"><span>${label}</span>
       <div class="inline-field"><input class="input mono" id="${id}" readonly value="${esc(url)}">
         <button type="button" class="icon-btn" data-copy="${id}" aria-label="Copiar">${icon('copy')}</button></div></label>`;
   body.innerHTML = `
+    <button type="button" class="btn btn-gray" data-back>${icon('arrow-left')}Dispositivos</button>
+    ${result.name ? `<h3 class="sub-title">${esc(result.name)}</h3>` : ''}
     ${row('Playlist (M3U)', result.playlistUrl, 'lnkPlaylist')}
     ${row('Guía (EPG)', result.epgUrl, 'lnkEpg')}
     <div class="share-row">
@@ -1611,6 +1674,10 @@ function renderLinks(result?: { playlistUrl: string; epgUrl: string }) {
     <p class="help">Son links inadivinables pero no privados: quien los tenga puede ver tus canales. No
       los publiques.</p>`;
   body.onclick = async (ev) => {
+    if ((ev.target as HTMLElement).closest('[data-back]')) {
+      renderLinks();
+      return;
+    }
     if ((ev.target as HTMLElement).closest('[data-share]')) {
       try {
         await navigator.share({ title: 'Grilla: mis links', text: shareText(result) });

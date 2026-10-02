@@ -19,6 +19,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, saveConfig,
   type Config } from './config.ts';
+import { addDevice, listDevices, readShort, removeAllDevices, removeDevice, renameDevice, SHORT_RE, touchDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -31,7 +32,7 @@ const LIST_TTL_S = 3 * 3600;
 const RATE_LIMIT = 20; // pedidos por minuto y por IP a lo que baja listas o crea configuraciones
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   'Access-Control-Max-Age': '86400',
 };
@@ -111,18 +112,12 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
 // Links cortos: un código al azar que apunta a la configuración y al token. El token (las
 // credenciales cifradas con la clave del Worker) queda guardado en R2 a cambio de links que
 // no muestran nada: ni la configuración ni el token.
-const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
-
-async function resolveShort(env: Env, code: string): Promise<{ cfgId: string; token: string } | null> {
-  if (!SHORT_RE.test(code)) return null;
-  const obj = await env.BUCKET.get(`short/${code}.json`);
-  if (!obj) return null;
-  try {
-    const v = JSON.parse(await obj.text()) as { cfgId?: string; token?: string };
-    return v.cfgId && v.token ? { cfgId: v.cfgId, token: v.token } : null;
-  } catch {
-    return null;
-  }
+/** Resuelve un link corto y, ya que lo leyó, anota el último uso del dispositivo. */
+async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string } | null> {
+  const rec = await readShort(env.BUCKET, code);
+  if (!rec) return null;
+  ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
+  return { cfgId: rec.cfgId, token: rec.token };
 }
 
 async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string): Promise<Response> {
@@ -230,6 +225,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`cfg/${cfgId}.json`);
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
+      await removeAllDevices(env.BUCKET, cfgId);
       return json({ ok: true });
     }
     if (action === 'status' && method === 'GET') {
@@ -263,14 +259,33 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.put(r2ListKey(cfgId), JSON.stringify(list), { httpMetadata: { contentType: 'application/json' } });
       return json({ ok: true, channels: list.channels.length });
     }
+    if (action === 'devices') {
+      const origin = new URL(request.url).origin;
+      const code = parts[4];
+      if (!code && method === 'GET') {
+        const devices = (await listDevices(env.BUCKET, cfgId)).map((d) => ({
+          ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
+        }));
+        return json({ devices }, 200, { 'Cache-Control': 'no-store' });
+      }
+      if (code && SHORT_RE.test(code) && method === 'PATCH') {
+        const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
+        return (await renameDevice(env.BUCKET, cfgId, code, body.name)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
+      }
+      if (code && SHORT_RE.test(code) && method === 'DELETE') {
+        return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
+      }
+    }
     if (action === 'token' && method === 'POST') {
-      const creds = credentialsFrom(await readJson(request, 16 * 1024) as Record<string, unknown>, stored.config);
+      const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
+      const creds = credentialsFrom(raw, stored.config);
       const token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
       const origin = new URL(request.url).origin;
       const code = randomId(8);
-      await env.BUCKET.put(`short/${code}.json`, JSON.stringify({ cfgId, token }), { httpMetadata: { contentType: 'application/json' } });
+      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
       return json({
         token,
+        code,
         playlistUrl: `${origin}/l/${code}.m3u8`,
         epgUrl: `${origin}/g/${code}.xml.gz`,
         longPlaylistUrl: `${origin}/p/${cfgId}/${token}/playlist.m3u8`,
@@ -317,13 +332,13 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
     }
     if (request.method === 'GET' && parts.length === 2 && ['l', 'g'].includes(parts[0])) {
       const m = /^([^.]+)\.(m3u8|xml\.gz)$/.exec(parts[1]);
-      const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, m[1]) : null;
+      const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, ctx, m[1]) : null;
       if (!short) return fail(404, 'no encontrado');
       if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
       return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1]);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
-      const short = await resolveShort(env, parts[1]);
+      const short = await resolveShort(env, ctx, parts[1]);
       if (!short) return new Response('No encontrado', { status: 404 });
       return await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
     }
