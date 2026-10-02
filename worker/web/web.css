@@ -336,3 +336,6 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .device-info small { opacity: .7; }
 .sub-title { font-size: 1rem; margin: 16px 0 8px; }
 .device [data-dev=show] { flex: 1; }
+
+/* Que el primer elemento de la hoja no quede pegado (ni tapado) por el título fijo. */
+#linksBody { padding-top: 8px; }
