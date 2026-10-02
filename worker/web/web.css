@@ -439,3 +439,24 @@ dialog.sheet { border-radius: 20px; }
 .alts .epg-now:not(.on-air) { display: none; }
 .alts .pick-row { padding: 2px 0; }
 .alts .epg-row { padding-top: 8px; padding-bottom: 8px; align-items: center; }
+
+/* Títulos de hoja: el ojo / la ayuda junto al título, lejos de la X. */
+.title-left { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+.title-left h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title-left .icon-btn { flex: none; }
+
+/* Guía en uso: resaltada, con las acciones juntas y más aire hacia lo que está en el aire. */
+.ch-current { background: var(--accent-soft); border-radius: var(--radius); box-shadow: inset 3px 0 0 var(--accent); padding: 4px 4px 8px; }
+.ch-current > .epg-row { background: transparent; }
+.ch-current .epg-body .epg-now { margin-top: 10px; }
+.ch-current .epg-head { align-items: center; gap: 2px; }
+.ch-current .ch-extras { display: inline-flex; align-items: center; gap: 0; flex: none; }
+.ch-current .ch-extras .icon-btn { width: 32px; height: 32px; margin: 0; }
+.ch-current .ch-extras .tag { margin: 0 2px; }
+.ch-current .card-note { background: transparent; }
+.ch-current .day-list { margin: 8px 8px 0; }
+/* Una línea separa la guía en uso de la búsqueda y las alternativas. */
+.ch-search { margin-top: 0; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.ch-current { margin-bottom: 16px; }
+/* Categorías: mismo patrón que la hoja de canal (acciones arriba, línea, y lo demás). */
+.cat-toolbar { padding-bottom: 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 4px; }
