@@ -479,3 +479,4 @@ dialog.sheet { border-radius: 20px; }
 .ch-search.first { margin-top: 4px; }
 #bulkBody .menu { margin-top: 12px; }
 #bulkBody .menu-row > .icon { flex: none; color: var(--accent); }
+.loading .list-bar { display: none; }

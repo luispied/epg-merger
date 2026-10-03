@@ -2231,6 +2231,9 @@ async function openSaved() {
   $('#editor').hidden = false;
   window.scrollTo(0, 0);
   const say = (t: string) => status(st, t);
+  const main = $('#editor main');
+  main.classList.add('loading');
+  $('#cards').innerHTML = '<div class="skeleton"><div class="bar w60"></div><div class="bar w40"></div><div class="bar block"></div></div>'.repeat(4);
   try {
     say('Abriendo tu configuración…');
     let cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
@@ -2260,9 +2263,11 @@ async function openSaved() {
     status(st, null);
     detectNew();
     placeNewCategories();
+    main.classList.remove('loading');
     render();
     refreshGuideStatus();
   } catch (e) {
+    main.classList.remove('loading');
     const msg = (e as Error).message;
     if (/inexistente|clave/.test(msg)) {
       status(st, null);
