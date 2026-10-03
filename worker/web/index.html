@@ -136,23 +136,16 @@
   <button class="icon-btn filled" id="bulkActions" title="Acciones" aria-label="Acciones para los seleccionados" disabled><span data-icon="ellipsis"></span></button>
 </div>
 
-<dialog class="sheet" id="bulkDialog" aria-labelledby="bulkTitle">
+<dialog class="sheet settings-sheet" id="bulkDialog" aria-labelledby="bulkTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <h2 id="bulkTitle" class="menu-title"></h2>
+      <span class="title-left">
+        <h2 id="bulkTitle" class="menu-title"></h2>
+        <button type="button" class="icon-btn" id="bulkVis"></button>
+      </span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
     <div id="bulkBody"></div>
-  </div>
-</dialog>
-
-<dialog class="sheet settings-sheet" id="bulkEpgDialog" aria-labelledby="bulkEpgTitle">
-  <div class="sheet-body">
-    <div class="title-row">
-      <h2 id="bulkEpgTitle" class="menu-title"></h2>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
-    </div>
-    <div id="bulkEpgBody"></div>
   </div>
 </dialog>
 
