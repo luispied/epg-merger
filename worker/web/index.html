@@ -149,13 +149,12 @@
   </div>
 </dialog>
 
-<dialog class="sheet settings-sheet" id="channelDialog" aria-labelledby="channelTitle">
+<dialog class="sheet settings-sheet" id="channelDialog" aria-labelledby="channelName">
   <div class="sheet-body">
-    <div class="title-row">
-      <span class="title-left">
-        <h2 id="channelTitle"></h2>
-        <button type="button" class="icon-btn" id="channelVis"></button>
-      </span>
+    <div class="title-row ch-head">
+      <button type="button" class="icon-btn" id="channelPrev" title="Canal anterior" aria-label="Canal anterior"><span data-icon="chevron-left"></span></button>
+      <input id="channelName" class="ch-name" autocomplete="off" enterkeyhint="done" aria-label="Nombre del canal">
+      <button type="button" class="icon-btn" id="channelNext" title="Canal siguiente" aria-label="Canal siguiente"><span data-icon="chevron-right"></span></button>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
     <div id="channelBody"></div>
