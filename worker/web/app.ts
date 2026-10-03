@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
@@ -727,9 +728,19 @@ async function toggleDesc(btn: HTMLElement) {
   }
 }
 
-function logoHtml(id: string | null, cls = '', custom?: string): string {
+/** Sin imagen: iniciales sobre un color que sale del nombre (se distingue una fila de otra). */
+function monoHtml(label: string): string {
+  const words = label.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
+  if (!words.length) return icon('tv');
+  const ini = (words[0][0] + (words.length > 1 ? words[1][0] : (words[0][1] ?? ''))).toUpperCase();
+  let h = 0;
+  for (const c of words.join(' ')) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return `<span class="mono" style="--h:${h}" aria-hidden="true">${esc(ini)}</span>`;
+}
+
+function logoHtml(id: string | null, cls = '', custom?: string, label?: string): string {
   const url = !logosOn() ? '' : custom || (id ? state.index?.icon.get(id) : '');
-  return `<span class="logo ${cls}">${icon('tv')}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
+  return `<span class="logo ${cls}">${monoHtml(label ?? (id ? state.index?.displayName.get(id) ?? '' : ''))}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
 }
 
 /** Un canal de la guía, siempre igual: nombre, país, fuente y lo que está dando ahora.
@@ -821,7 +832,6 @@ function wireGuideSearch(root: HTMLElement) {
 }
 
 /** Cómo se ve la lista: filas compactas (por defecto) o tarjetas. Es una preferencia de este navegador. */
-const viewMode = (): 'row' | 'card' => (pref('grilla_view', 'row') === 'card' ? 'card' : 'row');
 
 function cardHtml(i: number): string {
   const ch = state.channels[i];
@@ -829,53 +839,73 @@ function cardHtml(i: number): string {
   const shown = edit.name || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
   const picked = selection.items.has(i);
+  const selBox = sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : '';
   if (divider) {
-    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
-      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
+    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" aria-label="Separador ${esc(sectionTitle(groupLabel(groupOf(ch))))}">
+      ${selBox}
       <div class="card-title"><div class="section-name">${esc(sectionTitle(groupLabel(groupOf(ch))))}</div>
         <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
-      <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del separador">${icon('ellipsis')}</button>
     </article>`;
   }
-  if (viewMode() === 'row') {
-    const shownName = esc(state.index?.displayName.get(suggestion?.channelId ?? '') ?? suggestion?.channelId ?? '');
-    const sug = !epg && !edit.manual && suggestion;
-    const sub = sug
-      ? `<span class="cat sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownName}</b></span>`
-      : `<span class="cat">${esc(groupLabel(groupOf(ch)))}${state.newNames.has(ch.name) ? ' · nuevo' : ''}${edit.group ? ' · movido' : ''}${hidden ? ' · oculto' : ''}</span>`
-        + (epg ? `<span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span>` : '');
-    return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
-      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
-      ${logoHtml(epg, '', edit.customLogo)}
-      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${sub}</div></div>
-      ${sug ? `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button>` : bandTag(band, auto?.score)}
-      <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
-    </article>`;
+  const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
+  const cc = epg ? state.index?.country.get(epg) : undefined;
+  const sug = !epg && !edit.manual && suggestion;
+  const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden ? 'oculto' : '']
+    .filter(Boolean).map((m) => `<span class="mark">${m}</span>`).join('');
+  // Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es.
+  const where = state.search.trim() ? `<span class="where">${esc(groupLabel(groupOf(ch)))}</span>` : '';
+  let guide: string;
+  if (sug) {
+    const shownSug = esc(state.index?.displayName.get(suggestion!.channelId) ?? suggestion!.channelId);
+    guide = `<span class="guide sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownSug}</b></span>`;
+  } else if (epg) {
+    guide = `<span class="guide">${icon('arrow-right', 'sm')}<span class="guide-name">${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</span>`;
+  } else {
+    guide = `<span class="guide none">${edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>`;
   }
-  let body: string;
-  if (epg) {
-    const cur = programMatch(ch, fold(state.search.trim()));
-    body = epgRowHtml(epg, '', cur ? { logo: false, cur, note: '· coincide con la búsqueda' } : { logo: false });
-  }
-  else if (edit.manual) body = '<div class="card-note">Sin EPG, a propósito.</div>';
-  else if (suggestion) {
-    body = `<div class="card-note suggest"><span>Sin EPG asignado. Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span></span>`
-      + `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button></div>`;
-  } else body = '<div class="card-note">Sin EPG asignado.</div>';
-  return `<article class="card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
-    <div class="card-top">
-      ${sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : ''}
-      ${logoHtml(epg, 'lg', edit.customLogo)}
-      <div class="card-title">
-        <div class="card-name">${esc(shown)}</div>
-        ${edit.name ? `<div class="card-sub">En el proveedor: ${esc(ch.name)}</div>` : ''}
-        <div class="card-sub"><span>${esc(groupLabel(groupOf(ch)))}</span>${state.newNames.has(ch.name) ? `<span class="pill">${icon('sparkles', 'sm')}Nuevo</span>` : ''}${edit.group ? `<span class="pill">${icon('folder-input', 'sm')}Movido</span>` : ''}${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div>
-      </div>
-      ${bandTag(band, auto?.score)}
-      <button class="icon-btn ghost card-menu-btn" data-open="${i}" aria-label="Opciones del canal">${icon('ellipsis')}</button>
+  const status = sug ? `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button>` : statusMark(band, auto?.score);
+  const label = `${shown}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
+  return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" aria-label="${esc(label)}">
+    <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r">${icon('ban')}Sin guía</span><span class="sw sw-l">${icon(hidden ? 'eye' : 'eye-off')}${hidden ? 'Mostrar' : 'Ocultar'}</span></span>
+    <div class="row-in">
+      ${selBox}
+      ${logoHtml(epg, '', edit.customLogo, shown)}
+      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div></div>
+      ${status}
     </div>
-    ${body}
   </article>`;
+}
+
+/** Estado a la derecha de la fila: solo lo que pide atención. Lo que está bien lleva una tilde. */
+function statusMark(band: Band, score?: number): string {
+  const pct = score && score > 0 ? Math.round(Math.min(score, 1) * 100) : 0;
+  switch (band) {
+    case 'ok': return `<span class="ok-mark" title="Coincidencia buena${pct ? `: ${pct} %` : ''}">${icon('check', 'sm')}</span>`;
+    case 'warn': return `<span class="pct warn" title="Coincidencia dudosa: conviene revisarla">${pct ? `${pct} %` : 'Dudoso'}</span>`;
+    case 'none': return '<span class="tag bad">Sin EPG</span>';
+    default: return ''; // a mano o sin guía a propósito: se ve al abrir el canal
+  }
+}
+
+/** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la
+ *  lista es plana. */
+function rowsHtml(list: number[], from: number, to: number): string {
+  const headers = !state.search.trim();
+  const counts = new Map<string, number>();
+  if (headers) for (const i of list) if (!info(state.channels[i]).divider) counts.set(groupOf(state.channels[i]), (counts.get(groupOf(state.channels[i])) ?? 0) + 1);
+  let out = '';
+  for (let k = from; k < Math.min(to, list.length); k++) {
+    const ch = state.channels[list[k]];
+    if (headers && !info(ch).divider) {
+      const g = groupOf(ch);
+      const prev = k > 0 ? state.channels[list[k - 1]] : null;
+      if (!prev || info(prev).divider || groupOf(prev) !== g) {
+        out += `<div class="cat-head" role="heading" aria-level="3"><span>${esc(groupLabel(g))}</span><small>${counts.get(g) ?? 0}</small></div>`;
+      }
+    }
+    out += cardHtml(list[k]);
+  }
+  return out;
 }
 
 function renderStatusLine() {
@@ -917,12 +947,7 @@ function render() {
   }
   const list = visibleChannels();
   const cards = $('#cards');
-  cards.classList.toggle('rows', viewMode() === 'row');
-  $('#viewBtn').innerHTML = icon(viewMode() === 'row' ? 'layout-grid' : 'rows-3');
-  $('#viewBtn').title = $('#viewBtn').ariaLabel = viewMode() === 'row' ? 'Ver como tarjetas' : 'Ver como filas';
-  cards.innerHTML = list.length
-    ? list.slice(0, state.shown).map(cardHtml).join('')
-    : emptyHtml();
+  cards.innerHTML = list.length ? rowsHtml(list, 0, state.shown) : emptyHtml();
   $('[data-clear-filters]', cards)?.addEventListener('click', () => {
     state.search = '';
     $<HTMLInputElement>('#searchBox').value = '';
@@ -2407,6 +2432,7 @@ function setupEditor() {
   };
   const cards = $('#cards');
   let longPressed = -1;
+  let swiped = -1;
   cards.onclick = (ev) => {
     const t = ev.target as HTMLElement;
     const card = t.closest<HTMLElement>('.card[data-i]');
@@ -2414,6 +2440,10 @@ function setupEditor() {
     const i = Number(card.dataset.i);
     if (longPressed === i) {
       longPressed = -1;
+      return;
+    }
+    if (swiped === i) {
+      swiped = -1;
       return;
     }
     if (selection.active) {
@@ -2460,6 +2490,62 @@ function setupEditor() {
   cards.addEventListener('pointerup', cancel);
   cards.addEventListener('pointercancel', cancel);
   cards.addEventListener('contextmenu', (ev) => { if (selection.active) ev.preventDefault(); });
+  // Deslizar una fila (con el dedo): izquierda = ocultar o mostrar, derecha = dejar sin guía.
+  let sw: { card: HTMLElement; x: number; y: number; dx: number; on: boolean } | null = null;
+  const resetSwipe = (card: HTMLElement) => {
+    card.classList.remove('swiping', 'armed');
+    card.style.removeProperty('--sx');
+    delete card.dataset.sw;
+  };
+  cards.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse' || selection.active) return;
+    const card = (ev.target as HTMLElement).closest<HTMLElement>('.row-card[data-i]');
+    if (card) sw = { card, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
+  });
+  cards.addEventListener('pointermove', (ev) => {
+    if (!sw) return;
+    const dx = ev.clientX - sw.x;
+    const dy = ev.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
+      if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      sw.on = true;
+      cancel();
+      sw.card.classList.add('swiping');
+    }
+    sw.dx = Math.max(-140, Math.min(140, dx));
+    sw.card.style.setProperty('--sx', `${sw.dx}px`);
+    sw.card.dataset.sw = sw.dx < 0 ? 'l' : 'r';
+    sw.card.classList.toggle('armed', Math.abs(sw.dx) > 80);
+  });
+  cards.addEventListener('pointerup', () => {
+    if (!sw) return;
+    const { card, dx, on } = sw;
+    sw = null;
+    if (!on) return;
+    resetSwipe(card);
+    const i = Number(card.dataset.i);
+    swiped = i;
+    setTimeout(() => { swiped = -1; }, 400);
+    if (Math.abs(dx) <= 80) return;
+    const ch = state.channels[i];
+    if (dx < 0) {
+      const wasHidden = !!state.cfg!.channels[ch.name]?.hidden;
+      editChannels([ch], (e) => { e.hidden = e.hidden ? undefined : true; }, wasHidden ? 'Visible' : 'Oculto');
+    } else editChannels([ch], noEpg, 'Quedó sin guía');
+  });
+  cards.addEventListener('pointercancel', () => {
+    if (sw) resetSwipe(sw.card);
+    sw = null;
+  });
+  // Con teclado: Enter o espacio abren la fila.
+  cards.addEventListener('keydown', (ev) => {
+    const t = ev.target as HTMLElement;
+    if ((ev.key === 'Enter' || ev.key === ' ') && t.matches('.card[data-i]')) {
+      ev.preventDefault();
+      t.click();
+    }
+  });
   $('#selectBtn').onclick = () => setSelectMode(!selection.active);
   $('#bulkCancel').onclick = () => setSelectMode(false);
   $('#bulkActions').onclick = openBulkMenu;
@@ -2478,15 +2564,11 @@ function setupEditor() {
     if (list.length <= state.shown) return false;
     const from = state.shown;
     state.shown += PAGE;
-    $('#cards').insertAdjacentHTML('beforeend', list.slice(from, state.shown).map(cardHtml).join(''));
+    $('#cards').insertAdjacentHTML('beforeend', rowsHtml(list, from, state.shown));
     fillEpgRows($('#cards'));
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
   });
-  $('#viewBtn').onclick = () => {
-    setPref('grilla_view', viewMode() === 'row' ? 'card' : 'row');
-    render();
-  };
   $('#categoriesBtn').onclick = () => {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
@@ -2668,6 +2750,10 @@ setupOnboarding();
 setupEditor();
 {
   // El filtro se esconde al bajar la lista y vuelve al subir (con margen para que no titile).
+  const bar0 = document.querySelector<HTMLElement>('.toolbar');
+  if (bar0 && 'ResizeObserver' in window) {
+    new ResizeObserver(() => document.documentElement.style.setProperty('--toolbar-h', `${bar0.offsetHeight}px`)).observe(bar0);
+  }
   let lastY = 0;
   let travel = 0; // lo recorrido en la dirección actual
   window.addEventListener('scroll', () => {

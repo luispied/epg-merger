@@ -388,7 +388,7 @@ dialog.sheet { border-radius: 20px; }
 .cards { gap: 8px; }
 
 /* Fila compacta (modo por defecto): logo chico, nombre, programa en el aire y estado. */
-.cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: hidden; }
+.cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: clip; }
 .cards.rows .card.row-card { border-radius: 0; box-shadow: none; background: transparent; padding: 8px 4px 8px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); min-height: 56px; }
 .cards.rows .card.row-card:first-child { border-top: 0; }
 .cards.rows .card.row-card:hover { background: var(--surface-2); }
@@ -512,7 +512,6 @@ dialog:focus, dialog:focus-visible { outline: none; }
 .how-wrap { margin-top: 8px; }
 .how-wrap summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 6px 0; }
 .how-wrap .how { margin-top: 8px; }
-body.selecting .cards.rows .card.row-card { padding-right: 12px; }
 /* Área táctil ampliada sin agrandar el aspecto: chips, "Usar" y botones chicos. */
 .segmented button, .btn.sm, .now-btn { position: relative; }
 .segmented button::after, .btn.sm::after { content: ""; position: absolute; inset: -6px 0; }
@@ -529,3 +528,47 @@ body.selecting .cards.rows .card.row-card { padding-right: 12px; }
 .alts .now-btn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty .btn { margin-top: 16px; }
 body { overflow-anchor: none; }
+
+/* ---- Filas rediseñadas: la guía asignada a la vista, estado por excepción, gestos ---- */
+.cards.rows .card.row-card { position: relative; display: block; padding: 0; background: transparent; touch-action: pan-y; overflow: hidden; }
+.cards.rows .card.row-card:hover { background: transparent; }
+.cards.rows .card.row-card:focus-visible, .cards.rows .card.section-card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row-in { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 12px; background: var(--surface); transform: translateX(var(--sx, 0px)); transition: transform .16s ease; position: relative; }
+.card.row-card.swiping .row-in { transition: none; }
+.cards.rows .card.row-card:hover .row-in { background: var(--surface-2); }
+.cards.rows .card.row-card.selected .row-in { background: var(--accent-soft); }
+.cards.rows .card.row-card.is-hidden .row-in > * { opacity: .5; }
+.cards.rows .card.row-card.is-hidden { opacity: 1; }
+/* Lo que se descubre al deslizar */
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--fill); color: var(--muted); font-size: 13px; font-weight: 600; visibility: hidden; }
+.card.row-card[data-sw] .swipe-bg { visibility: visible; }
+.swipe-bg .sw { display: inline-flex; align-items: center; gap: 8px; opacity: 0; }
+.card.row-card[data-sw="l"] .sw-l, .card.row-card[data-sw="r"] .sw-r { opacity: 1; }
+.card.row-card.armed .swipe-bg { background: var(--accent-soft); color: var(--on-accent-soft); }
+/* Segunda línea: la guía que tiene asignada */
+.cards.rows .row-sub { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-width: 0; margin-top: 2px; }
+.cards.rows .row-sub .guide { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.cards.rows .row-sub .guide .icon { flex: none; width: 14px; height: 14px; color: var(--faint); }
+.cards.rows .row-sub .guide-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards.rows .row-sub .cc { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px; }
+.cards.rows .row-sub .guide.none { color: var(--muted); }
+.cards.rows .row-sub .guide.sug { flex: 1; }
+.cards.rows .row-sub .guide.sug b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+.cards.rows .row-sub .mark, .cards.rows .row-sub .where { flex: none; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cards.rows .row-sub .where { text-transform: none; letter-spacing: 0; font-size: 12px; margin-left: auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Estado a la derecha: tilde si está bien; número solo si dudoso; columna alineada */
+.ok-mark { flex: none; width: 44px; display: inline-flex; justify-content: center; color: var(--green); opacity: .85; }
+.cards.rows .row-in > .pct, .cards.rows .row-in > .tag { flex: none; min-width: 44px; text-align: right; }
+.cards.rows .row-in .btn.sm { flex: none; }
+/* Logo sin imagen: iniciales con un color propio */
+.logo .mono { font-size: 13px; font-weight: 700; letter-spacing: .02em; width: 100%; height: 100%; display: grid; place-items: center; background: hsl(var(--h) 30% 24%); color: hsl(var(--h) 70% 80%); }
+:root:not([data-theme="dark"]) .logo .mono { background: hsl(var(--h) 45% 88%); color: hsl(var(--h) 60% 22%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo .mono { background: hsl(var(--h) 30% 24%); color: hsl(var(--h) 70% 80%); } }
+:root[data-theme="dark"] .logo .mono { background: hsl(var(--h) 30% 24%); color: hsl(var(--h) 70% 80%); }
+.logo.has-img > .mono { display: none; }
+html:root .logo:not(.has-img) { background: transparent; }
+/* Encabezado de categoría: fijo debajo del buscador */
+.cat-head { position: sticky; top: var(--toolbar-h, 0px); z-index: 3; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; color: var(--muted); }
+.cat-head:first-child { border-top: 0; }
+.cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+body.selecting .row-in { padding-left: 12px; }

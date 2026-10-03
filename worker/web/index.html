@@ -119,11 +119,10 @@
       <p class="meta-line" id="statusLine"></p>
       <span class="list-tools">
         <button class="icon-btn" id="selectBtn" title="Seleccionar varios canales" aria-label="Seleccionar varios canales" aria-pressed="false"><span data-icon="list-checks"></span></button>
-        <button class="icon-btn" id="viewBtn" title="Ver como tarjetas" aria-label="Ver como tarjetas"></button>
       </span>
     </div>
     <div class="guide-status new-banner" id="newBanner" hidden></div>
-    <div class="cards" id="cards"></div>
+    <div class="cards rows" id="cards"></div>
     <div class="load-sentinel" id="loadMoreSentinel" aria-hidden="true" hidden></div>
   </main>
 </section>
@@ -314,6 +313,10 @@
       <p>En <b>Configuración → Tus links</b> agregás un <b>dispositivo</b> (por ejemplo «TV del living») y se generan dos links: la <b>playlist</b> y la <b>guía</b>. Cada dispositivo tiene el suyo: podés ver cuándo se usó, cambiarle el nombre o quitarlo sin afectar a los demás. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. También podés mandártelos por WhatsApp o mail desde ahí. También podés escanear el código QR desde la tele.</p>
     </details>
 
+    <details>
+      <summary>¿Cómo leo y edito la lista?<span data-icon="chevron-down"></span></summary>
+      <p>Cada fila muestra el canal del proveedor y, debajo, la <b>guía que tiene asignada</b>. A la derecha, una tilde si la coincidencia es buena; un número naranja si es dudosa; «Sin EPG» si no tiene. Tocá una fila para cambiarle la guía, el nombre o la categoría. <b>Deslizala</b> hacia la izquierda para ocultarla o hacia la derecha para dejarla sin guía; <b>mantenela apretada</b> para elegir varias.</p>
+    </details>
     <details id="helpCategories">
       <summary>¿Cómo organizo las categorías y secciones?<span data-icon="chevron-down"></span></summary>
       <p>En <b>Configuración → Categorías</b> arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist y el switch las muestra u oculta. Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una sección, o el botón de arriba para contraer o expandir todas, y así ordenarlas más fácil.</p>
