@@ -595,7 +595,7 @@ function bandTag(band: Band, score?: number): string {
     case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
     case 'none': return '<span class="tag bad">Sin EPG</span>';
     case 'manual': return ''; // la marca "elegida por vos" se ve solo al abrir el canal
-    case 'purpose': return `<span class="tag muted with-icon" title="Sin guía a propósito">${icon('ban', 'sm')}</span>`;
+    case 'purpose': return ''; // sin guía a propósito: se ve al abrir el canal
   }
 }
 
