@@ -674,3 +674,12 @@ body.selecting .row-in { padding-left: 12px; }
 .cat-row.is-off .menu-text > :first-child { opacity: 1; }
 .cat-chips .chip-btn { padding: 0 10px; gap: 5px; }
 .cat-row.is-off .menu-text { opacity: 1; color: var(--muted); }
+
+/* Segmentado: el elegido conserva su separador (se veía sin borde). */
+.seg button + button[aria-checked="true"] { box-shadow: inset 1px 0 0 var(--faint); }
+.seg button[aria-checked="true"] + button { box-shadow: inset 1px 0 0 var(--faint); }
+/* Más aire entre el título editable y lo que sigue (hojas de canal y categoría). */
+.ch-head { margin-bottom: 12px; }
+.ch-meta { margin-top: 4px; margin-bottom: 12px; }
+.cat-row .swipe-bg { visibility: visible; }
+#catMenuBody .ch-more { margin-top: 12px; }
