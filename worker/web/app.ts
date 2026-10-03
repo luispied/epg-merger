@@ -1029,7 +1029,8 @@ function openChannel(i: number) {
   visBtn.disabled = catHidden;
   visBtn.title = visBtn.ariaLabel = catHidden ? 'Oculto porque su categoría está oculta' : edit.hidden ? 'Oculto: tocá para mostrarlo' : 'Visible: tocá para ocultarlo';
   const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
-  const categories = groups().filter((g) => g === groupOf(ch) || !headersNow().has(g));
+  const hiddenCats = new Set(state.cfg!.groups.hidden);
+  const categories = groups().filter((g) => g === groupOf(ch) || (!headersNow().has(g) && !hiddenCats.has(g)));
 
   const fields = `
     <div class="ch-fields">
@@ -1218,7 +1219,7 @@ function openBulkMenu() {
       <label class="ch-field" title="Mover de categoría">${icon('folder-input')}
         <select class="select bulk-cat" aria-label="Mover a la categoría">
           <option value="" selected disabled>Mover a la categoría…</option>
-          ${groups().filter((g) => !headersNow().has(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
+          ${groups().filter((g) => !headersNow().has(g) && !state.cfg!.groups.hidden.includes(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
         </select>
         <button type="button" class="icon-btn" data-act="move" aria-label="Mover" disabled>${icon('check')}</button></label>
     </div>
