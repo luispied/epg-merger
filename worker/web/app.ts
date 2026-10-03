@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
@@ -971,10 +972,17 @@ function render() {
 }
 
 // ------------------------------------------------------------------ canal: diálogo
-// Fila elegible: no es un <button> porque adentro va el botón de la descripción.
+// Opción elegible (con círculo, como una lista de selección): un solo toque elige esa guía.
 function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string } = {}) {
+  const name = state.index?.displayName.get(id) ?? id;
+  const cc = state.index?.country.get(id);
   const pct = score === undefined ? '' : `<span class="pct ${score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(score, 1) * 100)} %</span>`;
-  return `<div class="pick-row" role="button" tabindex="0" data-pick="${esc(id)}">${epgRowHtml(id, pct, opts)}</div>`;
+  const note = opts.note ? ` <span class="note">${esc(opts.note)}</span>` : '';
+  const now = opts.cur !== undefined
+    ? `<div class="opt-now${opts.cur ? ' on-air' : ''}">${opts.cur ? `Ahora: ${esc(opts.cur.title)} · hasta ${hhmm(opts.cur.stop)}` : 'Sin programación en este horario'}${note}</div>`
+    : `<div class="opt-now epg-now" data-now-for="${esc(id)}" data-compact="1"></div>`;
+  return `<div class="pick-row opt" role="button" tabindex="0" data-pick="${esc(id)}"><span class="radio" aria-hidden="true"></span>`
+    + `<div class="opt-body"><div class="opt-top"><span class="opt-name" title="${esc(id)}">${esc(name)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}${pct}</div>${now}</div></div>`;
 }
 
 /** Clicks dentro de listas de canales de la guía: la línea "Ahora" despliega la descripción;
@@ -1026,6 +1034,7 @@ function editChannels(chs: Channel[], fn: (e: ChannelEdit, ch: Channel) => void,
       }
       scheduleSave();
       render();
+      refreshSheet?.();
       toast('Cambio deshecho', 'info');
     });
   }
@@ -1085,9 +1094,14 @@ async function toggleDay(root: HTMLElement, id: string) {
   }).join('');
 }
 
-/** La hoja de un canal (o de un separador de sección), todo junto y con íconos: la guía asignada
- *  con su programación, la búsqueda de otra guía (con volver al automático y dejar sin guía) y,
- *  abajo, nombre, categoría y logo. Mostrar u ocultar es el ojo del título. */
+/** Canales entre los que se puede ir con ‹ › (la lista que se estaba viendo al abrir). */
+let sheetList: number[] = [];
+let sheetMoreOpen = false;
+let refreshSheet: (() => void) | null = null;
+
+/** La hoja de un canal (o de un separador de sección): arriba el nombre (se edita tocándolo) con
+ *  ‹ › para ir al anterior o siguiente y, debajo, de qué proveedor es y su categoría; después la
+ *  guía asignada y las otras opciones; al final, "Más opciones". Todo se guarda solo. */
 function openChannel(i: number) {
   const ch = state.channels[i];
   const { edit, auto, epg, hidden, divider, suggestion } = info(ch);
@@ -1095,103 +1109,121 @@ function openChannel(i: number) {
   const body = $('#channelBody');
   const defaultName = stripDisplayPrefix(ch.name, state.rules!)[0];
   const categoryLabel = groupLabel(groupOf(ch));
-  $('#channelTitle').textContent = divider ? sectionTitle(categoryLabel) : edit.name || ch.name;
+  const shownDefault = divider ? sectionTitle(categoryLabel) : defaultName;
   const catHidden = hidden && !edit.hidden;
-  const visBtn = $<HTMLButtonElement>('#channelVis');
-  visBtn.innerHTML = icon(edit.hidden || catHidden ? 'eye-off' : 'eye');
-  visBtn.disabled = catHidden;
-  visBtn.title = visBtn.ariaLabel = catHidden ? 'Oculto porque su categoría está oculta' : edit.hidden ? 'Oculto: tocá para mostrarlo' : 'Visible: tocá para ocultarlo';
+  if (!sheetList.includes(i)) {
+    sheetList = visibleChannels().filter((k) => !info(state.channels[k]).divider);
+    if (divider || !sheetList.includes(i)) sheetList = [i];
+  }
+  const pos = sheetList.indexOf(i);
+  const nameInput = $<HTMLInputElement>('#channelName');
+  nameInput.value = edit.name || shownDefault;
+  nameInput.placeholder = shownDefault;
+  for (const [id, to] of [['#channelPrev', sheetList[pos - 1]], ['#channelNext', sheetList[pos + 1]]] as const) {
+    const b = $<HTMLButtonElement>(id);
+    b.disabled = to === undefined;
+    b.onclick = () => { if (to !== undefined) openChannel(to); };
+  }
   const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
   const hiddenCats = new Set(state.cfg!.groups.hidden);
   const categories = groups().filter((g) => g === groupOf(ch) || (!headersNow().has(g) && !hiddenCats.has(g)));
-
-  const fields = `
-    <div class="ch-fields">
-      <label class="ch-field" title="Nombre en la playlist">${icon('text-cursor-input')}
-        <input class="input rename" value="${esc(edit.name ?? '')}" placeholder="${esc(divider ? sectionTitle(defaultName) : defaultName)}" aria-label="Nombre en la playlist">
-        <button type="button" class="icon-btn" data-act="rename" aria-label="Guardar nombre">${icon('check')}</button></label>
-      <label class="ch-field" title="Categoría">${icon('folder-input')}
-        <select class="select move" aria-label="Categoría">${categories
+  const catSelect = `<label class="cat-chip" title="Categoría">${icon('folder-input', 'sm')}<span class="cat-chip-text">${esc(categoryLabel)}</span>${icon('chevron-down', 'sm')}
+      <select class="move" aria-label="Categoría">${categories
     .map((g) => `<option value="${esc(g)}"${g === groupOf(ch) ? ' selected' : ''}>${esc(headersNow().has(g) ? sectionTitle(groupLabel(g)) : groupLabel(g))}</option>`).join('')}
-          <option value="__new__">Nueva categoría…</option></select></label>
-      ${divider ? '' : `<label class="ch-field" title="Logo propio">${icon('image')}
-        <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="Logo propio: https://…/logo.png" aria-label="URL del logo propio">
-        <button type="button" class="icon-btn" data-act="logo" aria-label="Guardar logo">${icon('check')}</button></label>`}
-    </div>`;
+        <option value="__new__">Nueva categoría…</option></select></label>`;
+  const meta = `<div class="ch-meta"><span class="prov" title="Nombre en el proveedor">${esc(ch.name)}</span>${catSelect}</div>`;
+  const more = `<details class="ch-more"${sheetMoreOpen || edit.hidden || edit.customLogo ? ' open' : ''}>
+      <summary>Más opciones${edit.hidden ? ' · oculto' : ''}${edit.customLogo ? ' · logo propio' : ''}${icon('chevron-down', 'sm')}</summary>
+      <label class="opt-row"><span>Visible en la playlist${catHidden ? '<small>Oculto porque su categoría está oculta</small>' : ''}</span>
+        <input type="checkbox" class="switch ch-visible" role="switch"${hidden ? '' : ' checked'}${catHidden ? ' disabled' : ''}></label>
+      ${divider ? '' : `<label class="field"><span>Logo propio</span>
+        <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="https://…/logo.png" aria-label="Dirección de la imagen del logo">
+        <small class="help">Dirección de una imagen. Se guarda al terminar de escribir.</small></label>`}
+    </details>`;
 
   if (divider) {
-    body.innerHTML = `<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>${fields}`;
+    body.innerHTML = `${meta}<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>${more}`;
   } else {
+    const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
+    const cc = epg ? state.index?.country.get(epg) : undefined;
     const pct = !edit.manual && auto?.cid === edit.epg && auto
       ? `<span class="pct ${auto.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(auto.score, 1) * 100)} %</span>` : '';
-    const mine = edit.manual && edit.epg ? `<span class="tag manual with-icon" title="Elegida por vos">${icon('user-check', 'sm')}</span>` : '';
-    const dayBtn = epg ? `<button type="button" class="icon-btn day-btn" data-act="day" aria-expanded="false" aria-label="Programación de hoy y mañana" title="Programación de hoy y mañana">${icon('calendar')}</button>` : '';
-    const summary = epg
-      ? epgRowHtml(epg, `<span class="ch-extras">${pct}${mine}${dayBtn}</span>`)
-      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}${
-        suggestion ? ` Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b>` : ''}</div>`;
-    body.innerHTML = `<div class="ch-current">${summary}<div class="day-list" hidden></div></div>
-      <div class="ch-search">
-        <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía"></label>
-        <button type="button" class="icon-btn" data-act="auto" title="Volver a la guía automática" aria-label="Volver a la guía automática"${edit.manual ? '' : ' disabled'}>${icon('undo-2')}</button>
-        <button type="button" class="icon-btn" data-act="no-epg" title="Dejar sin guía" aria-label="Dejar sin guía"${epg || !edit.manual ? '' : ' disabled'}>${icon('ban')}</button>
+    const mine = edit.manual && edit.epg ? `<span class="chip manual">${icon('user-check', 'sm')}Elegida por vos</span>` : '';
+    const current = epg
+      ? `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div><div class="gc-state">${pct}${mine}</div></div></div>
+         <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
+         <button type="button" class="link-btn day-btn" data-act="day" aria-expanded="false">Ver programación de hoy${icon('chevron-right', 'sm')}</button>
+         <div class="day-list" hidden></div>`
+      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${suggestion
+        ? `<div class="gc-sug">Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
+           <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
+    body.innerHTML = `${meta}
+      <h3 class="sec-title">Guía asignada</h3>
+      <div class="ch-current${epg ? '' : ' none'}">${current}</div>
+      <h3 class="sec-title">Otras opciones</h3>
+      <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía"></label>
+      <div class="ch-chips">
+        <button type="button" class="chip-btn" data-act="auto"${edit.manual ? '' : ' disabled'}>${icon('undo-2', 'sm')}Automática</button>
+        <button type="button" class="chip-btn" data-act="no-epg"${!epg && edit.manual ? ' disabled' : ''}>${icon('ban', 'sm')}Sin guía</button>
       </div>
-      ${pref('grilla_legend_ch', '') ? '' : `<div class="legend" role="note">
-        <span>${icon('eye', 'sm')} Ver u ocultar</span><span>${icon('user-check', 'sm')} Elegida por vos</span><span>${icon('calendar', 'sm')} Programación del día</span><span>${icon('undo-2', 'sm')} Guía automática</span><span>${icon('ban', 'sm')} Sin guía</span>
-        <button type="button" class="btn btn-plain" data-act="legend">Entendido</button></div>`}
       <div class="list search-results" hidden></div>
-      ${ranked.length ? `<div class="list alts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
-      ${fields}`;
+      ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
+      ${more}`;
   }
 
   const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
   const again = () => openChannel(i);
-  visBtn.onclick = () => {
-    update((e) => { e.hidden = e.hidden ? undefined : true; }, edit.hidden ? 'Visible' : 'Oculto');
-    again();
-  };
-  const saveName = () => {
-    const v = $<HTMLInputElement>('.rename', body).value.trim();
-    update((e) => { e.name = v && v !== defaultName ? v : undefined; }, v ? 'Nombre guardado' : 'Vuelve al nombre del proveedor');
-    again();
-  };
-  body.onclick = (ev) => {
-    const picked = epgClick(ev);
-    if (picked) {
-      dlg.close();
-      update((e) => pickEpg(e, picked), 'Guía elegida');
+  refreshSheet = again;
+  const commitName = () => {
+    const v = nameInput.value.trim();
+    const next = v && v !== shownDefault ? v : undefined;
+    if (next === (edit.name || undefined)) {
+      nameInput.value = edit.name || shownDefault;
       return;
     }
-    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
-    if (!act) return;
-    if (act === 'auto') {
-      update((e) => autoEpg(e, ch), 'Volvió a la guía automática');
-      again();
-    } else if (act === 'no-epg') {
-      update(noEpg, 'Quedó sin guía');
-      again();
-    } else if (act === 'legend') {
-      setPref('grilla_legend_ch', '1');
-      $('.legend', body)?.remove();
-    } else if (act === 'rename') {
-      saveName();
-    } else if (act === 'day') {
-      toggleDay(body, edit.epg!);
-    } else if (act === 'logo') {
-      const v = $<HTMLInputElement>('.custom-logo', body).value.trim();
+    update((e) => { e.name = next; }, next ? 'Nombre guardado' : 'Vuelve al nombre del proveedor');
+    again();
+  };
+  nameInput.onchange = commitName;
+  nameInput.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); nameInput.blur(); } };
+  $('.ch-more', body).ontoggle = (ev) => { sheetMoreOpen = (ev.target as HTMLDetailsElement).open; };
+  $<HTMLInputElement>('.ch-visible', body).onchange = (ev) => {
+    const on = (ev.target as HTMLInputElement).checked;
+    update((e) => { e.hidden = on ? undefined : true; }, on ? 'Visible' : 'Oculto');
+  };
+  const logoInput = body.querySelector<HTMLInputElement>('.custom-logo');
+  if (logoInput) {
+    logoInput.onchange = () => {
+      const v = logoInput.value.trim();
       if (v && !/^https?:\/\/\S+$/i.test(v)) {
         toast('Tiene que ser una dirección http:// o https://', 'bad');
         return;
       }
       update((e) => { e.customLogo = v || undefined; }, v ? 'Logo guardado' : 'Vuelve al logo de la guía');
       again();
+    };
+  }
+  body.onclick = (ev) => {
+    const picked = epgClick(ev);
+    if (picked) {
+      update((e) => pickEpg(e, picked), 'Guía elegida');
+      again();
+      return;
+    }
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'auto') {
+      update((e) => autoEpg(e, ch), 'Volvió a la guía automática');
+      again();
+    } else if (act === 'no-epg') {
+      update(noEpg, 'Quedó sin guía');
+      again();
+    } else if (act === 'day') {
+      toggleDay(body, edit.epg!);
     }
   };
   body.onkeydown = (ev) => {
     const el = ev.target as HTMLElement;
-    if (ev.key !== 'Enter') return;
-    if (el.matches('[data-pick]')) el.click();
-    else if (el.matches('.rename')) saveName();
+    if (ev.key === 'Enter' && el.matches('[data-pick]')) el.click();
   };
   if (!divider) wireGuideSearch(body);
   fillEpgRows(body);
@@ -1206,8 +1238,12 @@ function openChannel(i: number) {
       }
     }
     update((e) => { e.group = target === ch.category ? undefined : target; }, `Movido a ${target}`);
+    again();
   };
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) {
+    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; }, { once: true });
+    dlg.showModal();
+  }
 }
 
 // ------------------------------------------------------------------ selección múltiple
