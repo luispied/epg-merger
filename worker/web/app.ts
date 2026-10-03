@@ -677,7 +677,7 @@ function fillEpgRows(root: ParentNode) {
     el.removeAttribute('data-now-for');
     if (el.dataset.compact) {
       nowPlaying(id).then((cur) => {
-        el.textContent = cur ? cur.title : '';
+        el.textContent = cur ? `Ahora: ${cur.title} · hasta ${hhmm(cur.stop)}` : 'Sin programación en este horario';
         el.classList.toggle('on-air', !!cur);
       });
       continue;
@@ -833,6 +833,9 @@ function wireGuideSearch(root: HTMLElement) {
 
 /** Cómo se ve la lista: filas compactas (por defecto) o tarjetas. Es una preferencia de este navegador. */
 
+/** Condensado (por defecto) o detallado (suma lo que está dando ahora la guía asignada). */
+const viewMode = (): 'compact' | 'detail' => (pref('grilla_density', 'compact') === 'detail' ? 'detail' : 'compact');
+
 function cardHtml(i: number): string {
   const ch = state.channels[i];
   const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
@@ -870,7 +873,8 @@ function cardHtml(i: number): string {
     <div class="row-in">
       ${selBox}
       ${logoHtml(epg, '', edit.customLogo, shown)}
-      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div></div>
+      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div>${
+  viewMode() === 'detail' && epg ? `<div class="row-now"><span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span></div>` : ''}</div>
       ${status}
     </div>
   </article>`;
@@ -947,6 +951,11 @@ function render() {
   }
   const list = visibleChannels();
   const cards = $('#cards');
+  const detail = viewMode() === 'detail';
+  const viewBtn = $('#viewBtn');
+  viewBtn.innerHTML = icon(detail ? 'chevrons-down-up' : 'chevrons-up-down');
+  viewBtn.title = viewBtn.ariaLabel = detail ? 'Ver condensado' : 'Ver detallado';
+  cards.classList.toggle('detail', detail);
   cards.innerHTML = list.length ? rowsHtml(list, 0, state.shown) : emptyHtml();
   $('[data-clear-filters]', cards)?.addEventListener('click', () => {
     state.search = '';
@@ -1209,7 +1218,6 @@ function setSelectMode(on: boolean, first?: number) {
   selection.items.clear();
   if (on && first !== undefined) selection.items.add(first);
   document.body.classList.toggle('selecting', on);
-  $('#selectBtn').setAttribute('aria-pressed', String(on));
   $('#bulkBar').hidden = !on;
   render();
   updateBulkBar();
@@ -2546,7 +2554,10 @@ function setupEditor() {
       t.click();
     }
   });
-  $('#selectBtn').onclick = () => setSelectMode(!selection.active);
+  $('#viewBtn').onclick = () => {
+    setPref('grilla_density', viewMode() === 'compact' ? 'detail' : 'compact');
+    render();
+  };
   $('#bulkCancel').onclick = () => setSelectMode(false);
   $('#bulkActions').onclick = openBulkMenu;
   $('#bulkAll').onclick = () => {
