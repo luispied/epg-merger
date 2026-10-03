@@ -402,7 +402,7 @@ dialog.sheet { border-radius: 20px; }
 .cards.rows .row-sub .epg-now.on-air::before { content: "· "; }
 .cards.rows .row-sub .live { color: var(--accent); }
 .cards.rows .card.row-card .tag { flex: none; margin: 0; font-size: 12px; }
-.cards.rows .card.row-card .card-menu-btn { margin: 0; flex: none; width: 40px; height: 40px; }
+.cards.rows .card.row-card .card-menu-btn { margin: 0; flex: none; width: 44px; height: 44px; }
 .cards.rows .card.row-card .btn.sm { flex: none; }
 .cards.rows .card.section-card { background: transparent; padding: 14px 4px 6px 12px; border-top: 1px solid var(--hairline); border-radius: 0; box-shadow: none; min-height: 0; }
 .cards.rows .card.section-card:first-child { border-top: 0; }
@@ -481,3 +481,51 @@ dialog.sheet { border-radius: 20px; }
 #bulkBody .menu-row > .icon { flex: none; color: var(--accent); }
 .loading .list-bar { display: none; }
 dialog:focus, dialog:focus-visible { outline: none; }
+
+/* ---- Auditoría UX ---- */
+/* Zonas táctiles de 44 px (el aspecto no cambia: solo el área que responde al dedo). */
+.icon-btn { width: 44px; height: 44px; }
+.icon-btn.sm { width: 40px; height: 40px; margin-right: -6px; }
+.card-menu-btn { width: 44px; height: 44px; margin: -10px -10px 0 -4px; }
+.drag-handle { width: 44px; height: 44px; margin: -8px -6px -8px -12px; }
+/* El "ahora" deja de ser ámbar: el ámbar queda para lo que se toca; lo dudoso va en naranja rojizo. */
+.epg-now.on-air .icon, .epg-now .note { color: var(--muted); }
+:root { --orange: #b03a10; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --orange: #ff8566; } }
+:root[data-theme="dark"] { --orange: #ff8566; }
+/* Alternativas: porcentaje en una sola línea y filas más bajas. */
+.pct, .tag { white-space: nowrap; }
+.alts .epg-head { flex-wrap: nowrap; align-items: flex-start; }
+.alts .epg-name, .epg-row .epg-name { min-width: 0; flex: 1; }
+.alts .epg-head .pct { flex: none; padding-top: 1px; }
+.alts .epg-now { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.alts .epg-now .icon { display: inline-block; vertical-align: -3px; margin-right: 6px; }
+/* Filtros: se esconden al bajar y vuelven al subir; se nota que hay más a la derecha. */
+.toolbar .segmented { transition: max-height .2s ease, opacity .2s ease, margin .2s ease; max-height: 48px; }
+.toolbar.compact .segmented { max-height: 0; opacity: 0; overflow: hidden; margin: -6px 0 0; pointer-events: none; }
+.toolbar .segmented { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+/* Leyenda de íconos de la hoja del canal (se muestra hasta que la descartás). */
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 10px 12px; margin-bottom: 8px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .btn { margin-left: auto; min-height: 36px; }
+/* Alta: los pasos quedan plegados para que el formulario se vea sin bajar. */
+.how-wrap { margin-top: 8px; }
+.how-wrap summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 6px 0; }
+.how-wrap .how { margin-top: 8px; }
+body.selecting .cards.rows .card.row-card { padding-right: 12px; }
+/* Área táctil ampliada sin agrandar el aspecto: chips, "Usar" y botones chicos. */
+.segmented button, .btn.sm, .now-btn { position: relative; }
+.segmented button::after, .btn.sm::after { content: ""; position: absolute; inset: -6px 0; }
+.now-btn::after { content: ""; position: absolute; inset: -5px 0; }
+.icon-btn.day-btn { width: 44px; height: 44px; }
+/* Contraste del tema claro (4,5:1 mínimo). */
+:root { --green: #17683a; }
+:root:not([data-theme="dark"]) { --accent: #8f5200; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --green: #52d49a; --accent: #ffb224; } }
+:root[data-theme="dark"] { --green: #52d49a; --accent: #ffb224; }
+/* Alternativas: la línea "Ahora" se corta con puntos suspensivos en vez de salirse de la hoja. */
+.alts .epg-now { display: block; overflow: visible; white-space: normal; }
+.alts .now-btn { display: flex; align-items: center; width: 100%; min-width: 0; text-align: left; }
+.alts .now-btn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty .btn { margin-top: 16px; }
+body { overflow-anchor: none; }

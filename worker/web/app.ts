@@ -382,7 +382,7 @@ function scheduleSave() {
 const PENDING_KEY = (cfgId: string) => `grilla_pending_${cfgId}`;
 const offlineError = (e: unknown) => !navigator.onLine || e instanceof TypeError;
 
-async function saveNow() {
+async function saveNow(announce = true) {
   clearTimeout(saveTimer);
   if (!state.local || !state.cfg) return;
   const cfgId = state.local.cfgId;
@@ -394,6 +394,7 @@ async function saveNow() {
     $('#statusLine').dataset.saved = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     delete $('#statusLine').dataset.pending;
     renderStatusLine();
+    if (announce) guideAnnounce = true;
     refreshGuideStatus();
   } catch (e) {
     if (offlineError(e)) {
@@ -423,6 +424,7 @@ window.addEventListener('online', () => {
 interface GuideStatus { guideUpToDate: boolean; guide: string | null; autoRefresh: boolean }
 let guideTimer = 0;
 let guidePending = false; // ya se avisó que la guía se está actualizando
+let guideAnnounce = false; // solo se avisa si guardaste un cambio en esta sesión
 
 const guideTime = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
@@ -438,13 +440,13 @@ async function refreshGuideStatus() {
   if (st.guideUpToDate) {
     if (guidePending) {
       guidePending = false;
-      toast(`La guía ya está lista con tus cambios (${guideTime(st.guide)})`, 'ok');
+      if (guideAnnounce) toast(`La guía ya está lista con tus cambios (${guideTime(st.guide)})`, 'ok');
     }
     return;
   }
   if (!guidePending) {
     guidePending = true;
-    toast(`La playlist ya tiene tus cambios; la guía se actualiza en ${st.autoRefresh ? 'un par de minutos' : 'unos 10 minutos'}`, 'info', 4500);
+    if (guideAnnounce) toast(`La playlist ya tiene tus cambios; la guía se actualiza en ${st.autoRefresh ? 'un par de minutos' : 'unos 10 minutos'}`, 'info', 4500);
   }
   guideTimer = window.setTimeout(refreshGuideStatus, 30000);
 }
@@ -839,7 +841,7 @@ function cardHtml(i: number): string {
     const shownName = esc(state.index?.displayName.get(suggestion?.channelId ?? '') ?? suggestion?.channelId ?? '');
     const sug = !epg && !edit.manual && suggestion;
     const sub = sug
-      ? `<span class="cat sug">Sugerencia: <b>${shownName}</b> <span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span></span>`
+      ? `<span class="cat sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownName}</b></span>`
       : `<span class="cat">${esc(groupLabel(groupOf(ch)))}${state.newNames.has(ch.name) ? ' · nuevo' : ''}${edit.group ? ' · movido' : ''}${hidden ? ' · oculto' : ''}</span>`
         + (epg ? `<span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span>` : '');
     return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}">
@@ -886,6 +888,24 @@ function renderStatusLine() {
 }
 
 let recheckGrid: () => void = () => {};
+/** Vacío con el motivo y, si hay algo para quitar, el botón que lo quita. */
+function emptyHtml(): string {
+  if (!state.channels.length) {
+    return `<div class="empty">${icon('inbox', 'lg')}<strong>No hay canales</strong>Volvé a cargar la lista del proveedor (Configuración).</div>`;
+  }
+  const f = state.filter;
+  const why = state.search.trim() ? `Nada coincide con “${esc(state.search.trim())}”.`
+    : f === 'ocultos' ? 'No ocultaste ningún canal.'
+    : f === 'manual' ? 'Todavía no elegiste ninguna guía a mano.'
+    : f === 'editados' ? 'Todavía no editaste ningún canal.'
+    : f === 'sin-epg' ? '¡Todos los canales tienen guía!'
+    : f === 'revisar' ? '¡No queda nada por revisar!'
+    : f === 'nuevos' ? 'No hay canales nuevos.'
+    : 'Ningún canal coincide con el filtro.';
+  const clear = state.search.trim() || f !== 'todos' ? `<button type="button" class="btn btn-tonal" data-clear-filters>Ver todos los canales</button>` : '';
+  return `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${why}${clear}</div>`;
+}
+
 function render() {
   if (!state.cfg) return;
   headersCache = null;
@@ -902,7 +922,14 @@ function render() {
   $('#viewBtn').title = $('#viewBtn').ariaLabel = viewMode() === 'row' ? 'Ver como tarjetas' : 'Ver como filas';
   cards.innerHTML = list.length
     ? list.slice(0, state.shown).map(cardHtml).join('')
-    : `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${state.channels.length ? 'Ningún canal coincide con el filtro.' : 'Volvé a cargar la lista del proveedor (Configuración).'}</div>`;
+    : emptyHtml();
+  $('[data-clear-filters]', cards)?.addEventListener('click', () => {
+    state.search = '';
+    $<HTMLInputElement>('#searchBox').value = '';
+    state.filter = 'todos';
+    state.shown = PAGE;
+    render();
+  });
   fillEpgRows(cards);
   $('#loadMoreSentinel').hidden = list.length <= state.shown;
   recheckGrid();
@@ -1075,6 +1102,9 @@ function openChannel(i: number) {
         <button type="button" class="icon-btn" data-act="auto" title="Volver a la guía automática" aria-label="Volver a la guía automática"${edit.manual ? '' : ' disabled'}>${icon('undo-2')}</button>
         <button type="button" class="icon-btn" data-act="no-epg" title="Dejar sin guía" aria-label="Dejar sin guía"${epg || !edit.manual ? '' : ' disabled'}>${icon('ban')}</button>
       </div>
+      ${pref('grilla_legend_ch', '') ? '' : `<div class="legend" role="note">
+        <span>${icon('eye', 'sm')} Ver u ocultar</span><span>${icon('user-check', 'sm')} Elegida por vos</span><span>${icon('calendar', 'sm')} Programación del día</span><span>${icon('undo-2', 'sm')} Guía automática</span><span>${icon('ban', 'sm')} Sin guía</span>
+        <button type="button" class="btn btn-plain" data-act="legend">Entendido</button></div>`}
       <div class="list search-results" hidden></div>
       ${ranked.length ? `<div class="list alts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
       ${fields}`;
@@ -1106,6 +1136,9 @@ function openChannel(i: number) {
     } else if (act === 'no-epg') {
       update(noEpg, 'Quedó sin guía');
       again();
+    } else if (act === 'legend') {
+      setPref('grilla_legend_ch', '1');
+      $('.legend', body)?.remove();
     } else if (act === 'rename') {
       saveName();
     } else if (act === 'day') {
@@ -2211,7 +2244,7 @@ function setupOnboarding() {
       const r = await api<{ channels: Channel[] }>('/api/provider/list', { method: 'POST', auth: false, body: { type: 'm3u', url } });
       await finishOnboarding(r.channels, { type: 'm3u' });
     } catch (e) {
-      status(st, `No se pudo bajar la lista: ${(e as Error).message}`, 'bad');
+      status(st, /error interno/.test((e as Error).message) ? 'No se pudo bajar la lista. Revisá que la dirección esté bien y que abra en el navegador.' : `No se pudo bajar la lista: ${(e as Error).message}`, 'bad');
     }
   };
   $('#m3uDownload').addEventListener('click', (ev) => {
@@ -2271,7 +2304,7 @@ async function openSaved() {
     }
     await loadGuide(say);
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
-    if ((await rematch(say)) || pending) await saveNow();
+    if ((await rematch(say)) || pending) await saveNow(false);
     status(st, null);
     detectNew();
     placeNewCategories();
@@ -2283,7 +2316,7 @@ async function openSaved() {
     const msg = (e as Error).message;
     if (/inexistente|clave/.test(msg)) {
       status(st, null);
-      toast(`Tu configuración ya no está (${msg}). Empezá de nuevo o importá un respaldo.`, 'bad', 8000);
+      toast('Tu configuración ya no está guardada en el servidor. Empezá de nuevo o importá un respaldo.', 'bad', 8000);
       saveLocal((state.local = null));
       state.creds = null;
       showOnboarding();
@@ -2633,5 +2666,21 @@ if (/[?&]importar\b/.test(location.search)) {
 }
 setupOnboarding();
 setupEditor();
+{
+  // El filtro se esconde al bajar la lista y vuelve al subir (con margen para que no titile).
+  let lastY = 0;
+  let travel = 0; // lo recorrido en la dirección actual
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    const bar = document.querySelector('.toolbar');
+    const d = y - lastY;
+    lastY = y;
+    if (!bar || !d) return;
+    travel = Math.sign(d) === Math.sign(travel) ? travel + d : d;
+    if (y < 120) bar.classList.remove('compact');
+    else if (travel > 40) bar.classList.add('compact');
+    else if (travel < -40) bar.classList.remove('compact');
+  }, { passive: true });
+}
 if (state.local) openSaved();
 else showOnboarding();
