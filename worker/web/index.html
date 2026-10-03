@@ -170,26 +170,26 @@
       </span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <div class="cat-toolbar">
-      <label class="search-field cat-filter">
-        <span data-icon="search"></span>
-        <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
-      </label>
-      <button type="button" class="icon-btn" id="newCategoryBtn" aria-label="Nueva categoría" title="Nueva categoría"><span data-icon="folder-plus"></span></button>
-      <button type="button" class="icon-btn" id="newSectionBtn" aria-label="Nueva sección" title="Nueva sección"><span data-icon="separator-horizontal"></span></button>
-      <button type="button" class="icon-btn" id="foldAllBtn" hidden></button>
+    <p class="meta-line" id="categoriesSummary"></p>
+    <label class="search-field cat-filter">
+      <span data-icon="search"></span>
+      <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
+    </label>
+    <div class="ch-chips cat-chips">
+      <button type="button" class="chip-btn" id="newCategoryBtn"><span data-icon="folder-plus"></span>Categoría</button>
+      <button type="button" class="chip-btn" id="newSectionBtn"><span data-icon="separator-horizontal"></span>Sección</button>
+      <button type="button" class="chip-btn" id="foldAllBtn" hidden></button>
     </div>
     <div class="menu" id="categoriesList"></div>
   </div>
 </dialog>
 
-<dialog class="sheet settings-sheet" id="catMenuDialog" aria-labelledby="catMenuTitle">
+<dialog class="sheet settings-sheet" id="catMenuDialog" aria-labelledby="catMenuName">
   <div class="sheet-body">
-    <div class="title-row">
-      <span class="title-left">
-        <h2 id="catMenuTitle" class="menu-title"></h2>
-        <button type="button" class="icon-btn" id="catMenuVis"></button>
-      </span>
+    <div class="title-row ch-head">
+      <button type="button" class="icon-btn" id="catMenuPrev" title="Anterior" aria-label="Categoría anterior"><span data-icon="chevron-left"></span></button>
+      <input id="catMenuName" class="ch-name" autocomplete="off" enterkeyhint="done" aria-label="Nombre en la playlist">
+      <button type="button" class="icon-btn" id="catMenuNext" title="Siguiente" aria-label="Categoría siguiente"><span data-icon="chevron-right"></span></button>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
     <div id="catMenuBody"></div>
@@ -219,25 +219,21 @@
 <dialog class="sheet settings-sheet" id="settingsDialog" aria-labelledby="settingsTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <h2 id="settingsTitle">Configuración</h2>
+      <span class="title-left"><h2 id="settingsTitle">Configuración</h2>
+        <button type="button" class="icon-btn" id="helpBtn" aria-label="Ayuda" title="Ayuda"><span data-icon="circle-help"></span></button></span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
-    <div class="menu">
-      <button class="menu-row" id="linksBtn">
-        <span class="menu-icon"><span data-icon="tv"></span></span>
-        <span class="menu-text">Tus links<small>Playlist y guía para tu reproductor</small></span>
-        <span data-icon="chevron-right"></span>
-      </button>
-      <button class="menu-row" id="helpBtn">
-        <span class="menu-icon"><span data-icon="circle-help"></span></span>
-        <span class="menu-text">Ayuda</span>
-        <span data-icon="chevron-right"></span>
-      </button>
-    </div>
+    <p class="meta-line" id="settingsSummary"></p>
+    <button class="menu-row primary-row" id="linksBtn">
+      <span class="menu-icon"><span data-icon="tv"></span></span>
+      <span class="menu-text">Tus links<small>Playlist y guía para tu reproductor</small></span>
+      <span data-icon="chevron-right"></span>
+    </button>
+    <h3 class="sec-title">Tu lista</h3>
     <div class="menu">
       <button class="menu-row" id="reloadListBtn">
         <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
-        <span class="menu-text">Recargar la lista del proveedor<small>Tus cambios se conservan</small></span>
+        <span class="menu-text">Recargar la lista del proveedor</span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="applyGuideBtn" hidden>
@@ -247,15 +243,15 @@
       </button>
       <button class="menu-row" id="importGithubBtn">
         <span class="menu-icon"><span data-icon="upload"></span></span>
-        <span class="menu-text">Importar desde Grilla (GitHub)<small>Tu orden, nombres y guías elegidas</small></span>
+        <span class="menu-text">Importar desde Grilla (GitHub)</span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
-    <div class="section-label">Respaldo</div>
+    <h3 class="sec-title">Respaldo</h3>
     <div class="menu">
       <button class="menu-row" id="exportBtn">
         <span class="menu-icon"><span data-icon="download"></span></span>
-        <span class="menu-text">Exportar respaldo<small>Para usarla en otro dispositivo</small></span>
+        <span class="menu-text">Exportar respaldo</span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="importBtn">
@@ -264,7 +260,7 @@
         <span data-icon="chevron-right"></span>
       </button>
     </div>
-    <div class="section-label">Preferencias</div>
+    <h3 class="sec-title">Preferencias</h3>
     <div class="menu">
       <div class="menu-row static">
         <span class="menu-icon"><span data-icon="sun-moon"></span></span>
@@ -277,7 +273,7 @@
       </div>
       <label class="menu-row static">
         <span class="menu-icon"><span data-icon="image"></span></span>
-        <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos móviles</small></span>
+        <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos</small></span>
         <input type="checkbox" class="switch" id="logosToggle">
       </label>
       <label class="menu-row static">
@@ -290,6 +286,7 @@
         </select>
       </label>
     </div>
+    <h3 class="sec-title">Zona delicada</h3>
     <div class="menu danger-zone">
       <button class="menu-row danger" id="forgetBtn">
         <span class="menu-icon"><span data-icon="trash-2"></span></span>
@@ -318,9 +315,9 @@
     </details>
     <details id="helpCategories">
       <summary>¿Cómo organizo las categorías y secciones?<span data-icon="chevron-down"></span></summary>
-      <p>En <b>Configuración → Categorías</b> arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist y el switch las muestra u oculta. Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una sección, o el botón de arriba para contraer o expandir todas, y así ordenarlas más fácil.</p>
-      <p>El menú <b>…</b> de cada fila tiene: <b>Cambiar nombre</b> (el que sale en tu playlist; el del proveedor no cambia), <b>Ordenar los canales</b> de la categoría, <b>Sin guía</b> (para eventos sueltos o canales 24/7: no cuentan en "A revisar" ni en "Sin EPG"), <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
-      <p>Con los botones de arriba creás una <b>categoría</b> o una <b>sección</b> nuevas; quedan al final para arrastrarlas a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
+      <p>En <b>Categorías</b> (el ícono de capas de arriba) arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist. <b>Deslizá</b> una fila hacia la izquierda para ocultarla o mostrarla, y hacia la derecha para dejarla sin guía. Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una, o «Plegar todo» para contraer o expandir todas.</p>
+      <p>Tocá una fila para abrir su hoja: ahí cambiás el <b>nombre</b> (el que sale en tu playlist; el del proveedor no cambia), la hacés <b>visible</b> u oculta, la marcás <b>sin guía</b> (para eventos sueltos o canales 24/7: no cuentan en «A revisar» ni en «Sin EPG») y <b>ordenás sus canales</b>. Con ‹ › pasás a la anterior o a la siguiente. En «Más opciones» están <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
+      <p>Con «Categoría» y «Sección» creás una nueva; queda al final para arrastrarla a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
     </details>
 
     <details>

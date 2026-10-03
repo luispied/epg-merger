@@ -1451,62 +1451,84 @@ function renderCategories() {
   const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(`${groupLabel(g)} ${g}`).includes(q));
   const folded = (g: string) => !q && !headers.has(g) && collapsed.has(owner.get(g) ?? '\u0000');
   const flags = (g: string) => (state.newGroups.has(g) ? ' · nueva' : '') + (noEpg.has(g) ? ' · sin guía' : '') + (hidden.has(g) ? ' · oculta' : '');
-  const more = (g: string, i: number) => `<button type="button" class="icon-btn" data-more="${i}" aria-haspopup="dialog" aria-label="Más opciones de ${esc(sectionTitle(groupLabel(g)))}">${icon('ellipsis')}</button>`;
-  const eye = (g: string, i: number) => `<button type="button" class="icon-btn vis-btn${hidden.has(g) ? ' off' : ''}" data-vis="${i}" aria-pressed="${!hidden.has(g)}" title="${hidden.has(g) ? 'Oculta: tocá para mostrarla' : 'Visible: tocá para ocultarla'}" aria-label="${hidden.has(g) ? 'Mostrar' : 'Ocultar'} ${esc(sectionTitle(groupLabel(g)))}">${icon(hidden.has(g) ? 'eye-off' : 'eye')}</button>`;
+  const marks = (g: string) => [state.newGroups.has(g) ? 'nueva' : '', noEpg.has(g) ? 'sin guía' : '', hidden.has(g) ? 'oculta' : '']
+    .filter(Boolean).map((m) => `<span class="mark">${m}</span>`).join('');
+  const swipe = (g: string, section: boolean) => `<span class="swipe-bg" aria-hidden="true">${section ? '' : `<span class="sw sw-r">${icon('ban')}${noEpg.has(g) ? 'Pedir guía' : 'Sin guía'}</span>`}<span class="sw sw-l">${icon(hidden.has(g) ? 'eye' : 'eye-off')}${hidden.has(g) ? 'Mostrar' : 'Ocultar'}</span></span>`;
   $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
-    <div class="menu-row static cat-row section-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}">
+    <div class="menu-row static cat-row section-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}" tabindex="0" role="button" aria-label="${esc(sectionTitle(groupLabel(g)))}, sección">
+      ${swipe(g, true)}
+      <div class="row-in">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(groupLabel(g)))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
       <button type="button" class="icon-btn sm fold-btn" data-fold="${i}" aria-expanded="${!collapsed.has(g)}" aria-label="${collapsed.has(g) ? 'Expandir' : 'Contraer'} la sección ${esc(sectionTitle(groupLabel(g)))}">${icon(collapsed.has(g) ? 'chevron-right' : 'chevron-down')}</button>
-      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>${plural(size.get(g) ?? 0, 'categoría', 'categorías')}${flags(g)}</small></span>
-      ${eye(g, i)}
-      ${more(g, i)}
+      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>${plural(size.get(g) ?? 0, 'categoría', 'categorías')}${marks(g)}</small></span>
+      ${icon('chevron-right', 'go')}
+      </div>
     </div>` : `
-    <div class="menu-row static cat-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}"${folded(g) ? ' hidden' : ''}>
+    <div class="menu-row static cat-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}" tabindex="0" role="button" aria-label="${esc(groupLabel(g))}"${folded(g) ? ' hidden' : ''}>
+      ${swipe(g, false)}
+      <div class="row-in">
       ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text">${esc(groupLabel(g))}<small>${plural(counts.get(g) ?? 0, 'canal', 'canales')}${flags(g)}</small></span>
-      ${eye(g, i)}
-      ${more(g, i)}
+      <span class="menu-text">${esc(groupLabel(g))}<small>${plural(counts.get(g) ?? 0, 'canal', 'canales')}${marks(g)}</small></span>
+      ${icon('chevron-right', 'go')}
+      </div>
     </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
+  const nHidden = list.filter((g) => hidden.has(g) && !headers.has(g)).length;
+  const nCats = list.filter((g) => !headers.has(g)).length;
+  $('#categoriesSummary').textContent = `${plural(nCats, 'categoría', 'categorías')}${nHidden ? ` · ${plural(nHidden, 'oculta', 'ocultas')}` : ''}`;
   // Contraer o expandir todas las secciones, según lo que haya.
   const sections = list.filter((g) => headers.has(g) && (size.get(g) ?? 0) > 0);
   const allFolded = sections.length > 0 && sections.every((g) => collapsed.has(g));
   const toggle = $('#foldAllBtn');
   toggle.hidden = !sections.length;
-  toggle.innerHTML = icon(allFolded ? 'chevrons-up-down' : 'chevrons-down-up');
+  toggle.innerHTML = `${icon(allFolded ? 'chevrons-up-down' : 'chevrons-down-up')}${allFolded ? 'Desplegar todo' : 'Plegar todo'}`;
   toggle.setAttribute('aria-label', allFolded ? 'Expandir todas las secciones' : 'Contraer todas las secciones');
-  toggle.title = toggle.getAttribute('aria-label')!;
   toggle.dataset.mode = allFolded ? 'expand' : 'collapse';
 }
 
-/** La hoja "…" de una categoría o sección, con el mismo patrón que la del canal: el ojo junto al
- *  título, el nombre con su ícono y las demás acciones como filas con ícono. */
+/** La hoja de una categoría o sección, con el mismo patrón que la del canal: arriba el nombre (se
+ *  edita tocándolo) con ‹ › para ir a la anterior o siguiente; después los interruptores y, al
+ *  final, "Más opciones". Todo se guarda solo. */
+let catMoreOpen = false;
 function openCategoryMenu(i: number) {
-  const g = groups()[i];
+  const list = groups();
+  const g = list[i];
   const isSection = sectionHeaders().has(g);
   const noEpg = !!state.cfg!.groups.noEpg?.includes(g);
   const hidden = state.cfg!.groups.hidden.includes(g);
   const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
-  const empty = !state.channels.some((ch) => groupOf(ch) === g);
+  const members = state.channels.filter((ch) => groupOf(ch) === g).length;
+  const empty = members === 0;
   const dlg = $('#catMenuDialog') as HTMLDialogElement;
   dlg.dataset.g = String(i);
   const label = isSection ? sectionTitle(groupLabel(g)) : groupLabel(g);
-  $('#catMenuTitle').textContent = label;
-  const eye = $<HTMLButtonElement>('#catMenuVis');
-  eye.innerHTML = icon(hidden ? 'eye-off' : 'eye');
-  eye.title = eye.ariaLabel = hidden ? 'Oculta: tocá para mostrarla' : 'Visible: tocá para ocultarla';
+  const input = $<HTMLInputElement>('#catMenuName');
+  input.value = label;
+  input.placeholder = isSection ? sectionTitle(g) : g;
+  for (const [id, to] of [['#catMenuPrev', i - 1], ['#catMenuNext', i + 1]] as const) {
+    const b = $<HTMLButtonElement>(id);
+    b.disabled = to < 0 || to >= list.length;
+    b.onclick = () => openCategoryMenu(to);
+  }
+  const renamed = !!state.cfg!.groups.rename?.[g];
   const row = (iconName: string, text: string, action: string, cls = '') =>
-    `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span><span class="menu-text">${esc(text)}</span>${cls.includes('on') ? icon('check') : ''}</button>`;
-  const rows = [
-    !isSection ? row('list-ordered', 'Ordenar los canales', 'order') : '',
-    !isSection ? row('ban', 'Sin guía', 'noepg', noEpg ? 'on' : '') : '',
-    state.cfg!.groups.rename?.[g] ? row('rotate-ccw', 'Volver al nombre original', 'unrename') : '',
+    `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span><span class="menu-text">${esc(text)}</span></button>`;
+  const sw = (text: string, small: string, cls: string, on: boolean) =>
+    `<label class="opt-row"><span>${esc(text)}${small ? `<small>${esc(small)}</small>` : ''}</span><input type="checkbox" class="switch ${cls}" role="switch"${on ? ' checked' : ''}></label>`;
+  const extra = [
+    renamed ? row('rotate-ccw', 'Volver al nombre original', 'unrename') : '',
     mine.has(g) && empty ? row('trash-2', 'Borrar', 'delete', 'danger') : '',
   ].join('');
   $('#catMenuBody').innerHTML = `
-    <div class="ch-fields first"><label class="ch-field" title="Nombre en la playlist">${icon('text-cursor-input')}
-      <input class="input cat-name" value="${esc(state.cfg!.groups.rename?.[g] ? label : '')}" placeholder="${esc(isSection ? sectionTitle(g) : g)}" aria-label="Nombre en la playlist">
-      <button type="button" class="icon-btn" data-action="rename" aria-label="Guardar nombre">${icon('check')}</button></label></div>
-    ${rows ? `<div class="menu">${rows}</div>` : ''}`;
+    <div class="ch-meta"><span class="prov">${isSection ? 'Sección' : plural(members, 'canal', 'canales')}${renamed ? ` · en el proveedor: ${esc(isSection ? sectionTitle(g) : g)}` : ''}</span></div>
+    ${isSection ? '' : `<h3 class="sec-title">Canales</h3>
+    <div class="menu">${row('list-ordered', 'Ordenar los canales', 'order')}</div>`}
+    <h3 class="sec-title">En la playlist</h3>
+    ${sw('Visible', '', 'cat-visible', !hidden)}
+    ${isSection ? '' : sw('Sin guía', 'No necesita guía de programación', 'cat-noepg', noEpg)}
+    ${extra ? `<details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary><div class="menu">${extra}</div></details>` : ''}`;
+  const body = $('#catMenuBody');
+  const more = body.querySelector<HTMLDetailsElement>('.ch-more');
+  if (more) more.ontoggle = () => { catMoreOpen = more.open; };
   if (!dlg.open) dlg.showModal();
 }
 
@@ -1800,25 +1822,14 @@ function setupCategories() {
     saveCollapsed($('#foldAllBtn').dataset.mode === 'collapse' ? new Set(withMembers) : new Set());
     renderCategories();
   };
+  // Deslizar una categoría: izquierda = ocultar o mostrar, derecha = sin guía (no en las secciones).
+  const swiped = wireSwipe(box, '.cat-row', (row) => toggleGroupHidden(groups()[Number(row.dataset.g)]), (row) => {
+    const g = groups()[Number(row.dataset.g)];
+    if (!sectionHeaders().has(g)) toggleGroupNoEpg(g);
+  });
   box.onclick = (ev) => {
+    if (swiped()) return;
     const t = ev.target as HTMLElement;
-    const more = t.closest<HTMLElement>('[data-more]');
-    if (more) {
-      openCategoryMenu(Number(more.dataset.more));
-      return;
-    }
-    const vis = t.closest<HTMLElement>('[data-vis]');
-    if (vis) {
-      const g = groups()[Number(vis.dataset.vis)];
-      const show = vis.getAttribute('aria-pressed') !== 'true';
-      editGroups((gr) => {
-        const hidden = new Set(gr.hidden);
-        if (show) hidden.delete(g);
-        else hidden.add(g);
-        gr.hidden = [...hidden];
-      }, show ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
-      return;
-    }
     const fold = t.closest<HTMLElement>('[data-fold]');
     if (fold) {
       const g = groups()[Number(fold.dataset.fold)];
@@ -1826,56 +1837,114 @@ function setupCategories() {
       if (!set.delete(g)) set.add(g);
       saveCollapsed(set);
       renderCategories();
+      return;
     }
+    if (t.closest('.drag-handle')) return;
+    const row = t.closest<HTMLElement>('.cat-row');
+    if (row) openCategoryMenu(Number(row.dataset.g));
+  };
+  box.onkeydown = (ev) => {
+    const t = ev.target as HTMLElement;
+    if (ev.key === 'Enter' && t.matches('.cat-row')) openCategoryMenu(Number(t.dataset.g));
   };
   const menu = () => ($('#catMenuDialog') as HTMLDialogElement);
   const menuGroup = () => groups()[Number(menu().dataset.g)];
-  const rename = () => {
-    const g = menuGroup();
-    applyRename(g, $<HTMLInputElement>('.cat-name', $('#catMenuBody')).value);
-    openCategoryMenu(Number(menu().dataset.g));
+  const again = () => openCategoryMenu(Number(menu().dataset.g));
+  const input = $<HTMLInputElement>('#catMenuName');
+  input.onchange = () => {
+    applyRename(menuGroup(), input.value);
+    again();
   };
-  $('#catMenuVis').onclick = () => {
-    const g = menuGroup();
-    const show = state.cfg!.groups.hidden.includes(g);
-    editGroups((gr) => {
-      const hidden = new Set(gr.hidden);
-      if (show) hidden.delete(g);
-      else hidden.add(g);
-      gr.hidden = [...hidden];
-    }, show ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
-    openCategoryMenu(Number(menu().dataset.g));
-  };
-  $('#catMenuBody').onkeydown = (ev) => {
-    if (ev.key === 'Enter' && (ev.target as HTMLElement).matches('.cat-name')) {
+  input.onkeydown = (ev) => {
+    if (ev.key === 'Enter') {
       ev.preventDefault();
-      rename();
+      input.blur();
     }
+  };
+  $('#catMenuBody').onchange = (ev) => {
+    const t = ev.target as HTMLElement;
+    if (t.matches('.cat-visible')) toggleGroupHidden(menuGroup());
+    else if (t.matches('.cat-noepg')) toggleGroupNoEpg(menuGroup());
+    else return;
+    again();
   };
   $('#catMenuBody').onclick = (ev) => {
     const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
     if (!action) return;
     const g = menuGroup();
-    if (action === 'rename') {
-      rename();
-      return;
-    }
-    if (action === 'noepg') {
-      const on = !state.cfg!.groups.noEpg?.includes(g);
-      editGroups((gr) => {
-        const noEpg = new Set(gr.noEpg ?? []);
-        if (on) noEpg.add(g);
-        else noEpg.delete(g);
-        gr.noEpg = [...noEpg];
-      }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
-      openCategoryMenu(Number(menu().dataset.g));
-      return;
-    }
     menu().close();
     if (action === 'unrename') unrenameGroup(g);
     else if (action === 'delete') deleteGroup(g);
     else if (action === 'order') openChannelOrder(g);
   };
+}
+
+function toggleGroupHidden(g: string) {
+  const show = state.cfg!.groups.hidden.includes(g);
+  editGroups((gr) => {
+    const hidden = new Set(gr.hidden);
+    if (show) hidden.delete(g);
+    else hidden.add(g);
+    gr.hidden = [...hidden];
+  }, show ? `${groupLabel(g)} visible en la playlist` : `${groupLabel(g)} oculta de la playlist`);
+}
+
+function toggleGroupNoEpg(g: string) {
+  const on = !state.cfg!.groups.noEpg?.includes(g);
+  editGroups((gr) => {
+    const noEpg = new Set(gr.noEpg ?? []);
+    if (on) noEpg.add(g);
+    else noEpg.delete(g);
+    gr.noEpg = [...noEpg];
+  }, on ? `${groupLabel(g)}: sin guía` : `${groupLabel(g)} vuelve a necesitar guía`);
+}
+
+/** Deslizar una fila con el dedo (no con el mouse). Devuelve una función que dice si el toque
+ *  que acaba de terminar fue un deslizamiento (para no tomarlo como un clic). */
+function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) => void, right: (row: HTMLElement) => void): () => boolean {
+  let sw: { row: HTMLElement; x: number; y: number; dx: number; on: boolean } | null = null;
+  let until = 0;
+  const reset = (row: HTMLElement) => {
+    row.classList.remove('swiping', 'armed');
+    row.style.removeProperty('--sx');
+    delete row.dataset.sw;
+  };
+  box.addEventListener('pointerdown', (ev) => {
+    const t = ev.target as HTMLElement;
+    if (ev.pointerType === 'mouse' || t.closest('.drag-handle, .fold-btn')) return;
+    const row = t.closest<HTMLElement>(rowSel);
+    if (row) sw = { row, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
+  });
+  box.addEventListener('pointermove', (ev) => {
+    if (!sw) return;
+    const dx = ev.clientX - sw.x;
+    const dy = ev.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
+      if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      sw.on = true;
+      sw.row.classList.add('swiping');
+    }
+    sw.dx = Math.max(-140, Math.min(140, dx));
+    sw.row.style.setProperty('--sx', `${sw.dx}px`);
+    sw.row.dataset.sw = sw.dx < 0 ? 'l' : 'r';
+    sw.row.classList.toggle('armed', Math.abs(sw.dx) > 80);
+  });
+  box.addEventListener('pointerup', () => {
+    if (!sw) return;
+    const { row, dx, on } = sw;
+    sw = null;
+    if (!on) return;
+    reset(row);
+    until = Date.now() + 400;
+    if (dx < -80) left(row);
+    else if (dx > 80) right(row);
+  });
+  box.addEventListener('pointercancel', () => {
+    if (sw) reset(sw.row);
+    sw = null;
+  });
+  return () => Date.now() < until;
 }
 
 // ------------------------------------------------------------------ links
@@ -2661,6 +2730,7 @@ function setupEditor() {
     ($('#helpDialog') as HTMLDialogElement).showModal();
   };
   $('#settingsBtn').onclick = () => {
+    $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
     // Importar desde GitHub es solo para quien venía de la versión anterior: se muestra con el link `?importar`.
     $('#importGithubBtn').hidden = pref('grilla_show_import', '0') !== '1';
     const apply = $('#applyGuideBtn');
