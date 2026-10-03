@@ -587,14 +587,14 @@ function visibleChannels(): number[] {
 }
 
 /** La etiqueta de estado de una tarjeta: el porcentaje de coincidencia (verde si es "Bien",
- *  naranja si es dudosa); "A mano" y "Sin EPG" no tienen porcentaje. */
+ *  naranja si es dudosa) o "Sin EPG". Lo elegido a mano no lleva marca en la lista. */
 function bandTag(band: Band, score?: number): string {
   const pct = score && score > 0 ? `${Math.round(Math.min(score, 1) * 100)} %` : '';
   switch (band) {
     case 'ok': return `<span class="tag ok" title="Coincidencia buena${pct ? `: ${pct}` : ''}">${pct || 'Bien'}</span>`;
     case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
     case 'none': return '<span class="tag bad">Sin EPG</span>';
-    case 'manual': return `<span class="tag manual with-icon" title="Elegida por vos: no cambia sola">${icon('user-check', 'sm')}</span>`;
+    case 'manual': return ''; // la marca "elegida por vos" se ve solo al abrir el canal
     case 'purpose': return `<span class="tag muted with-icon" title="Sin guía a propósito">${icon('ban', 'sm')}</span>`;
   }
 }
