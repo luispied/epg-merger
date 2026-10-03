@@ -572,3 +572,11 @@ html:root .logo:not(.has-img) { background: transparent; }
 .cat-head:first-child { border-top: 0; }
 .cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 body.selecting .row-in { padding-left: 12px; }
+
+/* Vista detallada: suma una línea con lo que está dando ahora la guía asignada. */
+.cards.detail .row-in { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+.cards.detail .row-in > .ok-mark, .cards.detail .row-in > .pct, .cards.detail .row-in > .tag, .cards.detail .row-in > .btn { margin-top: 8px; }
+.row-now { margin-top: 6px; font-size: 13px; min-width: 0; }
+.row-now .epg-now { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.row-now .epg-now:not(.on-air) { color: var(--muted); }
+.row-now .epg-now { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
