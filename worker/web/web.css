@@ -688,3 +688,8 @@ body.selecting .row-in { padding-left: 12px; }
 /* Segmentado: el borde exterior se dibuja encima para que el elegido no lo tape. */
 .seg { position: relative; }
 .seg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--faint); pointer-events: none; }
+
+/* El resumen (canales, categorías) va dentro del encabezado fijo: no queda debajo del título al bajar. */
+.title-row:has(> .meta-line) { flex-wrap: wrap; row-gap: 0; }
+.title-row > .meta-line { flex: 1 0 100%; order: 3; margin: -2px 0 4px; }
+#categoriesDialog .meta-line, #settingsDialog .meta-line { margin: -2px 0 4px; }
