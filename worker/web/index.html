@@ -30,14 +30,15 @@
 <section id="onboarding" hidden>
   <header class="app-header">
     <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1></div>
-    <p class="lead">Ordená tu lista de canales, asigná la guía de programación y copiá dos links para tu
-      reproductor (TiviMate, IPTV Smarters…). Sin cuenta: tu configuración queda guardada en este
-      navegador.</p>
-    <ol class="how">
-      <li><span class="how-n">1</span><span><b>Conectá tu lista</b><small>Los datos de tu proveedor (Xtream) o la dirección de tu lista M3U.</small></span></li>
-      <li><span class="how-n">2</span><span><b>Revisá y ordená</b><small>Grilla le busca la guía a cada canal; vos corregís, renombrás, ordenás y ocultás.</small></span></li>
-      <li><span class="how-n">3</span><span><b>Copiá tus links</b><small>Una playlist y una guía para tu reproductor, que se actualizan solas.</small></span></li>
-    </ol>
+    <p class="lead">Ordená tu lista de canales, asigná la guía y copiá dos links para tu reproductor. Sin cuenta: queda guardado en este navegador.</p>
+    <details class="how-wrap">
+      <summary>Cómo funciona</summary>
+      <ol class="how">
+        <li><span class="how-n">1</span><span><b>Conectá tu lista</b><small>Tu proveedor (Xtream) o la dirección de tu lista M3U.</small></span></li>
+        <li><span class="how-n">2</span><span><b>Revisá y ordená</b><small>Grilla busca la guía de cada canal; vos corregís, renombrás y ordenás.</small></span></li>
+        <li><span class="how-n">3</span><span><b>Copiá tus links</b><small>Una playlist y una guía que se actualizan solas.</small></span></li>
+      </ol>
+    </details>
   </header>
   <main>
     <div class="card">
@@ -226,19 +227,19 @@
     <div class="menu">
       <button class="menu-row" id="linksBtn">
         <span class="menu-icon"><span data-icon="tv"></span></span>
-        <span class="menu-text">Tus links<small>Playlist y guía para tu reproductor (TiviMate, IPTV Smarters…)</small></span>
+        <span class="menu-text">Tus links<small>Playlist y guía para tu reproductor</small></span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="helpBtn">
         <span class="menu-icon"><span data-icon="circle-help"></span></span>
-        <span class="menu-text">Ayuda<small>Cómo usar Grilla y preguntas frecuentes</small></span>
+        <span class="menu-text">Ayuda</span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
     <div class="menu">
       <button class="menu-row" id="reloadListBtn">
         <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
-        <span class="menu-text">Volver a cargar la lista del proveedor<small>Canales nuevos o que ya no están. Tus cambios se conservan.</small></span>
+        <span class="menu-text">Recargar la lista del proveedor<small>Tus cambios se conservan</small></span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="applyGuideBtn" hidden>
@@ -248,7 +249,7 @@
       </button>
       <button class="menu-row" id="importGithubBtn">
         <span class="menu-icon"><span data-icon="upload"></span></span>
-        <span class="menu-text">Importar desde Grilla (GitHub)<small>Tu configuración de siempre: orden y títulos de categorías, EPG elegidos, nombres, movidos y ocultos</small></span>
+        <span class="menu-text">Importar desde Grilla (GitHub)<small>Tu orden, nombres y guías elegidas</small></span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
@@ -256,7 +257,7 @@
     <div class="menu">
       <button class="menu-row" id="exportBtn">
         <span class="menu-icon"><span data-icon="download"></span></span>
-        <span class="menu-text">Exportar respaldo<small>Para abrir tu configuración en otro dispositivo</small></span>
+        <span class="menu-text">Exportar respaldo<small>Para usarla en otro dispositivo</small></span>
         <span data-icon="chevron-right"></span>
       </button>
       <button class="menu-row" id="importBtn">
@@ -388,7 +389,7 @@
 
     <details>
       <summary>Mi proveedor agregó o sacó canales<span data-icon="chevron-down"></span></summary>
-      <p><b>Configuración → Volver a cargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman el EPG automático.</p>
+      <p><b>Configuración → Recargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman el EPG automático.</p>
     </details>
 
     <details>
