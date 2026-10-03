@@ -474,3 +474,8 @@ dialog.sheet { border-radius: 20px; }
 .list-bar .meta-line { flex: 1; min-width: 0; margin: 0; }
 .list-tools { display: flex; flex: none; margin: -4px -8px -4px 0; }
 .list-tools .icon-btn { width: 40px; height: 40px; }
+
+/* Selección múltiple: mismo patrón que la hoja de canal. */
+.ch-search.first { margin-top: 4px; }
+#bulkBody .menu { margin-top: 12px; }
+#bulkBody .menu-row > .icon { flex: none; color: var(--accent); }

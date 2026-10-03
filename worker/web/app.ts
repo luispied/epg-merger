@@ -1177,102 +1177,97 @@ function applyBulk(fn: (e: ChannelEdit, ch: Channel) => void, msg: string) {
   setSelectMode(false);
 }
 
+/** La hoja de la selección múltiple, con el mismo patrón que la del canal: el ojo junto al título,
+ *  la búsqueda de una guía para todos con "volver al automático" y "dejar sin guía", las opciones
+ *  que más se repiten y, abajo, mover de categoría. */
 function openBulkMenu() {
   const chs = [...selection.items].map((i) => state.channels[i]);
   const n = chs.length;
   const cfg = state.cfg!;
-  $('#bulkTitle').textContent = plural(n, 'canal seleccionado', 'canales seleccionados');
-  const rows = [
-    menuRowHtml('pencil', 'Cambiar EPG', `El mismo para ${plural(n, 'canal', 'canales')}`, 'epg'),
-    menuRowHtml('folder-input', 'Mover de categoría', 'Todos a la misma categoría', 'category'),
-    menuRowHtml('eye-off', 'Ocultar de la playlist', '', 'hide'),
-    menuRowHtml('eye', 'Mostrar en la playlist', '', 'show'),
-  ];
-  const undo: string[] = [];
-  if (chs.some((ch) => cfg.channels[ch.name]?.manual)) undo.push(menuRowHtml('undo-2', 'Volver al EPG automático', 'Descarta los EPG elegidos a mano', 'auto'));
-  if (chs.some((ch) => cfg.channels[ch.name]?.name)) undo.push(menuRowHtml('rotate-ccw', 'Restaurar nombres originales', '', 'names'));
-  if (chs.some((ch) => cfg.channels[ch.name]?.group)) undo.push(menuRowHtml('folder-input', 'Volver a la categoría original', '', 'orig-cat'));
-  undo.push(menuRowHtml('ban', 'Dejar sin EPG', 'Para cuando ninguna guía sirve', 'no-epg', 'danger'));
-  const body = $('#bulkBody');
-  body.innerHTML = `<div class="menu">${rows.join('')}</div><div class="menu">${undo.join('')}</div>`;
   const dialog = $('#bulkDialog') as HTMLDialogElement;
-  body.onclick = (ev) => {
-    const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
-    if (!action) return;
-    dialog.close();
-    switch (action) {
-      case 'epg': openBulkEpg(chs); break;
-      case 'category': openBulkCategory(chs); break;
-      case 'hide': applyBulk((e) => { e.hidden = true; }, `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`); break;
-      case 'show': applyBulk((e) => { delete e.hidden; }, `${plural(n, 'canal visible', 'canales visibles')} en la playlist`); break;
-      case 'auto': applyBulk(autoEpg, `${plural(n, 'canal vuelve', 'canales vuelven')} al EPG automático`); break;
-      case 'names': applyBulk((e) => { delete e.name; }, 'Nombres originales restaurados'); break;
-      case 'orig-cat': applyBulk((e) => { delete e.group; }, 'Categorías originales restauradas'); break;
-      case 'no-epg':
-        confirmDialog({
-          title: `¿Dejar ${plural(n, 'canal', 'canales')} sin EPG?`,
-          text: 'No se les asigna guía ni logo, ni siquiera automáticamente. Se puede deshacer.',
-          ok: 'Dejar sin EPG', danger: true,
-        }).then((yes) => { if (yes) applyBulk(noEpg, `${plural(n, 'canal', 'canales')} sin EPG a propósito`); });
-        break;
-      default: break;
-    }
-  };
-  dialog.showModal();
-}
-
-// EPG para todos: primero las opciones que más se repiten entre los seleccionados (su EPG
-// actual y sus alternativas), después la búsqueda en toda la guía.
-function openBulkEpg(chs: Channel[]) {
+  const body = $('#bulkBody');
+  $('#bulkTitle').textContent = plural(n, 'seleccionado', 'seleccionados');
+  const allHidden = chs.every((ch) => cfg.channels[ch.name]?.hidden);
+  const eye = $<HTMLButtonElement>('#bulkVis');
+  eye.innerHTML = icon(allHidden ? 'eye-off' : 'eye');
+  eye.title = eye.ariaLabel = allHidden ? 'Todos ocultos: tocá para mostrarlos' : 'Tocá para ocultarlos de la playlist';
+  // Primero las opciones que más se repiten entre los seleccionados (su guía actual y sus alternativas).
   const score = new Map<string, number>();
   for (const ch of chs) {
-    const cur = state.cfg!.channels[ch.name]?.epg;
+    const cur = cfg.channels[ch.name]?.epg;
     const ids = [...(cur ? [cur] : []), ...(state.auto.get(ch.name)?.ranked ?? []).map((c) => c.channelId)];
     for (const id of new Set(ids)) score.set(id, (score.get(id) ?? 0) + 1);
   }
-  const suggestions = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  $('#bulkEpgTitle').textContent = `EPG para ${plural(chs.length, 'canal', 'canales')}`;
-  const body = $('#bulkEpgBody');
+  const suggestions = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const anyManual = chs.some((ch) => cfg.channels[ch.name]?.manual);
+  const resets = [
+    chs.some((ch) => cfg.channels[ch.name]?.name) ? menuRowHtml('rotate-ccw', 'Restaurar nombres originales', '', 'names') : '',
+    chs.some((ch) => cfg.channels[ch.name]?.group) ? menuRowHtml('rotate-ccw', 'Volver a las categorías originales', '', 'orig-cat') : '',
+  ].join('');
   body.innerHTML = `
-    ${suggestions.length ? `<div class="section-label">Sugerencias</div><div class="list">${suggestions.map(([id, count]) => candidateButton(id, undefined, {
-      note: count > 1 ? `· opción de ${count} de ${chs.length}` : '',
+    <div class="ch-search first">
+      <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar una guía para todos" enterkeyhint="search" aria-label="Buscar una guía para todos"></label>
+      <button type="button" class="icon-btn" data-act="auto" title="Volver a la guía automática" aria-label="Volver a la guía automática"${anyManual ? '' : ' disabled'}>${icon('undo-2')}</button>
+      <button type="button" class="icon-btn" data-act="no-epg" title="Dejar sin guía" aria-label="Dejar sin guía">${icon('ban')}</button>
+    </div>
+    <div class="list search-results" hidden></div>
+    ${suggestions.length ? `<div class="list alts">${suggestions.map(([id, count]) => candidateButton(id, undefined, {
+      note: count > 1 ? `· opción de ${count} de ${n}` : '',
     })).join('')}</div>` : ''}
-    <div class="section-label">Buscar en toda la guía</div>
-    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Canal o programa que está dando ahora" enterkeyhint="search"></label>
-    <div class="list search-results" hidden></div>`;
-  const dialog = $('#bulkEpgDialog') as HTMLDialogElement;
-  body.onclick = (ev) => {
-    const picked = epgClick(ev);
-    if (!picked) return;
+    <div class="ch-fields">
+      <label class="ch-field" title="Mover de categoría">${icon('folder-input')}
+        <select class="select bulk-cat" aria-label="Mover a la categoría">
+          <option value="" selected disabled>Mover a la categoría…</option>
+          ${groups().filter((g) => !headersNow().has(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
+        </select>
+        <button type="button" class="icon-btn" data-act="move" aria-label="Mover" disabled>${icon('check')}</button></label>
+    </div>
+    ${resets ? `<div class="menu">${resets}</div>` : ''}`;
+  const select = $<HTMLSelectElement>('.bulk-cat', body);
+  const move = $<HTMLButtonElement>('[data-act=move]', body);
+  select.onchange = () => { move.disabled = !select.value; };
+  eye.onclick = () => {
     dialog.close();
-    applyBulk((e, ch) => { if (!info(ch).divider) pickEpg(e, picked); }, `EPG elegido para ${plural(chs.length, 'canal', 'canales')}`);
+    if (allHidden) applyBulk((e) => { delete e.hidden; }, `${plural(n, 'canal visible', 'canales visibles')} en la playlist`);
+    else applyBulk((e) => { e.hidden = true; }, `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`);
+  };
+  body.onclick = async (ev) => {
+    const picked = epgClick(ev);
+    if (picked) {
+      dialog.close();
+      applyBulk((e, ch) => { if (!info(ch).divider) pickEpg(e, picked); }, `Guía elegida para ${plural(n, 'canal', 'canales')}`);
+      return;
+    }
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act],[data-action]');
+    const action = act?.dataset.act ?? act?.dataset.action;
+    if (!action) return;
+    if (action === 'move') {
+      let dest = select.value;
+      if (dest === '__new__') dest = (await newCategoryName()) ?? '';
+      if (!dest) return;
+      dialog.close();
+      applyBulk((e, ch) => { e.group = dest === ch.category ? undefined : dest; }, `${plural(n, 'canal movido', 'canales movidos')} a ${dest}`);
+      return;
+    }
+    if (action === 'no-epg') {
+      const yes = await confirmDialog({
+        title: `¿Dejar ${plural(n, 'canal', 'canales')} sin guía?`,
+        text: 'No se les asigna guía ni logo, ni siquiera automáticamente. Se puede deshacer.',
+        ok: 'Dejar sin guía', danger: true,
+      });
+      if (yes) {
+        dialog.close();
+        applyBulk(noEpg, `${plural(n, 'canal', 'canales')} sin guía a propósito`);
+      }
+      return;
+    }
+    dialog.close();
+    if (action === 'auto') applyBulk(autoEpg, `${plural(n, 'canal vuelve', 'canales vuelven')} a la guía automática`);
+    else if (action === 'names') applyBulk((e) => { delete e.name; }, 'Nombres originales restaurados');
+    else if (action === 'orig-cat') applyBulk((e) => { delete e.group; }, 'Categorías originales restauradas');
   };
   wireGuideSearch(body);
   fillEpgRows(body);
-  dialog.showModal();
-}
-
-function openBulkCategory(chs: Channel[]) {
-  $('#bulkTitle').textContent = `Mover ${plural(chs.length, 'canal', 'canales')}`;
-  const body = $('#bulkBody');
-  body.innerHTML = `<select class="select bulk-cat" aria-label="Categoría destino">
-      <option value="" selected disabled>Elegí la categoría…</option>
-      ${groups().filter((g) => !headersNow().has(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
-    </select>
-    <div class="row-actions"><button type="button" class="btn btn-primary bulk-move" disabled>Mover</button></div>`;
-  body.onclick = null;
-  const select = $<HTMLSelectElement>('.bulk-cat', body);
-  const move = $<HTMLButtonElement>('.bulk-move', body);
-  select.onchange = () => { move.disabled = !select.value; };
-  const dialog = $('#bulkDialog') as HTMLDialogElement;
-  move.onclick = async () => {
-    let dest = select.value;
-    if (dest === '__new__') dest = (await newCategoryName()) ?? '';
-    if (!dest) return;
-    dialog.close();
-    applyBulk((e, ch) => { e.group = dest === ch.category ? undefined : dest; },
-      `${plural(chs.length, 'canal movido', 'canales movidos')} a ${dest}`);
-  };
   dialog.showModal();
 }
 
