@@ -683,3 +683,8 @@ body.selecting .row-in { padding-left: 12px; }
 .ch-meta { margin-top: 4px; margin-bottom: 12px; }
 .cat-row .swipe-bg { visibility: visible; }
 #catMenuBody .ch-more { margin-top: 12px; }
+/* Deslizar: la acción de la izquierda va siempre pegada al borde derecho (en las secciones es la única). */
+.swipe-bg .sw-l { margin-left: auto; }
+/* Segmentado: el borde exterior se dibuja encima para que el elegido no lo tape. */
+.seg { position: relative; }
+.seg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--faint); pointer-events: none; }
