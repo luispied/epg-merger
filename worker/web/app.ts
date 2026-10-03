@@ -73,6 +73,18 @@ function hydrateIcons(root: ParentNode = document) {
   $$('[data-icon]', root).forEach((el) => { el.outerHTML = icon((el as HTMLElement).dataset.icon!, el.className); });
 }
 
+// showModal() enfoca el primer botón de la hoja (el ojo o la ayuda) y queda con el aro de foco.
+// Si el foco cae en un botón, pasa a la hoja misma; los campos de texto conservan su foco.
+const nativeShowModal = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+  nativeShowModal.call(this);
+  const a = document.activeElement;
+  if (a instanceof HTMLElement && this.contains(a) && !a.matches('input, textarea, select')) {
+    this.tabIndex = -1;
+    this.focus({ preventScroll: true });
+  }
+};
+
 /** `undo`: agrega "Deshacer" (el aviso dura más). */
 function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, undo?: () => void) {
   ms = Math.max(ms, Math.min(12000, 2500 + text.length * 45)); // los largos se leen enteros

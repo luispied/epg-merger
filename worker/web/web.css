@@ -480,3 +480,4 @@ dialog.sheet { border-radius: 20px; }
 #bulkBody .menu { margin-top: 12px; }
 #bulkBody .menu-row > .icon { flex: none; color: var(--accent); }
 .loading .list-bar { display: none; }
+dialog:focus, dialog:focus-visible { outline: none; }
