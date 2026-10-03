@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
   'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
@@ -1514,18 +1515,19 @@ function openCategoryMenu(i: number) {
     `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span><span class="menu-text">${esc(text)}</span></button>`;
   const sw = (text: string, small: string, cls: string, on: boolean) =>
     `<label class="opt-row"><span>${esc(text)}${small ? `<small>${esc(small)}</small>` : ''}</span><input type="checkbox" class="switch ${cls}" role="switch"${on ? ' checked' : ''}></label>`;
+  // Ocultar y «sin guía» se hacen deslizando la fila; acá quedan plegados (teclado y lectores de pantalla).
   const extra = [
     renamed ? row('rotate-ccw', 'Volver al nombre original', 'unrename') : '',
     mine.has(g) && empty ? row('trash-2', 'Borrar', 'delete', 'danger') : '',
   ].join('');
   $('#catMenuBody').innerHTML = `
     <div class="ch-meta"><span class="prov">${isSection ? 'Sección' : plural(members, 'canal', 'canales')}${renamed ? ` · en el proveedor: ${esc(isSection ? sectionTitle(g) : g)}` : ''}</span></div>
-    ${isSection ? '' : `<h3 class="sec-title">Canales</h3>
-    <div class="menu">${row('list-ordered', 'Ordenar los canales', 'order')}</div>`}
-    <h3 class="sec-title">En la playlist</h3>
-    ${sw('Visible', '', 'cat-visible', !hidden)}
-    ${isSection ? '' : sw('Sin guía', 'No necesita guía de programación', 'cat-noepg', noEpg)}
-    ${extra ? `<details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary><div class="menu">${extra}</div></details>` : ''}`;
+    ${isSection ? '' : `<div class="menu">${row('list-ordered', 'Ordenar los canales', 'order')}</div>`}
+    <details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary>
+      ${sw('Visible en la playlist', '', 'cat-visible', !hidden)}
+      ${isSection ? '' : sw('Sin guía', 'No necesita guía de programación', 'cat-noepg', noEpg)}
+      ${extra ? `<div class="menu">${extra}</div>` : ''}
+    </details>`;
   const body = $('#catMenuBody');
   const more = body.querySelector<HTMLDetailsElement>('.ch-more');
   if (more) more.ontoggle = () => { catMoreOpen = more.open; };
@@ -1826,7 +1828,7 @@ function setupCategories() {
   const swiped = wireSwipe(box, '.cat-row', (row) => toggleGroupHidden(groups()[Number(row.dataset.g)]), (row) => {
     const g = groups()[Number(row.dataset.g)];
     if (!sectionHeaders().has(g)) toggleGroupNoEpg(g);
-  });
+  }, (row) => !sectionHeaders().has(groups()[Number(row.dataset.g)]));
   box.onclick = (ev) => {
     if (swiped()) return;
     const t = ev.target as HTMLElement;
@@ -1901,7 +1903,7 @@ function toggleGroupNoEpg(g: string) {
 
 /** Deslizar una fila con el dedo (no con el mouse). Devuelve una función que dice si el toque
  *  que acaba de terminar fue un deslizamiento (para no tomarlo como un clic). */
-function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) => void, right: (row: HTMLElement) => void): () => boolean {
+function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) => void, right: (row: HTMLElement) => void, canRight: (row: HTMLElement) => boolean = () => true): () => boolean {
   let sw: { row: HTMLElement; x: number; y: number; dx: number; on: boolean } | null = null;
   let until = 0;
   const reset = (row: HTMLElement) => {
@@ -1925,9 +1927,10 @@ function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) =>
       sw.on = true;
       sw.row.classList.add('swiping');
     }
-    sw.dx = Math.max(-140, Math.min(140, dx));
+    sw.dx = Math.max(-140, Math.min(canRight(sw.row) ? 140 : 0, dx));
     sw.row.style.setProperty('--sx', `${sw.dx}px`);
-    sw.row.dataset.sw = sw.dx < 0 ? 'l' : 'r';
+    if (sw.dx) sw.row.dataset.sw = sw.dx < 0 ? 'l' : 'r';
+    else delete sw.row.dataset.sw;
     sw.row.classList.toggle('armed', Math.abs(sw.dx) > 80);
   });
   box.addEventListener('pointerup', () => {
