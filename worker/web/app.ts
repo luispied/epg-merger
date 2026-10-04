@@ -1964,6 +1964,28 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
   renderChannelOrder(g);
 }
 
+const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Grilla', settings: 'Ayuda', categories: 'Ayuda' };
+/** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
+function openHelp(topic: 'main' | 'settings' | 'categories', from?: string) {
+  const help = $('#helpDialog') as HTMLDialogElement;
+  for (const t of $$<HTMLElement>('.help-topic', help)) t.hidden = t.dataset.topic !== topic;
+  $('#helpTitle').textContent = HELP_TITLES[topic];
+  $('#helpBack').hidden = !from;
+  help.dataset.from = from ?? '';
+  $('.sheet-body', help).scrollTop = 0;
+  help.showModal();
+}
+/** Hojas anidadas: «‹» cierra solo la de arriba y vuelve a la anterior; «×» cierra las dos. */
+function wireNested(child: string, back: string, close: string) {
+  const dlg = $(child) as HTMLDialogElement;
+  $(back).onclick = () => dlg.close();
+  $(close).onclick = () => {
+    const from = dlg.dataset.from;
+    dlg.close();
+    if (from) ($(from) as HTMLDialogElement).close();
+  };
+}
+
 function openChannelOrder(g: string) {
   renderChannelOrder(g);
   const dlg = $('#orderDialog') as HTMLDialogElement;
@@ -1999,12 +2021,7 @@ function setupCategories() {
   $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
   $('#newCategoryBtn').onclick = () => createGroup('category');
   $('#newSectionBtn').onclick = () => createGroup('separator');
-  $('#categoriesHelpBtn').onclick = () => {
-    const help = $('#helpDialog') as HTMLDialogElement;
-    for (const d of $$<HTMLDetailsElement>('details', help)) d.open = d.id === 'helpCategories';
-    help.showModal();
-    $('#helpCategories').scrollIntoView({ block: 'start' });
-  };
+  $('#categoriesHelpBtn').onclick = () => openHelp('categories', '#categoriesDialog');
   $('#foldAllBtn').onclick = () => {
     const headers = sectionHeaders();
     const list = groups();
@@ -2971,7 +2988,7 @@ function setupEditor() {
     openDock($('#categoriesDialog') as HTMLDialogElement);
   };
   // Barra inferior: Canales (volver arriba), Revisar, Categorías y Links.
-  $('#helpTopBtn').onclick = () => ($('#helpDialog') as HTMLDialogElement).showModal();
+  $('#helpTopBtn').onclick = () => openHelp('main');
   $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   $('#tabReview').onclick = () => {
     if (reviewList().length) startReview();
@@ -2981,6 +2998,15 @@ function setupEditor() {
     renderLinks();
     ($('#linksDialog') as HTMLDialogElement).showModal();
   };
+  wireNested('#helpDialog', '#helpBack', '#helpClose');
+  // Ordenar los canales se abre desde la hoja de la categoría: «‹» vuelve a esa hoja y «×» cierra.
+  $('#orderBack').onclick = () => {
+    const dlg = $('#orderDialog') as HTMLDialogElement;
+    const idx = groups().indexOf(dlg.dataset.group!);
+    dlg.close();
+    if (idx >= 0) openCategoryMenu(idx);
+  };
+  $('#orderClose').onclick = () => ($('#orderDialog') as HTMLDialogElement).close();
   setupCategories();
   setupChannelOrder();
   $('#newBanner').onclick = (ev) => {
@@ -3011,10 +3037,7 @@ function setupEditor() {
       box.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
-  $('#helpBtn').onclick = () => {
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    ($('#helpDialog') as HTMLDialogElement).showModal();
-  };
+  $('#helpBtn').onclick = () => openHelp('settings', '#settingsDialog');
   $('#settingsBtn').onclick = () => {
     $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
     // Importar desde GitHub es solo para quien venía de la versión anterior: se muestra con el link `?importar`.

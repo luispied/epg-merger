@@ -210,8 +210,11 @@
 <dialog class="sheet settings-sheet" id="orderDialog" aria-labelledby="orderTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <h2 id="orderTitle" class="menu-title"></h2>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+      <span class="title-left">
+        <button type="button" class="icon-btn" id="orderBack" aria-label="Volver" title="Volver"><span data-icon="chevron-left"></span></button>
+        <h2 id="orderTitle" class="menu-title"></h2>
+      </span>
+      <button type="button" class="icon-btn" id="orderClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
     <div id="orderBody"></div>
   </div>
@@ -305,9 +308,13 @@
 <dialog class="sheet help-sheet" id="helpDialog" aria-labelledby="helpTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <h2 id="helpTitle">Cómo usar Grilla</h2>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
+      <span class="title-left">
+        <button type="button" class="icon-btn" id="helpBack" aria-label="Volver" title="Volver" hidden><span data-icon="chevron-left"></span></button>
+        <h2 id="helpTitle">Cómo usar Grilla</h2>
+      </span>
+      <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
+<div class="help-topic" data-topic="main">
     <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da dos links para tu reproductor. Acá corregís lo que haga falta.</p>
 
     <details open>
@@ -353,13 +360,6 @@
       <p>Tocá el canal. El <b>nombre</b> está arriba: tocalo y escribí (si lo dejás vacío vuelve al del proveedor). Debajo, la <b>categoría</b> es una etiqueta que se toca para elegir otra, o crear una nueva. En <b>Más opciones</b> están <b>Visible en la playlist</b> y <b>Logo propio</b> (la dirección de una imagen). Todo se guarda solo, y la guía no cambia al renombrar o mover.</p>
     </details>
 
-    <details id="helpCategories">
-      <summary>¿Cómo organizo las categorías y secciones?<span data-icon="chevron-down"></span></summary>
-      <p>En <b>Categorías</b> (la pestaña de abajo) arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist. <b>Deslizá</b> una fila hacia la izquierda para ocultarla o mostrarla, y hacia la derecha para dejarla sin guía (las secciones solo se ocultan). Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una, o «Plegar todo» para contraer o expandir todas.</p>
-      <p><b>Tocá una fila</b> para abrir su hoja: el <b>nombre</b> (el que sale en tu playlist; el del proveedor no cambia) se edita arriba, con ‹ › pasás a la anterior o siguiente, y <b>Ordenar los canales</b> los acomoda arrastrando. En <b>Más opciones</b> están <b>Visible</b>, <b>Sin guía</b> (para eventos sueltos o canales 24/7: no cuentan en «A revisar» ni en «Sin EPG»), <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
-      <p>Con «Categoría» y «Sección» creás una nueva; queda al final para arrastrarla a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
-    </details>
-
     <details>
       <summary>Canales nuevos del proveedor<span data-icon="chevron-down"></span></summary>
       <p>Cuando tu lista trae canales que no estaban, arriba aparece «Hay N canales nuevos» y el filtro <b>Nuevos</b> (también se marcan con «nuevo» en la fila). Revisalos y tocá <b>Marcar como vistos</b>.</p>
@@ -380,21 +380,54 @@
       <p>Esa guía no tiene nada cargado para esta hora. Si pasa en casi todos los canales, la programación todavía no se actualizó hoy: se renueva sola todos los días.</p>
     </details>
 
-    <details>
-      <summary>Mi proveedor agregó o sacó canales<span data-icon="chevron-down"></span></summary>
-      <p><b>Configuración → Recargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman la guía automática.</p>
     </details>
-
-    <details>
-      <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
-      <p>No se guardan en ningún servidor: van cifrados solo dentro de tus links de reproducción. Tu configuración queda asociada a este navegador; para usarla en otro dispositivo, <b>Configuración → Exportar respaldo</b> y después <b>Importar respaldo</b> en el otro.</p>
-    </details>
-
-    <details>
-      <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
-      <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa, sin la barra del navegador. También abre <b>sin conexión</b>: podés mirar y editar, y los cambios se guardan solos cuando vuelve internet. En iPhone la app instalada guarda sus datos aparte: importá tu respaldo una vez ahí.</p>
-    </details>
-    </details>
+    </div>
+    <div class="help-topic" data-topic="settings" hidden>
+      <p>Acá se ajusta Grilla en sí, no los canales. Lo que cambies se guarda en este dispositivo.</p>
+      <details open>
+        <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>
+        <p>Cuando tu proveedor agrega o saca canales, tocá <b>Recargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
+      </details>
+      <details>
+        <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
+        <p><b>Exportar respaldo</b> baja un archivo pequeño con la llave para editar tu configuración (no lleva tu usuario ni tu contraseña). Para seguir en otro dispositivo o navegador, abrí Grilla ahí y tocá <b>Importar respaldo</b>. Guardalo en un lugar privado: quien lo tenga puede editar tu configuración.</p>
+      </details>
+      <details>
+        <summary>Tema, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
+      </details>
+      <details>
+        <summary>Actualizar la guía ahora<span data-icon="chevron-down"></span></summary>
+        <p>La guía se vuelve a armar sola cada día y unos minutos después de tus cambios. Si ves el botón <b>Actualizar la guía ahora</b>, la pide en el momento.</p>
+      </details>
+      <details>
+        <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
+        <p>No se guardan en ningún servidor: van cifrados solo dentro de tus links de reproducción. Tu configuración queda asociada a este navegador.</p>
+      </details>
+      <details>
+        <summary>Borrar configuración<span data-icon="chevron-down"></span></summary>
+        <p>Borra tu configuración del servidor y de este dispositivo. <b>Tus links dejan de funcionar</b> y no se puede deshacer: hacé un respaldo antes si dudás.</p>
+      </details>
+      <details>
+        <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
+        <p><b>iPhone:</b> en Safari, Compartir → <i>Agregar a inicio</i>. <b>Android:</b> en Chrome, menú → <i>Instalar app</i>. Abre a pantalla completa y funciona sin conexión: tus cambios se guardan y se envían cuando vuelve la red.</p>
+      </details>
+    </div>
+    <div class="help-topic" data-topic="categories" hidden>
+      <p>Las categorías son los grupos de tu playlist. Las <b>secciones</b> son encabezados que agrupan categorías.</p>
+      <details open>
+        <summary>Ordenar, ocultar y plegar<span data-icon="chevron-down"></span></summary>
+        <p>Arrastrá desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist. <b>Deslizá</b> una fila hacia la izquierda para ocultarla o mostrarla, y hacia la derecha para dejarla sin guía (las secciones solo se ocultan). Con mouse, arrastrá la fila o usá la hoja. Las secciones se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una, o «Plegar todo» para contraer o expandir todas.</p>
+      </details>
+      <details open>
+        <summary>La hoja de cada categoría<span data-icon="chevron-down"></span></summary>
+        <p><b>Tocá una fila</b> para abrirla. Arriba editás el <b>nombre</b> (el que sale en tu playlist; el del proveedor no cambia) y con ‹ › pasás a la anterior o siguiente. <b>Ordenar los canales</b> los acomoda arrastrando. <b>Visible en la playlist</b> la oculta y <b>Sin guía</b> es para eventos sueltos o canales 24/7: no cuentan en «A revisar» ni en «Sin EPG». En <b>Más opciones</b> están <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
+      </details>
+      <details>
+        <summary>Crear categorías y secciones<span data-icon="chevron-down"></span></summary>
+        <p>Con «Categoría» y «Sección» creás una nueva; queda al final para arrastrarla a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
+      </details>
+    </div>
   </div>
 </dialog>
 
