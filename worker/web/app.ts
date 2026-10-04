@@ -2180,22 +2180,19 @@ async function renderLinks(result?: LinkResult) {
 
 function renderLinkResult(result: LinkResult) {
   const body = $('#linksBody');
-  const row = (label: string, url: string, id: string) => `
-    <label class="field"><span>${label}</span>
-      <div class="inline-field"><input class="input mono" id="${id}" readonly value="${esc(url)}">
-        <button type="button" class="icon-btn" data-copy="${id}" aria-label="Copiar">${icon('copy')}</button></div></label>`;
   body.innerHTML = `
     <button type="button" class="btn btn-gray" data-back>${icon('arrow-left')}Dispositivos</button>
     ${result.name ? `<h3 class="sub-title">${esc(result.name)}</h3>` : ''}
-    ${row('Playlist (M3U)', result.playlistUrl, 'lnkPlaylist')}
-    ${row('Guía (EPG)', result.epgUrl, 'lnkEpg')}
+    <div class="lc-actions">
+      <button type="button" class="btn btn-primary" data-copy="${esc(result.playlistUrl)}">${icon('copy')}Copiar playlist</button>
+      <button type="button" class="btn btn-tonal" data-copy="${esc(result.epgUrl)}">${icon('copy')}Copiar guía</button></div>
     <div class="share-row">
       ${'share' in navigator ? `<button type="button" class="btn btn-tonal" data-share="native">${icon('share-2')}Compartir</button>` : ''}
       <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(shareText(result))}">${icon('message-circle')}WhatsApp</a>
       <a class="btn btn-gray" href="mailto:?subject=${encodeURIComponent('Grilla: mis links')}&body=${encodeURIComponent(shareText(result))}">${icon('mail')}Mail</a>
     </div>
     <div class="qr" id="qr"></div>
-    <p class="help">En TiviMate: Agregar playlist → Ingresar URL → la de arriba; la guía la toma sola
+    <p class="help">En TiviMate: Agregar playlist → Ingresar URL → pegá la playlist; la guía la toma sola
       (si no, agregala en Ajustes → EPG). Los cambios que guardes llegan a la playlist al
       instante y a la guía en unos minutos. Los links no cambian: no hace falta volver a
       cargarlos en el reproductor.</p>
@@ -2212,16 +2209,12 @@ function renderLinkResult(result: LinkResult) {
       } catch { /* cancelado */ }
       return;
     }
-    const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-copy]')?.dataset.copy;
-    if (!id) return;
-    const input = $<HTMLInputElement>(`#${id}`);
-    try {
-      await navigator.clipboard.writeText(input.value);
-    } catch {
-      input.select();
-      document.execCommand('copy');
-    }
-    toast('Copiado', 'ok');
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-copy]');
+    if (!btn) return;
+    await copyText(btn.dataset.copy!);
+    const before = btn.innerHTML;
+    btn.innerHTML = `${icon('check')}Copiado`;
+    setTimeout(() => { btn.innerHTML = before; }, 2000);
   };
   showQr(result.playlistUrl);
 }
@@ -2240,7 +2233,7 @@ async function copyText(text: string) {
 }
 
 // La primera vez los links se arman solos (con un dispositivo «Mi reproductor») y una tarjeta arriba
-// de la lista los ofrece listos para copiar; se descarta con la X. Después viven en Configuración.
+// de la lista los ofrece listos para copiar; se descarta con la X. Después viven en la pestaña Links.
 const LINKS_CARD_KEY = (id: string) => `grilla_links_card_${id}`;
 
 async function createFirstDevice() {
@@ -2951,11 +2944,6 @@ function setupEditor() {
       box.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
-  $('#linksBtn').onclick = () => {
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    renderLinks();
-    ($('#linksDialog') as HTMLDialogElement).showModal();
-  };
   $('#helpBtn').onclick = () => {
     ($('#settingsDialog') as HTMLDialogElement).close();
     ($('#helpDialog') as HTMLDialogElement).showModal();
