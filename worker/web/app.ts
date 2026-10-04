@@ -1362,26 +1362,42 @@ function openChannel(i: number) {
     again();
   };
   if (!dlg.open) {
-    dlg.addEventListener('close', () => {
-      refreshSheet = null; sheetList = []; sheetReview = false;
-      document.body.classList.remove('has-dock');
-    }, { once: true });
-    // En escritorio ancho la hoja queda fija a la derecha (sin velo) y la lista sigue usable:
-    // tocar otro canal cambia el panel (maestro-detalle).
-    if (DOCK_MQ.matches) {
-      dlg.classList.add('docked');
-      dlg.show();
-      document.body.classList.add('has-dock');
-    } else {
-      dlg.classList.remove('docked');
-      dlg.showModal();
-    }
+    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; sheetReview = false; }, { once: true });
+    openDock(dlg);
   }
 }
 const DOCK_MQ = matchMedia('(min-width: 1100px) and (hover: hover)');
+const DOCKABLE = ['#channelDialog', '#categoriesDialog', '#settingsDialog'];
+/** En escritorio ancho, canal, categorías y configuración quedan fijos a la derecha (sin velo) y la
+ *  lista sigue usable (maestro-detalle); si no, son hojas modales. Solo hay un panel fijo a la vez. */
+function openDock(dlg: HTMLDialogElement) {
+  if (!DOCK_MQ.matches) {
+    dlg.classList.remove('docked');
+    dlg.showModal();
+    return;
+  }
+  for (const sel of DOCKABLE) {
+    const other = $(sel) as HTMLDialogElement;
+    if (other !== dlg && other.open && other.classList.contains('docked')) other.close();
+  }
+  dlg.classList.add('docked');
+  dlg.show();
+  document.body.classList.add('has-dock');
+  if (!dlg.dataset.dockWired) {
+    dlg.dataset.dockWired = '1';
+    dlg.addEventListener('close', () => {
+      if (!DOCKABLE.some((sel) => ($(sel) as HTMLDialogElement).open && $(sel).classList.contains('docked'))) document.body.classList.remove('has-dock');
+    });
+  }
+}
 document.addEventListener('keydown', (e) => {
-  const d = $('#channelDialog') as HTMLDialogElement;
-  if (e.key === 'Escape' && d.open && d.classList.contains('docked')) d.close();
+  if (e.key !== 'Escape') return;
+  // Un diálogo modal abierto (por ejemplo, el de una categoría) maneja su propio Esc.
+  if (document.querySelector('dialog.sheet:modal')) return;
+  for (const sel of DOCKABLE) {
+    const d = $(sel) as HTMLDialogElement;
+    if (d.open && d.classList.contains('docked')) { d.close(); return; }
+  }
 });
 
 /** Menú «…» de una fila (con mouse no hay gestos obvios): ocultar o mostrar, sin guía, seleccionar. */
@@ -2952,7 +2968,7 @@ function setupEditor() {
   $('#categoriesBtn').onclick = () => {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
-    ($('#categoriesDialog') as HTMLDialogElement).showModal();
+    openDock($('#categoriesDialog') as HTMLDialogElement);
   };
   // Barra inferior: Canales (volver arriba), Revisar, Categorías y Links.
   $('#helpTopBtn').onclick = () => ($('#helpDialog') as HTMLDialogElement).showModal();
@@ -3014,7 +3030,7 @@ function setupEditor() {
     }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
-    ($('#settingsDialog') as HTMLDialogElement).showModal();
+    openDock($('#settingsDialog') as HTMLDialogElement);
   };
   $('#applyGuideBtn').onclick = async () => {
     try {
