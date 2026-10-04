@@ -6,6 +6,7 @@ import {
   EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
+import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 
@@ -863,10 +864,27 @@ const VIEW_BTN: Record<ViewMode, [string, string]> = {
   compact: ['chevrons-up-down', 'Ver detallado'], detail: ['layout-grid', 'Ver logos'], grid: ['chevrons-down-up', 'Ver condensado'],
 };
 
+/** Comienzo de un evento (PPV) que figura en el nombre del canal, pasado a la hora de este dispositivo. */
+const eventOf = (ch: Channel) => parseEvent(ch.name, pref('grilla_event_tz', 'America/Mexico_City'), Date.now());
+const EVENT_LIVE_MS = 3 * 3600000;
+function eventLabel(start: number): { text: string; cls: string } {
+  const now = Date.now();
+  const at = new Date(start);
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dayDiff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime()
+    - new Date(new Date(now).getFullYear(), new Date(now).getMonth(), new Date(now).getDate()).getTime()) / 86400000);
+  const day = dayDiff === 0 ? 'Hoy' : dayDiff === 1 ? 'Mañana' : dayDiff === -1 ? 'Ayer'
+    : at.toLocaleDateString([], { weekday: 'short', day: 'numeric' }).replace('.', '');
+  if (now >= start && now < start + EVENT_LIVE_MS) return { text: `En vivo · desde ${time}`, cls: 'live' };
+  if (now < start) return { text: `${day} ${time}`, cls: 'soon' };
+  return { text: `Terminó · ${day} ${time}`, cls: 'done' };
+}
+
 function cardHtml(i: number): string {
   const ch = state.channels[i];
   const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
-  const shown = edit.name || stripDisplayPrefix(ch.name, state.rules!)[0];
+  const ev = eventOf(ch);
+  const shown = edit.name || ev?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
   const picked = selection.items.has(i);
   const selBox = sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : '';
@@ -890,6 +908,9 @@ function cardHtml(i: number): string {
     guide = `<span class="guide sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownSug}</b></span>`;
   } else if (epg) {
     guide = `<span class="guide">${icon('arrow-right', 'sm')}<span class="guide-name">${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</span>`;
+  } else if (ev && !edit.manual) {
+    const l = eventLabel(ev.start);
+    guide = `<span class="guide event ${l.cls}" title="Hora de tu dispositivo (según la zona del proveedor)">${icon('clock', 'sm')}${esc(l.text)}</span>`;
   } else {
     guide = `<span class="guide none">${edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>`;
   }
@@ -1187,7 +1208,8 @@ function openChannel(i: number) {
   const { edit, auto, epg, hidden, divider, suggestion } = info(ch);
   const dlg = $('#channelDialog') as HTMLDialogElement;
   const body = $('#channelBody');
-  const defaultName = stripDisplayPrefix(ch.name, state.rules!)[0];
+  const evSheet = eventOf(ch);
+  const defaultName = evSheet?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
   const categoryLabel = groupLabel(groupOf(ch));
   const shownDefault = divider ? sectionTitle(categoryLabel) : defaultName;
   const catHidden = hidden && !edit.hidden;
@@ -1242,7 +1264,10 @@ function openChannel(i: number) {
          <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
          <button type="button" class="link-btn day-btn" data-act="day" aria-expanded="false">Ver programación de hoy${icon('chevron-right', 'sm')}</button>
          <div class="day-list" hidden></div>`
-      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${suggestion
+      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${evSheet && !edit.manual ? (() => {
+        const l = eventLabel(evSheet.start);
+        return `<div class="gc-event ${l.cls}">${icon('clock', 'sm')}<span>${esc(l.text)}</span><small>hora de tu dispositivo</small></div>`;
+      })() : ''}${suggestion
         ? `<div class="gc-sug">Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
            <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
     const rp = sheetReview ? reviewProgress() : null;
@@ -1946,7 +1971,7 @@ function renderChannelOrder(g: string) {
   $('#orderBody').innerHTML = `
     <p class="help">Arrastrá desde <span class="inline-icon">${icon('grip-vertical')}</span> para ordenar los canales de esta categoría en la playlist. Los canales nuevos del proveedor van al final.</p>
     <div class="menu" id="orderList">${names.map((n, k) => {
-      const shown = state.cfg!.channels[n]?.name || stripDisplayPrefix(n, state.rules!)[0];
+      const shown = state.cfg!.channels[n]?.name || parseEvent(n, pref('grilla_event_tz', 'America/Mexico_City'), Date.now())?.clean || stripDisplayPrefix(n, state.rules!)[0];
       return `<div class="menu-row static ord-row" data-k="${k}">
         <button type="button" class="drag-handle" aria-label="Mover ${esc(shown)}">${icon('grip-vertical')}</button>
         <span class="menu-text">${esc(shown)}</span></div>`;
@@ -3056,6 +3081,7 @@ function setupEditor() {
     }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
+    $<HTMLSelectElement>('#eventTzSelect').value = pref('grilla_event_tz', 'America/Mexico_City');
     openDock($('#settingsDialog') as HTMLDialogElement);
   };
   $('#applyGuideBtn').onclick = async () => {
@@ -3082,6 +3108,10 @@ function setupEditor() {
     render();
   };
   $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
+  $<HTMLSelectElement>('#eventTzSelect').onchange = (ev) => {
+    setPref('grilla_event_tz', (ev.target as HTMLSelectElement).value);
+    render();
+  };
   $('#exportBtn').onclick = exportBackup;
   $('#importGithubBtn').onclick = importFromGithub;
   $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { parseConfig } from '../src/config.ts';
+import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { b64urlDecode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { buildPlaylist } from '../src/playlist.ts';
@@ -515,4 +516,33 @@ test('playlist: una categoría nueva del proveedor sale junto a las de su famili
     { epgUrl: '', streamUrl: (c) => `/s/${c.id}` });
   const groups = [...out.matchAll(/group-title="([^"]*)"/g)].map((m) => m[1]);
   assert.deepEqual(groups, ['PPV FUTBOL PREMIER', 'PPV FUTBOL LALIGA', 'AR| CINE']);
+});
+
+
+test('hora de los eventos PPV: formatos, zona del proveedor y fecha', () => {
+  const MX = 'America/Mexico_City'; // UTC-6 todo el año
+  const iso = (ms: number | undefined) => (ms === undefined ? null : new Date(ms).toISOString().slice(0, 16));
+  const t = (name: string, now: string) => parseEvent(name, MX, Date.parse(now));
+  // Sin fecha: el día más cercano a «ahora».
+  assert.equal(iso(t('11:00  Belarus vs. San Marino  UEFA Nations League', '2025-10-03T17:30:00Z')?.start), '2025-10-03T17:00');
+  assert.equal(t('11:00  Belarus vs. San Marino  UEFA Nations League', '2025-10-03T17:30:00Z')?.clean, 'Belarus vs. San Marino · UEFA Nations League');
+  assert.equal(iso(t('08:00 - League Two - Crewe Alexandra vs. Bristol Rovers', '2025-10-03T13:00:00Z')?.start), '2025-10-03T14:00');
+  assert.equal(t('08:00 - League Two - Crewe Alexandra vs. Bristol Rovers', '2025-10-03T13:00:00Z')?.clean, 'Crewe Alexandra vs. Bristol Rovers · League Two');
+  assert.equal(iso(t('01:00  Evento tarde  Liga', '2025-10-04T05:00:00Z')?.start), '2025-10-04T07:00'); // pasada la medianoche, mañana
+  assert.equal(iso(t('003 MX: Liga Femenil / Leon vs Tigres - 7:05PM - Purple 3', '2025-10-04T00:00:00Z')?.start), '2025-10-04T01:05');
+  assert.equal(iso(t('[CONCACAF Nations League] Dominica vs Guyana - 15:00', '2025-10-03T20:00:00Z')?.start), '2025-10-03T21:00');
+  // Con fecha: mes/día en un formato y día/mes en otro.
+  const a = t('10/03 NCAAF 12:00pm Assumption vs Bentley = CBS USA ***', '2025-10-03T12:00:00Z');
+  assert.equal(iso(a?.start), '2025-10-03T18:00');
+  assert.equal(a?.clean, 'Assumption vs Bentley · NCAAF · CBS USA');
+  assert.equal(iso(t('Soccer 03/10 09:00am - Paris Saint-Germain vs Toulouse FC: French Ligue 1', '2025-10-03T12:00:00Z')?.start), '2025-10-03T15:00');
+  assert.equal(iso(t('PPV  016 || 03/10 18:00 | PBR | Rattler Days - Nights 2', '2025-10-03T12:00:00Z')?.start), '2025-10-04T00:00');
+  // Lo que no es una hora de evento no se toca.
+  assert.equal(t('VIVO 0.34 | ¹⁹²⁰ [6:15 PM] |', '2025-10-03T12:00:00Z'), null);
+  assert.equal(t('WNBA | NBATV', '2025-10-03T12:00:00Z'), null);
+  assert.equal(t('25:99  Algo  Liga', '2025-10-03T12:00:00Z'), null);
+  // Año nuevo y horario de verano.
+  assert.equal(iso(t('Soccer 01/01 09:00am - Algo vs Otro', '2025-12-31T20:00:00Z')?.start), '2026-01-01T15:00');
+  assert.equal(iso(zonedToUtc(2025, 7, 1, 12, 0, 'America/New_York')), '2025-07-01T16:00');
+  assert.equal(iso(zonedToUtc(2025, 1, 1, 12, 0, 'America/New_York')), '2025-01-01T17:00');
 });

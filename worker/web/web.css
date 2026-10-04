@@ -861,3 +861,12 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 #categoriesList { overflow: clip; }
 .cat-row.section-row { position: sticky; top: var(--cat-title-h, 64px); z-index: 3; background: var(--surface-2); }
 .cat-row.dragging.section-row { position: relative; z-index: 4; }
+
+/* Hora de comienzo de un evento (PPV) tomada del nombre del canal. */
+.guide.event { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.guide.event.live { color: var(--green); font-weight: 600; }
+.guide.event.done { color: var(--faint); }
+.gc-event { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 14px; font-weight: 600; }
+.gc-event small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 2px; }
+.gc-event.live { color: var(--green); }
+.gc-event.done { color: var(--faint); }
