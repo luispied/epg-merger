@@ -118,6 +118,8 @@
   <main>
     <div class="status-bar" id="status" hidden></div>
     <div class="links-card" id="linksCard" hidden></div>
+    <div class="review-card" id="reviewCard" hidden></div>
+    <div class="tip-card" id="tipCard" hidden></div>
     <div class="list-bar">
       <p class="meta-line" id="statusLine"></p>
       <span class="list-tools">
@@ -142,10 +144,7 @@
 <dialog class="sheet settings-sheet" id="bulkDialog" aria-labelledby="bulkTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <span class="title-left">
-        <h2 id="bulkTitle" class="menu-title"></h2>
-        <button type="button" class="icon-btn" id="bulkVis"></button>
-      </span>
+      <h2 id="bulkTitle" class="menu-title"></h2>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
     <div id="bulkBody"></div>
