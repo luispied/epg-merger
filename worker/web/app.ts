@@ -2218,13 +2218,13 @@ async function renderLinks(result?: LinkResult) {
   } catch { /* sin lista: se puede agregar igual */ }
   const needsCreds = !state.creds;
   body.innerHTML = `
-    <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (deja de responder y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
+    <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (su playlist muestra un aviso y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
       Todos muestran lo mismo (tu configuración). Los links llevan tus datos del proveedor cifrados:
       el servidor no los guarda en claro.</p>
     ${devices.length ? `<div class="device-list">${devices.map((d) => `
       <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
         <div class="device-top">
-          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: el link no responde'}</small></div>
+          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}</small></div>
           <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
         </div>
         <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
@@ -2246,7 +2246,7 @@ async function renderLinks(result?: LinkResult) {
     const dev = devices.find((d) => d.code === sw.closest<HTMLElement>('.device')!.dataset.code)!;
     try {
       await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { active: sw.checked } });
-      toast(sw.checked ? `“${dev.name}” activado` : `“${dev.name}” desactivado: su link no responde hasta que lo actives`, 'ok');
+      toast(sw.checked ? `“${dev.name}” activado` : `“${dev.name}” desactivado: su playlist muestra un aviso hasta que lo actives`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }

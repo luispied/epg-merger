@@ -459,12 +459,18 @@ test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo cor
   // Desactivar corta el link sin borrarlo; activar lo devuelve (el nombre no se toca).
   const patch = (code: string, body: object) => handle(req(`/api/cfg/${t.cfgId}/devices/${code}`, { method: 'PATCH', key: t.editKey, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
   assert.equal((await patch(living.code, { active: false })).status, 200);
-  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 403);
+  // La playlist responde con un aviso (un solo canal); la guía y los streams, 403.
+  const offList = await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache);
+  assert.equal(offList.status, 200);
+  const offText = await offList.text();
+  assert.match(offText, /Link desactivado: reactivalo en Grilla/);
+  assert.equal(offText.match(/#EXTINF/g)?.length, 1);
   assert.equal((await handle(new Request(living.epgUrl), t.env, t.ctx, t.cache)).status, 403);
+  assert.equal((await handle(new Request(`${BASE}/s/${living.code}/desactivado.ts`), t.env, t.ctx, t.cache)).status, 403);
   const off = (await list()).find((d) => d.code === living.code) as { name: string; active: boolean };
   assert.deepEqual([off.name, off.active], ['TV del living', false]);
   assert.equal((await patch(living.code, { active: true })).status, 200);
-  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  assert.doesNotMatch(await (await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).text(), /desactivado/);
   assert.equal((await list()).find((d) => d.code === living.code)?.name, 'TV del living');
   // Quitar uno: ese link muere, el otro sigue.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${cuarto.code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
