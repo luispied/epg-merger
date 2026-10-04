@@ -826,3 +826,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .btn-primary { background: #ffb224; color: #1d1300; }
 .btn-primary:hover { background: color-mix(in srgb, #ffb224 92%, #1d1300); }
 .btn-primary:active { background: color-mix(in srgb, #ffb224 86%, #1d1300); }
+
+/* Opciones de guía: la etiqueta de país resalta cuando es el de la categoría. */
+.cc.home { background: var(--accent-soft); color: var(--on-accent-soft); }
+.opt-group { margin: 4px 0 8px; }

@@ -1016,7 +1016,7 @@ function renderNow() {
 
 // ------------------------------------------------------------------ canal: diálogo
 // Opción elegible (con círculo, como una lista de selección): un solo toque elige esa guía.
-function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string } = {}) {
+function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string; home?: string | null } = {}) {
   const name = state.index?.displayName.get(id) ?? id;
   const cc = state.index?.country.get(id);
   const pct = score === undefined ? '' : `<span class="pct ${score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(score, 1) * 100)} %</span>`;
@@ -1025,7 +1025,7 @@ function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | 
     ? `<div class="opt-now${opts.cur ? ' on-air' : ''}">${opts.cur ? `Ahora: ${esc(opts.cur.title)} · hasta ${hhmm(opts.cur.stop)}` : 'Sin programación en este horario'}${note}</div>`
     : `<div class="opt-now epg-now" data-now-for="${esc(id)}" data-compact="1"></div>`;
   return `<div class="pick-row opt" role="button" tabindex="0" data-pick="${esc(id)}"><span class="radio" aria-hidden="true"></span>`
-    + `<div class="opt-body"><div class="opt-top"><span class="opt-name" title="${esc(id)}">${esc(name)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}${pct}</div>${now}</div></div>`;
+    + `<div class="opt-body"><div class="opt-top"><span class="opt-name" title="${esc(id)}">${esc(name)}</span>${cc ? `<span class="cc${opts.home && cc.toLowerCase() === opts.home ? ' home' : ''}"${opts.home && cc.toLowerCase() === opts.home ? ' title="Del país de la categoría"' : ''}>${esc(cc.toUpperCase())}</span>` : ''}${pct}</div>${now}</div></div>`;
 }
 
 /** Clicks dentro de listas de canales de la guía: la línea "Ahora" despliega la descripción;
@@ -1203,7 +1203,14 @@ function openChannel(i: number) {
     b.disabled = to === undefined;
     b.onclick = () => { if (to !== undefined) openChannel(to); };
   }
-  const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg);
+  // Con varias opciones de igual puntaje, primero las del país de la categoría (marcado en la etiqueta).
+  const home = flagToCountryCode(ch.category, state.rules!)?.toLowerCase() ?? null;
+  const isHome = (id: string) => !!home && state.index?.country.get(id)?.toLowerCase() === home;
+  const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg)
+    .map((c, k) => ({ c, k })).sort((a, b) => (Math.abs(b.c.score - a.c.score) < 0.02 ? Number(isHome(b.c.channelId)) - Number(isHome(a.c.channelId)) : 0) || a.k - b.k)
+    .map(({ c }) => c);
+  // El resalte solo aporta cuando hay opciones de otros países mezcladas.
+  const mixedCountries = ranked.slice(0, 5).some((c) => !isHome(c.channelId));
   const hiddenCats = new Set(state.cfg!.groups.hidden);
   const categories = groups().filter((g) => g === groupOf(ch) || (!headersNow().has(g) && !hiddenCats.has(g)));
   const catSelect = `<label class="cat-chip" title="Categoría">${icon('folder-input', 'sm')}<span class="cat-chip-text">${esc(categoryLabel)}</span>${icon('chevron-down', 'sm')}
@@ -1254,7 +1261,7 @@ function openChannel(i: number) {
         <button type="button" class="chip-btn" data-act="no-epg"${!epg && edit.manual ? ' disabled' : ''}>${icon('ban', 'sm')}Sin guía</button>
       </div>
       <div class="list search-results" hidden></div>
-      ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
+      ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score, { home: mixedCountries ? home : null })).join('')}</div>` : ''}
       ${more}
       ${actions}`;
   }
@@ -1650,11 +1657,11 @@ function openCategoryMenu(i: number) {
   $('#catMenuBody').innerHTML = `
     <div class="ch-meta"><span class="prov">${isSection ? 'Sección' : plural(members, 'canal', 'canales')}${renamed ? ` · en el proveedor: ${esc(isSection ? sectionTitle(g) : g)}` : ''}</span></div>
     ${isSection ? '' : `<div class="menu">${row('list-ordered', 'Ordenar los canales', 'order')}</div>`}
-    <details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary>
+    <div class="opt-group">
       ${sw('Visible en la playlist', '', 'cat-visible', !hidden)}
       ${isSection ? '' : sw('Sin guía', 'No necesita guía de programación', 'cat-noepg', noEpg)}
-      ${extra ? `<div class="menu">${extra}</div>` : ''}
-    </details>`;
+    </div>
+    ${extra ? `<details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary><div class="menu">${extra}</div></details>` : ''}`;
   const body = $('#catMenuBody');
   const more = body.querySelector<HTMLDetailsElement>('.ch-more');
   if (more) more.ontoggle = () => { catMoreOpen = more.open; };
