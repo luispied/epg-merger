@@ -121,6 +121,13 @@ async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: 
   return { cfgId: rec.cfgId, token: rec.token, off };
 }
 
+/** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
+ *  casi nunca llega a la pantalla). La guía y los streams siguen respondiendo 403. */
+function disabledPlaylist(origin: string, code: string): Response {
+  const text = `#EXTM3U\n#EXTINF:-1 tvg-id="" group-title="Grilla",⚠ Link desactivado: reactivalo en Grilla\n${origin}/s/${code}/desactivado.ts\n`;
+  return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
 async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string): Promise<Response> {
   const stored = await loadConfig(env.BUCKET, cfgId);
   if (!stored) return new Response('Configuración inexistente', { status: 404 });
@@ -335,7 +342,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const m = /^([^.]+)\.(m3u8|xml\.gz)$/.exec(parts[1]);
       const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, ctx, m[1]) : null;
       if (!short) return fail(404, 'no encontrado');
-      if (short.off) return fail(403, 'link desactivado');
+      if (short.off) return parts[0] === 'l' ? disabledPlaylist(url.origin, m![1]) : fail(403, 'link desactivado');
       if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
       return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1]);
     }
