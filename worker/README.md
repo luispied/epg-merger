@@ -99,6 +99,8 @@ El bucket `grilla` ya tiene que existir: el Worker lo usa por nombre (`wrangler.
 La web tiene versión (`version` en `package.json`, hoy visible al pie de Configuración junto al commit).
 Cada PR que cambia la web la sube según [SemVer](https://semver.org/lang/es/) y agrega su entrada en
 [`CHANGELOG.md`](../CHANGELOG.md): menor para una función nueva, parche para una corrección.
+Un chequeo (`version-check.yml`) lo exige en los PR que tocan la web, y al llegar a `main` el workflow
+`release.yml` crea el tag `vX.Y.Z` y el release de GitHub con las notas de esa versión.
 
 ## Desarrollo
 

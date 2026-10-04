@@ -3083,7 +3083,6 @@ function setupEditor() {
     }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
-    $('#appVersion').textContent = `Grilla ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
     $<HTMLSelectElement>('#eventTzSelect').value = pref('grilla_event_tz', 'America/Mexico_City');
     openDock($('#settingsDialog') as HTMLDialogElement);
   };
@@ -3202,6 +3201,7 @@ if ('serviceWorker' in navigator) {
 }
 hydrateIcons();
 addSearchClear(document);
+for (const el of $$('[data-version]')) el.textContent = `Grilla ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 $('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 if (/[?&]importar\b/.test(location.search)) {

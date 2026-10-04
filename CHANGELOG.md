@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.0.1
+
+- La versión se ve también en la pantalla de alta y al pie de la ayuda.
+- Releases automáticos en GitHub (tag `vX.Y.Z` y notas de esta lista) y un chequeo que pide subir la versión en los PR que
+  cambian la web.
+
 ## 1.0.0
 
 Primera versión numerada. Resume lo que tiene la web hoy:
