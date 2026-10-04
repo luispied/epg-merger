@@ -93,7 +93,6 @@
     <div class="title-row">
       <h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1>
       <div class="header-actions">
-        <button class="icon-btn" id="categoriesBtn" title="Categorías" aria-label="Categorías"><span data-icon="layers"></span></button>
         <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
       </div>
     </div>
@@ -131,6 +130,13 @@
     <div class="load-sentinel" id="loadMoreSentinel" aria-hidden="true" hidden></div>
   </main>
 </section>
+
+<nav class="tabbar" id="tabbar" aria-label="Secciones">
+  <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
+  <button type="button" class="tab" id="tabReview"><span class="tab-ico"><span data-icon="list-checks"></span><b class="tab-badge" id="tabReviewBadge" hidden></b></span><span>Revisar</span></button>
+  <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
+  <button type="button" class="tab" id="tabLinks"><span data-icon="link-2"></span><span>Links</span></button>
+</nav>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
@@ -350,7 +356,7 @@
 
     <details id="helpCategories">
       <summary>¿Cómo organizo las categorías y secciones?<span data-icon="chevron-down"></span></summary>
-      <p>En <b>Categorías</b> (el ícono de capas de arriba) arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist. <b>Deslizá</b> una fila hacia la izquierda para ocultarla o mostrarla, y hacia la derecha para dejarla sin guía (las secciones solo se ocultan). Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una, o «Plegar todo» para contraer o expandir todas.</p>
+      <p>En <b>Categorías</b> (la pestaña de abajo) arrastrás desde <span class="inline-icon" data-icon="grip-vertical"></span> para cambiar el orden en la playlist. <b>Deslizá</b> una fila hacia la izquierda para ocultarla o mostrarla, y hacia la derecha para dejarla sin guía (las secciones solo se ocultan). Las <b>secciones</b> (los encabezados) se mueven enteras con todas sus categorías: tocá la flecha para <b>contraer</b> una, o «Plegar todo» para contraer o expandir todas.</p>
       <p><b>Tocá una fila</b> para abrir su hoja: el <b>nombre</b> (el que sale en tu playlist; el del proveedor no cambia) se edita arriba, con ‹ › pasás a la anterior o siguiente, y <b>Ordenar los canales</b> los acomoda arrastrando. En <b>Más opciones</b> están <b>Visible</b>, <b>Sin guía</b> (para eventos sueltos o canales 24/7: no cuentan en «A revisar» ni en «Sin EPG»), <b>Volver al nombre original</b> y <b>Borrar</b> (solo las que creaste vos y están vacías).</p>
       <p>Con «Categoría» y «Sección» creás una nueva; queda al final para arrastrarla a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
     </details>
