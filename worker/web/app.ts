@@ -2016,6 +2016,11 @@ function setupChannelOrder() {
 }
 
 function setupCategories() {
+  // Las secciones quedan ancladas justo debajo del título fijo de la hoja.
+  const catTitle = document.querySelector<HTMLElement>('#categoriesDialog .sheet-body > .title-row');
+  if (catTitle && 'ResizeObserver' in window) {
+    new ResizeObserver(() => ($('#categoriesDialog') as HTMLElement).style.setProperty('--cat-title-h', `${catTitle.offsetHeight}px`)).observe(catTitle);
+  }
   const box = $('#categoriesList');
   setupCategoryDrag(box);
   $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
@@ -2176,6 +2181,7 @@ async function renderLinks(result?: LinkResult) {
   if (result) return renderLinkResult(result);
   const p = state.cfg!.provider;
   const body = $('#linksBody');
+  $('#linksBack').hidden = true;
   body.onclick = null;
   body.innerHTML = '<p class="help">Cargando…</p>';
   let devices: Device[] = [];
@@ -2258,8 +2264,8 @@ async function renderLinks(result?: LinkResult) {
 
 function renderLinkResult(result: LinkResult) {
   const body = $('#linksBody');
+  $('#linksBack').hidden = false;
   body.innerHTML = `
-    <button type="button" class="btn btn-gray" data-back>${icon('arrow-left')}Dispositivos</button>
     ${result.name ? `<h3 class="sub-title">${esc(result.name)}</h3>` : ''}
     <div class="lc-actions">
       <button type="button" class="btn btn-primary" data-copy="${esc(result.playlistUrl)}">${icon('copy')}Copiar playlist</button>
@@ -2277,10 +2283,6 @@ function renderLinkResult(result: LinkResult) {
     <p class="help">Son links inadivinables pero no privados: quien los tenga puede ver tus canales. No
       los publiques.</p>`;
   body.onclick = async (ev) => {
-    if ((ev.target as HTMLElement).closest('[data-back]')) {
-      renderLinks();
-      return;
-    }
     if ((ev.target as HTMLElement).closest('[data-share]')) {
       try {
         await navigator.share({ title: 'Grilla: mis links', text: shareText(result) });
@@ -2998,6 +3000,7 @@ function setupEditor() {
     renderLinks();
     ($('#linksDialog') as HTMLDialogElement).showModal();
   };
+  $('#linksBack').onclick = () => renderLinks();
   wireNested('#helpDialog', '#helpBack', '#helpClose');
   // Ordenar los canales se abre desde la hoja de la categoría: «‹» vuelve a esa hoja y «×» cierra.
   $('#orderBack').onclick = () => {

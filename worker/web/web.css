@@ -542,7 +542,7 @@ body { overflow-anchor: none; }
 .logo.has-img > .mono { display: none; }
 html:root .logo:not(.has-img) { background: transparent; }
 /* Encabezado de categoría: fijo debajo del buscador */
-.cat-head { position: sticky; top: var(--toolbar-h, 0px); z-index: 3; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; color: var(--muted); }
+.cat-head { position: sticky; top: calc(var(--toolbar-h, 0px) + env(safe-area-inset-top, 0px)); z-index: 3; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; color: var(--muted); }
 .cat-head:first-child { border-top: 0; }
 .cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 body.selecting .row-in { padding-left: 12px; }
@@ -856,3 +856,8 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 /* Ayuda: tres preguntas a la vista y el resto plegado. */
 .help-more { margin-top: 8px; }
 .help-more > summary.help-more-sum { font-weight: 600; color: var(--muted); }
+
+/* Categorías: la sección actual queda anclada bajo el título de la hoja. */
+#categoriesList { overflow: clip; }
+.cat-row.section-row { position: sticky; top: var(--cat-title-h, 64px); z-index: 3; background: var(--surface-2); }
+.cat-row.dragging.section-row { position: relative; z-index: 4; }
