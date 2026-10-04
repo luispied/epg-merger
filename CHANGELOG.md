@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.1.0
+
+- Los links de cada dispositivo se pueden **desactivar y reactivar** (switch en la pestaña Links) en vez de solo borrarlos:
+  un link desactivado no responde (error 403) pero conserva su nombre y su dirección. Quitarlo sigue disponible.
+
 ## 1.0.1
 
 - La versión se ve también en la pantalla de alta y al pie de la ayuda.

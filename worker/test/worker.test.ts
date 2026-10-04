@@ -456,6 +456,16 @@ test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo cor
   await Promise.all(t.pending ?? []);
   // Renombrar.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${cuarto.code}`, { method: 'PATCH', key: t.editKey, body: JSON.stringify({ name: 'Cuarto' }) }), t.env, t.ctx, t.cache)).status, 200);
+  // Desactivar corta el link sin borrarlo; activar lo devuelve (el nombre no se toca).
+  const patch = (code: string, body: object) => handle(req(`/api/cfg/${t.cfgId}/devices/${code}`, { method: 'PATCH', key: t.editKey, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  assert.equal((await patch(living.code, { active: false })).status, 200);
+  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 403);
+  assert.equal((await handle(new Request(living.epgUrl), t.env, t.ctx, t.cache)).status, 403);
+  const off = (await list()).find((d) => d.code === living.code) as { name: string; active: boolean };
+  assert.deepEqual([off.name, off.active], ['TV del living', false]);
+  assert.equal((await patch(living.code, { active: true })).status, 200);
+  assert.equal((await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await list()).find((d) => d.code === living.code)?.name, 'TV del living');
   // Quitar uno: ese link muere, el otro sigue.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${cuarto.code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
   assert.equal((await handle(new Request(cuarto.playlistUrl), t.env, t.ctx, t.cache)).status, 404);

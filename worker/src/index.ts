@@ -19,7 +19,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, saveConfig,
   type Config } from './config.ts';
-import { addDevice, listDevices, readShort, removeAllDevices, removeDevice, renameDevice, SHORT_RE, touchDevice } from './devices.ts';
+import { addDevice, listDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -113,11 +113,12 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
 // credenciales cifradas con la clave del Worker) queda guardado en R2 a cambio de links que
 // no muestran nada: ni la configuración ni el token.
 /** Resuelve un link corto y, ya que lo leyó, anota el último uso del dispositivo. */
-async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string } | null> {
+async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string; off: boolean } | null> {
   const rec = await readShort(env.BUCKET, code);
   if (!rec) return null;
-  ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
-  return { cfgId: rec.cfgId, token: rec.token };
+  const off = rec.active === false;
+  if (!off) ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
+  return { cfgId: rec.cfgId, token: rec.token, off };
 }
 
 async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string): Promise<Response> {
@@ -270,7 +271,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       if (code && SHORT_RE.test(code) && method === 'PATCH') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
-        return (await renameDevice(env.BUCKET, cfgId, code, body.name)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
+        return (await updateDevice(env.BUCKET, cfgId, code, { name: body.name, active: body.active })) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
       }
       if (code && SHORT_RE.test(code) && method === 'DELETE') {
         return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
@@ -334,12 +335,14 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const m = /^([^.]+)\.(m3u8|xml\.gz)$/.exec(parts[1]);
       const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, ctx, m[1]) : null;
       if (!short) return fail(404, 'no encontrado');
+      if (short.off) return fail(403, 'link desactivado');
       if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
       return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1]);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
       const short = await resolveShort(env, ctx, parts[1]);
       if (!short) return new Response('No encontrado', { status: 404 });
+      if (short.off) return new Response('Link desactivado', { status: 403 });
       return await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
     }
     return fail(404, 'no encontrado');

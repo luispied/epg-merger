@@ -2191,7 +2191,7 @@ function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) =>
 const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
-interface Device { code: string; name: string; created?: string; lastUsed?: string; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -2210,6 +2210,7 @@ async function renderLinks(result?: LinkResult) {
   const body = $('#linksBody');
   $('#linksBack').hidden = true;
   body.onclick = null;
+  body.onchange = null;
   body.innerHTML = '<p class="help">Cargando…</p>';
   let devices: Device[] = [];
   try {
@@ -2217,12 +2218,15 @@ async function renderLinks(result?: LinkResult) {
   } catch { /* sin lista: se puede agregar igual */ }
   const needsCreds = !state.creds;
   body.innerHTML = `
-    <p>Un link por dispositivo: así sabés cuál es cuál y podés quitar uno sin afectar a los demás.
+    <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (deja de responder y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
       Todos muestran lo mismo (tu configuración). Los links llevan tus datos del proveedor cifrados:
       el servidor no los guarda en claro.</p>
     ${devices.length ? `<div class="device-list">${devices.map((d) => `
-      <div class="device" data-code="${esc(d.code)}">
-        <div class="device-info"><strong>${esc(d.name)}</strong><small>${esc(ago(d.lastUsed))}</small></div>
+      <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
+        <div class="device-top">
+          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: el link no responde'}</small></div>
+          <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
+        </div>
         <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
         <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
         <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
@@ -2236,6 +2240,18 @@ async function renderLinks(result?: LinkResult) {
       ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
     </form>`;
+  body.onchange = async (ev) => {
+    const sw = (ev.target as HTMLElement).closest<HTMLInputElement>('[data-dev-active]');
+    if (!sw) return;
+    const dev = devices.find((d) => d.code === sw.closest<HTMLElement>('.device')!.dataset.code)!;
+    try {
+      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { active: sw.checked } });
+      toast(sw.checked ? `“${dev.name}” activado` : `“${dev.name}” desactivado: su link no responde hasta que lo actives`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    renderLinks();
+  };
   body.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-dev]');
     if (!btn) return;
@@ -2372,7 +2388,7 @@ async function renderLinksCard() {
   try {
     dev = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices[0];
   } catch { /* sin conexión: no se muestra */ }
-  if (!dev) return;
+  if (!dev || !dev.active) return;
   const d = dev;
   card.innerHTML = `<div class="lc-head">${icon('tv')}
       <div class="lc-text"><strong>Tu lista está lista</strong><small>Copiá estos dos links en tu reproductor (TiviMate, IPTV Smarters…).</small></div>

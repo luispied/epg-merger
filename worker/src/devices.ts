@@ -1,7 +1,7 @@
 // Dispositivos: cada link corto (short/<código>.json) es un dispositivo con nombre. Lo que se
 // guarda por configuración es solo la lista de códigos (devices/<cfgId>.json); el nombre, la
-// fecha y el último uso van en el registro del link. Quitar un dispositivo borra su link: deja
-// de funcionar al instante y los demás siguen igual.
+// fecha y el último uso van en el registro del link. Desactivar un dispositivo corta su link sin
+// borrarlo (se reactiva cuando se quiera); quitarlo lo borra. En los dos casos los demás siguen igual.
 import type { R2Bucket } from './env.ts';
 
 export interface ShortRecord {
@@ -10,12 +10,15 @@ export interface ShortRecord {
   name?: string;
   created?: string;
   lastUsed?: string;
+  /** false = desactivado: el link no responde, pero se puede volver a activar. Sin dato = activo. */
+  active?: boolean;
 }
 export interface Device {
   code: string;
   name: string;
   created?: string;
   lastUsed?: string;
+  active: boolean;
 }
 
 export const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
@@ -62,15 +65,19 @@ export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Devi
   const out: Device[] = [];
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed });
+    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false });
   }
   return out;
 }
 
-export async function renameDevice(bucket: R2Bucket, cfgId: string, code: string, name: unknown): Promise<boolean> {
+/** Cambia el nombre y/o activa o desactiva el link de un dispositivo. */
+export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string, change: { name?: unknown; active?: unknown }): Promise<boolean> {
   const rec = await readShort(bucket, code);
   if (!rec || rec.cfgId !== cfgId) return false;
-  await bucket.put(shortKey(code), JSON.stringify({ ...rec, name: cleanName(name) }), JSON_TYPE);
+  const next: ShortRecord = { ...rec };
+  if (change.name !== undefined) next.name = cleanName(change.name);
+  if (typeof change.active === 'boolean') next.active = change.active ? undefined : false;
+  await bucket.put(shortKey(code), JSON.stringify(next), JSON_TYPE);
   return true;
 }
 
