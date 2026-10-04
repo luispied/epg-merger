@@ -22,6 +22,8 @@ interface Config {
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
 }
+declare const __APP_VERSION__: string;
+declare const __APP_COMMIT__: string;
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string }
 type Creds = { username: string; password: string } | { url: string };
@@ -3081,6 +3083,7 @@ function setupEditor() {
     }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
+    $('#appVersion').textContent = `Grilla ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
     $<HTMLSelectElement>('#eventTzSelect').value = pref('grilla_event_tz', 'America/Mexico_City');
     openDock($('#settingsDialog') as HTMLDialogElement);
   };
