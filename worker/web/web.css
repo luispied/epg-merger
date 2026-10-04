@@ -764,3 +764,32 @@ body.onboard-busy #onboarding button[type=submit], body.onboard-busy #onboarding
 .bulk-move .btn { flex: none; min-height: 48px; }
 #bulkBody .menu { margin-top: 0; }
 .rv-actions .btn-gray { flex: none; min-width: 112px; }
+
+/* ---- Etapa 3: barra inferior y detalles ---- */
+:root { --tab-h: 60px; }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 94%, transparent); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+  border-top: 1px solid var(--hairline); padding: 0 max(8px, calc((100% - 728px) / 2)) env(safe-area-inset-bottom, 0px); }
+body:has(#editor[hidden]) .tabbar { display: none; }
+body.selecting .tabbar { display: none; }
+.tab { flex: 1; min-width: 0; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+.tab .icon { width: 24px; height: 24px; }
+.tab.active { color: var(--accent); }
+.tab-ico { position: relative; display: inline-flex; }
+.tab-badge { position: absolute; top: -6px; left: 14px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.tab-badge[hidden] { display: none; }
+#editor main { padding-bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
+body > .toasts { bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom, 0px)); }
+body.selecting > .toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+body.selecting #editor main { padding-bottom: 96px; }
+/* Monogramas neutros: un solo tono, las iniciales no compiten con los logos. */
+.logo .mono, :root:not([data-theme="dark"]) .logo .mono, :root[data-theme="dark"] .logo .mono { background: var(--fill); color: var(--muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo .mono { background: var(--fill); color: var(--muted); } }
+/* Vista detallada: una línea y barra fina del programa */
+.row-now .np-line { display: flex; gap: 8px; min-width: 0; }
+.row-now .np-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-now .np-until { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row-now .np-bar { display: block; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.row-now .np-bar > i { display: block; height: 100%; background: var(--accent); }
+.row-now .epg-now { display: block; -webkit-line-clamp: unset; white-space: normal; overflow: visible; }

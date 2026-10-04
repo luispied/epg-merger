@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
   'chevron-left': '<path d="m15 18-6-6 6-6"/>',
@@ -662,7 +663,7 @@ async function nowPlaying(id: string): Promise<NowPlaying | null> {
   return idx ? nowFromHour(idx, id) : nowFromEntries(await schedule(id));
 }
 
-const hhmm = (sec: number) => new Date(sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const hhmm = (sec: number) => new Date(sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
 /** La línea "Ahora: …" es un botón que despliega la descripción del programa. */
 function nowHtml(cur: NowPlaying | null, id: string, note = ''): string {
@@ -680,7 +681,14 @@ function fillEpgRows(root: ParentNode) {
     el.removeAttribute('data-now-for');
     if (el.dataset.compact) {
       nowPlaying(id).then((cur) => {
-        el.textContent = cur ? `Ahora: ${cur.title} · hasta ${hhmm(cur.stop)}` : 'Sin programación en este horario';
+        if (el.dataset.compact === 'row') {
+          // Vista detallada: una línea (programa y hasta cuándo) y una barra fina de cuánto va.
+          const now = Date.now() / 1000;
+          const pct = cur ? Math.max(0, Math.min(100, Math.round(((now - cur.start) / Math.max(1, cur.stop - cur.start)) * 100))) : 0;
+          el.innerHTML = cur
+            ? `<span class="np-line"><span class="np-title">${esc(cur.title)}</span><span class="np-until">hasta ${hhmm(cur.stop)}</span></span><span class="np-bar"><i style="width:${pct}%"></i></span>`
+            : '<span class="np-line"><span class="np-title">Sin programación en este horario</span></span>';
+        } else el.textContent = cur ? `Ahora: ${cur.title} · hasta ${hhmm(cur.stop)}` : 'Sin programación en este horario';
         el.classList.toggle('on-air', !!cur);
       });
       continue;
@@ -877,7 +885,7 @@ function cardHtml(i: number): string {
       ${selBox}
       ${logoHtml(epg, '', edit.customLogo, shown)}
       <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div>${
-  viewMode() === 'detail' && epg ? `<div class="row-now"><span class="epg-now" data-now-for="${esc(epg)}" data-compact="1"></span></div>` : ''}</div>
+  viewMode() === 'detail' && epg ? `<div class="row-now"><span class="epg-now" data-now-for="${esc(epg)}" data-compact="row"></span></div>` : ''}</div>
       ${status}
     </div>
   </article>`;
@@ -1117,6 +1125,9 @@ function reviewProgress(left = reviewList().length) {
 function renderReviewCard() {
   const card = $('#reviewCard');
   const { left, base, done, pct } = reviewProgress();
+  const badge = $('#tabReviewBadge');
+  badge.hidden = !left;
+  badge.textContent = left > 999 ? '999+' : String(left);
   card.hidden = !left;
   if (!left) return;
   card.innerHTML = `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
@@ -2451,7 +2462,7 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
       await createFirstDevice();
     }
     showEditor();
-    renderLinksCard();
+    await renderLinksCard();
     renderTipCard();
     toast(`${channels.length} canales cargados`, 'ok');
   } catch (e) {
@@ -2599,7 +2610,7 @@ async function openSaved() {
     placeNewCategories();
     main.classList.remove('loading');
     render();
-    renderLinksCard();
+    await renderLinksCard();
     renderTipCard();
     refreshGuideStatus();
   } catch (e) {
@@ -2850,6 +2861,16 @@ function setupEditor() {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();
     ($('#categoriesDialog') as HTMLDialogElement).showModal();
+  };
+  // Barra inferior: Canales (volver arriba), Revisar, Categorías y Links.
+  $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('#tabReview').onclick = () => {
+    if (reviewList().length) startReview();
+    else toast('¡No queda nada por revisar!', 'ok');
+  };
+  $('#tabLinks').onclick = () => {
+    renderLinks();
+    ($('#linksDialog') as HTMLDialogElement).showModal();
   };
   setupCategories();
   setupChannelOrder();
