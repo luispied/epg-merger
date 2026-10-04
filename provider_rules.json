@@ -1,0 +1,25 @@
+{
+  "_comment": "Reglas propias del proveedor IPTV. Sin este archivo el pipeline es genérico: sin categorías separador, categorías sin sección en el orden del proveedor, sin eventos sueltos ni exclusiones. 'dividers.pattern' (regex) reconoce las categorías decorativas del panel del proveedor; 'dividers.sections' mapea su texto (sin decoración, acentos ni mayúsculas) a la sección real, y 'display_names' cambia cómo se muestra el separador de una sección. 'event_sections' son las secciones de eventos sueltos (la interfaz no las muestra para corregir salvo 'editable_categories'). 'no_epg' es lo que no necesita guía: no cuenta en 'A revisar' ni 'Sin EPG'. 'min_assign_score' es el puntaje mínimo para asignar una guía sola (el genérico es 0.7; acá 0.45, como siempre). 'preferred_feed' es la señal horaria de EE.UU./Canadá que se elige cuando el nombre no dice cuál ('east', 'pacific', 'mountain', 'central' o null).",
+  "category_order": "alphabetical",
+  "min_assign_score": 0.45,
+  "preferred_feed": "east",
+  "dividers": {
+    "pattern": "[▆░▒▓█]",
+    "sections": {
+      "PPV EVENTS": "PPV EVENTS",
+      "PAISES": "PAÍSES",
+      "DEPORTES": "DEPORTES",
+      "ENGLISH": "ENGLISH",
+      "ESPAÑOL": "ESPAÑOL",
+      "LATINOS USA": "LATINOS USA",
+      "24/7": "24/7"
+    },
+    "display_names": { "24/7": "▆▆▆２４ ７▆▆▆" }
+  },
+  "event_sections": { "sections": ["PPV EVENTS"], "editable_categories": ["PPV DAZN"] },
+  "no_epg": {
+    "categories": ["General"],
+    "sections": ["24/7"],
+    "category_patterns": ["^\\W*24\\s*/?\\s*7\\b"]
+  }
+}
