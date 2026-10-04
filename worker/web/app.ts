@@ -855,7 +855,12 @@ function wireGuideSearch(root: HTMLElement) {
 /** Cómo se ve la lista: filas compactas (por defecto) o tarjetas. Es una preferencia de este navegador. */
 
 /** Condensado (por defecto) o detallado (suma lo que está dando ahora la guía asignada). */
-const viewMode = (): 'compact' | 'detail' => (pref('grilla_density', 'compact') === 'detail' ? 'detail' : 'compact');
+type ViewMode = 'compact' | 'detail' | 'grid';
+const viewMode = (): ViewMode => { const v = pref('grilla_density', 'compact'); return v === 'detail' || v === 'grid' ? v : 'compact'; };
+const NEXT_VIEW: Record<ViewMode, ViewMode> = { compact: 'detail', detail: 'grid', grid: 'compact' };
+const VIEW_BTN: Record<ViewMode, [string, string]> = {
+  compact: ['chevrons-up-down', 'Ver detallado'], detail: ['layout-grid', 'Ver logos'], grid: ['chevrons-down-up', 'Ver condensado'],
+};
 
 function cardHtml(i: number): string {
   const ch = state.channels[i];
@@ -989,11 +994,12 @@ function renderNow() {
   renderReviewCard();
   const list = visibleChannels();
   const cards = $('#cards');
-  const detail = viewMode() === 'detail';
+  const mode = viewMode();
   const viewBtn = $('#viewBtn');
-  viewBtn.innerHTML = icon(detail ? 'chevrons-down-up' : 'chevrons-up-down');
-  viewBtn.title = viewBtn.ariaLabel = detail ? 'Ver condensado' : 'Ver detallado';
-  cards.classList.toggle('detail', detail);
+  viewBtn.innerHTML = icon(VIEW_BTN[mode][0]);
+  viewBtn.title = viewBtn.ariaLabel = VIEW_BTN[mode][1];
+  cards.classList.toggle('detail', mode === 'detail');
+  cards.classList.toggle('grid', mode === 'grid');
   cards.innerHTML = list.length ? rowsHtml(list, 0, state.shown) : emptyHtml();
   $('[data-clear-filters]', cards)?.addEventListener('click', () => {
     state.search = '';
@@ -2034,7 +2040,7 @@ function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) =>
   };
   box.addEventListener('pointerdown', (ev) => {
     const t = ev.target as HTMLElement;
-    if (ev.pointerType === 'mouse' || t.closest('.drag-handle, .fold-btn')) return;
+    if (ev.pointerType === 'mouse' || box.classList.contains('grid') || t.closest('.drag-handle, .fold-btn')) return;
     const row = t.closest<HTMLElement>(rowSel);
     if (row) sw = { row, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
   });
@@ -2875,7 +2881,7 @@ function setupEditor() {
     ($('#tipCard') as HTMLElement).hidden = true;
   };
   $('#viewBtn').onclick = () => {
-    setPref('grilla_density', viewMode() === 'compact' ? 'detail' : 'compact');
+    setPref('grilla_density', NEXT_VIEW[viewMode()]);
     render();
   };
   $('#bulkCancel').onclick = () => setSelectMode(false);
