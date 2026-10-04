@@ -1,0 +1,33 @@
+name: Release
+
+# Cuando la versión de worker/package.json es nueva, crea el tag vX.Y.Z y el release de GitHub con las notas de
+# esa versión en CHANGELOG.md. La publicación de la web la sigue haciendo Cloudflare Workers Builds.
+on:
+  push:
+    branches: [main]
+    paths: ['worker/package.json', 'CHANGELOG.md']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Tag y release de la versión nueva
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        v=$(node -p "require('./worker/package.json').version")
+        tag="v$v"
+        if gh release view "$tag" >/dev/null 2>&1; then
+          echo "$tag ya tiene release: nada que hacer"
+          exit 0
+        fi
+        awk -v v="$v" '$0 == "## " v {f=1; next} /^## /{f=0} f' CHANGELOG.md | sed -e '/./,$!d' > notes.md
+        if [ ! -s notes.md ]; then
+          echo "CHANGELOG.md no tiene una sección '## $v'" >&2
+          exit 1
+        fi
+        gh release create "$tag" --target "$GITHUB_SHA" --title "Grilla $v" --notes-file notes.md

@@ -1,0 +1,33 @@
+name: Version check
+
+# Un PR que cambia la web (worker/web, worker/src, core) tiene que subir la versión de worker/package.json
+# y traer su entrada en CHANGELOG.md. El release lo crea .github/workflows/release.yml al llegar a main.
+on:
+  pull_request:
+    paths: ['worker/web/**', 'worker/src/**', 'core/**']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: La versión subió y está en el CHANGELOG
+      env:
+        BASE: ${{ github.base_ref }}
+      run: |
+        new=$(node -p "require('./worker/package.json').version")
+        old=$(git show "origin/$BASE:worker/package.json" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+        echo "versión: $old -> $new"
+        if [ "$new" = "$old" ]; then
+          echo "::error file=worker/package.json::Este PR cambia la web: subí la versión (menor para una función nueva, parche para una corrección)."
+          exit 1
+        fi
+        if ! grep -qx "## $new" CHANGELOG.md; then
+          echo "::error file=CHANGELOG.md::Falta la sección '## $new' en CHANGELOG.md."
+          exit 1
+        fi
