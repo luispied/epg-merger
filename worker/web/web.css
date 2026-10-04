@@ -821,3 +821,8 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .cards.grid .ok-mark, .cards.grid .pct, .cards.grid .tag, .cards.grid .btn.sm { position: absolute; top: 6px; right: 6px; }
 .cards.grid .card.row-card.selected { box-shadow: inset 0 0 0 2px var(--accent); }
 .cards.grid .sel-box { position: absolute; top: 6px; left: 6px; }
+
+/* Botón principal: ámbar con texto oscuro también en el tema claro (11:1); el marrón queda solo para texto y enlaces. */
+.btn-primary { background: #ffb224; color: #1d1300; }
+.btn-primary:hover { background: color-mix(in srgb, #ffb224 92%, #1d1300); }
+.btn-primary:active { background: color-mix(in srgb, #ffb224 86%, #1d1300); }
