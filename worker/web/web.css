@@ -791,3 +791,18 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
   font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg); pointer-events: none; }
 .net-pill[hidden] { display: none; }
 .net-pill .icon { width: 16px; height: 16px; color: var(--inverse-accent); flex: none; }
+
+/* Escritorio ancho: la hoja del canal queda anclada a la derecha y la lista se corre (maestro-detalle). */
+@media (min-width: 1100px) and (hover: hover) {
+  dialog.sheet.docked {
+    position: fixed; z-index: 60; inset: 0 0 0 auto; margin: 0; width: 440px; max-width: 440px;
+    height: 100dvh; max-height: 100dvh; border-radius: 0; border-width: 0 0 0 1px;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
+  }
+  dialog.sheet.docked .sheet-body { max-height: 100dvh; height: 100%; }
+  body.has-dock main, body.has-dock .app-header, body.has-dock #tabbar { margin-right: 440px; }
+  html:has(dialog.docked[open]) { overflow: auto; }
+}
+
+/* Listas largas: lo que no se ve no se pinta (10 000 canales). */
+.cards.rows .card.row-card { content-visibility: auto; contain-intrinsic-size: auto 60px; }

@@ -534,7 +534,16 @@ function placeNewCategories() {
 }
 
 type Band = 'ok' | 'warn' | 'none' | 'manual' | 'purpose';
+/** Durante un render() el estado no cambia: se calcula una sola vez por canal (los conteos de las
+ *  pestañas, la lista y el filtro lo piden varias veces; con 10 000 canales se nota). */
+let infoMemo: Map<Channel, ReturnType<typeof computeInfo>> | null = null;
 function info(ch: Channel) {
+  if (!infoMemo) return computeInfo(ch);
+  let r = infoMemo.get(ch);
+  if (!r) infoMemo.set(ch, (r = computeInfo(ch)));
+  return r;
+}
+function computeInfo(ch: Channel) {
   const edit = state.cfg!.channels[ch.name] ?? {};
   const auto = state.auto.get(ch.name);
   const epg = edit.epg ?? null;
@@ -966,6 +975,10 @@ function emptyHtml(): string {
 
 function render() {
   if (!state.cfg) return;
+  infoMemo = new Map();
+  try { renderNow(); } finally { infoMemo = null; }
+}
+function renderNow() {
   headersCache = null;
   renderNewBanner();
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
@@ -1334,10 +1347,27 @@ function openChannel(i: number) {
     again();
   };
   if (!dlg.open) {
-    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; sheetReview = false; }, { once: true });
-    dlg.showModal();
+    dlg.addEventListener('close', () => {
+      refreshSheet = null; sheetList = []; sheetReview = false;
+      document.body.classList.remove('has-dock');
+    }, { once: true });
+    // En escritorio ancho la hoja queda fija a la derecha (sin velo) y la lista sigue usable:
+    // tocar otro canal cambia el panel (maestro-detalle).
+    if (DOCK_MQ.matches) {
+      dlg.classList.add('docked');
+      dlg.show();
+      document.body.classList.add('has-dock');
+    } else {
+      dlg.classList.remove('docked');
+      dlg.showModal();
+    }
   }
 }
+const DOCK_MQ = matchMedia('(min-width: 1100px) and (hover: hover)');
+document.addEventListener('keydown', (e) => {
+  const d = $('#channelDialog') as HTMLDialogElement;
+  if (e.key === 'Escape' && d.open && d.classList.contains('docked')) d.close();
+});
 
 // ------------------------------------------------------------------ selección múltiple
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
