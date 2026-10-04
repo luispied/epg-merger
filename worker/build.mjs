@@ -4,9 +4,15 @@
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 
 const here = (p) => new URL(p, import.meta.url);
 mkdirSync(here('./public'), { recursive: true });
+
+// Versión de la app (worker/package.json) y, si hay git, el commit: se ven al pie de Configuración.
+const appVersion = JSON.parse(readFileSync(here('./package.json'), 'utf-8')).version;
+let appCommit = '';
+try { appCommit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* sin git */ }
 
 await build({
   entryPoints: [here('./web/app.ts').pathname],
@@ -16,6 +22,7 @@ await build({
   minify: true,
   sourcemap: false,
   outfile: here('./public/app.js').pathname,
+  define: { __APP_VERSION__: JSON.stringify(appVersion), __APP_COMMIT__: JSON.stringify(appCommit) },
   logLevel: 'warning',
 });
 // Un solo CSS: los estilos base heredados de docs/ y los de la web (que van después y mandan).
@@ -36,4 +43,4 @@ const version = hash.digest('hex').slice(0, 10);
 writeFileSync(here('./public/index.html'), readFileSync(here('./web/index.html'), 'utf-8').replaceAll('__VERSION__', version));
 // El service worker (sin conexión) guarda la app de esta versión.
 writeFileSync(here('./public/sw.js'), readFileSync(here('./web/sw.js'), 'utf-8').replaceAll('__VERSION__', version));
-console.log(`public/ listo (v=${version})`);
+console.log(`public/ listo (app ${appVersion}, v=${version})`);
