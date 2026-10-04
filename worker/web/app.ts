@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
   'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
@@ -951,6 +952,7 @@ function render() {
     b.setAttribute('aria-pressed', String(f === state.filter));
     b.innerHTML = `${esc(b.dataset.label)}<span class="count">${state.channels.filter((c) => matchesFilter(c, f)).length}</span>`;
   }
+  renderReviewCard();
   const list = visibleChannels();
   const cards = $('#cards');
   const detail = viewMode() === 'detail';
@@ -1097,6 +1099,38 @@ async function toggleDay(root: HTMLElement, id: string) {
 
 /** Canales entre los que se puede ir con ‹ › (la lista que se estaba viendo al abrir). */
 let sheetList: number[] = [];
+/** Modo «Revisar»: la hoja recorre los canales dudosos de a uno, con «Está bien» como acción principal. */
+let sheetReview = false;
+
+const REVIEW_KEY = (id: string) => `grilla_review_base_${id}`;
+const reviewList = () => state.channels.map((_, i) => i).filter((i) => matchesFilter(state.channels[i], 'revisar'));
+/** Cuántos quedan por revisar y cuántos había al empezar (la base solo crece; en 0 se reinicia). */
+function reviewProgress(left = reviewList().length) {
+  const key = REVIEW_KEY(state.local?.cfgId ?? '');
+  let base = Number(pref(key, '0')) || 0;
+  if (!left) base = 0;
+  else if (left > base) base = left;
+  setPref(key, String(base));
+  return { left, base, done: Math.max(0, base - left), pct: base ? Math.round(((base - left) / base) * 100) : 0 };
+}
+
+function renderReviewCard() {
+  const card = $('#reviewCard');
+  const { left, base, done, pct } = reviewProgress();
+  card.hidden = !left;
+  if (!left) return;
+  card.innerHTML = `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
+      <small>${done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
+      <button type="button" class="btn btn-primary" data-rv="start">Empezar</button></div>
+    <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>`;
+}
+
+function startReview() {
+  sheetList = reviewList();
+  if (!sheetList.length) return;
+  sheetReview = true;
+  openChannel(sheetList[0]);
+}
 let sheetMoreOpen = false;
 let refreshSheet: (() => void) | null = null;
 
@@ -1117,6 +1151,7 @@ function openChannel(i: number) {
     if (divider || !sheetList.includes(i)) sheetList = [i];
   }
   const pos = sheetList.indexOf(i);
+  const needsReview = !divider && matchesFilter(ch, 'revisar');
   const nameInput = $<HTMLInputElement>('#channelName');
   nameInput.value = edit.name || shownDefault;
   nameInput.placeholder = shownDefault;
@@ -1158,7 +1193,15 @@ function openChannel(i: number) {
       : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${suggestion
         ? `<div class="gc-sug">Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
            <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
-    body.innerHTML = `${meta}
+    const rp = sheetReview ? reviewProgress() : null;
+    const progress = rp ? `<div class="rv-progress"><span>Revisando · ${pos + 1} de ${sheetList.length} · quedan ${rp.left}</span>
+      <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rp.pct}"><i style="width:${rp.pct}%"></i></div></div>` : '';
+    const useSuggestion = !epg && !!suggestion;
+    const okLabel = useSuggestion ? 'Usar sugerencia' : needsReview || epg ? 'Está bien' : 'Siguiente';
+    const actions = needsReview || sheetReview ? `<div class="rv-actions">
+        <button type="button" class="btn btn-primary" data-rv="ok">${icon('check')}${okLabel}</button>
+        ${sheetReview ? `<button type="button" class="btn btn-gray" data-rv="skip">Saltar</button>` : ''}</div>` : '';
+    body.innerHTML = `${progress}${meta}
       <h3 class="sec-title">Guía asignada</h3>
       <div class="ch-current${epg ? '' : ' none'}">${current}</div>
       <h3 class="sec-title">Otras opciones</h3>
@@ -1169,7 +1212,8 @@ function openChannel(i: number) {
       </div>
       <div class="list search-results" hidden></div>
       ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score)).join('')}</div>` : ''}
-      ${more}`;
+      ${more}
+      ${actions}`;
   }
 
   const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
@@ -1204,11 +1248,35 @@ function openChannel(i: number) {
       again();
     };
   }
+  /** Después de resolver un canal: en la revisión pasa al siguiente que falta; si no, cierra. */
+  const afterReview = () => {
+    if (sheetReview) {
+      const next = sheetList.slice(pos + 1).find((k) => matchesFilter(state.channels[k], 'revisar'));
+      if (next !== undefined) {
+        openChannel(next);
+        return;
+      }
+      dlg.close();
+      toast('¡Listo! Revisaste todos los canales', 'ok');
+      return;
+    }
+    dlg.close();
+  };
   body.onclick = (ev) => {
+    const rv = (ev.target as HTMLElement).closest<HTMLElement>('[data-rv]')?.dataset.rv;
+    if (rv) {
+      if (rv === 'ok') {
+        const target = epg ?? suggestion?.channelId;
+        if (target) update((e) => pickEpg(e, target), epg ? 'Guía confirmada' : 'Sugerencia aplicada');
+      }
+      afterReview();
+      return;
+    }
     const picked = epgClick(ev);
     if (picked) {
       update((e) => pickEpg(e, picked), 'Guía elegida');
-      again();
+      if (sheetReview) afterReview();
+      else again();
       return;
     }
     const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
@@ -1242,7 +1310,7 @@ function openChannel(i: number) {
     again();
   };
   if (!dlg.open) {
-    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; }, { once: true });
+    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; sheetReview = false; }, { once: true });
     dlg.showModal();
   }
 }
@@ -1304,9 +1372,6 @@ function openBulkMenu() {
   const body = $('#bulkBody');
   $('#bulkTitle').textContent = plural(n, 'seleccionado', 'seleccionados');
   const allHidden = chs.every((ch) => cfg.channels[ch.name]?.hidden);
-  const eye = $<HTMLButtonElement>('#bulkVis');
-  eye.innerHTML = icon(allHidden ? 'eye-off' : 'eye');
-  eye.title = eye.ariaLabel = allHidden ? 'Todos ocultos: tocá para mostrarlos' : 'Tocá para ocultarlos de la playlist';
   // Primero las opciones que más se repiten entre los seleccionados (su guía actual y sus alternativas).
   const score = new Map<string, number>();
   for (const ch of chs) {
@@ -1317,36 +1382,35 @@ function openBulkMenu() {
   const suggestions = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const anyManual = chs.some((ch) => cfg.channels[ch.name]?.manual);
   const resets = [
+    menuRowHtml(allHidden ? 'eye' : 'eye-off', allHidden ? 'Mostrar en la playlist' : 'Ocultar de la playlist', '', 'vis'),
     chs.some((ch) => cfg.channels[ch.name]?.name) ? menuRowHtml('rotate-ccw', 'Restaurar nombres originales', '', 'names') : '',
     chs.some((ch) => cfg.channels[ch.name]?.group) ? menuRowHtml('rotate-ccw', 'Volver a las categorías originales', '', 'orig-cat') : '',
   ].join('');
   body.innerHTML = `
-    <div class="ch-search first">
-      <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar una guía para todos" enterkeyhint="search" aria-label="Buscar una guía para todos"></label>
-      <button type="button" class="icon-btn" data-act="auto" title="Volver a la guía automática" aria-label="Volver a la guía automática"${anyManual ? '' : ' disabled'}>${icon('undo-2')}</button>
-      <button type="button" class="icon-btn" data-act="no-epg" title="Dejar sin guía" aria-label="Dejar sin guía">${icon('ban')}</button>
+    <h3 class="sec-title">${n === 1 ? "Guía del canal" : `Guía para los ${n}`}</h3>
+    <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar una guía para todos" enterkeyhint="search" aria-label="Buscar una guía para todos"></label>
+    <div class="ch-chips">
+      <button type="button" class="chip-btn" data-act="auto"${anyManual ? '' : ' disabled'}>${icon('undo-2', 'sm')}Automática</button>
+      <button type="button" class="chip-btn" data-act="no-epg">${icon('ban', 'sm')}Sin guía</button>
     </div>
     <div class="list search-results" hidden></div>
-    ${suggestions.length ? `<div class="list alts">${suggestions.map(([id, count]) => candidateButton(id, undefined, {
+    ${suggestions.length ? `<div class="list opts">${suggestions.map(([id, count]) => candidateButton(id, undefined, {
       note: count > 1 ? `· opción de ${count} de ${n}` : '',
     })).join('')}</div>` : ''}
-    <div class="ch-fields">
-      <label class="ch-field" title="Mover de categoría">${icon('folder-input')}
+    <h3 class="sec-title">Categoría</h3>
+    <div class="bulk-move">
+      <label class="field"><span class="sr-only">Mover a la categoría</span>
         <select class="select bulk-cat" aria-label="Mover a la categoría">
-          <option value="" selected disabled>Mover a la categoría…</option>
+          <option value="" selected disabled>Elegir categoría…</option>
           ${groups().filter((g) => !headersNow().has(g) && !state.cfg!.groups.hidden.includes(g)).map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}<option value="__new__">Nueva categoría…</option>
-        </select>
-        <button type="button" class="icon-btn" data-act="move" aria-label="Mover" disabled>${icon('check')}</button></label>
+        </select></label>
+      <button type="button" class="btn btn-tonal" data-act="move" disabled>Mover</button>
     </div>
+    <h3 class="sec-title">Más</h3>
     ${resets ? `<div class="menu">${resets}</div>` : ''}`;
   const select = $<HTMLSelectElement>('.bulk-cat', body);
   const move = $<HTMLButtonElement>('[data-act=move]', body);
   select.onchange = () => { move.disabled = !select.value; };
-  eye.onclick = () => {
-    dialog.close();
-    if (allHidden) applyBulk((e) => { delete e.hidden; }, `${plural(n, 'canal visible', 'canales visibles')} en la playlist`);
-    else applyBulk((e) => { e.hidden = true; }, `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`);
-  };
   body.onclick = async (ev) => {
     const picked = epgClick(ev);
     if (picked) {
@@ -1378,7 +1442,10 @@ function openBulkMenu() {
       return;
     }
     dialog.close();
-    if (action === 'auto') applyBulk(autoEpg, `${plural(n, 'canal vuelve', 'canales vuelven')} a la guía automática`);
+    if (action === 'vis') {
+      if (allHidden) applyBulk((e) => { delete e.hidden; }, `${plural(n, 'canal visible', 'canales visibles')} en la playlist`);
+      else applyBulk((e) => { e.hidden = true; }, `${plural(n, 'canal oculto', 'canales ocultos')} de la playlist`);
+    } else if (action === 'auto') applyBulk(autoEpg, `${plural(n, 'canal vuelve', 'canales vuelven')} a la guía automática`);
     else if (action === 'names') applyBulk((e) => { delete e.name; }, 'Nombres originales restaurados');
     else if (action === 'orig-cat') applyBulk((e) => { delete e.group; }, 'Categorías originales restauradas');
   };
@@ -2125,6 +2192,18 @@ async function createFirstDevice() {
   } catch { /* se pueden generar después, desde Configuración */ }
 }
 
+/** Una sola vez, a quien arma su lista por primera vez: cómo se usan los gestos (que no se ven). */
+function renderTipCard() {
+  const card = $('#tipCard');
+  const fresh = state.local && localStorage.getItem(LINKS_CARD_KEY(state.local.cfgId)) !== null;
+  // Con la tarjeta de los links a la vista no se suma otra: aparece cuando se descarta.
+  card.hidden = !fresh || pref('grilla_tip_gestures', '') === '1' || !$('#linksCard').hidden;
+  if (card.hidden) return;
+  card.innerHTML = `<div class="tip-head">${icon('lightbulb')}<div class="tip-text"><strong>Atajos</strong>
+      <small><b>Deslizá</b> una fila hacia la izquierda para ocultarla o hacia la derecha para dejarla sin guía. <b>Mantenela apretada</b> para elegir varias.</small></div>
+      <button type="button" class="icon-btn" data-tip="close" aria-label="Entendido">${icon('x')}</button></div>`;
+}
+
 async function renderLinksCard() {
   const card = $('#linksCard');
   card.hidden = true;
@@ -2150,6 +2229,7 @@ async function renderLinksCard() {
     if (act === 'close') {
       setPref(LINKS_CARD_KEY(state.local!.cfgId), '0');
       card.hidden = true;
+      renderTipCard();
     } else if (act === 'more') {
       renderLinkResult(d);
       ($('#linksDialog') as HTMLDialogElement).showModal();
@@ -2372,6 +2452,7 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
     }
     showEditor();
     renderLinksCard();
+    renderTipCard();
     toast(`${channels.length} canales cargados`, 'ok');
   } catch (e) {
     status(st, `No se pudo: ${(e as Error).message}`, 'bad');
@@ -2519,6 +2600,7 @@ async function openSaved() {
     main.classList.remove('loading');
     render();
     renderLinksCard();
+    renderTipCard();
     refreshGuideStatus();
   } catch (e) {
     main.classList.remove('loading');
@@ -2730,6 +2812,14 @@ function setupEditor() {
       t.click();
     }
   });
+  $('#reviewCard').onclick = (ev) => {
+    if ((ev.target as HTMLElement).closest('[data-rv=start]')) startReview();
+  };
+  $('#tipCard').onclick = (ev) => {
+    if (!(ev.target as HTMLElement).closest('[data-tip=close]')) return;
+    setPref('grilla_tip_gestures', '1');
+    ($('#tipCard') as HTMLElement).hidden = true;
+  };
   $('#viewBtn').onclick = () => {
     setPref('grilla_density', viewMode() === 'compact' ? 'detail' : 'compact');
     render();
