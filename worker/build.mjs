@@ -18,9 +18,11 @@ await build({
   outfile: here('./public/app.js').pathname,
   logLevel: 'warning',
 });
-cpSync(here('../docs/app.css'), here('./public/app.css'));
+// Un solo CSS: los estilos base heredados de docs/ y los de la web (que van después y mandan).
+writeFileSync(here('./public/app.css'), `${readFileSync(here('../docs/app.css'), 'utf-8')}\n${readFileSync(here('./web/web.css'), 'utf-8')}`);
+mkdirSync(here('./public/fonts'), { recursive: true });
+cpSync(here('./web/fonts'), here('./public/fonts'), { recursive: true });
 cpSync(here('../docs/icons.js'), here('./public/icons.js'));
-cpSync(here('./web/web.css'), here('./public/web.css'));
 // Íconos de la app (para "Agregar a inicio" en el iPhone y Android): los mismos de docs/.
 cpSync(here('../docs/img'), here('./public/img'), { recursive: true });
 const manifest = JSON.parse(readFileSync(here('../docs/manifest.webmanifest'), 'utf-8'));
@@ -29,7 +31,7 @@ writeFileSync(here('./public/manifest.webmanifest'), JSON.stringify(manifest, nu
 
 // ?v= con el hash del contenido: el HTML nuevo nunca carga JS o CSS viejos de la caché.
 const hash = createHash('sha256');
-for (const f of ['app.js', 'app.css', 'icons.js', 'web.css']) hash.update(readFileSync(here(`./public/${f}`)));
+for (const f of ['app.js', 'app.css', 'icons.js', 'fonts/inter-latin.woff2']) hash.update(readFileSync(here(`./public/${f}`)));
 const version = hash.digest('hex').slice(0, 10);
 writeFileSync(here('./public/index.html'), readFileSync(here('./web/index.html'), 'utf-8').replaceAll('__VERSION__', version));
 // El service worker (sin conexión) guarda la app de esta versión.

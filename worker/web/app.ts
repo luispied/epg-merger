@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
@@ -923,6 +924,17 @@ function rowsHtml(list: number[], from: number, to: number): string {
   return out;
 }
 
+/** Píldora arriba: sin conexión (los cambios se guardan en el dispositivo) o guardando. */
+function updateNet() {
+  const pill = $('#netPill');
+  const pending = !!$('#statusLine').dataset.pending;
+  const text = !navigator.onLine ? 'Sin conexión · tus cambios se guardan en este dispositivo' : pending ? 'Guardando tus cambios…' : '';
+  pill.hidden = !text;
+  if (text) pill.innerHTML = `${icon(!navigator.onLine ? 'cloud-off' : 'loader-circle', !navigator.onLine ? '' : 'spin')}<span>${esc(text)}</span>`;
+}
+window.addEventListener('online', updateNet);
+window.addEventListener('offline', updateNet);
+
 function renderStatusLine() {
   const el = $('#statusLine');
   const total = state.channels.length;
@@ -930,6 +942,7 @@ function renderStatusLine() {
   const saved = el.dataset.pending ? ' · sin conexión: se guarda cuando vuelva'
     : el.dataset.saved ? ` · guardado ${el.dataset.saved}` : '';
   el.textContent = `${total} canales · ${withEpg} con guía${saved}`;
+  updateNet();
 }
 
 let recheckGrid: () => void = () => {};

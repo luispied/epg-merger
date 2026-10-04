@@ -20,7 +20,7 @@
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
 <link rel="stylesheet" href="app.css?v=__VERSION__">
-<link rel="stylesheet" href="web.css?v=__VERSION__">
+<link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script src="icons.js?v=__VERSION__"></script>
 <script type="module" src="app.js?v=__VERSION__"></script>
 </head>
@@ -130,6 +130,8 @@
     <div class="load-sentinel" id="loadMoreSentinel" aria-hidden="true" hidden></div>
   </main>
 </section>
+
+<div class="net-pill" id="netPill" role="status" hidden></div>
 
 <nav class="tabbar" id="tabbar" aria-label="Secciones">
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>

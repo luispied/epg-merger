@@ -7,8 +7,8 @@
 const VERSION = '__VERSION__';
 const SHELL = `grilla-shell-${VERSION}`;
 const DATA = 'grilla-data-v1';
-const SHELL_FILES = ['/', `/app.js?v=${VERSION}`, `/app.css?v=${VERSION}`, `/web.css?v=${VERSION}`,
-  `/icons.js?v=${VERSION}`, `/manifest.webmanifest?v=${VERSION}`, '/img/icon.svg'];
+const SHELL_FILES = ['/', `/app.js?v=${VERSION}`, `/app.css?v=${VERSION}`,
+  '/fonts/inter-latin.woff2', `/icons.js?v=${VERSION}`, `/manifest.webmanifest?v=${VERSION}`, '/img/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
