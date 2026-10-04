@@ -158,6 +158,7 @@ const newCategoryName = () => promptDialog({
 });
 
 function status(el: HTMLElement, text: string | null, kind: 'busy' | 'ok' | 'bad' = 'busy') {
+  if (el.id === 'onboardStatus') document.body.classList.toggle('onboard-busy', !!text && kind === 'busy');
   el.hidden = !text;
   if (!text) return;
   el.className = `status-bar ${kind}`;
@@ -2098,6 +2099,69 @@ function renderLinkResult(result: LinkResult) {
   showQr(result.playlistUrl);
 }
 
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand('copy');
+    t.remove();
+  }
+}
+
+// La primera vez los links se arman solos (con un dispositivo «Mi reproductor») y una tarjeta arriba
+// de la lista los ofrece listos para copiar; se descarta con la X. Después viven en Configuración.
+const LINKS_CARD_KEY = (id: string) => `grilla_links_card_${id}`;
+
+async function createFirstDevice() {
+  if (!state.local || !state.creds) return;
+  try {
+    await saveNow(false);
+    await api(`/api/cfg/${state.local.cfgId}/token`, { method: 'POST', body: { ...state.creds, name: 'Mi reproductor' } });
+    setPref(LINKS_CARD_KEY(state.local.cfgId), '1');
+  } catch { /* se pueden generar después, desde Configuración */ }
+}
+
+async function renderLinksCard() {
+  const card = $('#linksCard');
+  card.hidden = true;
+  if (!state.local || pref(LINKS_CARD_KEY(state.local.cfgId), '') !== '1') return;
+  let dev: Device | undefined;
+  try {
+    dev = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices[0];
+  } catch { /* sin conexión: no se muestra */ }
+  if (!dev) return;
+  const d = dev;
+  card.innerHTML = `<div class="lc-head">${icon('tv')}
+      <div class="lc-text"><strong>Tu lista está lista</strong><small>Copiá estos dos links en tu reproductor (TiviMate, IPTV Smarters…).</small></div>
+      <button type="button" class="icon-btn" data-lc="close" aria-label="Descartar">${icon('x')}</button></div>
+    <div class="lc-actions">
+      <button type="button" class="btn btn-primary" data-lc="playlist">${icon('copy')}Copiar playlist</button>
+      <button type="button" class="btn btn-tonal" data-lc="epg">${icon('copy')}Copiar guía</button></div>
+    <button type="button" class="link-btn" data-lc="more">Ver código QR y otras formas de compartir${icon('chevron-right', 'sm')}</button>`;
+  card.hidden = false;
+  card.onclick = async (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-lc]');
+    if (!btn) return;
+    const act = btn.dataset.lc;
+    if (act === 'close') {
+      setPref(LINKS_CARD_KEY(state.local!.cfgId), '0');
+      card.hidden = true;
+    } else if (act === 'more') {
+      renderLinkResult(d);
+      ($('#linksDialog') as HTMLDialogElement).showModal();
+    } else {
+      await copyText(act === 'playlist' ? d.playlistUrl : d.epgUrl);
+      const before = btn.innerHTML;
+      btn.innerHTML = `${icon('check')}Copiado`;
+      setTimeout(() => { btn.innerHTML = before; }, 2000);
+    }
+  };
+}
+
 async function showQr(text: string) {
   try {
     if (!window.qrcode) {
@@ -2302,8 +2366,12 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
     if (keep) {
       detectNew();
       placeNewCategories();
-    } else markSeen();
+    } else {
+      markSeen();
+      await createFirstDevice();
+    }
     showEditor();
+    renderLinksCard();
     toast(`${channels.length} canales cargados`, 'ok');
   } catch (e) {
     status(st, `No se pudo: ${(e as Error).message}`, 'bad');
@@ -2450,6 +2518,7 @@ async function openSaved() {
     placeNewCategories();
     main.classList.remove('loading');
     render();
+    renderLinksCard();
     refreshGuideStatus();
   } catch (e) {
     main.classList.remove('loading');

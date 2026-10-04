@@ -29,8 +29,9 @@
 <!-- Primera vez: conectar el proveedor. -->
 <section id="onboarding" hidden>
   <header class="app-header">
-    <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="Grilla" width="44" height="44"></h1></div>
-    <p class="lead">Ordená tu lista de canales, asigná la guía y copiá dos links para tu reproductor. Sin cuenta: queda guardado en este navegador.</p>
+    <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark">Grilla</span></h1></div>
+    <p class="hero">Tu lista IPTV, con la guía bien puesta</p>
+    <p class="lead">Ordená tus canales, asignales la guía de programación y copiá dos links para tu reproductor. Sin cuenta: queda guardado en este navegador.</p>
     <details class="how-wrap">
       <summary>Cómo funciona</summary>
       <ol class="how">
@@ -41,7 +42,12 @@
     </details>
   </header>
   <main>
+    <div class="hero-actions">
+      <button type="button" class="btn btn-tonal btn-block" id="demoBtn"><span data-icon="play"></span>Probar con canales de ejemplo</button>
+      <small class="help">Canales públicos y gratuitos de Argentina (iptv-org). Después la cambiás por la tuya.</small>
+    </div>
     <div class="card">
+      <h2 class="card-title">Conectá tu lista</h2>
       <div class="field">
         <span>Tipo de proveedor</span>
         <div class="seg" role="radiogroup" aria-label="Tipo de proveedor" id="providerSeg">
@@ -69,17 +75,13 @@
           <li><a id="m3uDownload" href="#" target="_blank" rel="noreferrer noopener">Bajá tu lista desde el proveedor</a>: se descarga un archivo .m3u (puede pesar varias decenas de MB y tardar un poco).</li>
           <li>Volvé a esta pestaña y elegí ese archivo:</li>
         </ol>
-        <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl">
+        <label class="btn btn-tonal btn-block file-btn"><span data-icon="upload"></span>Elegir el archivo .m3u
+          <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl" hidden></label>
       </div>
+      <div class="status-bar" id="onboardStatus" hidden></div>
       <p class="help">Usuario y contraseña no se guardan en ningún servidor: van cifrados solo dentro de
         tus links de reproducción.</p>
       <p class="help"><a href="#" id="restoreLink">Ya tengo una configuración (importar respaldo)</a></p>
-    </div>
-    <div class="status-bar" id="onboardStatus" hidden></div>
-    <div class="card demo-card">
-      <div class="demo-text"><b>¿Querés probar antes?</b>
-        <small>Usá una lista de demostración con canales públicos y gratuitos de Argentina (iptv-org). Después la podés cambiar por la tuya.</small></div>
-      <button type="button" class="btn btn-tonal" id="demoBtn"><span data-icon="play"></span>Probar la demo</button>
     </div>
     <p class="help legal">Grilla no ofrece canales ni listas: organiza la lista que ya tenés. Las guías de programación vienen de fuentes públicas (open-epg, iptv-org y otras).</p>
   </main>
@@ -115,6 +117,7 @@
   </div>
   <main>
     <div class="status-bar" id="status" hidden></div>
+    <div class="links-card" id="linksCard" hidden></div>
     <div class="list-bar">
       <p class="meta-line" id="statusLine"></p>
       <span class="list-tools">
