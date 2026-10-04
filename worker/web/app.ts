@@ -110,10 +110,9 @@ function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, un
     box.className = 'toasts';
     host.appendChild(box);
   }
-  // El mismo aviso no se repite (mover varias veces seguidas) y quedan como mucho 3.
-  for (const old of $$('.toast', box)) if ($('.msg', old)?.textContent === text) old.remove();
+  // Un solo aviso a la vez: el nuevo reemplaza al anterior (no se apilan sobre la lista).
+  for (const old of $$('.toast', box)) old.remove();
   box.appendChild(el);
-  while (box.children.length > 3) box.firstElementChild!.remove();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -846,7 +845,7 @@ function cardHtml(i: number): string {
   const picked = selection.items.has(i);
   const selBox = sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : '';
   if (divider) {
-    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" aria-label="Separador ${esc(sectionTitle(groupLabel(groupOf(ch))))}">
+    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="Separador ${esc(sectionTitle(groupLabel(groupOf(ch))))}">
       ${selBox}
       <div class="card-title"><div class="section-name">${esc(sectionTitle(groupLabel(groupOf(ch))))}</div>
         <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
@@ -870,7 +869,7 @@ function cardHtml(i: number): string {
   }
   const status = sug ? `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button>` : statusMark(band, auto?.score);
   const label = `${shown}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
-  return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" aria-label="${esc(label)}">
+  return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(label)}">
     <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r">${icon('ban')}Sin guía</span><span class="sw sw-l">${icon(hidden ? 'eye' : 'eye-off')}${hidden ? 'Mostrar' : 'Ocultar'}</span></span>
     <div class="row-in">
       ${selBox}

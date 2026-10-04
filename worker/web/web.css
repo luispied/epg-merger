@@ -693,3 +693,23 @@ body.selecting .row-in { padding-left: 12px; }
 .title-row:has(> .meta-line) { flex-wrap: wrap; row-gap: 0; }
 .title-row > .meta-line { flex: 1 0 100%; order: 3; margin: -2px 0 4px; }
 #categoriesDialog .meta-line, #settingsDialog .meta-line { margin: -2px 0 4px; }
+
+/* ---- Etapa 0 de la auditoría: correcciones puras ---- */
+/* Foco de teclado visible dentro de la fila (el aro exterior quedaba recortado). */
+.cards.rows .card.row-card:focus-visible, .cards.rows .card.section-card:focus-visible, .cat-row:focus-visible { outline: none; }
+.cards.rows .card.row-card:focus-visible .row-in, .cat-row:focus-visible .row-in, .cards.rows .card.section-card:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+/* Títulos de hoja con peso 600 (el nombre del canal pesaba más que el título). */
+.sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-weight: 600; }
+.pct, .count, .tag, .gc-state, .opt-top .pct, .meta-line { font-variant-numeric: tabular-nums; }
+/* Texto terciario con más contraste. */
+:root { --faint: #6f6a5f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --faint: #8a91a0; } }
+:root[data-theme="dark"] { --faint: #8a91a0; }
+/* Sin mouse (táctil), el hover no se queda pegado después de tocar. */
+@media (hover: none) {
+  .cards.rows .card.row-card:hover .row-in { background: var(--surface); }
+  .cards.rows .card.row-card.selected:hover .row-in { background: var(--accent-soft); }
+  .menu-row:not(.static):hover, .pick-row:hover, .opt:hover, .day-item summary:hover, .ch-name:hover { background: transparent; }
+  .opt:hover .radio { box-shadow: inset 0 0 0 2px var(--faint); }
+  .primary-row:hover { background: var(--accent-soft) !important; }
+}
