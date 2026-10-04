@@ -35,6 +35,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
@@ -902,6 +903,7 @@ function cardHtml(i: number): string {
       <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div>${
   viewMode() === 'detail' && epg ? `<div class="row-now"><span class="epg-now" data-now-for="${esc(epg)}" data-compact="row"></span></div>` : ''}</div>
       ${status}
+      <button type="button" class="icon-btn sm row-more" data-more="${i}" aria-label="Más acciones: ${esc(shown)}" aria-haspopup="menu">${icon('ellipsis')}</button>
     </div>
   </article>`;
 }
@@ -1381,6 +1383,42 @@ document.addEventListener('keydown', (e) => {
   const d = $('#channelDialog') as HTMLDialogElement;
   if (e.key === 'Escape' && d.open && d.classList.contains('docked')) d.close();
 });
+
+/** Menú «…» de una fila (con mouse no hay gestos obvios): ocultar o mostrar, sin guía, seleccionar. */
+function openRowMenu(anchor: HTMLElement, i: number) {
+  $$('.row-menu').forEach((m) => m.remove());
+  const ch = state.channels[i];
+  const wasHidden = !!state.cfg!.channels[ch.name]?.hidden;
+  const menu = document.createElement('div');
+  menu.className = 'row-menu';
+  menu.setAttribute('role', 'menu');
+  const item = (act: string, ic: string, text: string) =>
+    `<button type="button" role="menuitem" data-act="${act}">${icon(ic, 'sm')}${esc(text)}</button>`;
+  menu.innerHTML = item('hide', wasHidden ? 'eye' : 'eye-off', wasHidden ? 'Mostrar' : 'Ocultar')
+    + item('noepg', 'ban', 'Dejar sin guía') + item('select', 'square-check', 'Seleccionar');
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
+  menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+  const close = () => {
+    menu.remove();
+    document.removeEventListener('pointerdown', away, true);
+    document.removeEventListener('keydown', esc_, true);
+  };
+  const away = (ev: Event) => { if (!menu.contains(ev.target as Node)) close(); };
+  const esc_ = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); anchor.focus(); } };
+  document.addEventListener('pointerdown', away, true);
+  document.addEventListener('keydown', esc_, true);
+  menu.onclick = (ev) => {
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (!act) return;
+    close();
+    if (act === 'hide') editChannels([ch], (e) => { e.hidden = e.hidden ? undefined : true; }, wasHidden ? 'Visible' : 'Oculto');
+    else if (act === 'noepg') editChannels([ch], noEpg, 'Quedó sin guía');
+    else setSelectMode(true, i);
+  };
+  menu.querySelector<HTMLElement>('button')!.focus();
+}
 
 // ------------------------------------------------------------------ selección múltiple
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -2781,6 +2819,11 @@ function setupEditor() {
       toggleDesc(now);
       return;
     }
+    const more = t.closest<HTMLElement>('[data-more]');
+    if (more) {
+      openRowMenu(more, i);
+      return;
+    }
     const use = t.closest<HTMLElement>('[data-use]');
     if (use) {
       const cid = info(state.channels[i]).suggestion?.channelId;
@@ -2824,7 +2867,7 @@ function setupEditor() {
     delete card.dataset.sw;
   };
   cards.addEventListener('pointerdown', (ev) => {
-    if (ev.pointerType === 'mouse' || selection.active) return;
+    if (selection.active || cards.classList.contains('grid') || (ev.target as HTMLElement).closest('.row-more')) return;
     const card = (ev.target as HTMLElement).closest<HTMLElement>('.row-card[data-i]');
     if (card) sw = { card, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
   });
@@ -2912,6 +2955,7 @@ function setupEditor() {
     ($('#categoriesDialog') as HTMLDialogElement).showModal();
   };
   // Barra inferior: Canales (volver arriba), Revisar, Categorías y Links.
+  $('#helpTopBtn').onclick = () => ($('#helpDialog') as HTMLDialogElement).showModal();
   $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   $('#tabReview').onclick = () => {
     if (reviewList().length) startReview();

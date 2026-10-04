@@ -830,3 +830,29 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 /* Opciones de guía: la etiqueta de país resalta cuando es el de la categoría. */
 .cc.home { background: var(--accent-soft); color: var(--on-accent-soft); }
 .opt-group { margin: 4px 0 8px; }
+
+/* Menú «…» de cada fila: solo con mouse (en el celular están los gestos). */
+.row-more { display: none; flex: none; margin: 0 -4px 0 0; }
+@media (hover: hover) {
+  .cards.rows .row-more { display: inline-flex; opacity: 0; }
+  .cards.rows .row-card:hover .row-more, .cards.rows .row-card:focus-within .row-more, .cards.rows .row-more:focus-visible { opacity: 1; }
+  .cards.rows .row-card { user-select: none; }
+}
+.cards.grid .row-more { display: none !important; }
+.row-menu { position: fixed; z-index: 200; min-width: 200px; padding: 6px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline); display: flex; flex-direction: column; }
+.row-menu button { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
+.row-menu button:hover, .row-menu button:focus-visible { background: var(--surface-2); }
+
+/* Un solo ámbar protagonista por pantalla: el botón principal y la pestaña activa.
+   Filtros elegidos, botones secundarios y la tarjeta de links pasan a neutros. */
+.segmented button[aria-pressed="true"], .chip-btn[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--fill); color: var(--text); font-weight: 600; }
+.btn-tonal { background: var(--fill); color: var(--text); }
+.btn-tonal:hover { background: color-mix(in srgb, var(--fill) 88%, var(--text)); }
+.links-card { background: var(--surface-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+.lc-head .icon-btn, .links-card .link-btn { color: var(--text); }
+.links-card .btn-tonal { background: var(--fill); color: var(--text); }
+.lc-head > .icon { color: var(--accent); }
+
+/* Ayuda: tres preguntas a la vista y el resto plegado. */
+.help-more { margin-top: 8px; }
+.help-more > summary.help-more-sum { font-weight: 600; color: var(--muted); }
