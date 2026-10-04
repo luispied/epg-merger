@@ -875,3 +875,9 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .app-version { margin: 20px 0 4px; text-align: center; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; user-select: text; }
 /* Filtros: solo se desplazan hacia los costados (sin vaivén vertical por la sombra del área táctil). */
 .segmented { overflow-y: hidden; overscroll-behavior-x: contain; }
+
+/* Dispositivos: switch de activo y fila desactivada. */
+.device-top { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; }
+.device-top .device-info { flex: 1; }
+.device.off .device-info strong { opacity: .6; }
+.device.off .device-info small { color: var(--orange); opacity: 1; }
