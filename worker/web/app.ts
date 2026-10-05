@@ -2254,6 +2254,17 @@ async function renderLinks(result?: LinkResult) {
         <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
         <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
       </div>`).join('')}</div>` : '<p class="help">Todavía no tenés dispositivos.</p>'}
+    ${devices.length ? `<details class="creds-change">
+      <summary>¿Cambiaron tus datos del proveedor?</summary>
+      <p class="help">Los links de todos tus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
+      <form class="stack" id="credsForm" autocomplete="off">
+        ${p.type === 'xtream' ? `
+          <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
+          <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
+          : '<label class="field"><span>URL de la lista</span><input class="input" id="chgUrl" type="url" required></label>'}
+        <div class="form-actions"><button type="submit" class="btn btn-tonal btn-block">Actualizar en todos los links</button></div>
+      </form>
+    </details>` : ''}
     <h3 class="sub-title">Agregar dispositivo</h3>
     <form class="stack" id="linksForm" autocomplete="off">
       <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
@@ -2302,6 +2313,25 @@ async function renderLinks(result?: LinkResult) {
       } catch (e) {
         toast((e as Error).message, 'bad', 6000);
       }
+    }
+  };
+  const credsForm = document.querySelector<HTMLFormElement>('#credsForm');
+  if (credsForm) credsForm.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const creds = p.type === 'xtream'
+      ? { username: $<HTMLInputElement>('#chgUser').value.trim(), password: $<HTMLInputElement>('#chgPass').value }
+      : { url: $<HTMLInputElement>('#chgUrl').value.trim() };
+    if (Object.values(creds).some((v) => !v)) {
+      toast('Completá los datos nuevos', 'bad');
+      return;
+    }
+    try {
+      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: creds });
+      state.creds = creds;
+      toast(`Listo: ${r.updated} ${r.updated === 1 ? 'link' : 'links'} con los datos nuevos, sin cambiar de dirección`, 'ok', 6000);
+      renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
     }
   };
   $('#linksForm').onsubmit = async (ev) => {

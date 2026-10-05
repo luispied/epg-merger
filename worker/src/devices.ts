@@ -81,6 +81,19 @@ export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string
   return true;
 }
 
+/** Cambia las credenciales de todos los links de la configuración sin tocar sus códigos: las
+ *  URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
+export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string): Promise<number> {
+  let n = 0;
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (!rec || rec.cfgId !== cfgId) continue;
+    await bucket.put(shortKey(code), JSON.stringify({ ...rec, token }), JSON_TYPE);
+    n++;
+  }
+  return n;
+}
+
 export async function removeDevice(bucket: R2Bucket, cfgId: string, code: string): Promise<boolean> {
   const rec = await readShort(bucket, code);
   if (!rec || rec.cfgId !== cfgId) return false;
