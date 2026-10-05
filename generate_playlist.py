@@ -36,7 +36,7 @@ EPG_CATALOG_PATH = os.path.join('out', 'epg_catalog.json')
 EPG_ICONS_PATH = os.path.join('out', 'epg_icons.json')
 SCHEDULE_DIR = os.path.join('out', 'schedule')
 
-# Ventana de programación que se publica por canal, para que la interfaz de corrección (docs/)
+# Ventana de programación que se publica por canal, para que Grilla web
 # pueda mostrar qué está dando cada candidato al elegir el EPG de un canal. El navegador calcula
 # "en el aire ahora mismo" comparando estos horarios contra su propio reloj (no se congela un
 # "ahora" al momento de esta corrida), así que sigue siendo preciso aunque se mire horas después.
@@ -531,12 +531,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     unmatched = []
     entries = []               # (orden_seccion, orden_categoria, indice_original, líneas m3u)
     report = []
-    # Lo mismo, para importarlo en Grilla web (ver write_web_import).
-    web_channels = {}
-    web_groups = []            # (orden_seccion, orden_categoria, indice, grupo)
-    web_hidden_groups = set()
-    web_no_epg_groups = set()
-    web_epg_config = {}        # categoría cruda → preferencias de EPG (país, fuentes)
 
     section_order = {s: i for i, s in enumerate(section_display_order)}
     no_section_order = len(section_display_order)  # categorías sin sección van al final
@@ -584,8 +578,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         category = stream['category']
         raw_name = stream['name']
         section, category_is_divider, category_country, epg_config, cat_order, display_category = category_info(category)
-        if epg_config and not category_is_divider:
-            web_epg_config.setdefault(category, epg_config)
 
         # Canal movido de categoría a mano desde la interfaz: solo cambia DÓNDE aparece en la
         # playlist (sección, orden, group-title). El matching de EPG sigue usando la categoría
@@ -643,33 +635,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
                 for c in alternatives
             ],
         })
-
-        # Grilla web agrupa por la categoría del proveedor (o la movida a mano); los separadores
-        # llevan como grupo y nombre el título de su sección, igual que en esta playlist.
-        web_group = display_category if category_is_divider else (moved_to or category)
-        web_groups.append((section_order.get(section, no_section_order), cat_order, i, web_group))
-        if (moved_to or category) in hidden_categories:
-            web_hidden_groups.add(web_group)
-        if not category_is_divider and (web_group in no_epg_categories or _rules.needs_no_epg(web_group, section)):
-            web_no_epg_groups.add(web_group)
-        web_edit = {}
-        if channel_id:
-            web_edit['epg'] = channel_id
-            web_logo = index.icon.get(channel_id) or stream['icon']
-            if web_logo:
-                web_edit['logo'] = web_logo
-        if category_is_divider or forced_no_epg or reason == 'override':
-            web_edit['manual'] = True
-            web_edit.setdefault('epg', None)
-        web_display = display_category if category_is_divider else (renames.get(raw_name) or channel_name)
-        if web_display != raw_name:
-            web_edit['name'] = web_display
-        if web_group != category:
-            web_edit['group'] = web_group
-        if raw_name in hidden:
-            web_edit['hidden'] = True
-        if web_edit:
-            web_channels[raw_name] = web_edit
 
         # Canal oculto a mano desde la interfaz: queda en el reporte (para poder volver a
         # mostrarlo, con su EPG ya calculado) pero no entra a la playlist ni a la guía.
@@ -742,9 +707,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
     with open(report_path, 'w', encoding='utf-8') as f:
         json.dump({'stats': stats, 'channels': report}, f, ensure_ascii=False, indent=1)
 
-    write_web_import(os.path.join(out_dir, 'grilla_import.json'), web_channels, web_groups, web_hidden_groups,
-                     web_no_epg_groups, web_epg_config)
-
     print(f"📊 Canales: {stats['total']} | con EPG: {stats['matched']} | sin EPG: {stats['unmatched']}"
           + (f" | ocultos: {hidden_count}" if hidden_count else ''))
     if unmatched:
@@ -753,25 +715,6 @@ def generate_for_profile(profile, index, channels_root, sections, overrides, edi
         print(f"   Alternativas de EPG agregadas a la guía: {stats['alternatives']}")
     print(f"✅ {playlist_path} y {report_path} generados ({epg_path} se escribe al recorrer la guía)")
     return ProfileEpg(epg_path, channels_root, matched_ids, channel_display_labels, stats)
-
-
-def write_web_import(path, channels, groups, hidden_groups, no_epg_groups=(), epg_config=None):
-    """Lo que Grilla web necesita para quedar igual que esta playlist ("Importar desde Grilla
-    (GitHub)"): la edición de cada canal por su nombre crudo (EPG elegido, logo, nombre visible,
-    categoría, oculto) y el orden de las categorías, con sus separadores. Sin credenciales ni
-    URLs: se publica en la branch `data` junto al match_report."""
-    order = []
-    for *_, group in sorted(groups, key=lambda g: g[:3]):
-        if group not in order:
-            order.append(group)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump({'version': 1, 'channels': channels,
-                   'groups': {'order': order, 'hidden': sorted(hidden_groups), 'noEpg': sorted(no_epg_groups)},
-                   # Cómo elige la guía esta corrida, para que la web elija igual en los canales
-                   # nuevos: umbral, señal horaria preferida y país/fuentes por categoría cruda.
-                   'matching': {'minScore': _rules.min_assign_score, 'feed': _rules.preferred_feed,
-                                'categories': epg_config or {}}},
-                  f, ensure_ascii=False, separators=(',', ':'))
 
 
 class ProfileEpg:
@@ -875,7 +818,7 @@ def _schedule_filename(channel_id):
 
 class ScheduleCollector:
     """Programación de la ventana [ahora - 1h, ahora + 30h] para la interfaz de corrección
-    (docs/): un archivo por canal y un índice por hora. Se alimenta de a un programa (add) para
+    (Grilla web): un archivo por canal y un índice por hora. Se alimenta de a un programa (add) para
     poder armarla mientras se recorre la guía en streaming, y se escribe al final (write)."""
 
     def __init__(self, now=None):
@@ -969,7 +912,7 @@ def write_hourly_index(by_channel, out_dir, window_start, window_end):
 def write_epg_catalog(index, sched_by_channel, path=EPG_CATALOG_PATH):
     """Todo el universo de channel_id posibles (nombre, país, fuente, y el archivo de
     programación si hay uno), sin credenciales, para que la interfaz de corrección manual
-    (docs/) pueda ofrecer "cualquier canal del EPG" como alternativa, no solo los 4 candidatos
+    (Grilla web) pueda ofrecer "cualquier canal del EPG" como alternativa, no solo los 4 candidatos
     que ya trae el match_report de cada perfil."""
     catalog = [
         {
@@ -989,7 +932,7 @@ def write_epg_catalog(index, sched_by_channel, path=EPG_CATALOG_PATH):
 
 def write_epg_icons(index, path=EPG_ICONS_PATH):
     """{channel_id: url del logo} de los canales del EPG que traen <icon>, para mostrar logos en
-    la interfaz de corrección (docs/). Va aparte de epg_catalog.json porque la interfaz lo baja
+    Grilla web. Va aparte de epg_catalog.json porque la interfaz lo baja
     en segundo plano, sin demorar la primera carga. Las URLs http:// se pasan a https:// (la
     página se sirve por https y el navegador bloquearía o reescribiría la imagen igual; los
     hosts de logos que usan las fuentes responden por https)."""

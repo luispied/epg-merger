@@ -1,6 +1,6 @@
 // Arma worker/public/ (lo que Cloudflare sirve como archivos estáticos junto al Worker):
 // la web de web/ compilada con esbuild (incluye @grilla/core de ../core) y los estilos e
-// íconos de la interfaz de docs/. Lo corre wrangler antes de publicar ([build] en wrangler.toml).
+// íconos de web/. Lo corre wrangler antes de publicar ([build] en wrangler.toml).
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -25,14 +25,14 @@ await build({
   define: { __APP_VERSION__: JSON.stringify(appVersion), __APP_COMMIT__: JSON.stringify(appCommit) },
   logLevel: 'warning',
 });
-// Un solo CSS: los estilos base heredados de docs/ y los de la web (que van después y mandan).
-writeFileSync(here('./public/app.css'), `${readFileSync(here('../docs/app.css'), 'utf-8')}\n${readFileSync(here('./web/web.css'), 'utf-8')}`);
+// Un solo CSS: los estilos base (web/base.css) y los de la web (web/web.css, que van después y mandan).
+writeFileSync(here('./public/app.css'), `${readFileSync(here('./web/base.css'), 'utf-8')}\n${readFileSync(here('./web/web.css'), 'utf-8')}`);
 mkdirSync(here('./public/fonts'), { recursive: true });
 cpSync(here('./web/fonts'), here('./public/fonts'), { recursive: true });
-cpSync(here('../docs/icons.js'), here('./public/icons.js'));
-// Íconos de la app (para "Agregar a inicio" en el iPhone y Android): los mismos de docs/.
-cpSync(here('../docs/img'), here('./public/img'), { recursive: true });
-const manifest = JSON.parse(readFileSync(here('../docs/manifest.webmanifest'), 'utf-8'));
+cpSync(here('./web/icons.js'), here('./public/icons.js'));
+// Íconos de la app (para "Agregar a inicio" en el iPhone y Android).
+cpSync(here('./web/img'), here('./public/img'), { recursive: true });
+const manifest = JSON.parse(readFileSync(here('./web/manifest.webmanifest'), 'utf-8'));
 manifest.description = 'Tu lista de canales ordenada, con guía de programación, en tu reproductor.';
 writeFileSync(here('./public/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 

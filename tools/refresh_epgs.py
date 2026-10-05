@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Guía de Grilla web para las configuraciones nuevas o cambiadas, sin esperar a la corrida
-diaria (workflow refresh-lists.yml, cada 10 minutos).
+diaria (workflow refresh-lists.yml, cada pocas horas y cuando el Worker lo pide).
 
 La corrida diaria arma `epg/<cfgId>.xml.gz` de todas las configuraciones. Una configuración
 creada o editada después quedaba sin guía, o con la vieja, hasta el día siguiente. Esto arma
@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_epgs  # noqa: E402
 
 MERGED_URL = 'https://github.com/{repo}/releases/download/latest/merged.xml.gz'
+API_RELEASE = 'https://api.github.com/repos/{repo}/releases/tags/latest'
 
 
 def listing(client, bucket, prefix):
@@ -30,6 +31,27 @@ def listing(client, bucket, prefix):
             if name:
                 out[name] = obj['LastModified']
     return out
+
+
+def download_merged(repo, dest, token=None):
+    """Baja `merged.xml.gz` del release `latest`. Con `token` (el GITHUB_TOKEN de la corrida) lo pide por la
+    API autenticada, que funciona también si el repo es privado; sin token usa la URL pública."""
+    if token:
+        headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
+        rel = requests.get(API_RELEASE.format(repo=repo), headers=headers, timeout=60)
+        rel.raise_for_status()
+        asset = next((a for a in rel.json().get('assets', []) if a.get('name') == 'merged.xml.gz'), None)
+        if asset is None:
+            raise RuntimeError('el release latest no tiene merged.xml.gz')
+        # La API redirige a un almacenamiento externo: requests no reenvía el token a otro host.
+        url, headers = asset['url'], {**headers, 'Accept': 'application/octet-stream'}
+    else:
+        url, headers = MERGED_URL.format(repo=repo), {}
+    with requests.get(url, headers=headers, stream=True, timeout=300) as r:
+        r.raise_for_status()
+        with open(dest, 'wb') as f:
+            for chunk in r.iter_content(1 << 20):
+                f.write(chunk)
 
 
 def stale(configs, epgs):
@@ -55,11 +77,7 @@ def main():
     repo = os.environ.get('GITHUB_REPOSITORY', 'luispied/epg-merger')
     with tempfile.TemporaryDirectory() as tmp:
         merged = os.path.join(tmp, 'merged.xml.gz')
-        with requests.get(MERGED_URL.format(repo=repo), stream=True, timeout=300) as r:
-            r.raise_for_status()
-            with open(merged, 'wb') as f:
-                for chunk in r.iter_content(1 << 20):
-                    f.write(chunk)
+        download_merged(repo, merged, os.environ.get('GITHUB_TOKEN'))
         cfg_dir = os.path.join(tmp, 'cfg')
         os.makedirs(cfg_dir)
         for cfg_id in todo:

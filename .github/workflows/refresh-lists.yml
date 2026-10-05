@@ -2,12 +2,13 @@ name: Refresh Grilla lists
 
 # Lista del proveedor para Grilla web (tools/push_lists.py) y guía de las configuraciones
 # nuevas o cambiadas (tools/refresh_epgs.py). El proveedor bloquea los pedidos
-# que salen de Cloudflare, así que la baja GitHub y la deja en R2. Corre cada 10 minutos, pero
-# solo le pide la lista al proveedor cuando hay una configuración nueva esperándola o cuando la
-# que hay tiene más de 3 horas; el resto de las corridas terminan en segundos.
+# que salen de Cloudflare, así que la baja GitHub y la deja en R2. Corre cada 3 horas y, además,
+# cuando el Worker la pide (configuración nueva o editada: worker/src/github.ts); solo le pide la
+# lista al proveedor cuando hay una configuración nueva esperándola o cuando la que hay tiene más
+# de 3 horas. Pocas corridas a propósito: en un repo privado las Actions tienen un tope de minutos.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '12 */3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -46,4 +47,7 @@ jobs:
         R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         R2_BUCKET: ${{ vars.R2_BUCKET }}
+        # Para bajar merged.xml.gz del release aunque el repo sea privado.
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: python tools/refresh_epgs.py

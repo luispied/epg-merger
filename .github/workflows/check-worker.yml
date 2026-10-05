@@ -3,10 +3,10 @@ name: Check worker
 # Worker de Grilla (worker/): tipos, tests y la web compilada. La publicación la hace Cloudflare Workers Builds.
 on:
   pull_request:
-    paths: ['worker/**', 'core/**', 'docs/app.css', 'docs/icons.js', '.github/workflows/check-worker.yml']
+    paths: ['worker/**', 'core/**', '.github/workflows/check-worker.yml']
   push:
     branches: [main]
-    paths: ['worker/**', 'core/**', 'docs/app.css', 'docs/icons.js', '.github/workflows/check-worker.yml']
+    paths: ['worker/**', 'core/**', '.github/workflows/check-worker.yml']
 
 permissions:
   contents: read

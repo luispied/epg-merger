@@ -2874,43 +2874,6 @@ async function openSaved() {
   }
 }
 
-// La configuración que arma la corrida de GitHub (generate_playlist.write_web_import), publicada
-// en la branch `data` del repo: con esto la web queda igual que la playlist de GitHub.
-const GITHUB_IMPORT_URL = (profile: string) =>
-  `https://raw.githubusercontent.com/luispied/epg-merger/data/grilla-import-${encodeURIComponent(profile)}.json`;
-
-async function importFromGithub() {
-  const profile = await promptDialog({
-    title: 'Importar desde Grilla (GitHub)',
-    text: 'Reemplaza la configuración de acá por la de GitHub: orden y títulos de categorías, EPG elegidos, nombres, movidos y ocultos.',
-    ok: 'Importar', input: { label: 'Nombre de tu perfil', value: 'luis' },
-  });
-  if (!profile) return;
-  try {
-    const res = await fetch(GITHUB_IMPORT_URL(profile), { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.status === 404 ? `no hay un perfil "${profile}"` : `HTTP ${res.status}`);
-    const data = await res.json() as { channels: Record<string, ChannelEdit>; groups: { order: string[]; hidden: string[]; noEpg?: string[] }; matching?: Config['matching'] };
-    // Todo lo importado queda fijo (elegido a mano): así la playlist queda igual que la de
-    // GitHub, que elige el EPG con tus reglas por sección. Los canales nuevos del proveedor
-    // siguen tomando el EPG automático.
-    const channels: Record<string, ChannelEdit> = {};
-    for (const [name, edit] of Object.entries(data.channels ?? {})) {
-      channels[name] = 'epg' in edit ? { ...edit, manual: true } : { ...edit };
-    }
-    state.cfg!.channels = channels;
-    state.cfg!.groups = { order: data.groups?.order ?? [], hidden: data.groups?.hidden ?? [], noEpg: data.groups?.noEpg ?? [] };
-    if (data.matching) state.cfg!.matching = data.matching;
-    else delete state.cfg!.matching;
-    await rematch(() => {});
-    await saveNow();
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    render();
-    toast(`Importado: ${Object.keys(channels).length} canales y ${state.cfg!.groups.order.length} categorías`, 'ok', 5000);
-  } catch (e) {
-    toast(`No se pudo importar: ${(e as Error).message}`, 'bad', 6000);
-  }
-}
-
 function exportBackup() {
   const data = { grilla: 1, worker: location.origin, cfgId: state.local!.cfgId, editKey: state.local!.editKey };
   const a = document.createElement('a');
@@ -3168,8 +3131,6 @@ function setupEditor() {
   $('#helpBtn').onclick = () => openHelp('settings', '#settingsDialog');
   $('#settingsBtn').onclick = () => {
     $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
-    // Importar desde GitHub es solo para quien venía de la versión anterior: se muestra con el link `?importar`.
-    $('#importGithubBtn').hidden = pref('grilla_show_import', '0') !== '1';
     const apply = $('#applyGuideBtn');
     apply.hidden = true;
     if (state.local) {
@@ -3215,7 +3176,6 @@ function setupEditor() {
     render();
   };
   $('#exportBtn').onclick = exportBackup;
-  $('#importGithubBtn').onclick = importFromGithub;
   $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
@@ -3304,10 +3264,6 @@ addSearchClear(document);
 for (const el of $$('[data-version]')) el.textContent = `Grilla ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 $('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
-if (/[?&]importar\b/.test(location.search)) {
-  setPref('grilla_show_import', '1');
-  history.replaceState(null, '', location.pathname + location.hash);
-}
 setupOnboarding();
 setupEditor();
 {
