@@ -19,6 +19,9 @@ export class MemoryBucket implements R2Bucket {
   async delete(key: string) {
     this.data.delete(key);
   }
+  async list(options?: { prefix?: string }) {
+    return { objects: [...this.data.keys()].filter((k) => k.startsWith(options?.prefix ?? '')).map((key) => ({ key })), truncated: false };
+  }
 }
 
 export class MemoryCache implements SimpleCache {

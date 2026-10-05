@@ -94,6 +94,20 @@ compilación sola antes de publicar (`[build]`).
 
 El bucket `grilla` ya tiene que existir: el Worker lo usa por nombre (`wrangler.toml`).
 
+## Avisos push
+
+Los avisos de canales nuevos (navegador y app instalada; en iPhone solo con la app instalada) usan Web Push
+con claves VAPID. Sin las claves, la función no existe y la web no muestra el interruptor.
+
+1. En tu computadora: `node tools/gen_vapid.mjs` (genera el par de claves; no las pegues en ningún chat ni las subas al repo).
+2. Cargalas en el Worker: `npx wrangler secret put VAPID_PRIVATE_KEY` y `npx wrangler secret put VAPID_PUBLIC_KEY`
+   (o en el panel de Cloudflare: Workers → grilla → Settings → Variables and Secrets).
+3. Opcional: `VAPID_SUBJECT` (un `mailto:` o `https:` de contacto; por defecto la dirección del Worker).
+4. En la web: Configuración → Avisos.
+
+Una corrida programada (`[triggers]` en `wrangler.toml`, cada 30 minutos) compara la lista guardada de cada
+configuración con avisos y notifica los canales que no estaban. Las suscripciones viven en `push/<cfgId>.json` (R2).
+
 ## Versiones
 
 La web tiene versión (`version` en `package.json`, hoy visible al pie de Configuración junto al commit).

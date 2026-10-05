@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
-import { b64urlDecode, decryptToken, encryptToken } from '../src/crypto.ts';
+import { checkAllPush, encryptWebPush } from '../src/push.ts';
+import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
@@ -561,4 +562,109 @@ test('hora de los eventos PPV: formatos, zona del proveedor y fecha', () => {
   assert.equal(iso(t('Soccer 01/01 09:00am - Algo vs Otro', '2025-12-31T20:00:00Z')?.start), '2026-01-01T15:00');
   assert.equal(iso(zonedToUtc(2025, 7, 1, 12, 0, 'America/New_York')), '2025-07-01T16:00');
   assert.equal(iso(zonedToUtc(2025, 1, 1, 12, 0, 'America/New_York')), '2025-01-01T17:00');
+});
+
+
+// ---- avisos push ----
+const toBytes = (s: string) => b64urlDecode(s);
+const concatBytes = (...p: Uint8Array[]) => { const o = new Uint8Array(p.reduce((n, x) => n + x.length, 0)); let a = 0; for (const x of p) { o.set(x, a); a += x.length; } return o; };
+
+async function hkdfBytes(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, bytes: number) {
+  const key = await crypto.subtle.importKey('raw', ikm as BufferSource, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: salt as BufferSource, info: info as BufferSource }, key, bytes * 8));
+}
+
+/** Lo que haría el navegador: descifra un mensaje push (RFC 8291) con su clave privada y su secreto de autenticación. */
+async function decryptPush(body: Uint8Array, uaPrivate: CryptoKey, uaPublic: Uint8Array, auth: Uint8Array): Promise<string> {
+  const salt = body.slice(0, 16);
+  const asPublic = body.slice(21, 21 + body[20]);
+  const cipher = body.slice(21 + body[20]);
+  const asKey = await crypto.subtle.importKey('raw', asPublic as BufferSource, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: asKey }, uaPrivate, 256));
+  const enc = new TextEncoder();
+  const ikm = await hkdfBytes(shared, auth, concatBytes(enc.encode('WebPush: info\0'), uaPublic, asPublic), 32);
+  const cek = await hkdfBytes(ikm, salt, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdfBytes(ikm, salt, enc.encode('Content-Encoding: nonce\0'), 12);
+  const aes = await crypto.subtle.importKey('raw', cek as BufferSource, 'AES-GCM', false, ['decrypt']);
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce as BufferSource }, aes, cipher as BufferSource));
+  assert.equal(plain[plain.length - 1], 2);
+  return new TextDecoder().decode(plain.slice(0, -1));
+}
+
+test('push: el cifrado coincide con el ejemplo de la RFC 8291', async () => {
+  const body = await encryptWebPush(
+    toBytes('V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24'),
+    toBytes('BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4'),
+    toBytes('BTBZMqHH6r4Tts7J_aSIgg'),
+    { salt: toBytes('DGv6ra1nlYgDCS1FRnbzlw'), ephemeral: {
+      publicRaw: toBytes('BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8'),
+      d: 'yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw' } },
+  );
+  // El ejemplo de la RFC cifra el texto ya en base64url, tal cual.
+  assert.equal(b64urlEncode(body),
+    'DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN');
+});
+
+test('push: suscribirse, aviso de prueba, canales nuevos y suscripciones caídas', async () => {
+  const t = await setup();
+  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
+  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
+  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
+  // Sin las claves la función no existe; con ellas, la web pide la pública.
+  const key = await handle(req('/api/push/key'), t.env, t.ctx, t.cache);
+  assert.equal(key.status, 200);
+  assert.equal((await key.json() as { key: string }).key, t.env.VAPID_PUBLIC_KEY);
+  // El «navegador»: un par de claves y un secreto de autenticación.
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const uaPublic = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
+  const auth = crypto.getRandomValues(new Uint8Array(16));
+  const sub = { endpoint: 'https://push.example/s/abc', keys: { p256dh: b64urlEncode(uaPublic), auth: b64urlEncode(auth) } };
+  const pushed: { url: string; headers: Headers; body: Uint8Array }[] = [];
+  let status = 201;
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://push.example/')) {
+      pushed.push({ url: String(input), headers: new Headers(init?.headers), body: new Uint8Array(init?.body as ArrayBuffer) });
+      return new Response(null, { status });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    const post = (path: string, body: object, method = 'POST') => handle(req(`/api/cfg/${t.cfgId}/push${path}`, { method, key: t.editKey, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+    assert.equal((await post('', { endpoint: 'http://inseguro/x', keys: sub.keys })).status, 400);
+    // La lista ya tiene dos canales: lo que había no se avisa como nuevo.
+    const putList = (names: string[]) => t.env.BUCKET.put(`list/${t.cfgId}.json`, JSON.stringify({ channels: names.map((name) => ({ name, category: 'Deportes' })) }));
+    await putList(['ESPN', 'TNT']);
+    assert.equal((await post('', sub)).status, 200);
+    // Aviso de prueba: llega firmado con VAPID y cifrado para ese navegador.
+    assert.deepEqual(await (await post('/test', {})).json(), { sent: 1 });
+    assert.match(pushed[0].headers.get('Authorization') ?? '', /^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=/);
+    assert.equal(pushed[0].headers.get('Content-Encoding'), 'aes128gcm');
+    assert.equal((JSON.parse(await decryptPush(pushed[0].body, ua.privateKey, uaPublic, auth)) as { title: string }).title, 'Avisos activados');
+    // Sin cambios en la lista, la corrida programada no manda nada.
+    await checkAllPush(t.env);
+    assert.equal(pushed.length, 1);
+    // Llegan canales nuevos (y uno separador, que no cuenta): un solo aviso.
+    await putList(['ESPN', 'TNT', 'Fox Sports', '▆▆ SECCIÓN ▆▆', 'DAZN 1']);
+    await checkAllPush(t.env);
+    assert.equal(pushed.length, 2);
+    const msg = JSON.parse(await decryptPush(pushed[1].body, ua.privateKey, uaPublic, auth)) as { title: string; body: string };
+    assert.equal(msg.title, 'Hay 2 canales nuevos');
+    assert.match(msg.body, /Fox Sports, DAZN 1/);
+    await checkAllPush(t.env);
+    assert.equal(pushed.length, 2);
+    // Si el servicio de push dice que la suscripción ya no existe, se borra.
+    status = 410;
+    await putList(['ESPN', 'TNT', 'Fox Sports', 'DAZN 1', 'Nuevo']);
+    await checkAllPush(t.env);
+    assert.equal(await t.env.BUCKET.get(`push/${t.cfgId}.json`), null);
+    // Y darse de baja a mano también la borra.
+    assert.equal((await post('', sub)).status, 200);
+    assert.equal((await post('', { endpoint: sub.endpoint }, 'DELETE')).status, 200);
+    assert.equal(await t.env.BUCKET.get(`push/${t.cfgId}.json`), null);
+    // Sin la clave de edición no se puede.
+    assert.equal((await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', body: JSON.stringify(sub) }), t.env, t.ctx, t.cache)).status, 401);
+  } finally {
+    globalThis.fetch = real;
+  }
 });

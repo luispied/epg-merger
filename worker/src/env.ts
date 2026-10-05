@@ -15,6 +15,7 @@ export interface R2Bucket {
   put(key: string, value: string | ArrayBuffer | ReadableStream,
     options?: { customMetadata?: Record<string, string>; httpMetadata?: { contentType?: string } }): Promise<unknown>;
   delete(key: string): Promise<void>;
+  list(options?: { prefix?: string; cursor?: string }): Promise<{ objects: { key: string }[]; truncated: boolean; cursor?: string }>;
 }
 
 /** Caché del Worker (Cache API de Cloudflare). En los tests, una en memoria. */
@@ -32,6 +33,10 @@ export interface Env {
   GITHUB_TOKEN?: string;
   /** Opcional: "dueño/repo" (por defecto luispied/epg-merger). */
   GITHUB_REPO?: string;
+  /** Opcionales: claves VAPID para los avisos push (ver src/push.ts y tools/gen_vapid.mjs). */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 export interface Ctx {
