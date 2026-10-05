@@ -668,3 +668,24 @@ test('push: suscribirse, aviso de prueba, canales nuevos y suscripciones caídas
     globalThis.fetch = real;
   }
 });
+
+test('credenciales: al cambiarlas, los links cortos siguen iguales y pasan a usar los datos nuevos', async () => {
+  const t = await setup();
+  const mk = async (name: string) => await (await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey,
+    body: JSON.stringify({ username: 'user', password: 'vieja', name }) }), t.env, t.ctx, t.cache)).json() as { playlistUrl: string; code: string };
+  const a = await mk('TV');
+  const b = await mk('Celu');
+  const res = await handle(req(`/api/cfg/${t.cfgId}/credentials`, { method: 'PUT', key: t.editKey,
+    body: JSON.stringify({ username: 'user2', password: 'nueva' }) }), t.env, t.ctx, t.cache);
+  // 3 = el dispositivo de setup() + los dos de acá
+  assert.deepEqual(await res.json(), { ok: true, updated: 3 });
+  for (const d of [a, b]) {
+    const rec = JSON.parse(await (await t.env.BUCKET.get(`short/${d.code}.json`))!.text()) as { token: string };
+    assert.deepEqual(await decryptToken(t.env.TOKEN_KEY, t.cfgId, rec.token), { u: 'user2', p: 'nueva' });
+  }
+  const list = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { playlistUrl: string }[] };
+  const urls = list.devices.map((d) => d.playlistUrl);
+  assert.ok(urls.includes(a.playlistUrl) && urls.includes(b.playlistUrl) && urls.length === 3);
+  const bad = await handle(req(`/api/cfg/${t.cfgId}/credentials`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ username: '' }) }), t.env, t.ctx, t.cache);
+  assert.equal(bad.status, 400);
+});

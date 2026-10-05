@@ -22,7 +22,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, saveConfig,
   type Config } from './config.ts';
-import { addDevice, listDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { addDevice, listDevices, rekeyDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -309,6 +309,13 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (code && SHORT_RE.test(code) && method === 'DELETE') {
         return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
       }
+    }
+    if (action === 'credentials' && method === 'PUT') {
+      // Cambió el usuario, la contraseña o la URL de la lista: los links ya creados siguen con
+      // el mismo código y pasan a usar los datos nuevos.
+      const creds = credentialsFrom(await readJson(request, 16 * 1024) as Record<string, unknown>, stored.config);
+      const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds));
+      return json({ ok: true, updated });
     }
     if (action === 'token' && method === 'POST') {
       const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
