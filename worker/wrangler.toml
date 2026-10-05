@@ -19,5 +19,9 @@ directory = "./public"
 binding = "BUCKET"
 bucket_name = "grilla"
 
+# Cada 30 minutos: revisa las listas de quienes activaron los avisos push (src/push.ts).
+[triggers]
+crons = ["*/30 * * * *"]
+
 [observability]
 enabled = true

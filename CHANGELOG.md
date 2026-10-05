@@ -7,6 +7,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.3.0
+
+- **Avisos push** (navegador y app instalada): un interruptor «Avisos» en Configuración suscribe el dispositivo y el Worker
+  manda una notificación cuando aparecen canales nuevos en tu lista (revisa cada 30 minutos). Tocarla abre la app en «Nuevos».
+  En iPhone funciona solo con la app instalada. El interruptor aparece solo si el Worker tiene las claves VAPID
+  (`tools/gen_vapid.mjs` y `worker/README.md`).
+
 ## 1.2.0
 
 - El menú inferior ahora es una cápsula flotante (como el de WhatsApp), con la pestaña activa en píldora.

@@ -38,6 +38,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
@@ -222,6 +223,11 @@ const setPref = (k: string, v: string) => {
 };
 const FILTERS = ['todos', 'revisar', 'sin-epg', 'manual', 'editados', 'ocultos'];
 function startFilter() {
+  // Venir de un aviso de canales nuevos (/?filtro=nuevos): abre en «Nuevos».
+  if (/[?&]filtro=nuevos\b/.test(location.search)) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    return 'nuevos';
+  }
   const start = pref('grilla_start_filter', 'last');
   const f = start === 'last' ? pref('grilla_last_filter', 'todos') : start;
   return FILTERS.includes(f) ? f : 'todos';
@@ -2355,6 +2361,66 @@ function renderLinkResult(result: LinkResult) {
   showQr(result.playlistUrl);
 }
 
+// ------------------------------------------------------------------ avisos push
+// El Worker manda una notificación (Web Push) cuando aparecen canales nuevos. Funciona en el navegador y en
+// la app instalada; en iPhone solo con la app instalada (Safari común no tiene push). Sin las claves VAPID en
+// el Worker, el interruptor no aparece.
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const iosNotInstalled = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator as Navigator & { standalone?: boolean }).standalone;
+const b64urlBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
+
+async function refreshPushRow() {
+  const row = $('#pushRow');
+  const toggle = $<HTMLInputElement>('#pushToggle');
+  const hint = $('#pushHint');
+  let key = '';
+  try {
+    key = (await api<{ key: string }>('/api/push/key', { auth: false })).key;
+  } catch { /* avisos no activados en el Worker */ }
+  row.hidden = !key;
+  if (!key) return;
+  row.dataset.key = key;
+  toggle.disabled = false;
+  hint.textContent = 'Cuando haya canales nuevos en tu lista';
+  if (!pushSupported()) {
+    toggle.checked = false;
+    toggle.disabled = true;
+    hint.textContent = iosNotInstalled() ? 'En iPhone: instalá la app (Compartir → Agregar a inicio)' : 'Este navegador no admite avisos';
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    toggle.checked = false;
+    toggle.disabled = true;
+    hint.textContent = 'Bloqueados: activalos en los ajustes del sitio del navegador';
+    return;
+  }
+  const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription().catch(() => null);
+  toggle.checked = !!sub && Notification.permission === 'granted';
+}
+
+async function setPush(on: boolean) {
+  const reg = await navigator.serviceWorker.ready;
+  try {
+    if (on) {
+      if ((await Notification.requestPermission()) !== 'granted') throw new Error('No diste permiso para los avisos');
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlBytes($('#pushRow').dataset.key!) });
+      await api(`/api/cfg/${state.local!.cfgId}/push`, { method: 'POST', body: sub.toJSON() });
+      await api(`/api/cfg/${state.local!.cfgId}/push/test`, { method: 'POST', body: {} });
+      toast('Avisos activados', 'ok');
+    } else {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await api(`/api/cfg/${state.local!.cfgId}/push`, { method: 'DELETE', body: { endpoint: sub.endpoint } }).catch(() => {});
+        await sub.unsubscribe();
+      }
+      toast('Avisos desactivados', 'ok');
+    }
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
+  await refreshPushRow();
+}
+
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -3111,6 +3177,7 @@ function setupEditor() {
     }
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
+    void refreshPushRow();
     $<HTMLSelectElement>('#eventTzSelect').value = pref('grilla_event_tz', 'America/Mexico_City');
     openDock($('#settingsDialog') as HTMLDialogElement);
   };
@@ -3138,6 +3205,7 @@ function setupEditor() {
     render();
   };
   $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
+  $<HTMLInputElement>('#pushToggle').onchange = (ev) => setPush((ev.target as HTMLInputElement).checked);
   $<HTMLSelectElement>('#eventTzSelect').onchange = (ev) => {
     setPref('grilla_event_tz', (ev.target as HTMLSelectElement).value);
     render();

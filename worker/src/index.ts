@@ -10,6 +10,9 @@
 //   GET    /api/cfg/<cfgId>/list         (Bearer editKey) la última lista guardada (para editar en la web)
 //   GET    /api/cfg/<cfgId>/status       (Bearer editKey) si la guía ya tiene los últimos cambios
 //   POST   /api/cfg/<cfgId>/refresh      (Bearer editKey) aplicar ahora (lanza la corrida de GitHub)
+//   GET    /api/push/key                 clave pública VAPID de los avisos push (404 si no están activados)
+//   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
+//   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
@@ -26,6 +29,7 @@ import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist } from './playlist.ts';
+import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
 const LIST_TTL_S = 3 * 3600;
@@ -200,6 +204,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return fail(400, 'pedido inválido');
   }
 
+  if (section === 'push' && cfgId === 'key' && method === 'GET') {
+    return pushConfigured(env) ? json({ key: env.VAPID_PUBLIC_KEY }, 200, { 'Cache-Control': 'public, max-age=3600' }) : fail(404, 'avisos no activados');
+  }
+
   if (section === 'cfg' && !cfgId && method === 'POST') {
     if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
     const raw = await readJson(request) as Record<string, unknown>;
@@ -266,6 +274,24 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       await env.BUCKET.put(r2ListKey(cfgId), JSON.stringify(list), { httpMetadata: { contentType: 'application/json' } });
       return json({ ok: true, channels: list.channels.length });
+    }
+    if (action === 'push') {
+      if (!pushConfigured(env)) return fail(404, 'avisos no activados');
+      const sub = parts[4];
+      if (!sub && method === 'POST') {
+        const parsed = parseSubscription(await readJson(request, 8 * 1024));
+        if (!parsed) return fail(400, 'suscripción inválida');
+        await addSub(env.BUCKET, cfgId, parsed, await currentNames(env.BUCKET, cfgId));
+        return json({ ok: true });
+      }
+      if (!sub && method === 'DELETE') {
+        const body = await readJson(request, 8 * 1024) as { endpoint?: unknown };
+        if (typeof body.endpoint === 'string') await removeSub(env.BUCKET, cfgId, body.endpoint);
+        return json({ ok: true });
+      }
+      if (sub === 'test' && method === 'POST') {
+        return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });
+      }
     }
     if (action === 'devices') {
       const origin = new URL(request.url).origin;
@@ -366,5 +392,9 @@ declare const caches: { default: SimpleCache };
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     return handle(request, env, ctx, caches.default);
+  },
+  // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
+  scheduled(_event: unknown, env: Env, ctx: Ctx): void {
+    ctx.waitUntil(checkAllPush(env));
   },
 };

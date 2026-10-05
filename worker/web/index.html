@@ -284,6 +284,11 @@
           <button type="button" role="radio" data-value="dark" aria-label="Oscuro" title="Oscuro"><span data-icon="moon"></span></button>
         </div>
       </div>
+      <label class="menu-row static" id="pushRow" hidden>
+        <span class="menu-icon"><span data-icon="bell"></span></span>
+        <span class="menu-text">Avisos<small id="pushHint">Cuando haya canales nuevos en tu lista</small></span>
+        <input type="checkbox" class="switch" id="pushToggle" role="switch">
+      </label>
       <label class="menu-row static">
         <span class="menu-icon"><span data-icon="image"></span></span>
         <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos</small></span>
@@ -300,7 +305,7 @@
       </label>
       <label class="menu-row static">
         <span class="menu-icon"><span data-icon="clock"></span></span>
-        <span class="menu-text">Hora de los eventos<small>Zona horaria de tu proveedor</small></span>
+        <span class="menu-text">Hora de eventos<small>Zona del proveedor</small></span>
         <select class="select compact" id="eventTzSelect">
           <option value="America/Mexico_City">México</option>
           <option value="America/Bogota">Colombia / Perú</option>
@@ -414,7 +419,7 @@
       </details>
       <details>
         <summary>Tema, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
-        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste). <b>Hora de los eventos</b>: la zona horaria de tu proveedor; sirve para pasar a tu hora el comienzo de los eventos que figuran en el nombre del canal (PPV).</p>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste). <b>Avisos</b>: te manda una notificación cuando aparecen canales nuevos en tu lista (solo si el Worker los tiene activados; en iPhone hay que instalar la app primero). <b>Hora de los eventos</b>: la zona horaria de tu proveedor; sirve para pasar a tu hora el comienzo de los eventos que figuran en el nombre del canal (PPV).</p>
       </details>
       <details>
         <summary>Actualizar la guía ahora<span data-icon="chevron-down"></span></summary>
