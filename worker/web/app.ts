@@ -1274,11 +1274,15 @@ function openChannel(i: number) {
   } else {
     const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
     const cc = epg ? state.index?.country.get(epg) : undefined;
-    const pct = !edit.manual && auto?.cid === edit.epg && auto
-      ? `<span class="pct ${auto.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(auto.score, 1) * 100)} %</span>` : '';
-    const mine = edit.manual && edit.epg ? `<span class="chip manual">${icon('user-check', 'sm')}Elegida por vos</span>` : '';
+    // Estado de la guía asignada: un chip arriba a la derecha (la tarjeta es neutra; el color va solo en el chip).
+    const score = !edit.manual && auto?.cid === edit.epg && auto ? Math.round(Math.min(auto.score, 1) * 100) : 0;
+    const stateChip = !epg ? '' : edit.manual
+      ? `<span class="gc-chip">${icon('user-check', 'sm')}Elegida por vos</span>`
+      : score ? (auto!.score >= GOOD
+        ? `<span class="gc-chip ok" title="Coincidencia buena">${icon('check', 'sm')}${score} %</span>`
+        : `<span class="gc-chip warn" title="Coincidencia dudosa: conviene revisarla">${score} % · dudosa</span>`) : '';
     const current = epg
-      ? `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div><div class="gc-state">${pct}${mine}</div></div></div>
+      ? `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div></div>${stateChip}</div>
          <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
          <button type="button" class="link-btn day-btn" data-act="day" aria-expanded="false">Ver programación de hoy${icon('chevron-right', 'sm')}</button>
          <div class="day-list" hidden></div>`

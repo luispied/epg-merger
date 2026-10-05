@@ -906,3 +906,12 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 body > .toasts { bottom: calc(var(--tab-h) + 28px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .menu-row .select.compact { max-width: 150px; }
+
+/* Guía asignada: tarjeta neutra (sin ámbar) con el estado en un chip. */
+.ch-current { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); padding: 14px 14px 10px; }
+.ch-current.none { background: transparent; box-shadow: none; border: 1px dashed var(--faint); padding: 12px 14px; }
+.gc-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--fill); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gc-chip.ok { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.gc-chip.warn { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
+.gc-top .gc-chip { align-self: flex-start; }
+.gc-now { margin: 12px 0 0; }
