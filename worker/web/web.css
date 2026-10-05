@@ -800,7 +800,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
     box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
   }
   dialog.sheet.docked .sheet-body { max-height: 100dvh; height: 100%; }
-  body.has-dock main, body.has-dock .app-header, body.has-dock #tabbar { margin-right: 440px; }
+  body.has-dock main, body.has-dock .app-header { margin-right: 440px; }
   html:has(dialog.docked[open]) { overflow: auto; }
 }
 
@@ -889,3 +889,19 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .rv-new .grow { flex: 1 1 auto; min-width: 0; }
 .rv-new .btn { min-height: 32px; }
 .rv-new .btn-plain { margin-left: -8px; }
+
+/* Progreso de la revisión: dentro del encabezado fijo de la hoja del canal. */
+.ch-head:has(> .rv-progress:not([hidden])) { flex-wrap: wrap; }
+.ch-head > .rv-progress { flex: 1 0 100%; order: 3; margin: 0; padding: 4px 8px 0; }
+
+/* Menú inferior flotante, en cápsula (como el de WhatsApp): sobre el contenido, con la pestaña activa en píldora. */
+:root { --tab-h: 56px; }
+.tabbar { left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto;
+  padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
+  background: color-mix(in srgb, var(--surface) 86%, transparent); }
+.tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
+.tab.active { background: var(--fill); color: var(--accent); font-weight: 600; }
+.tab-badge { left: 12px; top: -4px; }
+#editor main { padding-bottom: calc(var(--tab-h) + 44px + env(safe-area-inset-bottom, 0px)); }
+body > .toasts { bottom: calc(var(--tab-h) + 28px + env(safe-area-inset-bottom, 0px)); }
+body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }

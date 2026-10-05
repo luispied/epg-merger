@@ -83,16 +83,26 @@ function hydrateIcons(root: ParentNode = document) {
   $$('[data-icon]', root).forEach((el) => { el.outerHTML = icon((el as HTMLElement).dataset.icon!, el.className); });
 }
 
-// showModal() enfoca el primer botón de la hoja (el ojo o la ayuda) y queda con el aro de foco.
-// Si el foco cae en un botón, pasa a la hoja misma; los campos de texto conservan su foco.
+// showModal() y show() enfocan el primer elemento de la hoja (el ojo, la ayuda o el nombre editable del
+// canal) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco cae en un
+// botón o en el nombre de un canal o categoría, pasa a la hoja misma; los demás campos (por ejemplo, el de
+// un diálogo que pide un nombre) conservan su foco.
+function settleFocus(dlg: HTMLDialogElement) {
+  const a = document.activeElement;
+  if (a instanceof HTMLElement && dlg.contains(a) && (!a.matches('input, textarea, select') || a.classList.contains('ch-name'))) {
+    dlg.tabIndex = -1;
+    dlg.focus({ preventScroll: true });
+  }
+}
 const nativeShowModal = HTMLDialogElement.prototype.showModal;
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   nativeShowModal.call(this);
-  const a = document.activeElement;
-  if (a instanceof HTMLElement && this.contains(a) && !a.matches('input, textarea, select')) {
-    this.tabIndex = -1;
-    this.focus({ preventScroll: true });
-  }
+  settleFocus(this);
+};
+const nativeShow = HTMLDialogElement.prototype.show;
+HTMLDialogElement.prototype.show = function (this: HTMLDialogElement) {
+  nativeShow.call(this);
+  settleFocus(this);
 };
 
 /** `undo`: agrega "Deshacer" (el aviso dura más). */
@@ -1253,6 +1263,7 @@ function openChannel(i: number) {
     </details>`;
 
   if (divider) {
+    $('#channelProgress').hidden = true;
     body.innerHTML = `${meta}<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>${more}`;
   } else {
     const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
@@ -1272,14 +1283,17 @@ function openChannel(i: number) {
         ? `<div class="gc-sug">Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
            <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
     const rp = sheetReview ? reviewProgress() : null;
-    const progress = rp ? `<div class="rv-progress"><span>Revisando · ${pos + 1} de ${sheetList.length} · quedan ${rp.left}</span>
-      <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rp.pct}"><i style="width:${rp.pct}%"></i></div></div>` : '';
+    // El progreso va en el encabezado fijo de la hoja (no se tapa al desplazar).
+    const progressBox = $('#channelProgress');
+    progressBox.hidden = !rp;
+    progressBox.innerHTML = rp ? `<span>Revisando · ${pos + 1} de ${sheetList.length} · quedan ${rp.left}</span>
+      <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rp.pct}"><i style="width:${rp.pct}%"></i></div>` : '';
     const useSuggestion = !epg && !!suggestion;
     const okLabel = useSuggestion ? 'Usar sugerencia' : needsReview || epg ? 'Está bien' : 'Siguiente';
     const actions = needsReview || sheetReview ? `<div class="rv-actions">
         <button type="button" class="btn btn-primary" data-rv="ok">${icon('check')}${okLabel}</button>
         ${sheetReview ? `<button type="button" class="btn btn-gray" data-rv="skip">Saltar</button>` : ''}</div>` : '';
-    body.innerHTML = `${progress}${meta}
+    body.innerHTML = `${meta}
       <h3 class="sec-title">Guía asignada</h3>
       <div class="ch-current${epg ? '' : ' none'}">${current}</div>
       <h3 class="sec-title">Otras opciones</h3>
