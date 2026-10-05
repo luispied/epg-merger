@@ -243,18 +243,13 @@ function markSeen() {
   } catch { /* sin storage */ }
   state.newNames = new Set();
 }
+/** Canales nuevos del proveedor (por canal, no por nombre: hay nombres repetidos). El aviso va dentro de la
+ *  tarjeta de revisión (renderReviewCard), para que arriba de la lista haya un solo mensaje. */
+let newCount = 0;
 function renderNewBanner() {
-  const n = state.newNames.size;
-  const el = $('#newBanner');
-  el.hidden = !n;
-  $('#filterTabs [data-filter="nuevos"]').hidden = !n;
-  if (!n) {
-    if (state.filter === 'nuevos') state.filter = 'todos';
-    return;
-  }
-  el.innerHTML = `${icon('sparkles')}<span class="grow">${n === 1 ? 'Hay 1 canal nuevo' : `Hay ${n} canales nuevos`} en tu lista.</span>`
-    + `${state.filter === 'nuevos' ? '' : '<button type="button" class="btn btn-tonal sm" data-new="show">Ver</button>'}`
-    + '<button type="button" class="btn btn-plain sm" data-new="seen">Marcar como vistos</button>';
+  newCount = state.channels.filter((c) => state.newNames.has(c.name)).length;
+  $('#filterTabs [data-filter="nuevos"]').hidden = !newCount;
+  if (!newCount && state.filter === 'nuevos') state.filter = 'todos';
 }
 
 // ------------------------------------------------------------------ estado
@@ -1185,12 +1180,16 @@ function renderReviewCard() {
   const badge = $('#tabReviewBadge');
   badge.hidden = !left;
   badge.textContent = left > 999 ? '999+' : String(left);
-  card.hidden = !left;
-  if (!left) return;
-  card.innerHTML = `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
+  card.hidden = !left && !newCount;
+  if (card.hidden) return;
+  const review = left ? `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
       <small>${done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
       <button type="button" class="btn btn-primary" data-rv="start">Empezar</button></div>
-    <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>`;
+    <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
+  const news = newCount ? `<div class="rv-new${left ? ' split' : ''}">${icon('sparkles')}<span class="grow">${newCount === 1 ? '1 canal nuevo' : `${newCount} canales nuevos`} en tu lista</span>
+      ${state.filter === 'nuevos' ? '' : '<button type="button" class="btn btn-tonal sm" data-new="show">Ver</button>'}
+      <button type="button" class="btn btn-plain sm" data-new="seen">Marcar como vistos</button></div>` : '';
+  card.innerHTML = review + news;
 }
 
 function startReview() {
@@ -2994,7 +2993,18 @@ function setupEditor() {
     }
   });
   $('#reviewCard').onclick = (ev) => {
-    if ((ev.target as HTMLElement).closest('[data-rv=start]')) startReview();
+    const t = ev.target as HTMLElement;
+    if (t.closest('[data-rv=start]')) startReview();
+    const act = t.closest<HTMLElement>('[data-new]')?.dataset.new;
+    if (act === 'show') {
+      state.filter = 'nuevos';
+      state.shown = PAGE;
+      render();
+    } else if (act === 'seen') {
+      markSeen();
+      render();
+      toast('Canales marcados como vistos', 'ok');
+    }
   };
   $('#tipCard').onclick = (ev) => {
     if (!(ev.target as HTMLElement).closest('[data-tip=close]')) return;
@@ -3055,18 +3065,6 @@ function setupEditor() {
   $('#orderClose').onclick = () => ($('#orderDialog') as HTMLDialogElement).close();
   setupCategories();
   setupChannelOrder();
-  $('#newBanner').onclick = (ev) => {
-    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-new]')?.dataset.new;
-    if (act === 'show') {
-      state.filter = 'nuevos';
-      state.shown = PAGE;
-      render();
-    } else if (act === 'seen') {
-      markSeen();
-      render();
-      toast('Canales marcados como vistos', 'ok');
-    }
-  };
   // Atajos (escritorio): "/" busca; Escape en el buscador lo borra.
   document.addEventListener('keydown', (ev) => {
     if ($('#editor').hidden || document.querySelector('dialog[open]')) return;

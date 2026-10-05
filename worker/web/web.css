@@ -881,3 +881,11 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .device-top .device-info { flex: 1; }
 .device.off .device-info strong { opacity: .6; }
 .device.off .device-info small { color: var(--orange); opacity: 1; }
+
+/* Canales nuevos: una fila dentro de la tarjeta de revisión (un solo mensaje arriba de la lista). */
+.rv-new { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 14px; }
+.rv-new.split { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.rv-new .icon { color: var(--accent); flex: none; }
+.rv-new .grow { flex: 1 1 auto; min-width: 0; }
+.rv-new .btn { min-height: 32px; }
+.rv-new .btn-plain { margin-left: -8px; }
