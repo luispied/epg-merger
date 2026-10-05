@@ -34,14 +34,13 @@ def _clean_servers(raw):
     return [s.strip().rstrip('/') for s in (raw or []) if s and s.strip()]
 
 
-def _build(name, username, password, servers, gist_id=None):
+def _build(name, username, password, servers):
     return {
         'name': name,
         'type': 'xtream',
         'username': username,
         'password': password,
         'servers': servers,
-        'gist_id': gist_id,
     }
 
 
@@ -58,10 +57,8 @@ def load_profiles(env=None):
         password = env.get('XTREAM_PASSWORD')
         servers = _clean_servers(env.get('XTREAM_SERVERS', ''))
         if username and password and servers:
-            # XTREAM_GIST_ID permite publicar en un gist sin tener que migrar las credenciales
-            # a XTREAM_PROFILES: con un solo usuario, las variables sueltas alcanzan.
-            return [_build('default', username, password, servers,
-                           env.get('XTREAM_GIST_ID'))]
+            # Con un solo usuario, las variables sueltas alcanzan (sin XTREAM_PROFILES).
+            return [_build('default', username, password, servers)]
         return []
 
     try:
@@ -109,7 +106,7 @@ def load_profiles(env=None):
                 print(f"⚠️  Perfil {name!r} ignorado: falta 'url' de la lista M3U")
                 continue
             seen.add(name)
-            profiles.append({'name': name, 'type': 'm3u', 'url': url, 'gist_id': entry.get('gist_id')})
+            profiles.append({'name': name, 'type': 'm3u', 'url': url})
             continue
         if kind != 'xtream':
             print(f"⚠️  Perfil {name!r} ignorado: 'type' debe ser 'xtream' o 'm3u'")
@@ -121,6 +118,6 @@ def load_profiles(env=None):
             print(f"⚠️  Perfil {name!r} ignorado: faltan username, password o servers")
             continue
         seen.add(name)
-        profiles.append(_build(name, username, password, servers, entry.get('gist_id')))
+        profiles.append(_build(name, username, password, servers))
 
     return profiles

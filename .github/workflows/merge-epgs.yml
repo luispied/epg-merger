@@ -52,7 +52,9 @@ jobs:
       continue-on-error: true
       run: curl -sSfL --retry 3 -o iptv_channels.json https://iptv-org.github.io/api/channels.json
 
-    # Genera, por cada perfil de XTREAM_PROFILES, su out/<perfil>/{playlist.m3u8,epg.xml.gz,match_report.json}.
+    # Cruza la guía fusionada con la lista de cada perfil de XTREAM_PROFILES: arma el catálogo y la
+    # programación que usa Grilla web y el match_report de cada perfil (out/<perfil>/). Las playlists que
+    # también escribe no se publican en ningún lado: las que usa el reproductor las arma el Worker.
     # El JSON con las credenciales nunca se expande en el shell: lo lee el propio Python.
     - name: Generate playlists
       env:
@@ -60,7 +62,6 @@ jobs:
         XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
         XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
         XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
-        XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
       run: python generate_playlist.py
 
     # Qué tan bien asigna el EPG el matcher en listas públicas que no son del proveedor de este
@@ -107,10 +108,9 @@ jobs:
         python shared_guide.py
         bash tools/r2_upload.sh
 
-    # Al release público solo van artefactos SIN credenciales adentro. Las playlists llevan
-    # usuario y contraseña dentro de cada URL de stream, así que van a un gist secreto por
-    # persona (paso siguiente) y nunca acá.
-    - name: Publish public assets
+    # Al release solo van artefactos SIN credenciales adentro: la guía fusionada, que baja
+    # tools/refresh_epgs.py para armar la guía de cada configuración, y el catálogo de EPG.
+    - name: Publish release assets
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -121,57 +121,7 @@ jobs:
         fi
         gh release upload "$TAG" merged.xml.gz --clobber
         [ -f out/epg_catalog.json ] && gh release upload "$TAG" out/epg_catalog.json --clobber
-        for dir in out/*/; do
-          [ -f "$dir/epg.xml.gz" ] || continue
-          name=$(basename "$dir")
-          cp "$dir/epg.xml.gz" "epg-$name.xml.gz"
-          gh release upload "$TAG" "epg-$name.xml.gz" --clobber
-          # match_report.json no lleva URLs de stream ni credenciales: es seguro publicarlo.
-          # Sirve para bajarlo con `gh release download`/`gh api` al diagnosticar matching.
-          cp "$dir/match_report.json" "match_report-$name.json"
-          gh release upload "$TAG" "match_report-$name.json" --clobber
-        done
-
-    # La interfaz de corrección (docs/) necesita leer epg_catalog.json y los match_report
-    # desde el navegador, y los assets de un release se sirven vía un redirect a Azure Blob
-    # que NO manda cabecera CORS (confirmado con curl) — fetch() los bloquea. raw.githubusercontent.com
-    # sí manda `Access-Control-Allow-Origin: *`, así que estos mismos archivos (sin credenciales)
-    # se publican además en una branch `data` aparte, con force-push para no acumular historia
-    # (es contenido que se reemplaza entero en cada corrida, no algo para versionar).
-    - name: Publish data branch for the EPG-correction UI
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        rm -rf /tmp/data-branch && mkdir /tmp/data-branch
-        [ -f out/epg_catalog.json ] && cp out/epg_catalog.json /tmp/data-branch/
-        [ -f out/epg_icons.json ] && cp out/epg_icons.json /tmp/data-branch/
-        [ -f provider_rules.json ] && cp provider_rules.json /tmp/data-branch/
-        [ -f out/sources_report.json ] && cp out/sources_report.json /tmp/data-branch/
-        [ -d out/schedule ] && cp -r out/schedule /tmp/data-branch/schedule
-        for dir in out/*/; do
-          [ -f "$dir/match_report.json" ] || continue
-          name=$(basename "$dir")
-          cp "$dir/match_report.json" "/tmp/data-branch/match_report-$name.json"
-          [ -f "$dir/grilla_import.json" ] && cp "$dir/grilla_import.json" "/tmp/data-branch/grilla-import-$name.json"
-        done
-        cd /tmp/data-branch
-        git init -q -b data
-        git config user.email "actions@github.com"
-        git config user.name "github-actions"
-        git add -A
-        git commit -q -m "Actualizar datos para la interfaz de corrección de EPG"
-        git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data:data
-
-    # No-op si falta GIST_TOKEN: el script lo avisa y sale sin error.
-    - name: Publish playlists to secret gists
-      env:
-        GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
-        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
-        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
-        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
-        XTREAM_GIST_ID: ${{ secrets.XTREAM_GIST_ID }}
-      run: python publish_playlists.py
+        true
 
     # El reporte de matching no lleva URLs de stream, así que es seguro guardarlo; sirve para
     # diffear la calidad del matching entre corridas.

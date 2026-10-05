@@ -23,12 +23,10 @@ def test_sin_configuracion_no_hay_perfiles():
 
 def test_varios_perfiles_desde_el_secret_json():
     p = load_profiles({'XTREAM_PROFILES': '''[
-        {"name": "luis", "servers": ["http://a:8080"], "username": "u1", "password": "p1", "gist_id": "g1"},
+        {"name": "luis", "servers": ["http://a:8080"], "username": "u1", "password": "p1"},
         {"name": "juan", "servers": ["http://a:8080"], "username": "u2", "password": "p2"}
     ]'''})
     assert [x['name'] for x in p] == ['luis', 'juan']
-    assert p[0]['gist_id'] == 'g1'
-    assert p[1]['gist_id'] is None
 
 
 def test_el_secret_tiene_prioridad_sobre_las_variables_sueltas():
@@ -80,21 +78,13 @@ def test_servidor_propio_del_perfil_tiene_prioridad_sobre_el_compartido():
     assert p[0]['servers'] == ['http://propio:8080']
 
 
-def test_gist_id_en_el_perfil_default():
-    """Con un solo usuario no hace falta migrar a XTREAM_PROFILES para publicar en un gist."""
-    p = load_profiles({'XTREAM_USERNAME': 'u', 'XTREAM_PASSWORD': 'p',
-                       'XTREAM_SERVERS': 'http://a', 'XTREAM_GIST_ID': 'abc123'})
-    assert p[0]['gist_id'] == 'abc123'
-
-
 def test_perfil_m3u():
     """Un perfil puede ser una lista M3U (URL o archivo) en vez de Xtream; sin URL se ignora."""
     p = load_profiles({'XTREAM_PROFILES': '''[
-        {"name": "m3u", "type": "m3u", "url": "https://prov/lista.m3u?user=a&pass=b", "gist_id": "g"},
+        {"name": "m3u", "type": "m3u", "url": "https://prov/lista.m3u?user=a&pass=b"},
         {"name": "sinurl", "type": "m3u"},
         {"name": "raro", "type": "stalker", "url": "x"},
         {"name": "xt", "servers": ["http://a:8080"], "username": "u", "password": "p"}
     ]'''})
     assert [(x['name'], x['type']) for x in p] == [('m3u', 'm3u'), ('xt', 'xtream')]
     assert p[0]['url'] == 'https://prov/lista.m3u?user=a&pass=b'
-    assert p[0]['gist_id'] == 'g'

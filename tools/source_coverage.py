@@ -14,7 +14,7 @@ Corre después de generate_playlist.py, con lo que esa corrida dejó:
   próximas 24 h y se corre el matcher real sobre los canales sin guía: la ganancia es cuántos
   quedarían con guía firme (puntaje ≥ 0.9) y cuántos con una dudosa.
 
-La interfaz (docs/, Configuración → Fuentes de EPG) lee este reporte desde la branch `data`.
+Grilla web lo recibe por R2 (tools/r2_upload.sh, ui/sources_report.json).
 
 Uso: `python tools/source_coverage.py [--max-candidates 20] [--no-download]`.
 """
