@@ -3287,27 +3287,35 @@ function checkWaitHours(): number {
   const last = Math.max(Date.parse(streamHealth?.checked ?? '') || 0, Date.parse(streamHealth?.requested ?? '') || 0);
   return last ? Math.max(0, CHECK_EVERY_H - (Date.now() - last) / 3600_000) : 0;
 }
-function renderRunCheckRow() {
+/** Una sola fila «Canales caídos»: el resultado de las pruebas hechas y, al costado, el botón para probar ahora. */
+function renderDownRow() {
+  const sub = $('#downSub');
   const wait = checkWaitHours();
-  const last = Math.max(Date.parse(streamHealth?.checked ?? '') || 0, Date.parse(streamHealth?.requested ?? '') || 0);
-  $('#runCheckSub').textContent = wait > 0
-    ? `Ya se probó hoy (${last ? `hace ${Math.max(1, Math.round((Date.now() - last) / 3600_000))} h` : ''}): se puede volver a lanzar en ${Math.ceil(wait)} h`
-    : 'Prueba una tanda de canales ahora (tarda unos minutos). Una vez por día';
+  const requested = Date.parse(streamHealth?.requested ?? '') || 0;
+  const checked = Date.parse(streamHealth?.checked ?? '') || 0;
+  const running = requested > checked && Date.now() - requested < 30 * 60_000;
+  const parts: string[] = [];
+  if (!checked) parts.push('Todavía no se probó ningún canal');
+  else {
+    const tested = Object.keys(streamHealth!.channels).length;
+    const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+    parts.push(`${down ? plural(down, 'canal caído', 'canales caídos') : 'Ninguno caído'} · ${tested} de ${streamHealth!.total ?? '?'} probados`);
+  }
+  if (running) parts.push('probando ahora: los resultados llegan en unos minutos');
+  else if (wait > 0) parts.push(`próxima prueba en ${Math.ceil(wait)} h`);
+  else parts.push('ya se puede probar');
+  sub.textContent = parts.join(' · ');
+  const btn = $<HTMLButtonElement>('#runCheckBtn');
+  btn.disabled = running;
+  btn.classList.toggle('is-wait', wait > 0 && !running);
+  btn.textContent = running ? 'Probando…' : 'Probar ahora';
 }
 
 function refreshDownRow() {
-  const sub = $('#downSub');
-  sub.textContent = 'Calculando…';
+  $('#downSub').textContent = 'Calculando…';
   loadStreamHealth().then(() => {
     renderAccountRow();
-    renderRunCheckRow();
-    if (!streamHealth?.checked) {
-      sub.textContent = 'Todavía no se probó ningún canal (una prueba por día, de madrugada)';
-      return;
-    }
-    const tested = Object.keys(streamHealth.channels).length;
-    const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
-    sub.textContent = `${down ? plural(down, 'canal caído', 'canales caídos') : 'Ninguno caído'} · ${tested} de ${streamHealth.total ?? '?'} probados`;
+    renderDownRow();
   });
 }
 
@@ -3575,7 +3583,8 @@ function setupEditor() {
     render();
     window.scrollTo(0, 0);
   };
-  $('#runCheckRow').onclick = async () => {
+  $('#runCheckBtn').onclick = async (ev) => {
+    ev.stopPropagation(); // el resto de la fila abre el filtro «Caídos»
     const wait = checkWaitHours();
     if (wait > 0) {
       toast(`La prueba de canales corre una vez por día: se puede volver a lanzar en ${Math.ceil(wait)} h`, 'info', 5000);
@@ -3585,12 +3594,12 @@ function setupEditor() {
       const r = await api<{ started: boolean; reason?: string; requested?: string; nextAt?: string }>(`/api/cfg/${state.local!.cfgId}/health/run`, { method: 'POST', body: {} });
       if (r.started) {
         streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
-        renderRunCheckRow();
+        renderDownRow();
         toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir Configuración)', 'ok', 6000);
       } else if (r.reason === 'recent') {
         toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
         await loadStreamHealth();
-        renderRunCheckRow();
+        renderDownRow();
       } else if (r.reason === 'no-token') {
         toast('El Worker no tiene el token de GitHub para lanzarla: se lanza desde GitHub → Actions', 'bad', 7000);
       } else {
@@ -3600,6 +3609,7 @@ function setupEditor() {
       toast((e as Error).message, 'bad', 6000);
     }
   };
+  $('#downRow').onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target === ev.currentTarget) ($('#downRow') as HTMLElement).click(); };
   $('#downRow').onclick = () => {
     const n = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
     if (!n) {
