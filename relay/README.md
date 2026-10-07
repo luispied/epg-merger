@@ -20,6 +20,18 @@ Todos los `POST` llevan `Authorization: Bearer <RELAY_SECRET>`.
 - Un pedido por cuenta a la vez y hasta 4 en total; topes de tamaño, de canales y de tiempo.
 - Sirve por HTTPS (lo pone la plataforma); `RELAY_SECRET` debe tener 32 caracteres como mínimo.
 
+## Antes de elegir dónde: ¿esa plataforma llega al proveedor?
+El proveedor bloquea por IP, y no se sabe de antemano qué plataformas bloquea. `relay/probe_provider.py` lo prueba sin
+credenciales: pide `player_api.php` sin usuario ni contraseña, y un origen aceptado recibe la respuesta de la API (aunque diga
+«no autorizado»), mientras que uno bloqueado ve la conexión cortada o un 403. Se corre **en** la plataforma candidata, con la
+dirección del proveedor en una variable de entorno (no se escribe en ningún chat ni archivo):
+
+    PROVIDER_URL=http://servidor.ejemplo:8080 python3 probe_provider.py     # ALCANZABLE / BLOQUEADO / DUDOSO
+
+Ejemplos: en Fly.io, `fly machine run python:3.12-slim --shell` (o `fly ssh console` en una app ya creada) y pegar el script; en un
+VPS o una VM de Oracle, por SSH. La plataforma tiene que dar ALCANZABLE, como la corrida de GitHub. Si ninguna nube lo da, una
+máquina en tu casa (IP residencial) con Docker suele andar, aunque no esté prendida siempre.
+
 ## Publicarlo (ejemplo con Fly.io)
 1. Generá el secret **en tu computadora**, sin pegarlo en ningún chat: `openssl rand -base64 48`.
 2. `fly launch --no-deploy --dockerfile relay/Dockerfile` (desde la raíz del repo), `fly secrets set RELAY_SECRET=…`, `fly deploy`.
