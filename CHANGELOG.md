@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.14.1
+
+- Al cerrar la edición de un canal ya no queda marcado en la grilla.
+- El menú inferior vuelve a ser una cápsula flotante, más abajo y translúcida para ver lo que hay detrás.
+- Los avisos (toast) son redondeados y algo translúcidos.
+
 ## 1.14.0
 
 - La barra inferior queda pegada al borde de abajo, de lado a lado, en vez de flotar.

@@ -95,6 +95,13 @@ function settleFocus(dlg: HTMLDialogElement) {
     dlg.focus({ preventScroll: true });
   }
 }
+// Al cerrar una hoja el navegador devuelve el foco a la fila que la abrió y queda marcada en la grilla:
+// se lo saca (el teclado sigue pudiendo moverse con Tab desde ahí).
+document.addEventListener('close', (ev) => {
+  if (!(ev.target instanceof HTMLDialogElement)) return;
+  const a = document.activeElement;
+  if (a instanceof HTMLElement && a.matches('.card, .cat-row, .row-card, .section-card')) a.blur();
+}, true);
 const nativeShowModal = HTMLDialogElement.prototype.showModal;
 HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
   nativeShowModal.call(this);
