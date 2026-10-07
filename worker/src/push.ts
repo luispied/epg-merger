@@ -7,6 +7,7 @@
 // Sin ellas la función no existe: /api/push/key responde 404 y la web no muestra el interruptor.
 import { b64urlDecode, b64urlEncode } from './crypto.ts';
 import type { Env, R2Bucket } from './env.ts';
+import { readReminders, REMIND_AHEAD_S, REMIND_GRACE_S, writeReminders } from './remind.ts';
 
 export interface PushSub {
   endpoint: string;
@@ -243,6 +244,25 @@ export async function notifyExpiry(env: Env, cfgId: string, now = new Date()): P
   return sent;
 }
 
+/** Recordatorios de programas («Avisarme»): manda los que empiezan en los próximos 30 minutos (la corrida es cada 30:
+ *  el aviso llega entre 0 y 30 minutos antes) y descarta los que ya pasaron sin poder avisarse. */
+export async function notifyReminders(env: Env, cfgId: string, now = new Date()): Promise<number> {
+  const items = await readReminders(env.BUCKET, cfgId);
+  if (!items.length) return 0;
+  const nowS = Math.floor(now.getTime() / 1000);
+  const st = await readState(env.BUCKET, cfgId);
+  const expired = items.filter((r) => r.start < nowS - REMIND_GRACE_S);
+  // Sin dispositivos suscritos no se puede avisar: se espera (o vencen solos).
+  const due = st.subs.length ? items.filter((r) => r.start <= nowS + REMIND_AHEAD_S && r.start >= nowS - REMIND_GRACE_S) : [];
+  let sent = 0;
+  for (const r of due) {
+    sent += await pushToConfig(env, cfgId, { title: `Empieza pronto: ${r.title}`, body: r.name ? `${r.name} · en unos minutos` : 'En unos minutos', url: '/' });
+  }
+  const gone = new Set([...expired, ...due]);
+  if (gone.size) await writeReminders(env.BUCKET, cfgId, items.filter((r) => !gone.has(r)));
+  return sent;
+}
+
 /** Corrida programada: revisa cada configuración con avisos. */
 export async function checkAllPush(env: Env): Promise<void> {
   if (!pushConfigured(env)) return;
@@ -253,6 +273,7 @@ export async function checkAllPush(env: Env): Promise<void> {
       const cfgId = obj.key.slice('push/'.length).replace(/\.json$/, '');
       try { await notifyNewChannels(env, cfgId); } catch { /* una configuración no frena a las demás */ }
       try { await notifyExpiry(env, cfgId); } catch { /* idem */ }
+      try { await notifyReminders(env, cfgId); } catch { /* idem */ }
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
