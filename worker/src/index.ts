@@ -28,7 +28,7 @@ import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
-import { buildPlaylist } from './playlist.ts';
+import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
@@ -117,12 +117,12 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
 // credenciales cifradas con la clave del Worker) queda guardado en R2 a cambio de links que
 // no muestran nada: ni la configuración ni el token.
 /** Resuelve un link corto y, ya que lo leyó, anota el último uso del dispositivo. */
-async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string; off: boolean } | null> {
+async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string; off: boolean; filter?: DeviceFilter } | null> {
   const rec = await readShort(env.BUCKET, code);
   if (!rec) return null;
   const off = rec.active === false;
   if (!off) ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
-  return { cfgId: rec.cfgId, token: rec.token, off };
+  return { cfgId: rec.cfgId, token: rec.token, off, filter: rec.filter };
 }
 
 /** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
@@ -132,7 +132,7 @@ function disabledPlaylist(origin: string, code: string): Response {
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
-async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string): Promise<Response> {
+async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string, filter?: DeviceFilter): Promise<Response> {
   const stored = await loadConfig(env.BUCKET, cfgId);
   if (!stored) return new Response('Configuración inexistente', { status: 404 });
   const creds = await decryptToken(env.TOKEN_KEY, cfgId, token);
@@ -149,6 +149,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     direct = await healthyServer(cfg.provider.servers.map(normalizeServer), creds.u, creds.p, cache, (p) => ctx.waitUntil(p));
   }
   const text = buildPlaylist(list.channels, cfg, {
+    filter,
     separatorUrl: `${url.origin}/sep`,
     epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {
@@ -304,7 +305,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       if (code && SHORT_RE.test(code) && method === 'PATCH') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
-        return (await updateDevice(env.BUCKET, cfgId, code, { name: body.name, active: body.active })) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
+        return (await updateDevice(env.BUCKET, cfgId, code, { name: body.name, active: body.active, ...('filter' in body ? { filter: body.filter } : {}) })) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
       }
       if (code && SHORT_RE.test(code) && method === 'DELETE') {
         return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
@@ -323,7 +324,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
       const origin = new URL(request.url).origin;
       const code = randomId(8);
-      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
+      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
       return json({
         token,
         code,
@@ -377,7 +378,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       if (!short) return fail(404, 'no encontrado');
       if (short.off) return parts[0] === 'l' ? disabledPlaylist(url.origin, m![1]) : fail(403, 'link desactivado');
       if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
-      return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1]);
+      return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1], short.filter);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
       const short = await resolveShort(env, ctx, parts[1]);

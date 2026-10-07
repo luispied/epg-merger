@@ -689,3 +689,30 @@ test('credenciales: al cambiarlas, los links cortos siguen iguales y pasan a usa
   const bad = await handle(req(`/api/cfg/${t.cfgId}/credentials`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ username: '' }) }), t.env, t.ctx, t.cache);
   assert.equal(bad.status, 400);
 });
+
+test('perfiles: cada link filtra por categoría y por canal, y se cambia sin cambiar la dirección', async () => {
+  const t = await setup();
+  const call = (path: string, method: string, body?: unknown) =>
+    handle(req(`/api/cfg/${t.cfgId}/${path}`, { method, key: t.editKey, ...(body ? { body: JSON.stringify(body) } : {}) }), t.env, t.ctx, t.cache);
+  const kids = await (await call('token', 'POST', {
+    username: 'user', password: 'pa ss', name: 'Chicos', filter: { only: true, groups: ['🇦🇷 Argentina'], channels: ['ESPN'] },
+  })).json() as { playlistUrl: string; code: string };
+  const names = async (url: string) => [...(await (await handle(new Request(url), t.env, t.ctx, t.cache)).text()).matchAll(/group-title="[^"]*",(.*)/g)].map((m) => m[1]);
+  // Completa: lo mismo que antes del perfil.
+  const full = await names(t.playlistUrl);
+  assert.ok(full.includes('ESPN') && full.includes('Telefe'));
+  // Perfil "solo": la categoría pedida + el canal suelto; el resto no.
+  const only = await names(kids.playlistUrl);
+  assert.ok(only.includes('ESPN') && only.includes('Telefe'));
+  assert.ok(!only.includes('Evento del día'));
+  // Perfil "ocultar": todo menos lo listado, sin tocar la dirección.
+  assert.equal((await call(`devices/${kids.code}`, 'PATCH', { filter: { groups: ['Deportes AR'], channels: ['AR| Telefe HD'] } })).status, 200);
+  const hide = await names(kids.playlistUrl);
+  assert.ok(!hide.includes('ESPN') && !hide.includes('Telefe') && hide.includes('Evento del día'));
+  const list = await (await call('devices', 'GET')).json() as { devices: { code: string; filter?: { groups: string[]; only?: boolean } }[] };
+  assert.deepEqual(list.devices.find((d) => d.code === kids.code)!.filter, { groups: ['Deportes AR'], channels: ['AR| Telefe HD'] });
+  // Sin nada que filtrar vuelve a ver todo; el otro dispositivo nunca se vio afectado.
+  assert.equal((await call(`devices/${kids.code}`, 'PATCH', { filter: { groups: [], channels: [] } })).status, 200);
+  assert.deepEqual((await names(kids.playlistUrl)).sort(), full.sort());
+  assert.deepEqual((await names(t.playlistUrl)).sort(), full.sort());
+});
