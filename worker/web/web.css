@@ -897,7 +897,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 
 /* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
 :root { --tab-h: 56px; }
-.tabbar { left: 12px; right: 12px; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto;
+.tabbar { left: 12px; right: 12px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto;
   padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
   background: color-mix(in srgb, var(--surface) 62%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
@@ -905,7 +905,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
 .tab-badge { left: 12px; top: -4px; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
-body > .toasts { bottom: calc(var(--tab-h) + 20px + env(safe-area-inset-bottom, 0px)); }
+body > .toasts { bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .menu-row .select.compact { max-width: 150px; }
 
