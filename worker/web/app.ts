@@ -660,7 +660,7 @@ function guideHealth() {
   for (const ch of state.channels) {
     const i = info(ch);
     if (i.hidden || i.noGuide || i.divider) continue;
-    if (!i.epg) { none++; continue; }
+    if (!i.epg) { if (i.band !== 'purpose') none++; continue; } // los dejados sin guía a propósito no cuentan (igual que el filtro «Sin EPG»)
     withGuide++;
     if (i.prog === 'ok') ok++;
     else if (i.prog === 'gap') gap++;
