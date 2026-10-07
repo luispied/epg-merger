@@ -38,6 +38,8 @@ from profiles import load_profiles  # noqa: E402
 from xtream_client import build_stream_url  # noqa: E402
 
 BATCH = 200
+# Una sola prueba por día (sea la de la madrugada o una lanzada a mano): si la última fue hace menos que esto, se saltea.
+MIN_INTERVAL = datetime.timedelta(hours=20)
 TIME_BUDGET_S = 300
 REJECTS_TO_ABORT = 4
 CONNECT_TIMEOUT, READ_TIMEOUT = 8, 8
@@ -128,6 +130,17 @@ def account_info(data):
     return out
 
 
+def recent(state, now):
+    """¿La última prueba de canales fue hace menos de MIN_INTERVAL?"""
+    try:
+        last = datetime.datetime.fromisoformat(state.get('checked') or '')
+    except ValueError:
+        return False
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=datetime.timezone.utc)
+    return now - last < MIN_INTERVAL
+
+
 def pick_server(servers, username, password):
     """(servidor, datos de la cuenta) del primer servidor que contesta a la API (pedido chico: no baja la lista)."""
     for server in servers:
@@ -166,6 +179,9 @@ def run(r2, profiles, prober=None, now=None, server_for=None):
             continue
         previous = r2.get(f'health/{cfg_ids[0]}.json')
         state = json.loads(previous[0]) if previous else {}
+        if recent(state, now):
+            print(f"ℹ️  {profile['name']}: ya se probó hace menos de {int(MIN_INTERVAL.total_seconds() // 3600)} horas, se saltea")
+            continue
         new = None
         if channels:
             session = requests.Session()

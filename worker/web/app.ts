@@ -112,10 +112,12 @@ function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, un
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.innerHTML = `${icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'info')}<span class="msg">${esc(text)}</span>`
-    + (undo ? '<button type="button" class="btn btn-plain">Deshacer</button>' : '');
+    + (undo ? '<button type="button" class="btn btn-plain" data-undo>Deshacer</button>' : '')
+    + `<button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso" title="Cerrar">${icon('x')}</button>`;
+  $('.toast-close', el).onclick = () => el.remove();
   if (undo) {
     ms = Math.max(ms, 7000);
-    $('button', el).onclick = () => {
+    $('[data-undo]', el).onclick = () => {
       el.remove();
       undo();
     };
@@ -235,35 +237,68 @@ function startFilter() {
 const logosOn = () => pref('grilla_logos', '1') !== '0';
 
 // ------------------------------------------------------------------ canales nuevos
-// Los nombres ya vistos de cada configuración quedan en este navegador; los que aparecen después
-// en la lista del proveedor (y no están ocultos) se marcan como nuevos hasta "Marcar como vistos".
+// Los canales que aparecen después en la lista del proveedor (y no están ocultos) se marcan como nuevos durante
+// 24 horas, o hasta «Marcar como vistos». El aviso de arriba sale una sola vez: la sesión (apertura de la app) en que
+// el canal apareció; después queda solo el filtro «Nuevos». Por cada nombre se guarda en este navegador cuándo se vio
+// por primera vez (0 = ya visto) y en qué apertura de la app.
 const SEEN_KEY = (cfgId: string) => `grilla_seen_${cfgId}`;
+const NEW_FOR_S = 24 * 3600;
+const SESSION = Math.random().toString(36).slice(2, 8);
+type SeenMap = Record<string, [number, string]>;
+function loadSeen(): SeenMap | null {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY(state.local!.cfgId));
+    if (!raw) return null;
+    const v = JSON.parse(raw) as unknown;
+    // Formato viejo: lista de nombres vistos.
+    if (Array.isArray(v)) return Object.fromEntries((v as string[]).map((n) => [n, [0, ''] as [number, string]]));
+    return v && typeof v === 'object' ? (v as SeenMap) : null;
+  } catch {
+    return null;
+  }
+}
+function saveSeen(seen: SeenMap) {
+  try {
+    localStorage.setItem(SEEN_KEY(state.local!.cfgId), JSON.stringify(seen));
+  } catch { /* sin storage */ }
+}
 function detectNew() {
   if (!state.local) return;
-  let seen: Set<string> | null = null;
-  try {
-    const raw = localStorage.getItem(SEEN_KEY(state.local.cfgId));
-    if (raw) seen = new Set(JSON.parse(raw) as string[]);
-  } catch { /* sin storage */ }
+  const seen = loadSeen();
   if (!seen) {
     // Primera vez: todo es conocido.
     markSeen();
     return;
   }
-  state.newNames = new Set(state.channels.filter((c) => !seen!.has(c.name) && !info(c).hidden && !info(c).divider).map((c) => c.name));
+  const now = Math.floor(Date.now() / 1000);
+  let changed = false;
+  for (const c of state.channels) {
+    if (!(c.name in seen)) {
+      seen[c.name] = [now, SESSION];
+      changed = true;
+    }
+  }
+  if (changed) saveSeen(seen);
+  const fresh = state.channels.filter((c) => {
+    const e = seen[c.name];
+    return !!e && e[0] > 0 && now - e[0] < NEW_FOR_S && !info(c).hidden && !info(c).divider;
+  });
+  state.newNames = new Set(fresh.map((c) => c.name));
+  state.bannerNames = new Set(fresh.filter((c) => seen[c.name][1] === SESSION).map((c) => c.name));
 }
 function markSeen() {
   if (!state.local) return;
-  try {
-    localStorage.setItem(SEEN_KEY(state.local.cfgId), JSON.stringify([...new Set(state.channels.map((c) => c.name))]));
-  } catch { /* sin storage */ }
+  saveSeen(Object.fromEntries(state.channels.map((c) => [c.name, [0, ''] as [number, string]])));
   state.newNames = new Set();
+  state.bannerNames = new Set();
 }
-/** Canales nuevos del proveedor (por canal, no por nombre: hay nombres repetidos). El aviso va dentro de la
- *  tarjeta de revisión (renderReviewCard), para que arriba de la lista haya un solo mensaje. */
+/** Canales nuevos del proveedor (por canal, no por nombre: hay nombres repetidos). El filtro «Nuevos» los muestra 24 horas;
+ *  el aviso va dentro de la tarjeta de revisión (renderReviewCard) y solo la primera vez. */
 let newCount = 0;
+let bannerCount = 0;
 function renderNewBanner() {
   newCount = state.channels.filter((c) => state.newNames.has(c.name)).length;
+  bannerCount = state.channels.filter((c) => state.bannerNames.has(c.name)).length;
   $('#filterTabs [data-filter="nuevos"]').hidden = !newCount;
   if (!newCount && state.filter === 'nuevos') state.filter = 'todos';
 }
@@ -282,6 +317,7 @@ const state = {
   shown: PAGE,
   reloading: false,
   newNames: new Set<string>(),
+  bannerNames: new Set<string>(), // los nuevos de esta apertura de la app (los del aviso)
   newGroups: new Set<string>(), // categorías que el proveedor trajo en esta apertura
 };
 
@@ -576,7 +612,7 @@ function computeInfo(ch: Channel) {
 // Una corrida diaria de GitHub prueba una tanda de streams y deja el resultado en el Worker
 // (tools/check_streams.py). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number }
-interface StreamHealth { checked?: string; tested?: number; total?: number; account?: Account; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 const isDown = (ch: Channel) => {
@@ -1350,13 +1386,13 @@ function renderReviewCard() {
   const badge = $('#tabReviewBadge');
   badge.hidden = !left;
   badge.textContent = left > 999 ? '999+' : String(left);
-  card.hidden = !left && !newCount;
+  card.hidden = !left && !bannerCount;
   if (card.hidden) return;
   const review = left ? `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
       <small>${done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
       <button type="button" class="btn btn-primary" data-rv="start">Empezar</button></div>
     <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
-  const news = newCount ? `<div class="rv-new${left ? ' split' : ''}">${icon('sparkles')}<span class="grow">${newCount === 1 ? '1 canal nuevo' : `${newCount} canales nuevos`} en tu lista</span>
+  const news = bannerCount ? `<div class="rv-new${left ? ' split' : ''}">${icon('sparkles')}<span class="grow">${bannerCount === 1 ? '1 canal nuevo' : `${bannerCount} canales nuevos`} en tu lista</span>
       ${state.filter === 'nuevos' ? '' : '<button type="button" class="btn btn-tonal sm" data-new="show">Ver</button>'}
       <button type="button" class="btn btn-plain sm" data-new="seen">Marcar como vistos</button></div>` : '';
   card.innerHTML = review + news;
@@ -3237,11 +3273,26 @@ function renderAccountRow() {
   row.classList.toggle('warn', warn);
 }
 
+/** La prueba de canales corre una vez por día: la fila «Probar ahora» dice cuándo se puede volver a lanzar. */
+const CHECK_EVERY_H = 20;
+function checkWaitHours(): number {
+  const last = Math.max(Date.parse(streamHealth?.checked ?? '') || 0, Date.parse(streamHealth?.requested ?? '') || 0);
+  return last ? Math.max(0, CHECK_EVERY_H - (Date.now() - last) / 3600_000) : 0;
+}
+function renderRunCheckRow() {
+  const wait = checkWaitHours();
+  const last = Math.max(Date.parse(streamHealth?.checked ?? '') || 0, Date.parse(streamHealth?.requested ?? '') || 0);
+  $('#runCheckSub').textContent = wait > 0
+    ? `Ya se probó hoy (${last ? `hace ${Math.max(1, Math.round((Date.now() - last) / 3600_000))} h` : ''}): se puede volver a lanzar en ${Math.ceil(wait)} h`
+    : 'Prueba una tanda de canales ahora (tarda unos minutos). Una vez por día';
+}
+
 function refreshDownRow() {
   const sub = $('#downSub');
   sub.textContent = 'Calculando…';
   loadStreamHealth().then(() => {
     renderAccountRow();
+    renderRunCheckRow();
     if (!streamHealth?.checked) {
       sub.textContent = 'Todavía no se probó ningún canal (una prueba por día, de madrugada)';
       return;
@@ -3515,6 +3566,31 @@ function setupEditor() {
     state.shown = PAGE;
     render();
     window.scrollTo(0, 0);
+  };
+  $('#runCheckRow').onclick = async () => {
+    const wait = checkWaitHours();
+    if (wait > 0) {
+      toast(`La prueba de canales corre una vez por día: se puede volver a lanzar en ${Math.ceil(wait)} h`, 'info', 5000);
+      return;
+    }
+    try {
+      const r = await api<{ started: boolean; reason?: string; requested?: string; nextAt?: string }>(`/api/cfg/${state.local!.cfgId}/health/run`, { method: 'POST', body: {} });
+      if (r.started) {
+        streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
+        renderRunCheckRow();
+        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir Configuración)', 'ok', 6000);
+      } else if (r.reason === 'recent') {
+        toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
+        await loadStreamHealth();
+        renderRunCheckRow();
+      } else if (r.reason === 'no-token') {
+        toast('El Worker no tiene el token de GitHub para lanzarla: se lanza desde GitHub → Actions', 'bad', 7000);
+      } else {
+        toast('GitHub no aceptó el pedido: probá de nuevo en un rato', 'bad', 6000);
+      }
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
   };
   $('#downRow').onclick = () => {
     const n = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;

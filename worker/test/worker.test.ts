@@ -858,3 +858,44 @@ test('recordatorios: la API los guarda, los lista y los borra; la corrida avisa 
     globalThis.fetch = real;
   }
 });
+
+test('probar canales a mano: una vez por día, sin token avisa y con GitHub lanza el workflow', async () => {
+  const t = await setup();
+  const run = () => handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'POST', key: t.editKey, body: '{}' }), t.env, t.ctx, t.cache);
+  assert.deepEqual(await (await run()).json(), { started: false, reason: 'no-token' });
+  t.env.GITHUB_TOKEN = 'ghs_test';
+  const calls: string[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://api.github.com/')) {
+      calls.push(`${init?.method} ${String(input).replace(/^https:\/\/api.github.com\/repos\/[^/]+\/[^/]+/, '')}`);
+      return new Response(null, { status: 204 });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    const first = await (await run()).json() as { started: boolean; requested: string };
+    assert.equal(first.started, true);
+    assert.deepEqual(calls, ['POST /actions/workflows/check-streams.yml/dispatches']);
+    // Otra vez el mismo día: no se vuelve a lanzar, y dice cuándo.
+    const again = await (await run()).json() as { started: boolean; reason: string; nextAt: string };
+    assert.deepEqual([again.started, again.reason], [false, 'recent']);
+    assert.ok(Date.parse(again.nextAt) > Date.now() + 19 * 3600 * 1000);
+    assert.equal(calls.length, 1);
+    // La lista de canales caídos trae cuándo se pidió.
+    const h = await (await handle(req(`/api/cfg/${t.cfgId}/health`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { requested?: string };
+    assert.equal(h.requested, first.requested);
+    // Si la última prueba terminada fue hace más de 20 horas y el pedido también, se puede de nuevo.
+    await t.env.BUCKET.put(`healthreq/${t.cfgId}.json`, JSON.stringify({ at: new Date(Date.now() - 21 * 3600 * 1000).toISOString() }));
+    await t.env.BUCKET.put(`health/${t.cfgId}.json`, JSON.stringify({ checked: new Date(Date.now() - 22 * 3600 * 1000).toISOString(), channels: {} }));
+    assert.equal(((await (await run()).json()) as { started: boolean }).started, true);
+    // Una prueba terminada hace poco también lo impide.
+    await t.env.BUCKET.put(`healthreq/${t.cfgId}.json`, JSON.stringify({ at: new Date(Date.now() - 30 * 3600 * 1000).toISOString() }));
+    await t.env.BUCKET.put(`health/${t.cfgId}.json`, JSON.stringify({ checked: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), channels: {} }));
+    assert.equal(((await (await run()).json()) as { started: boolean }).started, false);
+    // Sin la clave de edición no se puede.
+    assert.equal((await handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'POST', body: '{}' }), t.env, t.ctx, t.cache)).status, 401);
+  } finally {
+    globalThis.fetch = real;
+  }
+});

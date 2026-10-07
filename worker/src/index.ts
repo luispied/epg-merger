@@ -25,7 +25,7 @@ import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYT
 import { addDevice, listDevices, rekeyDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
-import { dispatchRefresh } from './github.ts';
+import { dispatchRefresh, dispatchWorkflow } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
@@ -180,6 +180,22 @@ async function serveR2(env: Env, key: string, contentType: string, maxAge: numbe
   return new Response(obj.body, { headers: { 'Content-Type': contentType, 'Cache-Control': `public, max-age=${maxAge}`, ...CORS } });
 }
 
+/** La prueba de canales corre como mucho una vez cada 20 horas (cron de la madrugada y a mano). */
+const HEALTH_EVERY_MS = 20 * 3600 * 1000;
+async function healthTimes(bucket: Env['BUCKET'], cfgId: string): Promise<{ checked?: number; requested?: number }> {
+  const time = async (key: string, field: string) => {
+    const obj = await bucket.get(key);
+    if (!obj) return undefined;
+    try {
+      const t = Date.parse(String((JSON.parse(await obj.text()) as Record<string, unknown>)[field] ?? ''));
+      return Number.isNaN(t) ? undefined : t;
+    } catch {
+      return undefined;
+    }
+  };
+  return { checked: await time(`health/${cfgId}.json`, 'checked'), requested: await time(`healthreq/${cfgId}.json`, 'at') };
+}
+
 async function api(request: Request, parts: string[], env: Env, ip: string, ctx: Ctx, cache: SimpleCache): Promise<Response> {
   const method = request.method;
   const [, section, cfgId, action] = parts; // ['api', section, …]
@@ -244,6 +260,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       await env.BUCKET.delete(`health/${cfgId}.json`);
+      await env.BUCKET.delete(`healthreq/${cfgId}.json`);
       await env.BUCKET.delete(`remind/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
       return json({ ok: true });
@@ -263,12 +280,27 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (action === 'refresh' && method === 'POST') {
       return json({ started: await dispatchRefresh(env, cache), autoRefresh: !!env.GITHUB_TOKEN });
     }
+    if (action === 'health' && parts[4] === 'run' && method === 'POST') {
+      // Probar los canales a mano (corre en GitHub, tarda unos minutos): una vez por día, igual que la corrida de la madrugada.
+      const { checked, requested } = await healthTimes(env.BUCKET, cfgId);
+      const last = Math.max(checked ?? 0, requested ?? 0);
+      const nowMs = Date.now();
+      if (nowMs - last < HEALTH_EVERY_MS) {
+        return json({ started: false, reason: 'recent', last: new Date(last).toISOString(), nextAt: new Date(last + HEALTH_EVERY_MS).toISOString() });
+      }
+      if (!(await dispatchWorkflow(env, 'check-streams.yml'))) return json({ started: false, reason: env.GITHUB_TOKEN ? 'github' : 'no-token' });
+      await env.BUCKET.put(`healthreq/${cfgId}.json`, JSON.stringify({ at: new Date(nowMs).toISOString() }), { httpMetadata: { contentType: 'application/json' } });
+      return json({ started: true, requested: new Date(nowMs).toISOString() });
+    }
     if (action === 'health' && method === 'GET') {
       // Canales caídos: lo deja la corrida diaria de GitHub (tools/check_streams.py). Sin corrida todavía, vacío.
       const saved = await env.BUCKET.get(`health/${cfgId}.json`);
-      return saved
-        ? new Response(saved.body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } })
-        : json({ channels: {} }, 200, { 'Cache-Control': 'no-store' });
+      let data: Record<string, unknown> = { channels: {} };
+      try {
+        if (saved) data = JSON.parse(await saved.text()) as Record<string, unknown>;
+      } catch { /* archivo ilegible: como si no hubiera */ }
+      const { requested } = await healthTimes(env.BUCKET, cfgId);
+      return json({ ...data, ...(requested ? { requested: new Date(requested).toISOString() } : {}) }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'list' && method === 'GET') {
       const saved = await env.BUCKET.get(r2ListKey(cfgId));
