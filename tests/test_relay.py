@@ -1,0 +1,102 @@
+import json
+import os
+import sys
+import threading
+import urllib.request
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'relay'))
+
+import pytest  # noqa: E402
+
+import server  # noqa: E402
+
+PUBLIC = lambda host, _p: [(2, 1, 6, '', ('93.184.216.34', 0))]  # noqa: E731
+
+
+def creds(**extra):
+    return {'servers': ['http://prov.example:8080'], 'username': 'user', 'password': 'secreta', **extra}
+
+
+def test_hosts_privados_o_locales_no_se_permiten():
+    for ip in ('127.0.0.1', '10.0.0.5', '192.168.1.1', '169.254.169.254', '::1', '0.0.0.0'):
+        resolve = lambda h, p, ip=ip: [(2, 1, 6, '', (ip, 0))]  # noqa: E731
+        assert server.is_public_host('x', resolve) is False
+    assert server.is_public_host('x', PUBLIC) is True
+    assert server.is_public_host('x', lambda h, p: (_ for _ in ()).throw(OSError())) is False
+
+
+def test_validacion_de_servidores_y_credenciales():
+    assert server.clean_credentials(creds(), PUBLIC) == (['http://prov.example:8080'], 'user', 'secreta')
+    bad = [
+        creds(servers=[]), creds(servers=['ftp://x.example']), creds(servers=['http://u:p@x.example']),
+        creds(servers=['http://x.example/?username=a']), creds(username=''), creds(password=None),
+    ]
+    for body in bad:
+        with pytest.raises(server.BadRequest):
+            server.clean_credentials(body, PUBLIC)
+    with pytest.raises(server.BadRequest):
+        server.clean_credentials(creds(), lambda h, p: [(2, 1, 6, '', ('10.0.0.1', 0))])
+
+
+def test_autorizacion_por_secret():
+    assert server.authorized('Bearer abc', 'abc') is True
+    assert server.authorized('Bearer abd', 'abc') is False
+    assert server.authorized('', 'abc') is False
+    assert server.authorized('Bearer ', '') is False
+
+
+def test_el_secret_tiene_que_ser_largo():
+    with pytest.raises(SystemExit):
+        server.make_server('corto')
+
+
+def test_probe_prueba_en_orden_y_corta_si_la_cuenta_rechaza():
+    seen = []
+
+    def prober(url):
+        seen.append(url)
+        return 'down' if url.endswith('/2.ts') else 'up'
+
+    out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': '1', 'ext': 'ts'}, {'id': '2', 'ext': 'ts'}],
+                          pick=lambda *a: ('http://s1', {'status': 'Active'}), prober=prober)
+    assert out == {'server': 'http://s1', 'account': {'status': 'Active'}, 'results': {'1': 'up', '2': 'down'}, 'aborted': False}
+    out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': str(i), 'ext': 'ts'} for i in range(10)],
+                          pick=lambda *a: ('http://s1', None), prober=lambda u: 'rejected')
+    assert out['aborted'] is True and out['results'] == {}
+    for bad in ([], [{'id': ''}], [{'id': '1', 'ext': '../x'}], [{'id': str(i)} for i in range(server.MAX_PROBE_CHANNELS + 1)]):
+        with pytest.raises(server.BadRequest):
+            server.do_probe(['http://s1'], 'u', 'p', bad, pick=lambda *a: ('http://s1', None))
+
+
+def test_probe_respeta_el_tope_de_tiempo():
+    ticks = iter(range(0, 1000, 20))
+    out = server.do_probe(['http://s1'], 'u', 'p', [{'id': str(i), 'ext': 'ts'} for i in range(10)],
+                          pick=lambda *a: ('http://s1', None), prober=lambda u: 'up', clock=lambda: next(ticks), budget_s=45)
+    assert 0 < len(out['results']) < 10
+
+
+def test_http_de_punta_a_punta(monkeypatch):
+    monkeypatch.setattr(server, 'do_list', lambda s, u, p: {'server': s[0], 'channels': [{'name': 'A', 'id': '1'}]})
+    srv = server.make_server('s' * 40, host='127.0.0.1', port=0)
+    srv.RequestHandlerClass.resolve = staticmethod(PUBLIC)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{srv.server_address[1]}'
+
+    def post(path, body, token='s' * 40):
+        req = urllib.request.Request(base + path, data=json.dumps(body).encode(), method='POST',
+                                     headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    try:
+        assert json.loads(urllib.request.urlopen(base + '/health').read()) == {'ok': True}
+        assert post('/v1/list', creds())[0] == 200
+        assert post('/v1/list', creds())[1]['channels'][0]['id'] == '1'
+        assert post('/v1/list', creds(), token='mal')[0] == 401
+        assert post('/v1/otro', creds())[0] == 404
+        assert post('/v1/list', creds(servers=['http://u:p@x.example']))[0] == 400
+    finally:
+        srv.shutdown()

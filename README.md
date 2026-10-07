@@ -283,6 +283,21 @@ override correspondiente.
   nuevas. Sin `category_order`, toda la sección se ordena alfabéticamente. El formato viejo
   (una lista, donde la posición es el orden) también se sigue aceptando.
 
+## Relay: sin secrets por persona en GitHub (`relay/`)
+
+El proveedor bloquea las IPs de Cloudflare, así que el Worker no puede pedirle la lista. Hasta ahora lo hacía una
+corrida de GitHub con las credenciales en el secret `XTREAM_PROFILES` (una cuenta por persona: no escala). El
+**relay** (`relay/`, ver `relay/README.md`) es un servicio chico que corre en un servidor con IP no bloqueada: el Worker,
+que ya tiene las credenciales de cada persona cifradas en sus links, se las manda en cada pedido y el relay las usa y
+las descarta. Con `RELAY_URL` y `RELAY_SECRET` cargados en el Worker:
+
+- al dar de alta una configuración con un proveedor que bloquea al Worker, la lista la baja el relay;
+- cuando alguien pide la playlist y la lista guardada tiene más de 10 minutos, se renueva por el relay (sin gastar minutos de Actions);
+- al cambiar los servidores o los datos de la cuenta, la lista se baja de nuevo enseguida.
+
+Sin esas variables todo sigue como antes (corrida de GitHub). La prueba de canales caídos y el vencimiento de cada
+cuenta todavía salen de GitHub; pasan al relay en el siguiente paso (`planes/relay.md`).
+
 ## Varias personas con el mismo proveedor
 
 Un único secret **`XTREAM_PROFILES`** con un JSON. Agregar a alguien es editar ese secret; el
