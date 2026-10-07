@@ -2214,7 +2214,8 @@ function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) =>
 const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; playlistUrl: string; epgUrl: string }
+interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -2242,15 +2243,16 @@ async function renderLinks(result?: LinkResult) {
   const needsCreds = !state.creds;
   body.innerHTML = `
     <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (su playlist muestra un aviso y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
-      Todos muestran lo mismo (tu configuración). Los links llevan tus datos del proveedor cifrados:
+      Cada uno puede tener su propio perfil —qué categorías y canales ve—; sin perfil muestra todo lo de tu configuración. Los links llevan tus datos del proveedor cifrados:
       el servidor no los guarda en claro.</p>
     ${devices.length ? `<div class="device-list">${devices.map((d) => `
       <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
         <div class="device-top">
-          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}</small></div>
+          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
           <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
         </div>
         <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
+        <button class="icon-btn" data-dev="profile" aria-label="Perfil de ${esc(d.name)}: qué categorías y canales ve">${icon('list-filter')}</button>
         <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
         <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
       </div>`).join('')}</div>` : '<p class="help">Todavía no tenés dispositivos.</p>'}
@@ -2293,6 +2295,8 @@ async function renderLinks(result?: LinkResult) {
     const dev = devices.find((d) => d.code === row.dataset.code)!;
     if (btn.dataset.dev === 'show') {
       renderLinkResult(dev);
+    } else if (btn.dataset.dev === 'profile') {
+      renderDeviceProfile(dev);
     } else if (btn.dataset.dev === 'rename') {
       const name = await promptDialog({ title: 'Nombre del dispositivo', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
       if (name === null || !name.trim()) return;
@@ -2356,6 +2360,89 @@ async function renderLinks(result?: LinkResult) {
       toast((e as Error).message, 'bad', 6000);
     }
   };
+}
+
+const filterSummary = (f?: DeviceFilter) => {
+  if (!f) return 've todo';
+  const n = f.groups.length, c = f.channels.length;
+  const parts = [n ? `${n} ${n === 1 ? 'categoría' : 'categorías'}` : '', c ? `${c} ${c === 1 ? 'canal' : 'canales'}` : ''].filter(Boolean).join(' y ');
+  return f.only ? `solo ${parts}` : `sin ${parts}`;
+};
+
+/** Perfil de un dispositivo: elegir qué categorías y canales ve su playlist. La dirección no cambia. */
+function renderDeviceProfile(dev: Device) {
+  const body = $('#linksBody');
+  $('#linksBack').hidden = false;
+  body.onclick = null;
+  body.onchange = null;
+  const hiddenG = new Set(state.cfg!.groups.hidden ?? []);
+  const cats = groups().filter((g) => !hiddenG.has(g));
+  const count = new Map<string, number>();
+  for (const ch of state.channels) {
+    if (state.cfg!.channels[ch.name]?.hidden) continue;
+    count.set(groupOf(ch), (count.get(groupOf(ch)) ?? 0) + 1);
+  }
+  const pickG = new Set(dev.filter?.groups ?? []);
+  const pickC = new Set(dev.filter?.channels ?? []);
+  let only = dev.filter?.only === true;
+  const draw = () => {
+    const q = body.querySelector<HTMLInputElement>('#pfQ')?.value ?? '';
+    const qn = q.trim().toLowerCase();
+    const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(groupOf(ch))
+      && !pickG.has(groupOf(ch)) && (state.cfg!.channels[ch.name]?.name || ch.name).toLowerCase().includes(qn)).slice(0, 30) : [];
+    const catsShown = cats.filter((g) => !qn || groupLabel(g).toLowerCase().includes(qn));
+    body.querySelector('#pfList')!.innerHTML = `
+      ${catsShown.map((g) => `<label class="pf-row"><input type="checkbox" data-g="${esc(g)}"${pickG.has(g) ? ' checked' : ''}><span>${esc(groupLabel(g))}</span><small>${count.get(g) ?? 0}</small></label>`).join('')}
+      ${qn ? `<h4 class="sub-title">Canales</h4>${chans.length ? chans.map((ch) => `<label class="pf-row"><input type="checkbox" data-c="${esc(ch.name)}"${pickC.has(ch.name) ? ' checked' : ''}><span>${esc(state.cfg!.channels[ch.name]?.name || ch.name)}</span><small>${esc(groupLabel(groupOf(ch)))}</small></label>`).join('') : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
+    const sum = body.querySelector('#pfSum')!;
+    sum.textContent = pickG.size || pickC.size ? filterSummary({ only, groups: [...pickG], channels: [...pickC] }) : 'Ve todo (sin perfil)';
+  };
+  body.innerHTML = `
+    <h3 class="sub-title">Perfil de ${esc(dev.name)}</h3>
+    <p class="help">Elegí qué ve este dispositivo. El link no cambia: la lista se actualiza sola la próxima vez que el reproductor la baje.</p>
+    <div class="seg" role="radiogroup" aria-label="Modo del perfil">
+      <label><input type="radio" name="pfMode" value="hide"${only ? '' : ' checked'}> Ocultar lo marcado</label>
+      <label><input type="radio" name="pfMode" value="only"${only ? ' checked' : ''}> Mostrar solo lo marcado</label>
+    </div>
+    <input class="input" id="pfQ" type="search" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal">
+    <div class="pf-list" id="pfList"></div>
+    <p class="help" id="pfSum"></p>
+    <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar perfil</button>
+      <button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar perfil (ver todo)</button></div>`;
+  draw();
+  body.oninput = (ev) => { if ((ev.target as HTMLElement).id === 'pfQ') draw(); };
+  body.onchange = (ev) => {
+    const t = ev.target as HTMLInputElement;
+    if (t.name === 'pfMode') only = t.value === 'only';
+    else if (t.dataset.g !== undefined) t.checked ? pickG.add(t.dataset.g) : pickG.delete(t.dataset.g);
+    else if (t.dataset.c !== undefined) t.checked ? pickC.add(t.dataset.c) : pickC.delete(t.dataset.c);
+    else return;
+    // Un canal suelto de una categoría ya marcada sobra.
+    for (const n of [...pickC]) {
+      const ch = state.channels.find((x) => x.name === n);
+      if (ch && pickG.has(groupOf(ch))) pickC.delete(n);
+    }
+    if (t.dataset.g !== undefined) draw();
+    else body.querySelector('#pfSum')!.textContent = filterSummary({ only, groups: [...pickG], channels: [...pickC] });
+  };
+  const save = async (filter: DeviceFilter | null, msg: string) => {
+    try {
+      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { filter } });
+      toast(msg, 'ok');
+      renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+  $('#pfSave').onclick = () => {
+    if (only && !pickG.size && !pickC.size) {
+      toast('Marcá al menos una categoría o un canal para «Mostrar solo lo marcado»', 'bad');
+      return;
+    }
+    if (!pickG.size && !pickC.size) return void save(null, 'Sin perfil: ve todo');
+    return void save({ only, groups: [...pickG], channels: [...pickC] }, `Perfil guardado: ${filterSummary({ only, groups: [...pickG], channels: [...pickC] })}`);
+  };
+  $('#pfClear').onclick = () => void save(null, 'Sin perfil: ve todo');
 }
 
 function renderLinkResult(result: LinkResult) {

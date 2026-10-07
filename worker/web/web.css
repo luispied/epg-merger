@@ -916,3 +916,11 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .gc-chip.warn { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
 .gc-top .gc-chip { align-self: flex-start; }
 .gc-now { margin: 12px 0 0; }
+
+/* Perfil de un dispositivo (Links) */
+.seg { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; }
+.seg label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.pf-list { display: flex; flex-direction: column; margin: 8px 0; max-height: 46vh; overflow-y: auto; }
+.pf-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 4px; }
+.pf-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-row small { opacity: .7; }

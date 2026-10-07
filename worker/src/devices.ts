@@ -3,6 +3,7 @@
 // fecha y el último uso van en el registro del link. Desactivar un dispositivo corta su link sin
 // borrarlo (se reactiva cuando se quiera); quitarlo lo borra. En los dos casos los demás siguen igual.
 import type { R2Bucket } from './env.ts';
+import { parseFilter, type DeviceFilter } from './playlist.ts';
 
 export interface ShortRecord {
   cfgId: string;
@@ -12,6 +13,8 @@ export interface ShortRecord {
   lastUsed?: string;
   /** false = desactivado: el link no responde, pero se puede volver a activar. Sin dato = activo. */
   active?: boolean;
+  /** Perfil del dispositivo: qué categorías y canales ve (sin dato = todo). */
+  filter?: DeviceFilter;
 }
 export interface Device {
   code: string;
@@ -19,6 +22,7 @@ export interface Device {
   created?: string;
   lastUsed?: string;
   active: boolean;
+  filter?: DeviceFilter;
 }
 
 export const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
@@ -52,10 +56,11 @@ export async function readShort(bucket: R2Bucket, code: string): Promise<ShortRe
 }
 
 /** Crea el link corto de un dispositivo nuevo. Devuelve null si ya hay demasiados. */
-export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date()): Promise<boolean> {
+export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown): Promise<boolean> {
   const codes = await codesOf(bucket, cfgId);
   if (codes.length >= MAX_DEVICES) return false;
-  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString() };
+  const f = parseFilter(filter);
+  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}) };
   await bucket.put(shortKey(code), JSON.stringify(rec), JSON_TYPE);
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: [...codes, code] }), JSON_TYPE);
   return true;
@@ -65,18 +70,23 @@ export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Devi
   const out: Device[] = [];
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false });
+    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}) });
   }
   return out;
 }
 
 /** Cambia el nombre y/o activa o desactiva el link de un dispositivo. */
-export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string, change: { name?: unknown; active?: unknown }): Promise<boolean> {
+export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string, change: { name?: unknown; active?: unknown; filter?: unknown }): Promise<boolean> {
   const rec = await readShort(bucket, code);
   if (!rec || rec.cfgId !== cfgId) return false;
   const next: ShortRecord = { ...rec };
   if (change.name !== undefined) next.name = cleanName(change.name);
   if (typeof change.active === 'boolean') next.active = change.active ? undefined : false;
+  if ('filter' in change) {
+    const f = parseFilter(change.filter);
+    if (f) next.filter = f;
+    else delete next.filter;
+  }
   await bucket.put(shortKey(code), JSON.stringify(next), JSON_TYPE);
   return true;
 }
