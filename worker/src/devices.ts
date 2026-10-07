@@ -17,6 +17,8 @@ export interface ShortRecord {
   filter?: DeviceFilter;
   /** Cuenta del proveedor con la que reproduce (por ejemplo, la de un familiar). Sin dato = la cuenta principal. */
   account?: string;
+  /** Huella de la cuenta del proveedor (ver link.ts → accountKey): para mostrar su vencimiento. */
+  key?: string;
 }
 export interface Device {
   code: string;
@@ -26,6 +28,7 @@ export interface Device {
   active: boolean;
   filter?: DeviceFilter;
   account?: string;
+  accountKey?: string;
 }
 
 export const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
@@ -62,12 +65,12 @@ export async function readShort(bucket: R2Bucket, code: string): Promise<ShortRe
 }
 
 /** Crea el link corto de un dispositivo nuevo. Devuelve null si ya hay demasiados. */
-export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown): Promise<boolean> {
+export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown, key?: string): Promise<boolean> {
   const codes = await codesOf(bucket, cfgId);
   if (codes.length >= MAX_DEVICES) return false;
   const f = parseFilter(filter);
   const acc = cleanAccount(account);
-  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}), ...(acc ? { account: acc } : {}) };
+  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}), ...(acc ? { account: acc } : {}), ...(key ? { key } : {}) };
   await bucket.put(shortKey(code), JSON.stringify(rec), JSON_TYPE);
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: [...codes, code] }), JSON_TYPE);
   return true;
@@ -77,7 +80,7 @@ export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Devi
   const out: Device[] = [];
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}) });
+    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}), ...(rec.key ? { accountKey: rec.key } : {}) });
   }
   return out;
 }
@@ -99,22 +102,22 @@ export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string
 }
 
 /** El token (credenciales cifradas) de otro dispositivo de la misma cuenta, para dar de alta uno nuevo sin pedirlas de nuevo. */
-export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account: string): Promise<string | null> {
+export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account: string): Promise<{ token: string; key?: string } | null> {
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId && rec.account === account) return rec.token;
+    if (rec && rec.cfgId === cfgId && rec.account === account) return { token: rec.token, key: rec.key };
   }
   return null;
 }
 
 /** Cambia las credenciales de los links de una cuenta (sin `account`: la principal) sin tocar sus
  *  códigos: las URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
-export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string, account?: string): Promise<number> {
+export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string, account?: string, key?: string): Promise<number> {
   let n = 0;
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
     if (!rec || rec.cfgId !== cfgId || rec.account !== account) continue;
-    await bucket.put(shortKey(code), JSON.stringify({ ...rec, token }), JSON_TYPE);
+    await bucket.put(shortKey(code), JSON.stringify({ ...rec, token, ...(key ? { key } : {}) }), JSON_TYPE);
     n++;
   }
   return n;

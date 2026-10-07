@@ -927,7 +927,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .pf-row.pf-head { background: var(--surface-2); }
 #pfSum { margin-top: 12px; }
 .pf-row.is-off .menu-text { opacity: .55; }
-#accountRow.warn .menu-text small { color: var(--orange, #ffb020); opacity: 1; font-weight: 600; }
+#accountRows .acc-row.warn .menu-text small { color: var(--orange, #ffb020); opacity: 1; font-weight: 600; }
 
 /* Recordatorios de programas («Avisarme») */
 .day-item summary { align-items: center; }

@@ -27,3 +27,18 @@ export async function linkConfig(bucket: R2Bucket, hash: string, cfgId: string):
     httpMetadata: { contentType: 'application/json' },
   });
 }
+
+/** Huella corta de una cuenta: identifica sus datos (vencimiento, conexiones) en health/<cfgId>.json (la misma que arma tools/check_streams.py). */
+export const ACCOUNT_KEY_LEN = 12;
+export const accountKey = async (username: string, password: string) => (await linkHash(username, password)).slice(0, ACCOUNT_KEY_LEN);
+
+/** ¿La configuración ya está anotada para esa cuenta? */
+export async function isLinked(bucket: R2Bucket, hash: string, cfgId: string): Promise<boolean> {
+  const current = await bucket.get(`links/${hash}.json`);
+  if (!current) return false;
+  try {
+    return ((JSON.parse(await current.text()) as { cfgIds?: string[] }).cfgIds ?? []).includes(cfgId);
+  } catch {
+    return false;
+  }
+}

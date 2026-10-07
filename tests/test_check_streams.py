@@ -151,3 +151,31 @@ def test_una_sola_prueba_por_dia_aunque_se_lance_a_mano():
     assert check_streams.run(r2, [profile], prober, NOW + datetime.timedelta(hours=21), server_for=server) == {'luis': (1, 0)}
     assert len(calls) == 2
     assert check_streams.recent({}, NOW) is False and check_streams.recent({'checked': 'basura'}, NOW) is False
+
+
+def test_cada_cuenta_publica_su_vencimiento_y_la_principal_queda_en_account():
+    mine = {'name': 'luis', 'servers': ['http://s1'], 'username': 'user', 'password': 'secreta'}
+    mama = {'name': 'mama', 'servers': ['http://s1'], 'username': 'mama', 'password': 'otra'}
+    r2 = FakeR2()
+    r2.put('cfg/a.json', b'{}')
+    for p in (mine, mama):
+        r2.put(f"links/{push_lists.link_hash(p['username'], p['password'])}.json", json.dumps({'cfgIds': ['a']}).encode())
+    r2.put('list/a.json', json.dumps({'channels': [ch(1), ch(2)]}).encode())
+    info = {
+        'user': {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 1},
+        'mama': {'status': 'Active', 'expires': '2027-01-10T00:00:00+00:00', 'trial': False, 'maxConnections': 2},
+    }
+    seen = []
+
+    def prober(url):
+        seen.append(url)
+        return 'up'
+
+    done = check_streams.run(r2, [mine, mama], prober, NOW, server_for=lambda servers, u, p: ('http://s1', info[u]))
+    assert list(done) == ['luis']  # la segunda cuenta no vuelve a probar los canales: una sola prueba por día
+    assert all('/live/user/' in u for u in seen)
+    data = json.loads(r2.data['health/a.json'][0])
+    assert data['account'] == info['user']
+    keys = {u: push_lists.link_hash(u, p)[:check_streams.ACCOUNT_KEY_LEN] for u, p in (('user', 'secreta'), ('mama', 'otra'))}
+    assert data['accounts'] == {keys['user']: info['user'], keys['mama']: info['mama']}
+    assert 'secreta' not in json.dumps(data) and 'otra' not in json.dumps(data)

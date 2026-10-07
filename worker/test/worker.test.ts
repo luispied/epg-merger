@@ -8,6 +8,7 @@ import { dispatchWorkflow } from '../src/github.ts';
 import { MAX_PER_DAY, refreshOnDemand, STALE_AFTER_MS } from '../src/refresh.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
+import { linkHash } from '../src/link.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, MemoryCache, mockXtream, STREAMS } from './helpers.ts';
@@ -717,6 +718,12 @@ test('cuentas: un dispositivo puede usar otra cuenta del proveedor, se reutiliza
   assert.equal(((await res2.json()) as { updated: number }).updated, 2); // el de setup() y el de 'TV'
   const list = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { name: string; account?: string }[] };
   assert.deepEqual(list.devices.filter((d) => d.account).map((d) => d.name).sort(), ['Celu', 'Tablet']);
+  // Cada dispositivo lleva la huella de su cuenta (la que GitHub usa para publicar su vencimiento); la de reutilizar se hereda.
+  const keys = (await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { name: string; accountKey?: string }[] }).devices;
+  const keyOf = (n: string) => keys.find((d) => d.name === n)?.accountKey;
+  assert.equal(keyOf('Tablet'), (await linkHash('mama2', 'c')).slice(0, 12));
+  assert.equal(keyOf('Celu'), keyOf('Tablet'));
+  assert.equal(keyOf('TV'), (await linkHash('yo2', 'd')).slice(0, 12));
 });
 
 test('perfiles: cada link filtra por categoría y por canal, y se cambia sin cambiar la dirección', async () => {
