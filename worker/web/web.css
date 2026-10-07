@@ -937,3 +937,8 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Aviso con botón para cerrarlo */
 .toast .toast-close { flex: none; width: 36px; height: 36px; margin: 0 0 0 -4px; color: var(--inverse-text); opacity: .8; background: transparent; }
 .toast .toast-close:hover { opacity: 1; background: color-mix(in srgb, var(--inverse-text) 12%, transparent); }
+
+/* Canales caídos: fila con el botón «Probar ahora» al costado */
+#downRow { cursor: pointer; }
+#downRow .btn { flex: none; }
+#runCheckBtn.is-wait { opacity: .65; }
