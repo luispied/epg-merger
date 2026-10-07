@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.6.2
+
+- El perfil de un dispositivo toma el mismo diseño que Configuración y Categorías: secciones con título, filas en tarjeta con
+  interruptores, buscador y botones iguales a los de Categorías, y el modo como selector «Se oculta / Se muestra solo».
+
 ## 1.6.1
 
 - Perfil de un dispositivo: se arregla el diseño del selector de modo (se veía recortado) y se agregan «Elegir todo» y
