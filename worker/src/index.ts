@@ -20,7 +20,7 @@
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
-import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, saveConfig,
+import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config } from './config.ts';
 import { addDevice, listDevices, rekeyDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
@@ -375,6 +375,16 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (code && SHORT_RE.test(code) && method === 'DELETE') {
         return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
       }
+    }
+    if (action === 'servers' && method === 'PUT') {
+      // Cambió la dirección del servicio de IPTV (o falló): los links no cambian; los streams y la lista pasan a usar la nueva.
+      if (stored.config.provider.type !== 'xtream') return fail(400, 'esta configuración usa una lista M3U: la dirección se cambia en «¿Cambiaron tus datos del proveedor?»');
+      const body = await readJson(request, 4 * 1024) as { servers?: unknown };
+      const servers = parseServers(typeof body.servers === 'string' ? body.servers.split(/[\s,]+/) : body.servers);
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, provider: { ...stored.config.provider, servers } }, stored.keyHash);
+      // La lista que baja GitHub se vuelve a bajar enseguida, con los servidores nuevos.
+      ctx.waitUntil(dispatchRefresh(env, cache, { fresh_minutes: '5' }));
+      return json({ ok: true, servers });
     }
     if (action === 'credentials' && method === 'PUT') {
       // Cambió el usuario, la contraseña o la URL de la lista: los links ya creados siguen con

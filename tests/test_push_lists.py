@@ -99,3 +99,32 @@ def test_con_el_umbral_corto_se_baja_una_lista_de_hace_15_minutos_y_con_el_norma
     assert not loaded
     assert push_lists.sync(fresh_r2(), [PROFILE], load, NOW, every=push_lists.refresh_every({'REFRESH_MINUTES': '10'})) == {'luis': 1}
     assert loaded
+
+
+def test_los_servidores_los_toma_de_la_configuracion_y_si_no_del_secret():
+    r2 = FakeR2()
+    fallback = ['http://viejo']
+    # Sin configuración o con una sin servidores: los del secret.
+    assert push_lists.servers_from_config(r2, ['abc'], fallback) == fallback
+    r2.put('cfg/abc.json', b'{"provider": {"type": "xtream"}}')
+    assert push_lists.servers_from_config(r2, ['abc'], fallback) == fallback
+    r2.put('cfg/abc.json', b'no es json')
+    assert push_lists.servers_from_config(r2, ['abc'], fallback) == fallback
+    # Con servidores: los de la configuración (los que la persona cambió en la web), sin barra final.
+    r2.put('cfg/abc.json', json.dumps({'provider': {'type': 'xtream', 'servers': ['http://nuevo/', 'https://respaldo']}}).encode())
+    assert push_lists.servers_from_config(r2, ['otra', 'abc'], fallback) == ['http://nuevo', 'https://respaldo']
+
+
+def test_la_lista_se_baja_del_servidor_que_figura_en_la_configuracion():
+    h = push_lists.link_hash('user', 'secreta')
+    r2 = FakeR2()
+    r2.put('cfg/abc.json', json.dumps({'provider': {'type': 'xtream', 'servers': ['http://nuevo']}}).encode())
+    r2.put(f'links/{h}.json', json.dumps({'cfgIds': ['abc'], 'pending': True}).encode())
+    seen = []
+
+    def load(profile):
+        seen.append(profile['servers'])
+        return []
+
+    push_lists.sync(r2, [PROFILE], load, NOW)
+    assert seen == [['http://nuevo']]

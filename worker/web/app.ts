@@ -2454,6 +2454,14 @@ async function renderLinks(result?: LinkResult) {
         <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
         <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
       </div>`).join('')}</div>` : '<p class="help">Todavía no tenés dispositivos.</p>'}
+    ${p.type === 'xtream' ? `<details class="creds-change" id="serversDetails">
+      <summary>¿Cambió la dirección del servicio de IPTV?</summary>
+      <p class="help">Es la dirección (URL) del servidor de tu proveedor. Una por línea: la primera es la principal y las demás, de respaldo. Los links de tus dispositivos <b>no cambian</b>: se actualizan solos la próxima vez que el reproductor pida la lista.</p>
+      <form class="stack" id="serversForm" autocomplete="off">
+        <label class="field"><span>Servidores</span><textarea class="input mono" id="chgServers" rows="3" spellcheck="false" autocapitalize="off" placeholder="http://servidor.ejemplo:8080" required>${esc(p.servers.join('\n'))}</textarea></label>
+        <div class="form-actions"><button type="submit" class="btn btn-tonal btn-block">Guardar servidores</button></div>
+      </form>
+    </details>` : ''}
     ${devices.length ? `<details class="creds-change">
       <summary>¿Cambiaron tus datos del proveedor?</summary>
       <p class="help">Los links de todos tus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
@@ -2515,6 +2523,23 @@ async function renderLinks(result?: LinkResult) {
       } catch (e) {
         toast((e as Error).message, 'bad', 6000);
       }
+    }
+  };
+  const serversForm = document.querySelector<HTMLFormElement>('#serversForm');
+  if (serversForm && p.type === 'xtream') serversForm.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const servers = $<HTMLTextAreaElement>('#chgServers').value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+    if (!servers.length) {
+      toast('Poné al menos una dirección', 'bad');
+      return;
+    }
+    try {
+      const r = await api<{ servers: string[] }>(`/api/cfg/${state.local!.cfgId}/servers`, { method: 'PUT', body: { servers } });
+      p.servers = r.servers;
+      toast('Listo: el servicio quedó con la dirección nueva y los links siguen iguales', 'ok', 6000);
+      renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
     }
   };
   const credsForm = document.querySelector<HTMLFormElement>('#credsForm');
