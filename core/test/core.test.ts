@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   ChannelDb, EpgIndex, MatchingRules, MIN_SCORE, calibratedScore, flagToCountryCode, matchStream,
-  parseChannelName, pickDisplayName, stripDisplayPrefix, tvgIdCountry, type GuideChannel, type SourceInfo,
+  parseChannelName, pickDisplayName, stripDisplayPrefix, tvgIdCountry, variantKey, type GuideChannel, type SourceInfo,
 } from '../src/index.ts';
 
 const rules = new MatchingRules(JSON.parse(readFileSync(new URL('../../matching_rules.json', import.meta.url), 'utf-8')));
@@ -80,4 +80,15 @@ test('matchStream: override, umbral, palabras pegadas e id de la lista', () => {
   assert.equal(matchStream('Canal 13', null, idx, {}, {}, 'ar').channelId, null);
   const alias = matchStream('Canal 13', null, idx, {}, {}, 'ar', { channelDb: db });
   assert.deepEqual([alias.channelId, alias.reason], ['Canal13.ar', 'alias']);
+});
+
+test('variantes: la calidad no cambia la clave; el país, la región y el idioma sí', () => {
+  const k = (n: string) => variantKey(n, rules);
+  assert.equal(k('AR| Telefe HD'), k('AR| Telefe FHD'));
+  assert.equal(k('AR| Telefe HD'), k('AR| Telefe 4K'));
+  assert.notEqual(k('AR| Telefe HD'), k('UY| Telefe HD'));
+  assert.notEqual(k('TBS East HD'), k('TBS West HD'));
+  assert.notEqual(k('TBS -EN'), k('TBS'));
+  assert.notEqual(k('ESPN 2 HD'), k('ESPN HD'));
+  assert.equal(variantKey('', rules), null);
 });

@@ -3,7 +3,7 @@
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
 import {
-  EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, type Candidate, type GuideChannel,
+  EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
 import { parseEvent } from '../src/events.ts';
@@ -1084,6 +1084,22 @@ function pickEpg(e: ChannelEdit, id: string) {
   if (logo) e.logo = logo;
   else delete e.logo;
 }
+/** Variantes del mismo canal (SD, HD, FHD, 4K…) que todavía esperan guía: se resuelven con la misma elección,
+ *  así corregir una vez alcanza. Solo las que tienen una guía dudosa o ninguna; nunca las que ya elegiste vos. */
+function pendingVariants(ch: Channel): Channel[] {
+  const key = variantKey(ch.name, state.rules!);
+  if (!key) return [];
+  return state.channels.filter((o) => {
+    if (o === ch || o.name === ch.name || variantKey(o.name, state.rules!) !== key) return false;
+    const i = info(o);
+    return !i.divider && !i.hidden && !i.noGuide && (i.band === 'warn' || i.band === 'none');
+  });
+}
+/** Elige una guía para un canal y la repite en sus variantes pendientes, con un solo «Deshacer». */
+function chooseEpg(ch: Channel, id: string, msg: string) {
+  const sibs = pendingVariants(ch);
+  editChannels([ch, ...sibs], (e) => pickEpg(e, id), sibs.length ? `${msg} · también en ${plural(sibs.length, 'variante', 'variantes')}` : msg);
+}
 function autoEpg(e: ChannelEdit, ch: Channel) {
   const a = state.auto.get(ch.name);
   delete e.manual;
@@ -1369,14 +1385,14 @@ function openChannel(i: number) {
     if (rv) {
       if (rv === 'ok') {
         const target = epg ?? suggestion?.channelId;
-        if (target) update((e) => pickEpg(e, target), epg ? 'Guía confirmada' : 'Sugerencia aplicada');
+        if (target) chooseEpg(ch, target, epg ? 'Guía confirmada' : 'Sugerencia aplicada');
       }
       afterReview();
       return;
     }
     const picked = epgClick(ev);
     if (picked) {
-      update((e) => pickEpg(e, picked), 'Guía elegida');
+      chooseEpg(ch, picked, 'Guía elegida');
       if (sheetReview) afterReview();
       else again();
       return;
@@ -3110,7 +3126,7 @@ function setupEditor() {
     const use = t.closest<HTMLElement>('[data-use]');
     if (use) {
       const cid = info(state.channels[i]).suggestion?.channelId;
-      if (cid) editChannels([state.channels[i]], (e) => pickEpg(e, cid), 'Sugerencia aplicada');
+      if (cid) chooseEpg(state.channels[i], cid, 'Sugerencia aplicada');
       return;
     }
     openChannel(i);

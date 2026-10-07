@@ -138,6 +138,14 @@ export function parseChannelName(raw: string | null | undefined, r: MatchingRule
   return { core, country, language, region, quality, raw };
 }
 
+/** Clave para reconocer variantes del mismo canal (SD, HD, FHD, 4K…): mismas palabras, país, región e
+ *  idioma; la calidad no cuenta. Null si el nombre no deja palabras para comparar. */
+export function variantKey(raw: string | null | undefined, r: MatchingRules): string | null {
+  const p = parseChannelName(raw, r);
+  if (!p.core.length) return null;
+  return [p.core.join(' '), p.country ?? '', p.region ?? '', p.language ?? ''].join('|');
+}
+
 /** Saca el prefijo del proveedor del nombre visible. Devuelve [nombre, país del prefijo]. */
 export function stripDisplayPrefix(name: string, r: MatchingRules): [string, string | null] {
   if (!name) return [name, null];
