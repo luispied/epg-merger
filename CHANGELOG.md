@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.11.0
+
+- **Guía dentro de Grilla**: pestaña nueva «Guía» en la barra de abajo. Lista tus canales con guía asignada (los que ves, en el
+  orden de tus categorías) y de cada uno muestra lo que da ahora, hasta qué hora, y lo que sigue. Se filtra por categoría y se
+  busca por canal o por programa; tocar un canal abre su hoja para cambiarle la guía.
+
 ## 1.10.0
 
 - **Vencimiento de tu suscripción**: la corrida diaria lee del proveedor cuándo vence y cuántas conexiones permite (solo esos
