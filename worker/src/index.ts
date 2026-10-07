@@ -31,6 +31,7 @@ import { accountKey, isLinked, knownToGithub, linkConfig, linkHash } from './lin
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshOnDemand, refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
+import { checkAllHealth } from './streamcheck.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -332,7 +333,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (nowMs - last < HEALTH_EVERY_MS) {
         return json({ started: false, reason: 'recent', last: new Date(last).toISOString(), nextAt: new Date(last + HEALTH_EVERY_MS).toISOString() });
       }
-      if (!(await dispatchWorkflow(env, 'check-streams.yml'))) return json({ started: false, reason: env.GITHUB_TOKEN ? 'github' : 'no-token' });
+      // Con relay, la prueba la hace el cron del Worker (healthreq/ es el pedido); sin relay, la corrida de GitHub.
+      if (!relayConfigured(env) && !(await dispatchWorkflow(env, 'check-streams.yml'))) return json({ started: false, reason: env.GITHUB_TOKEN ? 'github' : 'no-token' });
       await env.BUCKET.put(`healthreq/${cfgId}.json`, JSON.stringify({ at: new Date(nowMs).toISOString() }), { httpMetadata: { contentType: 'application/json' } });
       return json({ started: true, requested: new Date(nowMs).toISOString() });
     }
@@ -541,6 +543,6 @@ export default {
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(_event: unknown, env: Env, ctx: Ctx): void {
-    ctx.waitUntil(checkAllPush(env));
+    ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
   },
 };

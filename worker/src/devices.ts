@@ -153,3 +153,16 @@ export async function anyToken(bucket: R2Bucket, cfgId: string): Promise<string 
   }
   return null;
 }
+
+/** Un token activo por cuenta del proveedor de la configuración (la principal y las de familiares), para tareas en
+ *  segundo plano que necesitan hablar con el proveedor en nombre de cada una. La principal va primero. */
+export async function accountTokens(bucket: R2Bucket, cfgId: string): Promise<{ account?: string; token: string }[]> {
+  const seen = new Map<string, { account?: string; token: string }>();
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (!rec || rec.cfgId !== cfgId || rec.active === false) continue;
+    const id = rec.account ?? '';
+    if (!seen.has(id)) seen.set(id, { ...(rec.account ? { account: rec.account } : {}), token: rec.token });
+  }
+  return [...seen.values()].sort((a, b) => Number(!!a.account) - Number(!!b.account));
+}
