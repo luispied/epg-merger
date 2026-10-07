@@ -111,6 +111,7 @@
       <button data-filter="nuevos" data-label="Nuevos" hidden>Nuevos</button>
       <button data-filter="revisar" data-label="A revisar">A revisar</button>
       <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
+      <button data-filter="sin-prog" data-label="Sin programación" hidden>Sin programación</button>
       <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
       <button data-filter="editados" data-label="Editados">Editados</button>
       <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
@@ -253,6 +254,14 @@
       <button class="menu-row" id="applyGuideBtn" hidden>
         <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
         <span class="menu-text">Actualizar la guía ahora<small id="applyGuideSub"></small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+    </div>
+    <h3 class="sec-title">Guía</h3>
+    <div class="menu">
+      <button class="menu-row" id="healthRow">
+        <span class="menu-icon"><span data-icon="satellite-dish"></span></span>
+        <span class="menu-text">Salud de la guía<small id="healthSub">Calculando…</small></span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
@@ -409,6 +418,10 @@
       <details open>
         <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>
         <p>Cuando tu proveedor agrega o saca canales, tocá <b>Recargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
+      </details>
+      <details>
+        <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
+        <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una fuente vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
       </details>
       <details>
         <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
