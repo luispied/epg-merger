@@ -38,6 +38,8 @@ from profiles import load_profiles  # noqa: E402
 from xtream_client import build_stream_url  # noqa: E402
 
 BATCH = 200
+# Largo de la huella de la cuenta (primeros caracteres del hash de usuario y contraseña) que identifica sus datos en health/.
+ACCOUNT_KEY_LEN = 12
 # Una sola prueba por día (sea la de la madrugada o una lanzada a mano): si la última fue hace menos que esto, se saltea.
 MIN_INTERVAL = datetime.timedelta(hours=20)
 TIME_BUDGET_S = 300
@@ -180,8 +182,18 @@ def run(r2, profiles, prober=None, now=None, server_for=None):
             continue
         previous = r2.get(f'health/{cfg_ids[0]}.json')
         state = json.loads(previous[0]) if previous else {}
+        # Los datos de cada cuenta (vencimiento, conexiones) van por huella, para mostrar el de cada una; `account`
+        # queda con los de la primera cuenta de la configuración (la principal), que es la que avisa del vencimiento.
+        key = h[:ACCOUNT_KEY_LEN]
+        accounts = dict(state.get('accounts') or {})
+        if account is not None:
+            accounts[key] = account
         if recent(state, now):
             print(f"ℹ️  {profile['name']}: ya se probó hace menos de {int(MIN_INTERVAL.total_seconds() // 3600)} horas, se saltea")
+            if account is not None and accounts != (state.get('accounts') or {}):
+                body = json.dumps({**state, 'accounts': accounts}, ensure_ascii=False).encode('utf-8')
+                for cfg_id in cfg_ids:
+                    r2.put(f'health/{cfg_id}.json', body)
             continue
         new = None
         if channels:
@@ -194,6 +206,7 @@ def run(r2, profiles, prober=None, now=None, server_for=None):
         out.setdefault('channels', {})
         if account is not None:
             out['account'] = account
+            out['accounts'] = accounts
         if new is None and account is None:
             continue
         body = json.dumps(out, ensure_ascii=False).encode('utf-8')

@@ -619,7 +619,7 @@ function computeInfo(ch: Channel) {
 // Una corrida diaria de GitHub prueba una tanda de streams y deja el resultado en el Worker
 // (tools/check_streams.py). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number }
-interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 const isDown = (ch: Channel) => {
@@ -2420,7 +2420,7 @@ const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
 interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -3326,24 +3326,43 @@ async function importBackup(file: File) {
 }
 
 /** Suscripción del proveedor (la anota la corrida diaria de GitHub): cuándo vence y cuántas conexiones permite. */
-function renderAccountRow() {
-  const row = $('#accountRow');
-  const acc = streamHealth?.account;
-  row.hidden = !acc;
-  if (!acc) return;
+/** Datos de una cuenta del proveedor (vencimiento, conexiones) en una frase y si hay que avisar. */
+function accountSummary(acc: Account): { text: string; warn: boolean } {
   const parts: string[] = [];
   let warn = false;
   if (acc.expires) {
     const days = Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000);
-    const date = new Date(acc.expires).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+    const date = new Date(acc.expires).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
     warn = days <= 7;
     parts.push(days < 0 ? `Venció el ${date}` : days === 0 ? `Vence hoy (${date})` : `Vence el ${date} · ${days === 1 ? 'falta 1 día' : `faltan ${days} días`}`);
   } else parts.push('Sin fecha de vencimiento');
   if (acc.trial) parts.push('de prueba');
   if (acc.status && acc.status.toLowerCase() !== 'active') parts.push(`estado: ${acc.status}`);
   if (acc.maxConnections) parts.push(`${plural(acc.maxConnections, 'conexión', 'conexiones')} a la vez`);
-  $('#accountSub').textContent = parts.join(' · ');
-  row.classList.toggle('warn', warn);
+  return { text: parts.join(' · '), warn };
+}
+
+/** Una fila por cuenta del proveedor que usan tus dispositivos (la tuya y las de familiares); la de cada una
+ *  se reconoce por la huella que anota GitHub. Sin huellas todavía, la fila de siempre con los datos de la principal. */
+function renderAccountRow(devices: Device[] = []) {
+  const box = $('#accountRows');
+  const byKey = streamHealth?.accounts ?? {};
+  const rows: { title: string; acc: Account }[] = [];
+  const seen = new Set<string>();
+  for (const d of [...devices].sort((a, b) => Number(!!a.account) - Number(!!b.account))) {
+    if (!d.accountKey || seen.has(d.accountKey) || !byKey[d.accountKey]) continue;
+    seen.add(d.accountKey);
+    rows.push({ title: d.account ? `Suscripción de ${d.account}` : 'Tu suscripción', acc: byKey[d.accountKey] });
+  }
+  if (!rows.length && streamHealth?.account) rows.push({ title: 'Tu suscripción', acc: streamHealth.account });
+  box.hidden = !rows.length;
+  box.innerHTML = rows.map((r) => {
+    const s = accountSummary(r.acc);
+    return `<div class="menu-row static acc-row${s.warn ? ' warn' : ''}">
+      <span class="menu-icon">${icon('clock')}</span>
+      <span class="menu-text">${esc(r.title)}<small>${esc(s.text)}</small></span>
+    </div>`;
+  }).join('');
 }
 
 /** La prueba de canales corre una vez por día: la fila «Probar ahora» dice cuándo se puede volver a lanzar. */
@@ -3378,8 +3397,11 @@ function renderDownRow() {
 
 function refreshDownRow() {
   $('#downSub').textContent = 'Calculando…';
-  loadStreamHealth().then(() => {
-    renderAccountRow();
+  const devices = state.local
+    ? api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`).then((r) => r.devices).catch(() => [] as Device[])
+    : Promise.resolve([] as Device[]);
+  Promise.all([loadStreamHealth(), devices]).then(([, devs]) => {
+    renderAccountRow(devs);
     renderDownRow();
   });
 }

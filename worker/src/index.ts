@@ -27,7 +27,7 @@ import { decryptToken, encryptToken, randomId, type Credentials } from './crypto
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, dispatchWorkflow } from './github.ts';
 import { healthyServer } from './health.ts';
-import { knownToGithub, linkConfig, linkHash } from './link.ts';
+import { accountKey, isLinked, knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshOnDemand } from './refresh.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
@@ -77,6 +77,14 @@ function credentialsFrom(body: Record<string, unknown>, cfg: Config): Credential
     throw new ConfigError('faltan usuario y contraseña');
   }
   return { u: body.username, p: body.password };
+}
+
+/** Si GitHub ya conoce esta cuenta (está en XTREAM_PROFILES), anota la configuración para que baje su lista y pruebe sus datos. */
+async function linkWithGithub(env: Env, ctx: Ctx, cache: SimpleCache, cfgId: string, username: string, password: string): Promise<void> {
+  const hash = await linkHash(username, password);
+  if (!(await knownToGithub(env.BUCKET, hash)) || (await isLinked(env.BUCKET, hash, cfgId))) return;
+  await linkConfig(env.BUCKET, hash, cfgId);
+  ctx.waitUntil(dispatchRefresh(env, cache));
 }
 
 const listKey = (cfgId: string) => `https://grilla.internal/list/${cfgId}`;
@@ -392,7 +400,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       // Con `account`, solo los de esa cuenta adicional; sin eso, los de la cuenta principal.
       const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
       const creds = credentialsFrom(raw, stored.config);
-      const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account));
+      const key = 'u' in creds ? await accountKey(creds.u, creds.p) : undefined;
+      const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account), key);
+      if ('u' in creds) await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
       return json({ ok: true, updated });
     }
     if (action === 'token' && method === 'POST') {
@@ -401,16 +411,23 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       // la de un dispositivo que ya la tiene, así no hay que pedir usuario y contraseña de nuevo.
       const account = cleanAccount(raw.account);
       const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
-      let token: string | null = null;
+      let token: string;
+      let key: string | undefined;
       if (account && !hasCreds) {
-        token = await tokenOfAccount(env.BUCKET, cfgId, account);
-        if (!token) return fail(400, `no hay una cuenta «${account}»: cargá su usuario y contraseña`);
+        const found = await tokenOfAccount(env.BUCKET, cfgId, account);
+        if (!found) return fail(400, `no hay una cuenta «${account}»: cargá su usuario y contraseña`);
+        ({ token, key } = found);
       } else {
-        token = await encryptToken(env.TOKEN_KEY, cfgId, credentialsFrom(raw, stored.config));
+        const creds = credentialsFrom(raw, stored.config);
+        token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
+        if ('u' in creds) {
+          key = await accountKey(creds.u, creds.p);
+          await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
+        }
       }
       const origin = new URL(request.url).origin;
       const code = randomId(8);
-      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter, account))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
+      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter, account, key))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
       return json({
         token,
         code,
