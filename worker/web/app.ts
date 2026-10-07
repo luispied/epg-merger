@@ -575,7 +575,8 @@ function computeInfo(ch: Channel) {
 // ------------------------------------------------------------------ canales caídos
 // Una corrida diaria de GitHub prueba una tanda de streams y deja el resultado en el Worker
 // (tools/check_streams.py). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
-interface StreamHealth { checked?: string; tested?: number; total?: number; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number }
+interface StreamHealth { checked?: string; tested?: number; total?: number; account?: Account; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 const isDown = (ch: Channel) => {
@@ -3141,10 +3142,32 @@ async function importBackup(file: File) {
   }
 }
 
+/** Suscripción del proveedor (la anota la corrida diaria de GitHub): cuándo vence y cuántas conexiones permite. */
+function renderAccountRow() {
+  const row = $('#accountRow');
+  const acc = streamHealth?.account;
+  row.hidden = !acc;
+  if (!acc) return;
+  const parts: string[] = [];
+  let warn = false;
+  if (acc.expires) {
+    const days = Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000);
+    const date = new Date(acc.expires).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+    warn = days <= 7;
+    parts.push(days < 0 ? `Venció el ${date}` : days === 0 ? `Vence hoy (${date})` : `Vence el ${date} · ${days === 1 ? 'falta 1 día' : `faltan ${days} días`}`);
+  } else parts.push('Sin fecha de vencimiento');
+  if (acc.trial) parts.push('de prueba');
+  if (acc.status && acc.status.toLowerCase() !== 'active') parts.push(`estado: ${acc.status}`);
+  if (acc.maxConnections) parts.push(`${plural(acc.maxConnections, 'conexión', 'conexiones')} a la vez`);
+  $('#accountSub').textContent = parts.join(' · ');
+  row.classList.toggle('warn', warn);
+}
+
 function refreshDownRow() {
   const sub = $('#downSub');
   sub.textContent = 'Calculando…';
   loadStreamHealth().then(() => {
+    renderAccountRow();
     if (!streamHealth?.checked) {
       sub.textContent = 'Todavía no se probó ningún canal (una prueba por día, de madrugada)';
       return;

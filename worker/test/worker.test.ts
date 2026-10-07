@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
-import { checkAllPush, encryptWebPush } from '../src/push.ts';
+import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry } from '../src/push.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { buildPlaylist } from '../src/playlist.ts';
@@ -728,4 +728,63 @@ test('canales caídos: la API devuelve lo que dejó la corrida y vacío si no hu
   assert.equal(noKey.status, 401);
   await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
   assert.equal(await t.env.BUCKET.get(`health/${t.cfgId}.json`), null);
+});
+
+test('vencimiento: umbrales 7, 3, 1 y 0; un aviso por umbral; renovar vuelve a empezar', async () => {
+  assert.deepEqual([30, 8, 7, 5, 3, 2, 1, 0, -2].map(expiryThreshold), [null, null, 7, 7, 3, 3, 1, 0, 0]);
+  const t = await setup();
+  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
+  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
+  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const uaPublic = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
+  const auth = crypto.getRandomValues(new Uint8Array(16));
+  const sub = { endpoint: 'https://push.example/s/exp', keys: { p256dh: b64urlEncode(uaPublic), auth: b64urlEncode(auth) } };
+  const pushed: Uint8Array[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://push.example/')) {
+      pushed.push(new Uint8Array(init?.body as ArrayBuffer));
+      return new Response(null, { status: 201 });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    const put = (expires: string | null) => t.env.BUCKET.put(`health/${t.cfgId}.json`, JSON.stringify({ channels: {}, account: { status: 'Active', expires } }));
+    assert.equal((await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(sub) }), t.env, t.ctx, t.cache)).status, 200);
+    const day = 86_400_000;
+    const now = new Date('2026-10-07T12:00:00Z');
+    const iso = (days: number) => new Date(now.getTime() + days * day + 3_600_000).toISOString();
+    const text = async (i: number) => (JSON.parse(await decryptPush(pushed[i], ua.privateKey, uaPublic, auth)) as { title: string; body: string });
+    // Falta mucho, sin vencimiento o sin datos: nada.
+    await put(iso(30));
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 0);
+    await put(null);
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 0);
+    assert.equal(pushed.length, 0);
+    // Cruza los 7 días: un aviso; el mismo día no se repite.
+    await put(iso(6));
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 1);
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 0);
+    assert.equal((await text(0)).title, 'Tu suscripción está por vencer');
+    assert.match((await text(0)).body, /faltan 6 días/);
+    // Tres días, un día y hoy: un aviso por umbral.
+    await put(iso(2));
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 1);
+    await put(iso(0));
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 1);
+    assert.match((await text(2)).body, /vence hoy/);
+    // Ya vencida: no repite el aviso del día 0 (mismo umbral).
+    assert.equal(await notifyExpiry(t.env, t.cfgId, new Date(now.getTime() + 2 * day)), 0);
+    // Renovó: otro vencimiento, vuelve a avisar al acercarse.
+    await put(iso(5));
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 1);
+    assert.equal(pushed.length, 4);
+    // El estado de vencimiento sobrevive a que alguien se suscriba desde otro navegador.
+    const other = { ...sub, endpoint: 'https://push.example/s/otro' };
+    await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(other) }), t.env, t.ctx, t.cache);
+    assert.equal(await notifyExpiry(t.env, t.cfgId, now), 0);
+  } finally {
+    globalThis.fetch = real;
+  }
 });
