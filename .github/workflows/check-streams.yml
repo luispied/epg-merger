@@ -1,0 +1,39 @@
+name: Check Grilla streams
+
+# Canales caídos para Grilla web (tools/check_streams.py). El proveedor bloquea los pedidos que salen
+# de Cloudflare, así que los prueba GitHub y deja el resultado en R2. Una vez por día, de madrugada
+# (04:30 en Argentina, cuando casi nadie mira la tele: el proveedor limita las conexiones simultáneas),
+# y una tanda de canales por corrida. Pocos minutos a propósito: las Actions de un repo privado tienen tope.
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-streams
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install -r requirements.txt boto3
+    - name: Check streams
+      env:
+        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
+        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
+        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
+        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/check_streams.py

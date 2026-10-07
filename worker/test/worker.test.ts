@@ -716,3 +716,16 @@ test('perfiles: cada link filtra por categoría y por canal, y se cambia sin cam
   assert.deepEqual((await names(kids.playlistUrl)).sort(), full.sort());
   assert.deepEqual((await names(t.playlistUrl)).sort(), full.sort());
 });
+
+test('canales caídos: la API devuelve lo que dejó la corrida y vacío si no hubo; se borra con la configuración', async () => {
+  const t = await setup();
+  const get = () => handle(req(`/api/cfg/${t.cfgId}/health`, { key: t.editKey }), t.env, t.ctx, t.cache);
+  assert.deepEqual(await (await get()).json(), { channels: {} });
+  const saved = { checked: '2026-10-07T07:30:00', channels: { '11': { t: 'x', ok: false, fails: 2 } } };
+  await t.env.BUCKET.put(`health/${t.cfgId}.json`, JSON.stringify(saved));
+  assert.deepEqual(await (await get()).json(), saved);
+  const noKey = await handle(req(`/api/cfg/${t.cfgId}/health`), t.env, t.ctx, t.cache);
+  assert.equal(noKey.status, 401);
+  await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
+  assert.equal(await t.env.BUCKET.get(`health/${t.cfgId}.json`), null);
+});

@@ -569,7 +569,27 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null };
+  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch) };
+}
+
+// ------------------------------------------------------------------ canales caídos
+// Una corrida diaria de GitHub prueba una tanda de streams y deja el resultado en el Worker
+// (tools/check_streams.py). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
+interface StreamHealth { checked?: string; tested?: number; total?: number; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+const DOWN_AFTER = 2;
+let streamHealth: StreamHealth | null = null;
+const isDown = (ch: Channel) => {
+  const h = streamHealth?.channels[ch.id];
+  return !!h && !h.ok && h.fails >= DOWN_AFTER;
+};
+async function loadStreamHealth() {
+  if (!state.local) return;
+  try {
+    streamHealth = await api<StreamHealth>(`/api/cfg/${state.local.cfgId}/health`);
+  } catch {
+    streamHealth = null;
+  }
+  render();
 }
 
 // ------------------------------------------------------------------ salud de la guía
@@ -613,6 +633,7 @@ function matchesFilter(ch: Channel, filter: string) {
     // "Elegidos a mano", con lo demás que decidiste vos.
     case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg && i.band !== 'purpose';
     case 'manual': return i.band === 'manual' || i.band === 'purpose';
+    case 'caidos': return !i.hidden && !i.divider && i.down;
     case 'sin-prog': return !i.hidden && !i.noGuide && !i.divider && i.prog === 'dead';
     case 'nuevos': return state.newNames.has(ch.name);
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
@@ -1042,6 +1063,7 @@ function emptyHtml(): string {
     : f === 'editados' ? 'Todavía no editaste ningún canal.'
     : f === 'sin-epg' ? '¡Todos los canales tienen guía!'
     : f === 'sin-prog' ? '¡Todos los canales tienen programación!'
+    : f === 'caidos' ? 'No hay canales caídos entre los que ya se probaron.'
     : f === 'revisar' ? '¡No queda nada por revisar!'
     : f === 'nuevos' ? 'No hay canales nuevos.'
     : 'Ningún canal coincide con el filtro.';
@@ -1060,6 +1082,9 @@ function renderNow() {
   const noProg = state.channels.filter((c) => matchesFilter(c, 'sin-prog')).length;
   $('#filterTabs [data-filter="sin-prog"]').hidden = !noProg;
   if (!noProg && state.filter === 'sin-prog') state.filter = 'todos';
+  const nDown = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+  $('#filterTabs [data-filter="caidos"]').hidden = !nDown;
+  if (!nDown && state.filter === 'caidos') state.filter = 'todos';
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
     const f = b.dataset.filter!;
     b.setAttribute('aria-pressed', String(f === state.filter));
@@ -3030,6 +3055,7 @@ function showEditor() {
   refreshGuideStatus();
   loadHourNow();
   loadHealth();
+  loadStreamHealth();
 }
 
 async function openSaved() {
@@ -3076,6 +3102,7 @@ async function openSaved() {
     renderTipCard();
     refreshGuideStatus();
     loadHealth();
+    loadStreamHealth();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -3112,6 +3139,20 @@ async function importBackup(file: File) {
     state.local = loadLocal();
     toast(`No se pudo importar: ${(e as Error).message}`, 'bad', 6000);
   }
+}
+
+function refreshDownRow() {
+  const sub = $('#downSub');
+  sub.textContent = 'Calculando…';
+  loadStreamHealth().then(() => {
+    if (!streamHealth?.checked) {
+      sub.textContent = 'Todavía no se probó ningún canal (una prueba por día, de madrugada)';
+      return;
+    }
+    const tested = Object.keys(streamHealth.channels).length;
+    const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+    sub.textContent = `${down ? plural(down, 'canal caído', 'canales caídos') : 'Ninguno caído'} · ${tested} de ${streamHealth.total ?? '?'} probados`;
+  });
 }
 
 function refreshHealthRow() {
@@ -3378,8 +3419,21 @@ function setupEditor() {
     render();
     window.scrollTo(0, 0);
   };
+  $('#downRow').onclick = () => {
+    const n = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+    if (!n) {
+      toast(streamHealth?.checked ? 'No hay canales caídos entre los que ya se probaron' : 'Todavía no se probó ningún canal: corre una vez por día', 'info');
+      return;
+    }
+    ($('#settingsDialog') as HTMLDialogElement).close();
+    state.filter = 'caidos';
+    state.shown = PAGE;
+    render();
+    window.scrollTo(0, 0);
+  };
   $('#settingsBtn').onclick = () => {
     refreshHealthRow();
+    refreshDownRow();
     $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
     const apply = $('#applyGuideBtn');
     apply.hidden = true;

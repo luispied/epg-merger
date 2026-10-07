@@ -387,5 +387,10 @@ fuentes → publicación de `merged.xml.gz` y `epg_catalog.json` al release → 
 GitHub —para los proveedores que bloquean a Cloudflare— y arma la guía de cada configuración.
 Descarga `merged.xml.gz` del release con el `GITHUB_TOKEN`, así funciona con el repo privado.
 
+`check-streams.yml` (una vez por día, a las 07:30 UTC) prueba una tanda de ~200 canales con
+`tools/check_streams.py` —de a uno, leyendo solo los primeros bytes— y deja el resultado en R2
+(`health/<cfgId>.json`) para que Grilla marque los canales caídos. Solo avisa, no oculta nada.
+
 Con el repo privado en el plan Free hay ~2000 minutos de Actions por mes: la corrida diaria
-gasta unos 8–10 minutos, por eso `refresh-lists` va cada 3 horas y no más seguido.
+gasta unos 8–10 minutos, por eso `refresh-lists` va cada 3 horas y no más seguido; el chequeo de
+canales caídos gasta unos 5 minutos por día.
