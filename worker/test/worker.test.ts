@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
-import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry } from '../src/push.ts';
+import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
+import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { buildPlaylist } from '../src/playlist.ts';
@@ -784,6 +785,75 @@ test('vencimiento: umbrales 7, 3, 1 y 0; un aviso por umbral; renovar vuelve a e
     const other = { ...sub, endpoint: 'https://push.example/s/otro' };
     await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(other) }), t.env, t.ctx, t.cache);
     assert.equal(await notifyExpiry(t.env, t.cfgId, now), 0);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('recordatorios: la API los guarda, los lista y los borra; la corrida avisa los que empiezan en 30 minutos y descarta los vencidos', async () => {
+  const t = await setup();
+  const call = (method: string, body?: object) =>
+    handle(req(`/api/cfg/${t.cfgId}/remind`, { method, key: t.editKey, ...(body ? { body: JSON.stringify(body) } : {}) }), t.env, t.ctx, t.cache);
+  // Sin las claves de push, la función no existe.
+  assert.equal((await call('GET')).status, 404);
+  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
+  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
+  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const uaPublic = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
+  const auth = crypto.getRandomValues(new Uint8Array(16));
+  const sub = { endpoint: 'https://push.example/s/rem', keys: { p256dh: b64urlEncode(uaPublic), auth: b64urlEncode(auth) } };
+  const pushed: Uint8Array[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://push.example/')) {
+      pushed.push(new Uint8Array(init?.body as ArrayBuffer));
+      return new Response(null, { status: 201 });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    const nowS = Math.floor(Date.now() / 1000);
+    const item = (start: number, title = 'Noticiero') => ({ epg: 'Telefe.ar', name: 'Telefe', title, start });
+    // Validación: ya empezó, falta demasiado o no es un programa.
+    assert.equal((await call('POST', item(nowS - 60))).status, 400);
+    assert.equal((await call('POST', item(nowS + 5 * 86400))).status, 400);
+    assert.equal((await call('POST', { epg: 'x' })).status, 400);
+    // Alta (dos veces el mismo no duplica), lista y baja.
+    assert.equal((await call('POST', item(nowS + 3600))).status, 200);
+    assert.equal((await call('POST', item(nowS + 3600))).status, 200);
+    assert.equal((await call('POST', item(nowS + 7200, 'Novela'))).status, 200);
+    let list = await (await call('GET')).json() as { items: { start: number; title: string }[] };
+    assert.deepEqual(list.items.map((i) => i.title), ['Noticiero', 'Novela']);
+    assert.equal((await call('DELETE', { epg: 'Telefe.ar', start: nowS + 7200 })).status, 200);
+    list = await (await call('GET')).json() as typeof list;
+    assert.deepEqual(list.items.map((i) => i.title), ['Noticiero']);
+    // Sin la clave de edición no se puede.
+    assert.equal((await handle(req(`/api/cfg/${t.cfgId}/remind`), t.env, t.ctx, t.cache)).status, 401);
+    // La corrida: sin dispositivos suscritos no avisa ni borra lo que falta.
+    assert.equal(await notifyReminders(t.env, t.cfgId, new Date((nowS + 3600 - 600) * 1000)), 0);
+    assert.equal(((await (await call('GET')).json()) as typeof list).items.length, 1);
+    await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(sub) }), t.env, t.ctx, t.cache);
+    // Falta más de media hora: todavía no.
+    assert.equal(await notifyReminders(t.env, t.cfgId, new Date((nowS + 3600 - 31 * 60) * 1000)), 0);
+    assert.equal(pushed.length, 0);
+    // Empieza en menos de 30 minutos: un aviso, y se borra.
+    assert.equal(await notifyReminders(t.env, t.cfgId, new Date((nowS + 3600 - 20 * 60) * 1000)), 1);
+    const msg = JSON.parse(await decryptPush(pushed[0], ua.privateKey, uaPublic, auth)) as { title: string; body: string };
+    assert.equal(msg.title, 'Empieza pronto: Noticiero');
+    assert.match(msg.body, /Telefe/);
+    assert.equal(await notifyReminders(t.env, t.cfgId, new Date((nowS + 3600 - 10 * 60) * 1000)), 0);
+    assert.equal(pushed.length, 1);
+    // Un recordatorio que ya venció sin poder avisarse se descarta sin mandar nada.
+    await call('POST', item(nowS + 600, 'Viejo'));
+    assert.equal(await notifyReminders(t.env, t.cfgId, new Date((nowS + 600 + 20 * 60) * 1000)), 0);
+    assert.equal(await t.env.BUCKET.get(`remind/${t.cfgId}.json`), null);
+    // Tope por configuración.
+    for (let i = 0; i < MAX_REMINDERS; i++) assert.equal((await call('POST', item(nowS + 3600 + i * 60, `P${i}`))).status, 200);
+    assert.equal((await call('POST', item(nowS + 3600 + 99 * 60, 'Uno más'))).status, 400);
+    // Se borra con la configuración.
+    await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
+    assert.equal(await t.env.BUCKET.get(`remind/${t.cfgId}.json`), null);
   } finally {
     globalThis.fetch = real;
   }

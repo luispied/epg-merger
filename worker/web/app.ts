@@ -1217,6 +1217,69 @@ function editGroups(fn: (g: Config['groups']) => void, msg?: string) {
   }
 }
 
+// ------------------------------------------------------------------ recordatorios («Avisarme»)
+// Un programa que todavía no empezó se puede marcar: el Worker manda un push poco antes (la corrida de avisos
+// es cada 30 minutos: llega entre 0 y 30 minutos antes). Sin claves de push en el Worker, el botón no aparece.
+interface RemindState { configured: boolean; keys: Set<string> }
+let remindState: RemindState | null = null;
+const remindKey = (epg: string, start: number) => `${epg}|${start}`;
+
+async function loadReminders(): Promise<RemindState> {
+  if (remindState) return remindState;
+  const st: RemindState = { configured: false, keys: new Set() };
+  try {
+    await api('/api/push/key', { auth: false });
+    st.configured = true;
+    const r = await api<{ items: { epg: string; start: number }[] }>(`/api/cfg/${state.local!.cfgId}/remind`);
+    for (const it of r.items) st.keys.add(remindKey(it.epg, it.start));
+  } catch { /* sin avisos en el Worker o sin conexión: el botón no aparece */ }
+  return (remindState = st);
+}
+
+/** El dispositivo tiene que estar suscrito a los avisos: si no lo está, se activan (pide el permiso). */
+async function ensurePush(): Promise<boolean> {
+  if (!pushSupported()) {
+    toast(iosNotInstalled() ? 'En iPhone: instalá la app (Compartir → Agregar a inicio) para recibir avisos' : 'Este navegador no admite avisos', 'bad', 6000);
+    return false;
+  }
+  await refreshPushRow();
+  const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription().catch(() => null);
+  if (sub && Notification.permission === 'granted') return true;
+  await setPush(true);
+  const after = await (await navigator.serviceWorker.ready).pushManager.getSubscription().catch(() => null);
+  return !!after && Notification.permission === 'granted';
+}
+
+async function toggleReminder(btn: HTMLElement, channel: string) {
+  const st = await loadReminders();
+  const epg = btn.dataset.epg!;
+  const start = Number(btn.dataset.start);
+  const key = remindKey(epg, start);
+  const cfg = state.local!.cfgId;
+  const mark = (on: boolean) => {
+    if (on) st.keys.add(key);
+    else st.keys.delete(key);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  };
+  try {
+    if (st.keys.has(key)) {
+      await api(`/api/cfg/${cfg}/remind`, { method: 'DELETE', body: { epg, start } });
+      mark(false);
+      toast('Recordatorio quitado', 'ok');
+      return;
+    }
+    if (!(await ensurePush())) return;
+    await api(`/api/cfg/${cfg}/remind`, { method: 'POST', body: { epg, name: channel, title: btn.dataset.title, start } });
+    mark(true);
+    toast(`Te avisamos antes de que empiece (${hhmm(start)})`, 'ok', 3500, () => {
+      api(`/api/cfg/${cfg}/remind`, { method: 'DELETE', body: { epg, start } }).then(() => mark(false)).catch(() => {});
+    });
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
+}
+
 /** Lo que da el canal desde ahora hasta el final de la ventana publicada (~30 h), por día. */
 async function toggleDay(root: HTMLElement, id: string) {
   const btn = $<HTMLElement>('.day-btn', root);
@@ -1241,16 +1304,27 @@ async function toggleDay(root: HTMLElement, id: string) {
     if (d.toDateString() === tomorrow.toDateString()) return 'Mañana';
     return d.toLocaleDateString([], { weekday: 'long', day: 'numeric' });
   };
+  const rem = await loadReminders();
   let last = '';
   box.innerHTML = entries.map(([start, stop, title, desc]) => {
     const day = dayName(start);
     const head = day !== last ? `<div class="day-head">${esc(day)}</div>` : '';
     last = day;
     const live = start <= now && now < stop;
+    const on = rem.keys.has(remindKey(id, start));
+    const bell = rem.configured && start > now
+      ? `<button type="button" class="remind-btn${on ? ' on' : ''}" data-remind data-epg="${esc(id)}" data-start="${start}" data-title="${esc(title)}" aria-pressed="${on}" `
+        + `aria-label="Avisarme cuando empiece: ${esc(title)}" title="Avisarme">${icon('bell')}</button>` : '';
     return `${head}<details class="day-item${live ? ' live' : ''}"><summary><span class="day-time">${hhmm(start)}</span>`
-      + `<span class="day-title">${esc(title)}${live ? ' <span class="note">· ahora</span>' : ''}</span></summary>`
+      + `<span class="day-title">${esc(title)}${live ? ' <span class="note">· ahora</span>' : ''}</span>${bell}</summary>`
       + `<p>${desc ? esc(desc) : '<span class="muted">Sin descripción.</span>'}</p></details>`;
   }).join('');
+  box.onclick = (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLElement>('[data-remind]');
+    if (!b) return;
+    ev.preventDefault(); // dentro del <summary>: no abrir ni cerrar la descripción
+    void toggleReminder(b, $<HTMLInputElement>('#channelName').value);
+  };
 }
 
 /** Canales entre los que se puede ir con ‹ › (la lista que se estaba viendo al abrir). */

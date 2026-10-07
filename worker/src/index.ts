@@ -29,6 +29,7 @@ import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
+import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
@@ -243,6 +244,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       await env.BUCKET.delete(`health/${cfgId}.json`);
+      await env.BUCKET.delete(`remind/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
       return json({ ok: true });
     }
@@ -300,6 +302,24 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       if (sub === 'test' && method === 'POST') {
         return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });
+      }
+    }
+    if (action === 'remind') {
+      if (!pushConfigured(env)) return fail(404, 'avisos no activados');
+      const nowS = Math.floor(Date.now() / 1000);
+      if (method === 'GET') {
+        const items = (await readReminders(env.BUCKET, cfgId)).filter((r) => r.start > nowS);
+        return json({ items }, 200, { 'Cache-Control': 'no-store' });
+      }
+      if (method === 'POST') {
+        const item = parseReminder(await readJson(request, 4 * 1024), nowS);
+        if (!item) return fail(400, 'recordatorio inválido (el programa ya empezó o falta demasiado)');
+        return (await addReminder(env.BUCKET, cfgId, item, nowS)) ? json({ ok: true }) : fail(400, 'ya hay demasiados recordatorios: esperá a que pasen algunos');
+      }
+      if (method === 'DELETE') {
+        const body = await readJson(request, 4 * 1024) as { epg?: unknown; start?: unknown };
+        if (typeof body.epg === 'string' && typeof body.start === 'number') await removeReminder(env.BUCKET, cfgId, body.epg, Math.floor(body.start));
+        return json({ ok: true });
       }
     }
     if (action === 'devices') {
