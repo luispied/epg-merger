@@ -980,3 +980,46 @@ test('dispatchWorkflow: si el workflow todavía no declara los datos (422), se l
     globalThis.fetch = real;
   }
 });
+
+test('servidores: se cambian sin tocar los links, se validan y la lista se vuelve a pedir a GitHub', async () => {
+  const t = await setup();
+  const put = (body: unknown, key: string | undefined = t.editKey) =>
+    handle(req(`/api/cfg/${t.cfgId}/servers`, { method: 'PUT', key, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  t.env.GITHUB_TOKEN = 'ghs_test';
+  const gh: string[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://api.github.com/')) {
+      gh.push(String(init?.body));
+      return new Response(null, { status: 204 });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    const before = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { playlistUrl: string }[] };
+    // Con credenciales dentro de la URL o sin ninguna URL, no.
+    assert.equal((await put({ servers: ['http://user:clave@nuevo.example'] })).status, 400);
+    assert.equal((await put({ servers: [] })).status, 400);
+    assert.equal((await put({ servers: ['ftp://nuevo.example'] })).status, 400);
+    assert.equal((await put({ servers: ['http://nuevo.example:8080'] }, 'otra-clave')).status, 401);
+    // Texto con una URL por línea (la web lo manda como lista) o separado por espacios y comas.
+    const res = await put({ servers: 'http://nuevo.example:8080\nhttps://respaldo.example, http://tercero.example' });
+    assert.deepEqual(await res.json(), { ok: true, servers: ['http://nuevo.example:8080', 'https://respaldo.example', 'http://tercero.example'] });
+    await t.settle();
+    const cfg = await (await handle(req(`/api/cfg/${t.cfgId}`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { provider: { servers: string[] }; channels: object };
+    assert.deepEqual(cfg.provider.servers, ['http://nuevo.example:8080', 'https://respaldo.example', 'http://tercero.example']);
+    assert.ok(Object.keys(cfg.channels).length > 0, 'las ediciones de canales se conservan');
+    // Se lanza la corrida de GitHub que baja la lista, sin esperar a las 3 horas.
+    assert.deepEqual(gh.map((b) => JSON.parse(b)), [{ ref: 'main', inputs: { fresh_minutes: '5' } }]);
+    // Los links siguen siendo los mismos y el redirect usa el servidor nuevo.
+    const after = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { playlistUrl: string }[] };
+    assert.deepEqual(after.devices.map((d) => d.playlistUrl), before.devices.map((d) => d.playlistUrl));
+  } finally {
+    globalThis.fetch = real;
+  }
+  // Una configuración M3U no tiene servidores: se cambia la URL en los datos del proveedor.
+  const m3u = makeEnv();
+  const created = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'm3u-1' }, body: JSON.stringify({ ...CONFIG, provider: { type: 'm3u' } }) }), m3u.env, m3u.ctx, m3u.cache)).json() as { cfgId: string; editKey: string };
+  const res = await handle(req(`/api/cfg/${created.cfgId}/servers`, { method: 'PUT', key: created.editKey, body: JSON.stringify({ servers: ['http://x.example'] }) }), m3u.env, m3u.ctx, m3u.cache);
+  assert.equal(res.status, 400);
+});

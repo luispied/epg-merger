@@ -93,6 +93,25 @@ const str = (v: unknown, max = 500): string | undefined =>
 const strList = (v: unknown, maxItems: number): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, maxItems).map((x) => x.slice(0, 500)) : [];
 
+/** Valida la lista de servidores de Xtream: URLs http(s) sin usuario ni parámetros (las credenciales van solo en el token del link). */
+export function parseServers(raw: unknown): string[] {
+  const servers = strList(raw, MAX_SERVERS).map((x) => x.trim()).filter(Boolean);
+  if (!servers.length) throw new ConfigError('faltan los servidores de Xtream');
+  for (const s of servers) {
+    let url: URL;
+    try {
+      url = new URL(s);
+    } catch {
+      throw new ConfigError(`servidor inválido: ${s}`);
+    }
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search) {
+      // Las credenciales nunca van en la configuración: solo en el token del link.
+      throw new ConfigError(`servidor inválido (sin usuario ni parámetros): ${url.host}`);
+    }
+  }
+  return servers;
+}
+
 /** Valida y normaliza una configuración que llega del navegador (solo los campos conocidos). */
 export function parseConfig(raw: unknown): Config {
   if (!raw || typeof raw !== 'object') throw new ConfigError('configuración inválida');
@@ -101,20 +120,7 @@ export function parseConfig(raw: unknown): Config {
   let provider: Config['provider'];
   if (p.type === 'm3u') provider = { type: 'm3u' };
   else if (p.type === 'xtream') {
-    const servers = strList(p.servers, MAX_SERVERS);
-    if (!servers.length) throw new ConfigError('faltan los servidores de Xtream');
-    for (const s of servers) {
-      let url: URL;
-      try {
-        url = new URL(s);
-      } catch {
-        throw new ConfigError(`servidor inválido: ${s}`);
-      }
-      if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password || url.search) {
-        // Las credenciales nunca van en la configuración: solo en el token del link.
-        throw new ConfigError(`servidor inválido (sin usuario ni parámetros): ${url.host}`);
-      }
-    }
+    const servers = parseServers(p.servers);
     provider = { type: 'xtream', servers, ...(p.list === 'upload' ? { list: 'upload' as const } : {}) };
   } else throw new ConfigError('proveedor inválido');
 

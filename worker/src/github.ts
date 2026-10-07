@@ -31,9 +31,9 @@ export async function dispatchWorkflow(env: Env, file: string, inputs?: Record<s
   }
 }
 
-export async function dispatchRefresh(env: Env, cache: SimpleCache): Promise<boolean> {
+export async function dispatchRefresh(env: Env, cache: SimpleCache, inputs?: Record<string, string>): Promise<boolean> {
   if (!env.GITHUB_TOKEN) return false;
   if (await cache.match(KEY)) return false;
   await cache.put(KEY, new Response('1', { headers: { 'Cache-Control': `max-age=${THROTTLE_S}` } }));
-  return dispatchWorkflow(env, 'refresh-lists.yml');
+  return dispatchWorkflow(env, 'refresh-lists.yml', inputs);
 }

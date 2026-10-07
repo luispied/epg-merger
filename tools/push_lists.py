@@ -83,6 +83,20 @@ class R2:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
 
+def servers_from_config(r2, cfg_ids, fallback):
+    """Los servidores de la primera configuración que los tenga (los cambia la persona en la web, en Links), si no los
+    de la cuenta (el secret XTREAM_PROFILES). Así no hay que tocar el secret cuando cambia la dirección del servicio."""
+    for cfg_id in cfg_ids:
+        obj = r2.get(f'cfg/{cfg_id}.json')
+        try:
+            servers = (json.loads(obj[0]).get('provider') or {}).get('servers') if obj else None
+        except ValueError:
+            servers = None
+        if isinstance(servers, list) and servers and all(isinstance(x, str) and x.strip() for x in servers):
+            return [x.strip().rstrip('/') for x in servers]
+    return fallback
+
+
 def due(r2, cfg_ids, pending, now, every=REFRESH_EVERY):
     if pending:
         return True
@@ -108,6 +122,7 @@ def sync(r2, profiles, load=None, now=None, every=REFRESH_EVERY):
         cfg_ids = [c for c in data.get('cfgIds', []) if r2.get(f'cfg/{c}.json') is not None]
         if not cfg_ids or not due(r2, cfg_ids, data.get('pending'), now, every):
             continue
+        profile = {**profile, 'servers': servers_from_config(r2, cfg_ids, profile['servers'])}
         body = json.dumps({'channels': load(profile)}, ensure_ascii=False).encode('utf-8')
         for cfg_id in cfg_ids:
             r2.put(f'list/{cfg_id}.json', body)

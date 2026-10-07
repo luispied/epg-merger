@@ -174,7 +174,8 @@ def run(r2, profiles, prober=None, now=None, server_for=None):
         if lst is None:
             continue
         channels = visible_channels(json.loads(lst[0]).get('channels', []), json.loads(cfg[0]) if cfg else {})
-        server, account = (server_for or pick_server)(profile['servers'], profile['username'], profile['password'])
+        servers = push_lists.servers_from_config(r2, cfg_ids, profile['servers'])
+        server, account = (server_for or pick_server)(servers, profile['username'], profile['password'])
         if not server:
             continue
         previous = r2.get(f'health/{cfg_ids[0]}.json')
