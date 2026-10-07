@@ -242,6 +242,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`cfg/${cfgId}.json`);
       await env.BUCKET.delete(`list/${cfgId}.json`);
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
+      await env.BUCKET.delete(`health/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
       return json({ ok: true });
     }
@@ -259,6 +260,13 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     }
     if (action === 'refresh' && method === 'POST') {
       return json({ started: await dispatchRefresh(env, cache), autoRefresh: !!env.GITHUB_TOKEN });
+    }
+    if (action === 'health' && method === 'GET') {
+      // Canales caídos: lo deja la corrida diaria de GitHub (tools/check_streams.py). Sin corrida todavía, vacío.
+      const saved = await env.BUCKET.get(`health/${cfgId}.json`);
+      return saved
+        ? new Response(saved.body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } })
+        : json({ channels: {} }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'list' && method === 'GET') {
       const saved = await env.BUCKET.get(r2ListKey(cfgId));

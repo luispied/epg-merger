@@ -112,6 +112,7 @@
       <button data-filter="revisar" data-label="A revisar">A revisar</button>
       <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
       <button data-filter="sin-prog" data-label="Sin programación" hidden>Sin programación</button>
+      <button data-filter="caidos" data-label="Caídos" hidden>Caídos</button>
       <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
       <button data-filter="editados" data-label="Editados">Editados</button>
       <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
@@ -262,6 +263,11 @@
       <button class="menu-row" id="healthRow">
         <span class="menu-icon"><span data-icon="satellite-dish"></span></span>
         <span class="menu-text">Salud de la guía<small id="healthSub">Calculando…</small></span>
+        <span data-icon="chevron-right"></span>
+      </button>
+      <button class="menu-row" id="downRow">
+        <span class="menu-icon"><span data-icon="triangle-alert"></span></span>
+        <span class="menu-text">Canales caídos<small id="downSub">Calculando…</small></span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
@@ -422,6 +428,10 @@
       <details>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
         <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una fuente vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
+      </details>
+      <details>
+        <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
+        <p>Una vez por día, de madrugada, GitHub prueba una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado acá. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
       </details>
       <details>
         <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
