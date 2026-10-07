@@ -5,6 +5,7 @@
 // una vez cada STALE_AFTER_MS por configuración y MAX_PER_DAY por día en total.
 import type { Env, SimpleCache } from './env.ts';
 import { dispatchWorkflow } from './github.ts';
+import { relayConfigured, relayList } from './relay.ts';
 
 export const STALE_AFTER_MS = 10 * 60 * 1000;
 export const MAX_PER_DAY = 12;
@@ -28,4 +29,24 @@ export async function refreshOnDemand(env: Env, cache: SimpleCache, cfgId: strin
   if (n >= MAX_PER_DAY) return false;
   await env.BUCKET.put(counterKey, JSON.stringify({ n: n + 1 }), JSON_TYPE);
   return dispatchWorkflow(env, 'refresh-lists.yml', { fresh_minutes: String(STALE_AFTER_MS / 60000) });
+}
+
+/** La lista de la configuración, bajada por el relay y guardada en R2 (la playlist de esta persona sale con la lista
+ *  vieja y la próxima ya viene al día). Una vez cada STALE_AFTER_MS por configuración. Devuelve true si la renovó. */
+export async function refreshViaRelay(env: Env, cache: SimpleCache, cfgId: string, servers: string[], username: string, password: string,
+  uploaded: Date | undefined, now = new Date(), force = false): Promise<boolean> {
+  if (!relayConfigured(env)) return false;
+  if (!force && uploaded && now.getTime() - uploaded.getTime() < STALE_AFTER_MS) return false;
+  const key = `https://grilla.internal/relay-refresh/${cfgId}`;
+  if (!force && await cache.match(key)) return false;
+  await cache.put(key, new Response('1', { headers: { 'Cache-Control': `max-age=${STALE_AFTER_MS / 1000}` } }));
+  try {
+    const list = await relayList(env, servers, username, password);
+    if (!list.channels.length) return false;
+    await env.BUCKET.put(`list/${cfgId}.json`, JSON.stringify(list), JSON_TYPE);
+    return true;
+  } catch (e) {
+    console.error('relay refresh', (e as Error).message);
+    return false;
+  }
 }

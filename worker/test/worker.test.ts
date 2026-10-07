@@ -935,6 +935,69 @@ test('probar canales a mano: una vez por día, sin token avisa y con GitHub lanz
   }
 });
 
+test('relay: cuando el proveedor bloquea al Worker, el relay baja la lista (al dar de alta, al pedir la playlist y al cambiar los servidores)', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>, [S1]);
+  const calls: { url: string; auth: string | null; body: Record<string, unknown> }[] = [];
+  let status = 200;
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).startsWith('https://relay.example/')) {
+      calls.push({ url: String(input), auth: new Headers(init?.headers).get('Authorization'), body: JSON.parse(String(init?.body)) });
+      if (status !== 200) return new Response(JSON.stringify({ error: 'el proveedor no respondió' }), { status });
+      return new Response(JSON.stringify({ server: S1, channels: [{ name: 'Canal del relay', category: 'X', id: '7', ext: 'ts', icon: '', epgId: null }] }));
+    }
+    return base(input, init);
+  }) as typeof fetch;
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  const listKey = `list/${t.cfgId}.json`;
+  const listNames = () => (JSON.parse(bucket.data.get(listKey)!.value) as { channels: { name: string }[] }).channels.map((c) => c.name);
+  const provider = (ip: string) => handle(req('/api/provider/list', { method: 'POST', headers: { 'CF-Connecting-IP': ip },
+    body: JSON.stringify({ type: 'xtream', servers: [S1], username: 'user', password: 'pa ss' }) }), t.env, t.ctx, t.cache);
+  try {
+    // Sin relay configurado, el bloqueo sigue siendo un error.
+    assert.equal((await provider('relay-0')).status, 502);
+    t.env.RELAY_URL = 'https://relay.example/';
+    t.env.RELAY_SECRET = 'r'.repeat(40);
+    // Al dar de alta: el relay baja la lista y la respuesta lo avisa.
+    const res = await provider('relay-1');
+    assert.equal(res.status, 200);
+    const body = await res.json() as { viaRelay: boolean; channels: { name: string }[] };
+    assert.equal(body.viaRelay, true);
+    assert.equal(body.channels[0].name, 'Canal del relay');
+    assert.equal(calls[0].url, 'https://relay.example/v1/list');
+    assert.equal(calls[0].auth, `Bearer ${'r'.repeat(40)}`);
+    assert.deepEqual(calls[0].body, { servers: [S1], username: 'user', password: 'pa ss' });
+    // Sin lista guardada, la playlist la pide al relay en el mismo pedido.
+    const playlist = () => handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache);
+    const first = await playlist();
+    assert.equal(first.status, 200);
+    assert.ok((await first.text()).includes('Canal del relay'));
+    assert.deepEqual(listNames(), ['Canal del relay']);
+    // Lista vieja: sale igual y se renueva en segundo plano, una sola vez por ventana.
+    bucket.data.set(listKey, { value: JSON.stringify({ channels: [{ name: 'Vieja', category: 'X', id: '1', ext: 'ts', icon: '', epgId: null }] }), uploaded: new Date(Date.now() - 60 * 60_000) });
+    const before = calls.length;
+    assert.ok((await (await playlist()).text()).includes('Vieja'));
+    await t.settle();
+    assert.equal(calls.length, before + 1);
+    assert.deepEqual(listNames(), ['Canal del relay']);
+    await playlist();
+    await t.settle();
+    assert.equal(calls.length, before + 1);
+    // Cambiar los servidores baja la lista ya, con las credenciales de un dispositivo de la cuenta.
+    bucket.data.set(listKey, { value: '{"channels":[]}', uploaded: new Date() });
+    const put = await handle(req(`/api/cfg/${t.cfgId}/servers`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ servers: ['http://nuevo.example'] }) }), t.env, t.ctx, t.cache);
+    assert.equal(put.status, 200);
+    await t.settle();
+    assert.deepEqual(calls[calls.length - 1].body, { servers: ['http://nuevo.example'], username: 'user', password: 'pa ss' });
+    assert.deepEqual(listNames(), ['Canal del relay']);
+    // Si el relay falla, no se inventa nada: el error sigue siendo del proveedor.
+    status = 500;
+    assert.equal((await provider('relay-2')).status, 502);
+  } finally {
+    globalThis.fetch = base;
+  }
+});
+
 test('refresco al pedir la playlist: solo con la lista guardada vieja, una vez cada 10 minutos y con tope por día', async () => {
   const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
   const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };

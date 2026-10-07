@@ -3168,8 +3168,9 @@ function setupOnboarding() {
     state.creds = { username, password };
     status(st, 'Bajando la lista de canales del proveedor…');
     try {
-      const r = await api<{ channels: Channel[] }>('/api/provider/list', { method: 'POST', auth: false, body: { type: 'xtream', servers, username, password } });
-      await finishOnboarding(r.channels, { type: 'xtream', servers });
+      const r = await api<{ channels: Channel[]; viaRelay?: boolean }>('/api/provider/list', { method: 'POST', auth: false, body: { type: 'xtream', servers, username, password } });
+      // Si el proveedor bloquea al Worker y la lista la bajó el relay, el Worker no vuelve a pedirla: usa la guardada.
+      await finishOnboarding(r.channels, { type: 'xtream', servers, ...(r.viaRelay ? { list: 'upload' as const } : {}) });
     } catch (e) {
       // Hay proveedores que bloquean los pedidos que salen de Cloudflare. Si GitHub tiene esta
       // cuenta, la lista la baja GitHub y no hay que hacer nada más.

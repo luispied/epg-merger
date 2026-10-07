@@ -22,14 +22,15 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config } from './config.ts';
-import { addDevice, cleanAccount, listDevices, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { addDevice, anyToken, cleanAccount, listDevices, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, dispatchWorkflow } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey, isLinked, knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
-import { refreshOnDemand } from './refresh.ts';
+import { refreshOnDemand, refreshViaRelay } from './refresh.ts';
+import { relayConfigured, relayList } from './relay.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -87,6 +88,16 @@ async function linkWithGithub(env: Env, ctx: Ctx, cache: SimpleCache, cfgId: str
   ctx.waitUntil(dispatchRefresh(env, cache));
 }
 
+/** Baja la lista ahora por el relay (credenciales de un dispositivo principal de la configuración); sin relay o sin dispositivo, lanza la corrida de GitHub. */
+async function refreshNow(env: Env, cache: SimpleCache, cfgId: string, servers: string[]): Promise<void> {
+  if (relayConfigured(env)) {
+    const token = await anyToken(env.BUCKET, cfgId);
+    const creds = token ? await decryptToken(env.TOKEN_KEY, cfgId, token) : null;
+    if (creds && 'u' in creds && await refreshViaRelay(env, cache, cfgId, servers, creds.u, creds.p, undefined, new Date(), true)) return;
+  }
+  await dispatchRefresh(env, cache, { fresh_minutes: '5' });
+}
+
 const listKey = (cfgId: string) => `https://grilla.internal/list/${cfgId}`;
 const r2ListKey = (cfgId: string) => `list/${cfgId}.json`;
 
@@ -105,7 +116,15 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
   if (cfg.provider.list === 'upload') {
     // La sube otro (GitHub o la app): el Worker no le pide nada al proveedor.
     const uploaded = await env.BUCKET.get(r2ListKey(cfgId));
-    if (!uploaded) throw new ProviderError('la lista todavía no se subió');
+    if (!uploaded) {
+      // Todavía no hay lista: con relay se baja en este mismo pedido.
+      if (relayConfigured(env)) {
+        const fresh = await relayList(env, cfg.provider.servers, creds.u, creds.p);
+        await env.BUCKET.put(r2ListKey(cfgId), JSON.stringify(fresh), { httpMetadata: { contentType: 'application/json' } });
+        return fresh;
+      }
+      throw new ProviderError('la lista todavía no se subió');
+    }
     return JSON.parse(await uploaded.text()) as LiveList;
   }
   const hit = await cache.match(listKey(cfgId));
@@ -153,7 +172,10 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     list = await liveList(cfgId, cfg, creds, env, ctx, cache);
     // Lista que baja GitHub: si tiene unos minutos, se pide una nueva para el próximo pedido (ver refresh.ts).
     if (cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
-      ctx.waitUntil(env.BUCKET.head(r2ListKey(cfgId)).then((h) => refreshOnDemand(env, cache, cfgId, h?.uploaded)).catch(() => false));
+      const provider = cfg.provider;
+      ctx.waitUntil(env.BUCKET.head(r2ListKey(cfgId)).then((h) => relayConfigured(env) && 'u' in creds
+        ? refreshViaRelay(env, cache, cfgId, provider.servers, creds.u, creds.p, h?.uploaded)
+        : refreshOnDemand(env, cache, cfgId, h?.uploaded)).catch(() => false));
     }
   } catch (e) {
     return new Response(`El proveedor no respondió: ${(e as Error).message}`, { status: 502 });
@@ -229,6 +251,15 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     } catch (e) {
       if (!(e instanceof ProviderError)) throw e;
       // Si el proveedor bloquea al Worker pero GitHub tiene esta cuenta, la lista la baja GitHub.
+      // Si el proveedor bloquea al Worker pero hay un relay, la lista la baja el relay.
+      if (body.type === 'xtream' && relayConfigured(env) && Array.isArray(body.servers)) {
+        try {
+          const { server, channels } = await relayList(env, body.servers.map(String), String(body.username), String(body.password));
+          return json({ server, channels, viaRelay: true });
+        } catch (re) {
+          if (!(re instanceof ProviderError)) throw re;
+        }
+      }
       const github = body.type === 'xtream' && await knownToGithub(env.BUCKET, await linkHash(String(body.username), String(body.password)));
       return json({ error: e.message, github }, 502);
     }
@@ -390,8 +421,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const body = await readJson(request, 4 * 1024) as { servers?: unknown };
       const servers = parseServers(typeof body.servers === 'string' ? body.servers.split(/[\s,]+/) : body.servers);
       await saveConfig(env.BUCKET, cfgId, { ...stored.config, provider: { ...stored.config.provider, servers } }, stored.keyHash);
-      // La lista que baja GitHub se vuelve a bajar enseguida, con los servidores nuevos.
-      ctx.waitUntil(dispatchRefresh(env, cache, { fresh_minutes: '5' }));
+      // La lista se vuelve a bajar enseguida, con los servidores nuevos: por el relay si hay uno (con las credenciales de
+      // un dispositivo de la cuenta principal) y, si no, por la corrida de GitHub.
+      ctx.waitUntil(refreshNow(env, cache, cfgId, servers));
       return json({ ok: true, servers });
     }
     if (action === 'credentials' && method === 'PUT') {
@@ -402,7 +434,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const creds = credentialsFrom(raw, stored.config);
       const key = 'u' in creds ? await accountKey(creds.u, creds.p) : undefined;
       const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account), key);
-      if ('u' in creds) await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
+      if ('u' in creds) {
+        await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
+        if (!cleanAccount(raw.account) && stored.config.provider.type === 'xtream') ctx.waitUntil(refreshViaRelay(env, cache, cfgId, stored.config.provider.servers, creds.u, creds.p, undefined, new Date(), true));
+      }
       return json({ ok: true, updated });
     }
     if (action === 'token' && method === 'POST') {

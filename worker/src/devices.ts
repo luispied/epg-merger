@@ -144,3 +144,12 @@ export async function touchDevice(bucket: R2Bucket, code: string, rec: ShortReco
   if (rec.lastUsed && now.getTime() - Date.parse(rec.lastUsed) < TOUCH_EVERY_MS) return;
   await bucket.put(shortKey(code), JSON.stringify({ ...rec, lastUsed: now.toISOString() }), JSON_TYPE);
 }
+
+/** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta). */
+export async function anyToken(bucket: R2Bucket, cfgId: string): Promise<string | null> {
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (rec && rec.cfgId === cfgId && rec.active !== false && !rec.account) return rec.token;
+  }
+  return null;
+}

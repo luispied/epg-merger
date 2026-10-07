@@ -33,6 +33,9 @@ export interface Env {
   GITHUB_TOKEN?: string;
   /** Opcional: "dueño/repo" (por defecto luispied/epg-merger). */
   GITHUB_REPO?: string;
+  /** Opcionales: el relay que pide al proveedor lo que Cloudflare no puede (ver src/relay.ts y ../relay/README.md). */
+  RELAY_URL?: string;
+  RELAY_SECRET?: string;
   /** Opcionales: claves VAPID para los avisos push (ver src/push.ts y tools/gen_vapid.mjs). */
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
