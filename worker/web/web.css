@@ -942,3 +942,8 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 #downRow { cursor: pointer; }
 #downRow .btn { flex: none; }
 #runCheckBtn.is-wait { opacity: .65; }
+
+/* Tarjetas de arriba de la lista: llenas y sin contorno ni raya, como las de Configuración y Categorías */
+.links-card { background: var(--surface-2); color: var(--text); box-shadow: none; }
+.review-card { background: var(--surface-2); box-shadow: none; }
+.lc-head > .icon { color: var(--muted); }
