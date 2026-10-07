@@ -9,6 +9,7 @@ import { MAX_PER_DAY, refreshOnDemand, STALE_AFTER_MS } from '../src/refresh.ts'
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { linkHash } from '../src/link.ts';
+import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, MemoryCache, mockXtream, STREAMS } from './helpers.ts';
@@ -996,6 +997,75 @@ test('relay: cuando el proveedor bloquea al Worker, el relay baja la lista (al d
   } finally {
     globalThis.fetch = base;
   }
+});
+
+test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el vencimiento de cada cuenta', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: { Oculto: { hidden: true } } } as Partial<typeof CONFIG>);
+  const ch = (id: string, name = `Canal ${id}`, category = 'Aire') => ({ name, category, id, ext: 'ts', icon: '', epgId: null });
+  const channels = [ch('1'), ch('2'), ch('3'), ch('4', 'Oculto'), ch('5', 'Evento', 'PPV EVENTS'), ch('6', 'Sep', '▆▆▆ DEPORTES ▆▆▆')];
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels }), uploaded: new Date() });
+  // Una segunda cuenta (la de un familiar) con un dispositivo propio.
+  await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey, body: JSON.stringify({ username: 'mama', password: 'x', account: 'Mamá', name: 'Tablet' }) }), t.env, t.ctx, t.cache);
+  const calls: { path: string; body: { username: string; channels?: { id: string }[] } }[] = [];
+  let aborted = false;
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.origin === 'https://relay.example') {
+      const body = JSON.parse(String(init?.body));
+      calls.push({ path: url.pathname, body });
+      const account = { status: 'Active', expires: body.username === 'user' ? '2026-12-01T00:00:00+00:00' : '2027-02-01T00:00:00+00:00', trial: false, maxConnections: 2 };
+      if (url.pathname === '/v1/account') return new Response(JSON.stringify({ server: S1, account }));
+      const results = Object.fromEntries((body.channels ?? []).map((c: { id: string }) => [c.id, c.id === '2' ? 'down' : 'up']));
+      return new Response(JSON.stringify({ server: S1, account, results: aborted ? {} : results, aborted }));
+    }
+    return base(input, init);
+  }) as typeof fetch;
+  const health = () => JSON.parse(bucket.data.get(`health/${t.cfgId}.json`)!.value) as { checked?: string; tested?: number; total?: number; account?: { expires: string }; accounts: Record<string, { expires: string }>; channels: Record<string, { ok: boolean; fails: number }> };
+  const now = new Date('2026-10-07T10:00:00Z');
+  try {
+    // Sin relay no hace nada.
+    assert.equal(await runHealthCheck(t.env, t.cfgId, now), false);
+    t.env.RELAY_URL = 'https://relay.example';
+    t.env.RELAY_SECRET = 'r'.repeat(40);
+    assert.equal(await runHealthCheck(t.env, t.cfgId, now), true);
+    // Solo los canales que valen la pena (sin ocultos, eventos ni separadores), por la cuenta principal; la otra solo trae sus datos.
+    const probe = calls.filter((c) => c.path === '/v1/probe');
+    assert.equal(probe.length, 1);
+    assert.deepEqual(probe[0].body.channels!.map((c) => c.id), ['1', '2', '3']);
+    assert.ok(probe.every((c) => c.body.username === 'user'));
+    assert.equal(calls.filter((c) => c.path === '/v1/account').length, 1);
+    let h = health();
+    assert.equal(h.tested, 3);
+    assert.equal(h.total, 3);
+    assert.equal(h.channels['2'].ok, false);
+    assert.equal(h.channels['1'].ok, true);
+    assert.equal(h.account!.expires, '2026-12-01T00:00:00+00:00');
+    assert.deepEqual(Object.values(h.accounts).map((a) => a.expires).sort(), ['2026-12-01T00:00:00+00:00', '2027-02-01T00:00:00+00:00']);
+    assert.ok(!JSON.stringify(h).includes('pa ss'));
+    // Una sola prueba por día: la próxima vuelta del cron no hace nada, salvo que alguien la pida a mano.
+    const n = calls.length;
+    assert.equal(await checkAllHealth(t.env, new Date(now.getTime() + 3600_000)), 0);
+    assert.equal(calls.length, n);
+    bucket.data.set(`healthreq/${t.cfgId}.json`, { value: JSON.stringify({ at: new Date(now.getTime() + 7200_000).toISOString() }) });
+    assert.equal(await checkAllHealth(t.env, new Date(now.getTime() + 9000_000)), 1);
+    assert.equal(health().channels['2'].fails, 2);
+    // Si la cuenta rechaza, no se anota nada de los canales y no se insiste hasta el día siguiente.
+    aborted = true;
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 30 * 3600_000)), true);
+    assert.equal(health().channels['2'].fails, 2);
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 31 * 3600_000)), false);
+  } finally {
+    globalThis.fetch = base;
+  }
+  // Piezas sueltas.
+  const old = (t_: string) => ({ t: t_, ok: true, fails: 0 });
+  assert.deepEqual(pickBatch([ch('b'), ch('a'), ch('c')], { a: old('2026-01-02'), c: old('2026-01-01') }, 2).map((c) => c.id), ['b', 'c']);
+  assert.deepEqual(visibleChannels(channels, parseConfig({ provider: { type: 'xtream', servers: [S1] }, channels: { Canal_: {} }, groups: { hidden: ['Aire'] } })).length, 0);
+  assert.equal(isDue(null, undefined, now), true);
+  assert.equal(isDue({ checked: now.toISOString() }, undefined, new Date(now.getTime() + 19 * 3600_000)), false);
+  assert.equal(isDue({ checked: now.toISOString() }, new Date(now.getTime() + 1000).toISOString(), new Date(now.getTime() + 2000)), true);
 });
 
 test('refresco al pedir la playlist: solo con la lista guardada vieja, una vez cada 10 minutos y con tope por día', async () => {

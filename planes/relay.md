@@ -12,8 +12,9 @@ las usa y las descarta, no guarda nada ni las escribe en el log, y solo habla co
 
 ## Etapas
 1. ✅ Lista: alta de configuración, playlist con lista vieja, cambio de servidores o de datos (esta etapa).
-2. ⏳ Prueba de canales caídos y vencimiento de cada cuenta: el cron del Worker llama a `/v1/probe` y `/v1/account`
-   (ya existen en el relay) y escribe `health/<cfgId>.json`; «Probar ahora» deja de lanzar `check-streams.yml`.
+2. ✅ Prueba de canales caídos y vencimiento de cada cuenta: el cron del Worker (`src/streamcheck.ts`) llama a `/v1/probe` y
+   `/v1/account` y escribe `health/<cfgId>.json`; con relay, «Probar ahora» deja un pedido en `healthreq/` (lo toma el cron, hasta
+   30 minutos) en vez de lanzar `check-streams.yml`.
 3. ⏳ Retirar el camino de GitHub para listas y pruebas (`XTREAM_PROFILES`, `known/`, `links/`), dejando en GitHub solo
    lo que no usa credenciales (guía fusionada y guía por configuración).
 

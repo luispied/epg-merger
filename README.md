@@ -295,8 +295,11 @@ las descarta. Con `RELAY_URL` y `RELAY_SECRET` cargados en el Worker:
 - cuando alguien pide la playlist y la lista guardada tiene más de 10 minutos, se renueva por el relay (sin gastar minutos de Actions);
 - al cambiar los servidores o los datos de la cuenta, la lista se baja de nuevo enseguida.
 
-Sin esas variables todo sigue como antes (corrida de GitHub). La prueba de canales caídos y el vencimiento de cada
-cuenta todavía salen de GitHub; pasan al relay en el siguiente paso (`planes/relay.md`).
+- la prueba de canales caídos y el vencimiento de cada cuenta (la tuya y las de familiares) las hace el cron del Worker
+  (cada 30 minutos, una vez por día por configuración o cuando alguien toca «Probar ahora», hasta 200 canales por vez) y deja
+  `health/<cfgId>.json` con el mismo formato de siempre (`src/streamcheck.ts`).
+
+Sin esas variables todo sigue como antes (corrida de GitHub). Retirar ese camino viejo es el último paso (`planes/relay.md`).
 
 ## Varias personas con el mismo proveedor
 
