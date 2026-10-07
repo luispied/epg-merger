@@ -693,6 +693,32 @@ test('credenciales: al cambiarlas, los links cortos siguen iguales y pasan a usa
   assert.equal(bad.status, 400);
 });
 
+test('cuentas: un dispositivo puede usar otra cuenta del proveedor, se reutiliza por nombre y se actualiza aparte', async () => {
+  const t = await setup();
+  const post = async (body: Record<string, unknown>) => await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  const tokenOf = async (code: string) => decryptToken(t.env.TOKEN_KEY, t.cfgId,
+    (JSON.parse(await (await t.env.BUCKET.get(`short/${code}.json`))!.text()) as { token: string }).token);
+  const main = await (await post({ username: 'yo', password: 'a', name: 'TV' })).json() as { code: string };
+  const mama = await (await post({ username: 'mama', password: 'b', account: 'Mamá', name: 'Tablet' })).json() as { code: string };
+  // Sin usuario ni contraseña: se reutiliza la de la cuenta con ese nombre.
+  const mama2 = await (await post({ account: 'Mamá', name: 'Celu' })).json() as { code: string };
+  assert.deepEqual(await tokenOf(mama2.code), { u: 'mama', p: 'b' });
+  assert.equal((await post({ account: 'Otra', name: 'X' })).status, 400);
+  // Cambiar los datos de una cuenta no toca las demás (ni los de setup(), que son de la principal).
+  const res = await handle(req(`/api/cfg/${t.cfgId}/credentials`, { method: 'PUT', key: t.editKey,
+    body: JSON.stringify({ username: 'mama2', password: 'c', account: 'Mamá' }) }), t.env, t.ctx, t.cache);
+  assert.deepEqual(await res.json(), { ok: true, updated: 2 });
+  assert.deepEqual(await tokenOf(mama.code), { u: 'mama2', p: 'c' });
+  assert.deepEqual(await tokenOf(mama2.code), { u: 'mama2', p: 'c' });
+  assert.deepEqual(await tokenOf(main.code), { u: 'yo', p: 'a' });
+  const res2 = await handle(req(`/api/cfg/${t.cfgId}/credentials`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ username: 'yo2', password: 'd' }) }), t.env, t.ctx, t.cache);
+  assert.deepEqual(await tokenOf(mama.code), { u: 'mama2', p: 'c' });
+  assert.deepEqual(await tokenOf(main.code), { u: 'yo2', p: 'd' });
+  assert.equal(((await res2.json()) as { updated: number }).updated, 2); // el de setup() y el de 'TV'
+  const list = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { name: string; account?: string }[] };
+  assert.deepEqual(list.devices.filter((d) => d.account).map((d) => d.name).sort(), ['Celu', 'Tablet']);
+});
+
 test('perfiles: cada link filtra por categoría y por canal, y se cambia sin cambiar la dirección', async () => {
   const t = await setup();
   const call = (path: string, method: string, body?: unknown) =>

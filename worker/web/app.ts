@@ -2420,7 +2420,7 @@ const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
 interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -2446,6 +2446,9 @@ async function renderLinks(result?: LinkResult) {
     devices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local!.cfgId}/devices`)).devices;
   } catch { /* sin lista: se puede agregar igual */ }
   const needsCreds = !state.creds;
+  // Cuentas adicionales del proveedor (por ejemplo, la de un familiar): se reconocen por los dispositivos que las usan.
+  const accounts = [...new Set(devices.map((d) => d.account).filter((a): a is string => !!a))];
+  const accOptions = (extra: string) => `<option value="">Mi cuenta</option>${accounts.map((a) => `<option value="${esc(a)}">${esc(a)}</option>`).join('')}${extra}`;
   body.innerHTML = `
     <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (su playlist muestra un aviso y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
       Cada uno puede tener su propio perfil —qué categorías y canales ve—; sin perfil muestra todo lo de tu configuración. Los links llevan tus datos del proveedor cifrados:
@@ -2453,7 +2456,7 @@ async function renderLinks(result?: LinkResult) {
     ${devices.length ? `<div class="device-list">${devices.map((d) => `
       <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
         <div class="device-top">
-          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
+          <div class="device-info"><strong>${esc(d.name)}</strong>${d.account ? `<span class="acc-tag">Cuenta: ${esc(d.account)}</span>` : ''}<small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
           <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
         </div>
         <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
@@ -2473,6 +2476,7 @@ async function renderLinks(result?: LinkResult) {
       <summary>¿Cambiaron tus datos del proveedor?</summary>
       <p class="help">Los links de todos tus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
       <form class="stack" id="credsForm" autocomplete="off">
+        ${accounts.length ? `<label class="field"><span>Cuenta</span><select class="select" id="chgAccount">${accOptions('')}</select></label>` : ''}
         ${p.type === 'xtream' ? `
           <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
           <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
@@ -2483,10 +2487,18 @@ async function renderLinks(result?: LinkResult) {
     <h3 class="sub-title">Agregar dispositivo</h3>
     <form class="stack" id="linksForm" autocomplete="off">
       <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
+      ${p.type === 'xtream' ? `<label class="field"><span>Cuenta del proveedor</span><select class="select" id="lnkAccount">${accOptions('<option value="__new">Otra cuenta nueva (de un familiar)…</option>')}</select></label>
+      <div class="stack" id="newAccount" hidden>
+        <label class="field"><span>Nombre de la cuenta</span><input class="input" id="lnkAccName" maxlength="30" placeholder="Mamá"></label>
+        <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="lnkAccUser" autocapitalize="off" spellcheck="false"></label>
+        <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="lnkAccPass" type="password"></label>
+      </div>` : ''}
+      <div class="stack" id="mainCreds">
       ${needsCreds && p.type === 'xtream' ? `
         <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
         <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
       ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
+      </div>
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
     </form>`;
   body.onchange = async (ev) => {
@@ -2560,18 +2572,39 @@ async function renderLinks(result?: LinkResult) {
       return;
     }
     try {
-      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: creds });
-      state.creds = creds;
+      const account = document.querySelector<HTMLSelectElement>('#chgAccount')?.value || '';
+      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: { ...creds, ...(account ? { account } : {}) } });
+      if (!account) state.creds = creds;
       toast(`Listo: ${r.updated} ${r.updated === 1 ? 'link' : 'links'} con los datos nuevos, sin cambiar de dirección`, 'ok', 6000);
       renderLinks();
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
   };
+  const accSel = document.querySelector<HTMLSelectElement>('#lnkAccount');
+  const syncAccount = () => {
+    const v = accSel?.value ?? '';
+    $('#newAccount').hidden = v !== '__new';
+    $('#mainCreds').hidden = v !== '';
+    for (const el of document.querySelectorAll<HTMLInputElement>('#mainCreds input')) el.required = v === '' && needsCreds;
+  };
+  if (accSel) { accSel.onchange = syncAccount; syncAccount(); }
   $('#linksForm').onsubmit = async (ev) => {
     ev.preventDefault();
-    let creds = state.creds;
-    if (!creds) {
+    const choice = accSel?.value ?? '';
+    let creds: Record<string, string> | null = state.creds;
+    let account = '';
+    if (choice === '__new') {
+      account = $<HTMLInputElement>('#lnkAccName').value.trim();
+      creds = { username: $<HTMLInputElement>('#lnkAccUser').value.trim(), password: $<HTMLInputElement>('#lnkAccPass').value };
+      if (!account || Object.values(creds).some((v) => !v)) {
+        toast('Completá el nombre, el usuario y la contraseña de la otra cuenta', 'bad');
+        return;
+      }
+    } else if (choice) {
+      account = choice;
+      creds = {}; // se reutilizan los datos de esa cuenta (cifrados en sus otros dispositivos)
+    } else if (!creds) {
       creds = p.type === 'xtream'
         ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
         : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
@@ -2583,8 +2616,8 @@ async function renderLinks(result?: LinkResult) {
     try {
       await saveNow();
       const name = $<HTMLInputElement>('#lnkName').value.trim();
-      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, name } });
-      state.creds = creds;
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, ...(account ? { account } : {}), name } });
+      if (!choice) state.creds = creds as typeof state.creds;
       renderLinkResult({ ...r, name });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);

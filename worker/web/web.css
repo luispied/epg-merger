@@ -948,3 +948,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .links-card { background: var(--surface-2); color: var(--text); box-shadow: none; }
 .review-card { background: var(--surface-2); box-shadow: none; }
 .lc-head > .icon { color: var(--muted); }
+
+/* Cuenta adicional del proveedor en la fila de un dispositivo. */
+.device-info .acc-tag { align-self: flex-start; margin: 2px 0; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--on-accent-soft); font-size: 11.5px; font-weight: 600; }
+.stack[hidden] { display: none; }
