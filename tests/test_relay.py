@@ -100,3 +100,28 @@ def test_http_de_punta_a_punta(monkeypatch):
         assert post('/v1/list', creds(servers=['http://u:p@x.example']))[0] == 400
     finally:
         srv.shutdown()
+
+
+def test_probe_provider_distingue_alcanzable_de_bloqueado():
+    import probe_provider as pp
+
+    class R:
+        def __init__(self, status, text):
+            self.status_code, self.text = status, text
+
+    api = json.dumps({'user_info': {'auth': 0}})
+    assert pp.classify(200, api)[0] == 'alcanzable'
+    assert pp.classify(401, api)[0] == 'alcanzable'
+    assert pp.classify(200, '<html>blocked</html>')[0] == 'dudoso'
+    assert pp.classify(403, '')[0] == 'bloqueado'
+    assert pp.classify(503, '')[0] == 'dudoso'
+    assert pp.probe('http://x.example/', get=lambda *a, **k: R(200, api))['result'] == 'alcanzable'
+
+    def refused(*a, **k):
+        raise pp.requests.exceptions.ConnectionError()
+
+    def slow(*a, **k):
+        raise pp.requests.exceptions.ConnectTimeout()
+
+    assert pp.probe('http://x.example', get=refused)['result'] == 'bloqueado'
+    assert pp.probe('http://x.example', get=slow)['result'] == 'bloqueado'
