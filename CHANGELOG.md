@@ -7,6 +7,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.6.3
+
+- Links tiene su propia **ayuda** (botón «?» junto al título): qué es un dispositivo, cómo funciona el perfil, marcar secciones
+  y canales, desactivar y cambiar los datos del proveedor.
+- El modo del perfil se entiende mejor: «Con lo que marques abajo… Ocultarlo / Mostrar solo eso», con una explicación debajo
+  de qué pasa en cada caso (y qué pasa con las categorías nuevas del proveedor).
+
 ## 1.6.2
 
 - El perfil de un dispositivo toma el mismo diseño que Configuración y Categorías: secciones con título, filas en tarjeta con

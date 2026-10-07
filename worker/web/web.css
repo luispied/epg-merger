@@ -929,3 +929,4 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .pf-mode-row .menu-text { flex: 1 1 0; min-width: 0; }
 .pf-mode-row .seg { flex: 1 1 100%; display: flex; }
 .pf-mode-row .seg button { flex: 1; }
+#pfModeHint { margin-top: 10px; }

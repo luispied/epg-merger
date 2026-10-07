@@ -2014,9 +2014,9 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
   renderChannelOrder(g);
 }
 
-const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Grilla', settings: 'Ayuda', categories: 'Ayuda' };
+const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Grilla', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
 /** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
-function openHelp(topic: 'main' | 'settings' | 'categories', from?: string) {
+function openHelp(topic: 'main' | 'settings' | 'categories' | 'links', from?: string) {
   const help = $('#helpDialog') as HTMLDialogElement;
   for (const t of $$<HTMLElement>('.help-topic', help)) t.hidden = t.dataset.topic !== topic;
   $('#helpTitle').textContent = HELP_TITLES[topic];
@@ -2429,13 +2429,14 @@ function renderDeviceProfile(dev: Device) {
     <div class="menu">
       <div class="menu-row static pf-mode-row">
         <span class="menu-icon">${icon('list-filter')}</span>
-        <span class="menu-text">Lo que marques<small id="pfModeHint"></small></span>
-        <div class="seg" role="radiogroup" aria-label="Modo del perfil" id="pfMode">
-          <button type="button" role="radio" data-value="hide">Se oculta</button>
-          <button type="button" role="radio" data-value="only">Se muestra solo</button>
+        <span class="menu-text">Con lo que marques abajo…</span>
+        <div class="seg" role="radiogroup" aria-label="Qué hacer con lo marcado" id="pfMode">
+          <button type="button" role="radio" data-value="hide">Ocultarlo</button>
+          <button type="button" role="radio" data-value="only">Mostrar solo eso</button>
         </div>
       </div>
     </div>
+    <p class="help" id="pfModeHint"></p>
     <h3 class="sec-title">Categorías y canales</h3>
     <label class="search-field cat-filter">
       ${icon('search')}
@@ -2451,7 +2452,9 @@ function renderDeviceProfile(dev: Device) {
     <div class="form-actions"><button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar perfil (ver todo)</button></div>`;
   const modeUi = () => {
     for (const b of $$('#pfMode button')) b.setAttribute('aria-checked', String(b.dataset.value === (only ? 'only' : 'hide')));
-    $('#pfModeHint').textContent = only ? 'Ve únicamente lo marcado' : 'Ve todo menos lo marcado';
+    $('#pfModeHint').textContent = only
+      ? 'Este dispositivo ve únicamente lo que marques. Lo demás no aparece, tampoco las categorías nuevas que traiga el proveedor.'
+      : 'Este dispositivo ve todo menos lo que marques. Lo que marques desaparece de su lista; el resto, incluidas las categorías nuevas, sigue apareciendo.';
   };
   modeUi();
   draw();
@@ -3279,6 +3282,7 @@ function setupEditor() {
     ($('#linksDialog') as HTMLDialogElement).showModal();
   };
   $('#linksBack').onclick = () => renderLinks();
+  $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');
   wireNested('#helpDialog', '#helpBack', '#helpClose');
   // Ordenar los canales se abre desde la hoja de la categoría: «‹» vuelve a esa hoja y «×» cierra.
   $('#orderBack').onclick = () => {

@@ -227,6 +227,7 @@
       <span class="title-left">
         <button type="button" class="icon-btn" id="linksBack" aria-label="Volver" title="Volver" hidden><span data-icon="chevron-left"></span></button>
         <h2 id="linksTitle">Tus links</h2>
+        <button type="button" class="icon-btn" id="linksHelpBtn" aria-label="Cómo funciona" title="Cómo funciona"><span data-icon="circle-help"></span></button>
       </span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
@@ -446,6 +447,31 @@
       <details>
         <summary>Crear categorías y secciones<span data-icon="chevron-down"></span></summary>
         <p>Con «Categoría» y «Sección» creás una nueva; queda al final para arrastrarla a su lugar. Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen y aparecen marcadas «nueva».</p>
+      </details>
+    </div>
+    <div class="help-topic" data-topic="links" hidden>
+      <p>Cada <b>dispositivo</b> (la tele del living, el celular…) tiene su propio par de links: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, el perfil o tus datos del proveedor.</p>
+      <details open>
+        <summary>Perfil: qué ve cada dispositivo<span data-icon="chevron-down"></span></summary>
+        <p>Con el botón <span class="inline-icon" data-icon="list-filter"></span> de un dispositivo elegís qué categorías y canales sueltos aparecen en <b>su</b> playlist. Es útil, por ejemplo, para que la tele de los chicos no muestre contenido para adultos. Sin perfil, el dispositivo ve todo lo de tu configuración.</p>
+      </details>
+      <details open>
+        <summary>Ocultarlo o mostrar solo eso<span data-icon="chevron-down"></span></summary>
+        <p>Primero marcás categorías y canales. Después elegís qué pasa con lo marcado:</p>
+        <p><b>Ocultarlo</b>: el dispositivo ve todo <i>menos</i> lo que marcaste. Las categorías nuevas que traiga el proveedor sí le aparecen.</p>
+        <p><b>Mostrar solo eso</b>: el dispositivo ve <i>únicamente</i> lo que marcaste. Lo demás, incluidas las categorías nuevas, no le aparece. Es la opción segura para un perfil infantil.</p>
+      </details>
+      <details>
+        <summary>Marcar categorías, secciones y canales<span data-icon="chevron-down"></span></summary>
+        <p>Cada fila es una categoría. Al marcar una <b>sección</b> se marcan todas las categorías que tiene adentro (y al desmarcarla, se desmarcan); si solo algunas están marcadas, ves «2 de 4 categorías». «Elegir todo» y «Deseleccionar todo» actúan sobre lo que se ve en pantalla. Con el buscador también encontrás <b>canales sueltos</b> para marcarlos sin tocar su categoría.</p>
+      </details>
+      <details>
+        <summary>Desactivar, renombrar y quitar<span data-icon="chevron-down"></span></summary>
+        <p>El interruptor <b>desactiva</b> el link sin borrarlo: su playlist muestra un aviso con un solo canal hasta que lo reactives. También podés cambiarle el nombre o quitarlo del todo, sin afectar a los demás.</p>
+      </details>
+      <details>
+        <summary>¿Cambiaron tus datos del proveedor?<span data-icon="chevron-down"></span></summary>
+        <p>En esa sección ponés el usuario y la contraseña nuevos (o la URL nueva) y se actualizan <b>todos</b> los dispositivos a la vez, sin cambiar sus direcciones: no hay que tocar nada en el reproductor.</p>
       </details>
     </div>
     <p class="app-version" data-version></p>
