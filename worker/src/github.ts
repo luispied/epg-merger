@@ -7,8 +7,8 @@ import type { Env, SimpleCache } from './env.ts';
 const THROTTLE_S = 60; // como mucho una por minuto: la corrida hace todo lo pendiente de una vez
 const KEY = 'https://grilla.internal/github-dispatch';
 
-/** Lanza un workflow de GitHub Actions (workflow_dispatch) en la rama principal. */
-export async function dispatchWorkflow(env: Env, file: string): Promise<boolean> {
+/** Lanza un workflow de GitHub Actions (workflow_dispatch) en la rama principal, con datos de entrada opcionales. */
+export async function dispatchWorkflow(env: Env, file: string, inputs?: Record<string, string>): Promise<boolean> {
   if (!env.GITHUB_TOKEN) return false;
   const repo = env.GITHUB_REPO || 'luispied/epg-merger';
   try {
@@ -20,8 +20,10 @@ export async function dispatchWorkflow(env: Env, file: string): Promise<boolean>
         'User-Agent': 'grilla-worker',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ref: 'main' }),
+      body: JSON.stringify({ ref: 'main', ...(inputs ? { inputs } : {}) }),
     });
+    // 422: el workflow todavía no declara esos datos (el Worker se publicó antes que el cambio): se lanza sin ellos.
+    if (res.status === 422 && inputs) return dispatchWorkflow(env, file);
     if (!res.ok) console.error('github dispatch', res.status);
     return res.ok;
   } catch {

@@ -386,6 +386,9 @@ fuentes → publicación de `merged.xml.gz` y `epg_catalog.json` al release → 
 `refresh-lists.yml` (cada 3 horas, y a pedido del Worker) baja la lista del proveedor desde
 GitHub —para los proveedores que bloquean a Cloudflare— y arma la guía de cada configuración.
 Descarga `merged.xml.gz` del release con el `GITHUB_TOKEN`, así funciona con el repo privado.
+Además, cuando alguien pide la playlist y la lista guardada tiene más de 10 minutos, el Worker lanza esta
+misma corrida con `fresh_minutes=10` (`worker/src/refresh.ts`): una vez cada 10 minutos por configuración y
+hasta 12 por día, para que un canal nuevo del proveedor (un partido en PPV) no espere las 3 horas.
 
 `check-streams.yml` (una vez por día, a las 07:30 UTC) prueba una tanda de ~200 canales con
 `tools/check_streams.py` —de a uno, leyendo solo los primeros bytes— y deja el resultado en R2

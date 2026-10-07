@@ -29,6 +29,7 @@ import { dispatchRefresh, dispatchWorkflow } from './github.ts';
 import { healthyServer } from './health.ts';
 import { knownToGithub, linkConfig, linkHash } from './link.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
+import { refreshOnDemand } from './refresh.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -142,6 +143,10 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   let list: LiveList;
   try {
     list = await liveList(cfgId, cfg, creds, env, ctx, cache);
+    // Lista que baja GitHub: si tiene unos minutos, se pide una nueva para el próximo pedido (ver refresh.ts).
+    if (cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
+      ctx.waitUntil(env.BUCKET.head(r2ListKey(cfgId)).then((h) => refreshOnDemand(env, cache, cfgId, h?.uploaded)).catch(() => false));
+    }
   } catch (e) {
     return new Response(`El proveedor no respondió: ${(e as Error).message}`, { status: 502 });
   }

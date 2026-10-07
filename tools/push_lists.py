@@ -27,6 +27,18 @@ from profiles import load_profiles  # noqa: E402
 from xtream_client import XtreamError, get_live_categories, get_live_streams  # noqa: E402
 
 REFRESH_EVERY = datetime.timedelta(hours=3) - datetime.timedelta(minutes=5)
+MIN_REFRESH_MINUTES = 5
+
+
+def refresh_every(env=None):
+    """Cada cuánto se vuelve a bajar una lista. Por defecto 3 horas; el Worker lanza la corrida con REFRESH_MINUTES
+    cuando alguien pide la playlist y la lista guardada ya tiene unos minutos (mínimo 5, para no abusar del proveedor)."""
+    raw = ((env if env is not None else os.environ).get('REFRESH_MINUTES') or '').strip()
+    try:
+        minutes = int(raw)
+    except ValueError:
+        return REFRESH_EVERY
+    return datetime.timedelta(minutes=min(max(minutes, MIN_REFRESH_MINUTES), 180)) - datetime.timedelta(minutes=1)
 
 
 def link_hash(username, password):
@@ -71,17 +83,17 @@ class R2:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
 
-def due(r2, cfg_ids, pending, now):
+def due(r2, cfg_ids, pending, now, every=REFRESH_EVERY):
     if pending:
         return True
     for cfg_id in cfg_ids:
         current = r2.get(f'list/{cfg_id}.json')
-        if current is None or now - current[1] >= REFRESH_EVERY:
+        if current is None or now - current[1] >= every:
             return True
     return False
 
 
-def sync(r2, profiles, load=None, now=None):
+def sync(r2, profiles, load=None, now=None, every=REFRESH_EVERY):
     """Anota las cuentas conocidas y sube las listas que tocan. Devuelve {perfil: canales}."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     load = load or load_channels
@@ -94,7 +106,7 @@ def sync(r2, profiles, load=None, now=None):
             continue
         data = json.loads(link[0] or b'{}')
         cfg_ids = [c for c in data.get('cfgIds', []) if r2.get(f'cfg/{c}.json') is not None]
-        if not cfg_ids or not due(r2, cfg_ids, data.get('pending'), now):
+        if not cfg_ids or not due(r2, cfg_ids, data.get('pending'), now, every):
             continue
         body = json.dumps({'channels': load(profile)}, ensure_ascii=False).encode('utf-8')
         for cfg_id in cfg_ids:
@@ -121,7 +133,7 @@ def main():
         region_name='auto')
     profiles = [p for p in load_profiles() if p.get('type', 'xtream') == 'xtream']
     try:
-        done = sync(R2(client, os.environ.get('R2_BUCKET') or 'grilla'), profiles)
+        done = sync(R2(client, os.environ.get('R2_BUCKET') or 'grilla'), profiles, every=refresh_every())
     except XtreamError as e:
         # Sin detalles: la URL del proveedor lleva las credenciales.
         print(f'❌ El proveedor no respondió ({type(e).__name__})')
