@@ -138,7 +138,6 @@
 
 <nav class="tabbar" id="tabbar" aria-label="Secciones">
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
-  <button type="button" class="tab" id="tabGuide"><span data-icon="clock"></span><span>Guía</span></button>
   <button type="button" class="tab" id="tabReview"><span class="tab-ico"><span data-icon="list-checks"></span><b class="tab-badge" id="tabReviewBadge" hidden></b></span><span>Revisar</span></button>
   <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
   <button type="button" class="tab" id="tabLinks"><span data-icon="link-2"></span><span>Links</span></button>
@@ -221,23 +220,6 @@
       <button type="button" class="icon-btn" id="orderClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
     <div id="orderBody"></div>
-  </div>
-</dialog>
-
-<dialog class="sheet settings-sheet" id="guideDialog" aria-labelledby="guideTitle">
-  <div class="sheet-body">
-    <div class="title-row">
-      <span class="title-left"><h2 id="guideTitle">Guía</h2></span>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
-      <p class="meta-line" id="guideMeta"></p>
-    </div>
-    <label class="search-field cat-filter">
-      <span data-icon="search"></span>
-      <input type="search" id="guideQ" placeholder="Buscar canal o programa" autocomplete="off">
-    </label>
-    <label class="field guide-cat"><select class="select" id="guideCat" aria-label="Categoría"></select></label>
-    <div class="menu" id="guideList"></div>
-    <button type="button" class="btn btn-gray btn-block" id="guideMore" hidden>Ver más canales</button>
   </div>
 </dialog>
 
@@ -410,11 +392,6 @@
     <details>
       <summary>¿Cómo busco un canal o un programa?<span data-icon="chevron-down"></span></summary>
       <p>El buscador de arriba encuentra canales por su nombre, su categoría, su guía o <b>lo que está dando ahora</b>: escribí «River» o «noticias» y aparecen los canales que lo están pasando, con el programa marcado. Combina con los filtros (por ejemplo, buscar dentro de «Sin EPG»). Con una búsqueda la lista es plana y cada fila indica su categoría.</p>
-    </details>
-
-    <details>
-      <summary>¿Cómo veo qué dan ahora en cada canal?<span data-icon="chevron-down"></span></summary>
-      <p>La pestaña <b>Guía</b> (barra de abajo) lista tus canales con guía asignada y, de cada uno, <b>lo que da ahora</b> (hasta qué hora) y <b>lo que sigue</b>. Podés filtrar por categoría y buscar por canal o por programa. Tocá un canal para abrirlo y cambiarle la guía si no coincide.</p>
     </details>
 
     <details>
