@@ -38,7 +38,11 @@ import requests  # noqa: E402
 
 import check_streams  # noqa: E402
 import push_lists  # noqa: E402
+import xtream_client  # noqa: E402
 from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams  # noqa: E402
+
+# Sin avisos de progreso del cliente Xtream: sus errores pueden llevar la URL con usuario y contraseña.
+xtream_client.LOG = lambda *args, **kwargs: None
 
 MIN_SECRET_LEN = 32
 MAX_BODY = 64 * 1024
@@ -219,4 +223,9 @@ def make_server(secret, host='0.0.0.0', port=8080):
 if __name__ == '__main__':
     srv = make_server(os.environ.get('RELAY_SECRET', ''), port=int(os.environ.get('PORT') or 8080))
     print(f'relay escuchando en el puerto {srv.server_address[1]}')
-    srv.serve_forever()
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:  # la plataforma lo apaga con una señal: no es un error
+        pass
+    finally:
+        srv.server_close()

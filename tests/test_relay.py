@@ -125,3 +125,17 @@ def test_probe_provider_distingue_alcanzable_de_bloqueado():
 
     assert pp.probe('http://x.example', get=refused)['result'] == 'bloqueado'
     assert pp.probe('http://x.example', get=slow)['result'] == 'bloqueado'
+
+
+def test_el_relay_no_escribe_credenciales_en_el_log(monkeypatch, capsys):
+    import xtream_client
+
+    def boom(url, params=None, timeout=None):
+        raise xtream_client.requests.RequestException(f"403 Client Error: Forbidden for url: {url}?username={params['username']}&password={params['password']}")
+
+    monkeypatch.setattr(xtream_client.requests, 'get', boom)
+    with pytest.raises(xtream_client.XtreamError):
+        server.do_list(['http://prov.example:8080'], 'usuario_x', 'clave_secreta')
+    out = capsys.readouterr()
+    assert 'clave_secreta' not in out.out + out.err and 'usuario_x' not in out.out + out.err
+    assert 'prov.example' not in out.out + out.err

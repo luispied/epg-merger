@@ -7,6 +7,10 @@ class XtreamError(Exception):
     pass
 
 
+# Dónde van los avisos de progreso. El relay lo apaga: un mensaje de error de requests puede llevar la URL completa, con usuario y contraseña.
+LOG = print
+
+
 def _server_host(server):
     """Devuelve el servidor sin credenciales, solo para logging seguro."""
     return server.split('//')[-1].split('/')[0]
@@ -30,10 +34,10 @@ def get_live_streams(servers, username, password, timeout=15):
             data = response.json()
             if not isinstance(data, list):
                 raise XtreamError(f"Respuesta inesperada del servidor ({type(data).__name__})")
-            print(f"✅ Servidor activo: {_server_host(server)} ({len(data)} canales)")
+            LOG(f"✅ Servidor activo: {_server_host(server)} ({len(data)} canales)")
             return server, data
         except Exception as e:
-            print(f"❌ Servidor caído {_server_host(server)}: {e}")
+            LOG(f"❌ Servidor caído {_server_host(server)}: {e}")
             last_error = e
             continue
 
@@ -54,7 +58,7 @@ def get_live_categories(server, username, password, timeout=15):
         data = response.json()
         return {str(c['category_id']): c['category_name'] for c in data}
     except Exception as e:
-        print(f"⚠️  No se pudieron obtener las categorías: {e}")
+        LOG(f"⚠️  No se pudieron obtener las categorías: {e}")
         return {}
 
 
