@@ -4,11 +4,13 @@ import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
+import { dispatchWorkflow } from '../src/github.ts';
+import { MAX_PER_DAY, refreshOnDemand, STALE_AFTER_MS } from '../src/refresh.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
-import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
+import { CATEGORIES, makeEnv, MemoryCache, mockXtream, STREAMS } from './helpers.ts';
 
 const BASE = 'https://grilla.example';
 const S1 = 'http://s1.example:8080';
@@ -895,6 +897,85 @@ test('probar canales a mano: una vez por día, sin token avisa y con GitHub lanz
     assert.equal(((await (await run()).json()) as { started: boolean }).started, false);
     // Sin la clave de edición no se puede.
     assert.equal((await handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'POST', body: '{}' }), t.env, t.ctx, t.cache)).status, 401);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('refresco al pedir la playlist: solo con la lista guardada vieja, una vez cada 10 minutos y con tope por día', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  const putList = (ageMin: number) => bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels: [{ name: 'A', category: 'X', id: '1', ext: 'ts', icon: '', epgId: null }] }), uploaded: new Date(Date.now() - ageMin * 60_000) });
+  const playlist = () => handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache);
+  const gh: { url: string; body: string }[] = [];
+  const real = globalThis.fetch;
+  const installGithub = () => {
+    const base = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith('https://api.github.com/')) {
+        gh.push({ url: String(input), body: String(init?.body) });
+        return new Response(null, { status: 204 });
+      }
+      return base(input, init);
+    }) as typeof fetch;
+  };
+  installGithub();
+  try {
+    // Sin token del Worker no pasa nada.
+    putList(60);
+    assert.equal((await playlist()).status, 200);
+    await t.settle();
+    assert.equal(gh.length, 0);
+    t.env.GITHUB_TOKEN = 'ghs_test';
+    // Lista recién subida: no hace falta.
+    putList(2);
+    await playlist();
+    await t.settle();
+    assert.equal(gh.length, 0);
+    // Lista vieja: la playlist sale igual con lo que hay, y se lanza el refresco con el umbral de 10 minutos.
+    putList(30);
+    const res = await playlist();
+    assert.match(await res.text(), /,A\n/);
+    await t.settle();
+    assert.equal(gh.length, 1);
+    assert.match(gh[0].url, /\/actions\/workflows\/refresh-lists\.yml\/dispatches$/);
+    assert.deepEqual(JSON.parse(gh[0].body), { ref: 'main', inputs: { fresh_minutes: '10' } });
+    // Otro pedido enseguida (la lista sigue vieja hasta que termine la corrida): no se vuelve a lanzar.
+    await playlist();
+    await t.settle();
+    assert.equal(gh.length, 1);
+    // Una configuración sin lista subida por GitHub (la baja el Worker) no lanza nada.
+    const direct = await setup();
+    installGithub(); // setup() vuelve a simular el proveedor
+    direct.env.GITHUB_TOKEN = 'ghs_test';
+    (direct.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> }).data.set(`list/${direct.cfgId}.json`, { value: '{"channels":[]}', uploaded: new Date(Date.now() - 120 * 60_000) });
+    await handle(new Request(direct.playlistUrl), direct.env, direct.ctx, direct.cache);
+    await direct.settle();
+    assert.equal(gh.length, 1);
+    // Tope por día: pasado el máximo, ya no.
+    const env2 = makeEnv();
+    env2.env.GITHUB_TOKEN = 'ghs_test';
+    const before = gh.length;
+    for (let i = 0; i < MAX_PER_DAY + 3; i++) {
+      await refreshOnDemand(env2.env, new MemoryCache(), `cfg${i}`, new Date(Date.now() - 2 * STALE_AFTER_MS));
+    }
+    assert.equal(gh.length - before, MAX_PER_DAY);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('dispatchWorkflow: si el workflow todavía no declara los datos (422), se lanza sin ellos', async () => {
+  const env = { BUCKET: {} as never, TOKEN_KEY: 'x', GITHUB_TOKEN: 'ghs_test' };
+  const bodies: string[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(String(init?.body));
+    return new Response(null, { status: bodies.length === 1 ? 422 : 204 });
+  }) as typeof fetch;
+  try {
+    assert.equal(await dispatchWorkflow(env, 'refresh-lists.yml', { fresh_minutes: '10' }), true);
+    assert.deepEqual(bodies.map((b) => JSON.parse(b)), [{ ref: 'main', inputs: { fresh_minutes: '10' } }, { ref: 'main' }]);
   } finally {
     globalThis.fetch = real;
   }

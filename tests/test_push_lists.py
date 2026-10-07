@@ -68,3 +68,34 @@ def test_anota_la_cuenta_y_sube_la_lista_de_las_configuraciones_pendientes():
     assert push_lists.sync(r2, [PROFILE], load, NOW + datetime.timedelta(hours=1)) == {}
     assert push_lists.sync(r2, [PROFILE], load, NOW + datetime.timedelta(hours=3)) == {'luis': 1}
     assert calls == ['luis', 'luis']
+
+
+def test_el_umbral_de_refresco_por_defecto_es_de_3_horas_y_el_pedido_del_worker_lo_baja():
+    assert push_lists.refresh_every({}) == push_lists.REFRESH_EVERY
+    assert push_lists.refresh_every({'REFRESH_MINUTES': ''}) == push_lists.REFRESH_EVERY
+    assert push_lists.refresh_every({'REFRESH_MINUTES': 'basura'}) == push_lists.REFRESH_EVERY
+    assert push_lists.refresh_every({'REFRESH_MINUTES': '10'}) == datetime.timedelta(minutes=9)
+    # Nunca menos de 5 minutos ni más de 3 horas.
+    assert push_lists.refresh_every({'REFRESH_MINUTES': '1'}) == datetime.timedelta(minutes=4)
+    assert push_lists.refresh_every({'REFRESH_MINUTES': '9999'}) == datetime.timedelta(minutes=179)
+
+
+def test_con_el_umbral_corto_se_baja_una_lista_de_hace_15_minutos_y_con_el_normal_no():
+    h = push_lists.link_hash('user', 'secreta')
+    loaded = []
+
+    def load(profile):
+        loaded.append(1)
+        return [{'name': 'A', 'category': 'X', 'id': '1', 'ext': 'ts', 'icon': '', 'epgId': None}]
+
+    def fresh_r2():
+        r2 = FakeR2()
+        r2.put('cfg/abc.json', b'{}')
+        r2.put(f'links/{h}.json', json.dumps({'cfgIds': ['abc'], 'pending': False}).encode())
+        r2.put('list/abc.json', b'{"channels": []}', when=NOW - datetime.timedelta(minutes=15))
+        return r2
+
+    assert push_lists.sync(fresh_r2(), [PROFILE], load, NOW) == {}
+    assert not loaded
+    assert push_lists.sync(fresh_r2(), [PROFILE], load, NOW, every=push_lists.refresh_every({'REFRESH_MINUTES': '10'})) == {'luis': 1}
+    assert loaded
