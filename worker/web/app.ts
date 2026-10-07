@@ -569,7 +569,40 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider };
+  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null };
+}
+
+// ------------------------------------------------------------------ salud de la guía
+// ¿La guía asignada tiene programación? Se compara con el índice por hora de ahora y el de dentro de 12 h:
+// «ok» da algo ahora; «gap» no da nada ahora pero sí más tarde; «dead» no tiene nada en las próximas 12 h
+// (fuente vieja o canal sin datos). Sin índice todavía, no se sabe (null).
+const HEALTH_AHEAD_H = 12;
+let healthIdx: { now: HourIndex; later: HourIndex | null } | null = null;
+type Prog = 'ok' | 'gap' | 'dead';
+function progOf(epg: string): Prog | null {
+  if (!healthIdx) return null;
+  if (nowFromHour(healthIdx.now, epg)) return 'ok';
+  if (!healthIdx.later) return 'gap';
+  return (healthIdx.later.c[epg]?.length ?? 0) > 0 ? 'gap' : 'dead';
+}
+async function loadHealth() {
+  const [now, later] = await Promise.all([hourIndex(0), hourIndex(HEALTH_AHEAD_H)]);
+  healthIdx = now ? { now, later } : null;
+  render();
+}
+/** Resumen para Configuración: de los canales visibles con guía asignada, cuántos dan programación ahora. */
+function guideHealth() {
+  let withGuide = 0, ok = 0, gap = 0, dead = 0, none = 0;
+  for (const ch of state.channels) {
+    const i = info(ch);
+    if (i.hidden || i.noGuide || i.divider) continue;
+    if (!i.epg) { none++; continue; }
+    withGuide++;
+    if (i.prog === 'ok') ok++;
+    else if (i.prog === 'gap') gap++;
+    else if (i.prog === 'dead') dead++;
+  }
+  return { withGuide, ok, gap, dead, none, known: !!healthIdx };
 }
 
 function matchesFilter(ch: Channel, filter: string) {
@@ -580,6 +613,7 @@ function matchesFilter(ch: Channel, filter: string) {
     // "Elegidos a mano", con lo demás que decidiste vos.
     case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg && i.band !== 'purpose';
     case 'manual': return i.band === 'manual' || i.band === 'purpose';
+    case 'sin-prog': return !i.hidden && !i.noGuide && !i.divider && i.prog === 'dead';
     case 'nuevos': return state.newNames.has(ch.name);
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
@@ -651,8 +685,8 @@ type ScheduleEntry = [number, number, string, string?];
 interface NowPlaying { title: string; start: number; stop: number }
 
 const hourCache = new Map<string, Promise<HourIndex | null>>();
-function hourIndex(): Promise<HourIndex | null> {
-  const key = new Date().toISOString().slice(0, 13).replace(/\D/g, '');
+function hourIndex(offsetHours = 0): Promise<HourIndex | null> {
+  const key = new Date(Date.now() + offsetHours * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
   if (!hourCache.has(key)) {
     hourCache.set(key, fetch(`/api/ui/schedule/hour/${key}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   }
@@ -1007,6 +1041,7 @@ function emptyHtml(): string {
     : f === 'manual' ? 'Todavía no elegiste ninguna guía a mano.'
     : f === 'editados' ? 'Todavía no editaste ningún canal.'
     : f === 'sin-epg' ? '¡Todos los canales tienen guía!'
+    : f === 'sin-prog' ? '¡Todos los canales tienen programación!'
     : f === 'revisar' ? '¡No queda nada por revisar!'
     : f === 'nuevos' ? 'No hay canales nuevos.'
     : 'Ningún canal coincide con el filtro.';
@@ -1022,6 +1057,9 @@ function render() {
 function renderNow() {
   headersCache = null;
   renderNewBanner();
+  const noProg = state.channels.filter((c) => matchesFilter(c, 'sin-prog')).length;
+  $('#filterTabs [data-filter="sin-prog"]').hidden = !noProg;
+  if (!noProg && state.filter === 'sin-prog') state.filter = 'todos';
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
     const f = b.dataset.filter!;
     b.setAttribute('aria-pressed', String(f === state.filter));
@@ -2991,6 +3029,7 @@ function showEditor() {
   render();
   refreshGuideStatus();
   loadHourNow();
+  loadHealth();
 }
 
 async function openSaved() {
@@ -3036,6 +3075,7 @@ async function openSaved() {
     await renderLinksCard();
     renderTipCard();
     refreshGuideStatus();
+    loadHealth();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -3072,6 +3112,23 @@ async function importBackup(file: File) {
     state.local = loadLocal();
     toast(`No se pudo importar: ${(e as Error).message}`, 'bad', 6000);
   }
+}
+
+function refreshHealthRow() {
+  const sub = $('#healthSub');
+  sub.textContent = 'Calculando…';
+  loadHealth().then(() => {
+    const h = guideHealth();
+    if (!h.known) {
+      sub.textContent = 'Todavía no hay datos de programación';
+      return;
+    }
+    const pct = h.withGuide ? Math.round((100 * h.ok) / h.withGuide) : 0;
+    const parts = [`${pct} % con programación ahora`];
+    if (h.dead) parts.push(`${plural(h.dead, 'canal', 'canales')} sin programación en las próximas ${HEALTH_AHEAD_H} h`);
+    if (h.none) parts.push(`${h.none} sin guía`);
+    sub.textContent = parts.join(' · ');
+  });
 }
 
 function setupEditor() {
@@ -3305,7 +3362,24 @@ function setupEditor() {
     }
   });
   $('#helpBtn').onclick = () => openHelp('settings', '#settingsDialog');
+  $('#healthRow').onclick = () => {
+    const h = guideHealth();
+    if (!h.known) {
+      toast('Todavía no hay datos de programación para comparar', 'info');
+      return;
+    }
+    if (!h.dead) {
+      toast('Todos los canales con guía tienen programación en las próximas horas', 'ok');
+      return;
+    }
+    ($('#settingsDialog') as HTMLDialogElement).close();
+    state.filter = 'sin-prog';
+    state.shown = PAGE;
+    render();
+    window.scrollTo(0, 0);
+  };
   $('#settingsBtn').onclick = () => {
+    refreshHealthRow();
     $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
     const apply = $('#applyGuideBtn');
     apply.hidden = true;
