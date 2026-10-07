@@ -17,6 +17,8 @@ export interface PushState {
   subs: PushSub[];
   /** Nombres de canales que ya se conocían la última vez (para avisar solo los nuevos). */
   known?: string[];
+  /** Último aviso de vencimiento de la suscripción del proveedor (para avisar una vez por umbral). */
+  expiry?: { expires: string; threshold: number };
 }
 
 const MAX_SUBS = 10;
@@ -102,7 +104,12 @@ async function readState(bucket: R2Bucket, cfgId: string): Promise<PushState> {
   if (!obj) return { subs: [] };
   try {
     const v = JSON.parse(await obj.text()) as PushState;
-    return { subs: Array.isArray(v.subs) ? v.subs : [], known: Array.isArray(v.known) ? v.known : undefined };
+    const e = v.expiry;
+    return {
+      subs: Array.isArray(v.subs) ? v.subs : [],
+      known: Array.isArray(v.known) ? v.known : undefined,
+      ...(e && typeof e.expires === 'string' && typeof e.threshold === 'number' ? { expiry: { expires: e.expires, threshold: e.threshold } } : {}),
+    };
   } catch {
     return { subs: [] };
   }
@@ -125,7 +132,7 @@ export async function addSub(bucket: R2Bucket, cfgId: string, sub: PushSub, know
   const st = await readState(bucket, cfgId);
   const subs = [...st.subs.filter((s) => s.endpoint !== sub.endpoint), sub];
   if (subs.length > MAX_SUBS) subs.shift();
-  await writeState(bucket, cfgId, { subs, known: st.known ?? known });
+  await writeState(bucket, cfgId, { ...st, subs, known: st.known ?? known });
   return true;
 }
 
@@ -197,6 +204,45 @@ export async function notifyNewChannels(env: Env, cfgId: string): Promise<number
   return sent;
 }
 
+/** Días antes del vencimiento en que se avisa (0 = hoy o ya vencida). */
+export const EXPIRY_THRESHOLDS = [7, 3, 1, 0];
+const DAY_MS = 86_400_000;
+
+/** El umbral que corresponde a `days` días para vencer (el más chico que ya se cruzó), o null si falta mucho. */
+export function expiryThreshold(days: number): number | null {
+  const t = EXPIRY_THRESHOLDS.filter((x) => days <= x);
+  return t.length ? Math.min(...t) : null;
+}
+
+/** Vencimiento de la suscripción del proveedor (lo anota la corrida diaria de GitHub en health/<cfgId>.json):
+ *  avisa al cruzar 7, 3 y 1 día, y el día que vence; un vencimiento nuevo (renovó) vuelve a empezar. */
+export async function notifyExpiry(env: Env, cfgId: string, now = new Date()): Promise<number> {
+  const st = await readState(env.BUCKET, cfgId);
+  if (!st.subs.length) return 0;
+  const obj = await env.BUCKET.get(`health/${cfgId}.json`);
+  if (!obj) return 0;
+  let expires: string | null | undefined;
+  try {
+    expires = (JSON.parse(await obj.text()) as { account?: { expires?: string | null } }).account?.expires;
+  } catch {
+    return 0;
+  }
+  const at = expires ? Date.parse(expires) : NaN;
+  if (!expires || Number.isNaN(at)) return 0;
+  const days = Math.floor((at - now.getTime()) / DAY_MS);
+  const t = expiryThreshold(days);
+  if (t === null) return 0;
+  if (st.expiry && st.expiry.expires === expires && t >= st.expiry.threshold) return 0;
+  const date = new Date(at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });
+  const body = days < 0 ? `Tu suscripción del proveedor venció el ${date}.`
+    : days === 0 ? `Tu suscripción del proveedor vence hoy (${date}).`
+    : `Tu suscripción del proveedor vence el ${date}: ${days === 1 ? 'falta 1 día' : `faltan ${days} días`}.`;
+  const sent = await pushToConfig(env, cfgId, { title: days < 0 ? 'Suscripción vencida' : 'Tu suscripción está por vencer', body, url: '/' });
+  const after = await readState(env.BUCKET, cfgId); // pudo cambiar (suscripciones caídas)
+  if (after.subs.length) await writeState(env.BUCKET, cfgId, { ...after, expiry: { expires, threshold: t } });
+  return sent;
+}
+
 /** Corrida programada: revisa cada configuración con avisos. */
 export async function checkAllPush(env: Env): Promise<void> {
   if (!pushConfigured(env)) return;
@@ -206,6 +252,7 @@ export async function checkAllPush(env: Env): Promise<void> {
     for (const obj of page.objects) {
       const cfgId = obj.key.slice('push/'.length).replace(/\.json$/, '');
       try { await notifyNewChannels(env, cfgId); } catch { /* una configuración no frena a las demás */ }
+      try { await notifyExpiry(env, cfgId); } catch { /* idem */ }
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);

@@ -83,7 +83,7 @@ def test_corrida_completa_deja_health_en_cada_configuracion_de_la_cuenta():
         seen.append(url)
         return 'down' if url.endswith('/2.m3u8') else 'up'
 
-    done = check_streams.run(r2, [profile], prober, NOW, server_for=lambda *a: 'http://s1')
+    done = check_streams.run(r2, [profile], prober, NOW, server_for=lambda *a: ('http://s1', None))
     assert done == {'luis': (2, 0)}
     assert seen == ['http://s1/live/user/secreta/1.m3u8', 'http://s1/live/user/secreta/2.m3u8']
     for cfg_id in ('a', 'b'):
@@ -98,6 +98,31 @@ def test_sin_servidor_o_sin_lista_no_hace_nada():
     r2 = FakeR2()
     r2.put('cfg/a.json', b'{}')
     r2.put(f'links/{h}.json', json.dumps({'cfgIds': ['a']}).encode())
-    assert check_streams.run(r2, [profile], lambda u: 'up', NOW, server_for=lambda *a: 'http://s1') == {}
+    assert check_streams.run(r2, [profile], lambda u: 'up', NOW, server_for=lambda *a: ('http://s1', None)) == {}
     r2.put('list/a.json', json.dumps({'channels': [ch(1)]}).encode())
-    assert check_streams.run(r2, [profile], lambda u: 'up', NOW, server_for=lambda *a: None) == {}
+    assert check_streams.run(r2, [profile], lambda u: 'up', NOW, server_for=lambda *a: (None, None)) == {}
+
+
+def test_datos_de_la_cuenta_solo_con_lista_blanca():
+    data = {'user_info': {'username': 'user', 'password': 'secreta', 'status': 'Active', 'exp_date': '1793836800',
+                          'is_trial': '0', 'max_connections': '2', 'active_cons': '1'}, 'server_info': {'url': 'x'}}
+    info = check_streams.account_info(data)
+    assert info == {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 2}
+    assert 'secreta' not in json.dumps(info) and 'user' not in json.dumps(info).replace('trial', '')
+    assert check_streams.account_info({'user_info': {'exp_date': None}})['expires'] is None
+    assert check_streams.account_info({'user_info': {'exp_date': '0'}})['expires'] is None
+    assert check_streams.account_info({'algo': 1}) is None and check_streams.account_info(None) is None
+
+
+def test_la_cuenta_se_publica_aunque_el_proveedor_rechace_las_pruebas():
+    profile = {'name': 'luis', 'servers': ['http://s1'], 'username': 'user', 'password': 'secreta'}
+    h = push_lists.link_hash('user', 'secreta')
+    r2 = FakeR2()
+    r2.put('cfg/a.json', b'{}')
+    r2.put(f'links/{h}.json', json.dumps({'cfgIds': ['a']}).encode())
+    r2.put('list/a.json', json.dumps({'channels': [ch(i) for i in range(1, 10)]}).encode())
+    r2.put('health/a.json', json.dumps({'channels': {'1': {'t': 'x', 'ok': True, 'fails': 0}}}).encode())
+    account = {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 1}
+    check_streams.run(r2, [profile], lambda u: 'rejected', NOW, server_for=lambda *a: ('http://s1', account))
+    data = json.loads(r2.data['health/a.json'][0])
+    assert data['account'] == account and data['channels'] == {'1': {'t': 'x', 'ok': True, 'fails': 0}}
