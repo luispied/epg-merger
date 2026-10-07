@@ -223,7 +223,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
 }
 
 /* Snackbar. */
-.toast { background: var(--inverse-surface); color: var(--inverse-text); border-radius: 4px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
+.toast { background: color-mix(in srgb, var(--inverse-surface) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--inverse-text); border-radius: 18px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
 .toast .icon, .toast.ok .icon, .toast.bad .icon, .toast.info .icon { color: var(--inverse-accent); }
 .toast .btn, .toast .btn-plain { color: var(--inverse-accent); background: transparent; }
 .toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); }
@@ -895,18 +895,18 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .ch-head:has(> .rv-progress:not([hidden])) { flex-wrap: wrap; }
 .ch-head > .rv-progress { flex: 1 0 100%; order: 3; margin: 0; padding: 4px 8px 0; }
 
-/* Menú inferior pegado al borde de abajo, de lado a lado, con la pestaña activa en píldora. */
-:root { --tab-h: 52px; }
-.tabbar { left: 0; right: 0; bottom: 0; max-width: none; margin: 0;
-  padding: 6px max(8px, calc((100% - 728px) / 2)) calc(6px + env(safe-area-inset-bottom, 0px)); gap: 2px;
-  border: 0; border-top: 1px solid var(--hairline); border-radius: 0; box-shadow: none;
-  background: color-mix(in srgb, var(--surface) 94%, transparent); }
-.tab { height: var(--tab-h); border-radius: 16px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
-.tab.active { background: var(--fill); color: var(--accent); font-weight: 600; }
+/* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
+:root { --tab-h: 56px; }
+.tabbar { left: 12px; right: 12px; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto;
+  padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
+.tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
+.tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
 .tab-badge { left: 12px; top: -4px; }
-#editor main { padding-bottom: calc(var(--tab-h) + 36px + env(safe-area-inset-bottom, 0px)); }
-body > .toasts { bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
-body.has-dock #tabbar { right: 440px; }
+#editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
+body > .toasts { bottom: calc(var(--tab-h) + 20px + env(safe-area-inset-bottom, 0px)); }
+body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .menu-row .select.compact { max-width: 150px; }
 
 /* Guía asignada: tarjeta neutra (sin ámbar) con el estado en un chip. */
