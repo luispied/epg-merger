@@ -21,3 +21,5 @@ las usa y las descarta, no guarda nada ni las escribe en el log, y solo habla co
 ## Qué hace falta de parte de Luis
 - Publicar `relay/` (ver `relay/README.md`) y cargar `RELAY_URL` y `RELAY_SECRET` en el Worker. El secret se genera en
   su computadora y se carga con `wrangler secret put` o el panel; no se pega en ningún chat.
+
+Pendientes y próximos pasos: ver `planes/pendientes.md`.
