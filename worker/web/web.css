@@ -933,3 +933,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .remind-btn { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 999px; color: var(--muted); background: transparent; border: 0; padding: 0; cursor: pointer; }
 .remind-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .remind-btn.on { color: var(--accent); background: var(--accent-soft); }
+
+/* Aviso con botón para cerrarlo */
+.toast .toast-close { flex: none; width: 36px; height: 36px; margin: 0 0 0 -4px; color: var(--inverse-text); opacity: .8; background: transparent; }
+.toast .toast-close:hover { opacity: 1; background: color-mix(in srgb, var(--inverse-text) 12%, transparent); }

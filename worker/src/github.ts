@@ -7,13 +7,12 @@ import type { Env, SimpleCache } from './env.ts';
 const THROTTLE_S = 60; // como mucho una por minuto: la corrida hace todo lo pendiente de una vez
 const KEY = 'https://grilla.internal/github-dispatch';
 
-export async function dispatchRefresh(env: Env, cache: SimpleCache): Promise<boolean> {
+/** Lanza un workflow de GitHub Actions (workflow_dispatch) en la rama principal. */
+export async function dispatchWorkflow(env: Env, file: string): Promise<boolean> {
   if (!env.GITHUB_TOKEN) return false;
-  if (await cache.match(KEY)) return false;
-  await cache.put(KEY, new Response('1', { headers: { 'Cache-Control': `max-age=${THROTTLE_S}` } }));
   const repo = env.GITHUB_REPO || 'luispied/epg-merger';
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/refresh-lists.yml/dispatches`, {
+    const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${file}/dispatches`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.GITHUB_TOKEN}`,
@@ -28,4 +27,11 @@ export async function dispatchRefresh(env: Env, cache: SimpleCache): Promise<boo
   } catch {
     return false;
   }
+}
+
+export async function dispatchRefresh(env: Env, cache: SimpleCache): Promise<boolean> {
+  if (!env.GITHUB_TOKEN) return false;
+  if (await cache.match(KEY)) return false;
+  await cache.put(KEY, new Response('1', { headers: { 'Cache-Control': `max-age=${THROTTLE_S}` } }));
+  return dispatchWorkflow(env, 'refresh-lists.yml');
 }

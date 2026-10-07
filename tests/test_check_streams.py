@@ -126,3 +126,28 @@ def test_la_cuenta_se_publica_aunque_el_proveedor_rechace_las_pruebas():
     check_streams.run(r2, [profile], lambda u: 'rejected', NOW, server_for=lambda *a: ('http://s1', account))
     data = json.loads(r2.data['health/a.json'][0])
     assert data['account'] == account and data['channels'] == {'1': {'t': 'x', 'ok': True, 'fails': 0}}
+
+
+def test_una_sola_prueba_por_dia_aunque_se_lance_a_mano():
+    profile = {'name': 'luis', 'servers': ['http://s1'], 'username': 'user', 'password': 'secreta'}
+    h = push_lists.link_hash('user', 'secreta')
+    r2 = FakeR2()
+    r2.put('cfg/a.json', b'{}')
+    r2.put(f'links/{h}.json', json.dumps({'cfgIds': ['a']}).encode())
+    r2.put('list/a.json', json.dumps({'channels': [ch(1)]}).encode())
+    calls = []
+
+    def prober(url):
+        calls.append(url)
+        return 'up'
+
+    server = lambda *a: ('http://s1', None)
+    first = check_streams.run(r2, [profile], prober, NOW, server_for=server)
+    assert first == {'luis': (1, 0)} and len(calls) == 1
+    # Cinco horas después (otra corrida, a mano o programada): se saltea.
+    assert check_streams.run(r2, [profile], prober, NOW + datetime.timedelta(hours=5), server_for=server) == {}
+    assert len(calls) == 1
+    # Pasadas las 20 horas, de nuevo.
+    assert check_streams.run(r2, [profile], prober, NOW + datetime.timedelta(hours=21), server_for=server) == {'luis': (1, 0)}
+    assert len(calls) == 2
+    assert check_streams.recent({}, NOW) is False and check_streams.recent({'checked': 'basura'}, NOW) is False
