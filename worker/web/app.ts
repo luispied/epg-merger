@@ -1263,13 +1263,17 @@ const remindKey = (epg: string, start: number) => `${epg}|${start}`;
 async function loadReminders(): Promise<RemindState> {
   if (remindState) return remindState;
   const st: RemindState = { configured: false, keys: new Set() };
+  let known = true;
   try {
     await api('/api/push/key', { auth: false });
     st.configured = true;
     const r = await api<{ items: { epg: string; start: number }[] }>(`/api/cfg/${state.local!.cfgId}/remind`);
     for (const it of r.items) st.keys.add(remindKey(it.epg, it.start));
-  } catch { /* sin avisos en el Worker o sin conexión: el botón no aparece */ }
-  return (remindState = st);
+  } catch (e) {
+    // 404 = el Worker no tiene las claves VAPID; otro error (sin conexión): se vuelve a probar la próxima vez.
+    if (!/no activados/i.test((e as Error).message)) known = false;
+  }
+  return known ? (remindState = st) : st;
 }
 
 /** El dispositivo tiene que estar suscrito a los avisos: si no lo está, se activan (pide el permiso). */
@@ -1288,6 +1292,10 @@ async function ensurePush(): Promise<boolean> {
 
 async function toggleReminder(btn: HTMLElement, channel: string) {
   const st = await loadReminders();
+  if (!st.configured) {
+    toast('Los avisos todavía no están activados en el servidor: faltan las claves VAPID en el Worker (worker/README.md, «Avisos push»)', 'info', 9000);
+    return;
+  }
   const epg = btn.dataset.epg!;
   const start = Number(btn.dataset.start);
   const key = remindKey(epg, start);
@@ -1348,7 +1356,7 @@ async function toggleDay(root: HTMLElement, id: string) {
     last = day;
     const live = start <= now && now < stop;
     const on = rem.keys.has(remindKey(id, start));
-    const bell = rem.configured && start > now
+    const bell = start > now
       ? `<button type="button" class="remind-btn${on ? ' on' : ''}" data-remind data-epg="${esc(id)}" data-start="${start}" data-title="${esc(title)}" aria-pressed="${on}" `
         + `aria-label="Avisarme cuando empiece: ${esc(title)}" title="Avisarme">${icon('bell')}</button>` : '';
     return `${head}<details class="day-item${live ? ' live' : ''}"><summary><span class="day-time">${hhmm(start)}</span>`
