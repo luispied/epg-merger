@@ -22,7 +22,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config } from './config.ts';
-import { addDevice, listDevices, rekeyDevices, readShort, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { addDevice, cleanAccount, listDevices, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, dispatchWorkflow } from './github.ts';
@@ -389,17 +389,28 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (action === 'credentials' && method === 'PUT') {
       // Cambió el usuario, la contraseña o la URL de la lista: los links ya creados siguen con
       // el mismo código y pasan a usar los datos nuevos.
-      const creds = credentialsFrom(await readJson(request, 16 * 1024) as Record<string, unknown>, stored.config);
-      const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds));
+      // Con `account`, solo los de esa cuenta adicional; sin eso, los de la cuenta principal.
+      const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
+      const creds = credentialsFrom(raw, stored.config);
+      const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account));
       return json({ ok: true, updated });
     }
     if (action === 'token' && method === 'POST') {
       const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
-      const creds = credentialsFrom(raw, stored.config);
-      const token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
+      // `account`: cuenta adicional (por ejemplo, la de un familiar). Sin datos del proveedor se reutiliza
+      // la de un dispositivo que ya la tiene, así no hay que pedir usuario y contraseña de nuevo.
+      const account = cleanAccount(raw.account);
+      const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
+      let token: string | null = null;
+      if (account && !hasCreds) {
+        token = await tokenOfAccount(env.BUCKET, cfgId, account);
+        if (!token) return fail(400, `no hay una cuenta «${account}»: cargá su usuario y contraseña`);
+      } else {
+        token = await encryptToken(env.TOKEN_KEY, cfgId, credentialsFrom(raw, stored.config));
+      }
       const origin = new URL(request.url).origin;
       const code = randomId(8);
-      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
+      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter, account))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
       return json({
         token,
         code,

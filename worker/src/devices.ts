@@ -15,6 +15,8 @@ export interface ShortRecord {
   active?: boolean;
   /** Perfil del dispositivo: qué categorías y canales ve (sin dato = todo). */
   filter?: DeviceFilter;
+  /** Cuenta del proveedor con la que reproduce (por ejemplo, la de un familiar). Sin dato = la cuenta principal. */
+  account?: string;
 }
 export interface Device {
   code: string;
@@ -23,6 +25,7 @@ export interface Device {
   lastUsed?: string;
   active: boolean;
   filter?: DeviceFilter;
+  account?: string;
 }
 
 export const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
@@ -33,6 +36,9 @@ const idxKey = (cfgId: string) => `devices/${cfgId}.json`;
 const shortKey = (code: string) => `short/${code}.json`;
 
 export const cleanName = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 40) : '') || 'Sin nombre';
+
+/** Nombre de una cuenta adicional; vacío = la cuenta principal. */
+export const cleanAccount = (v: unknown): string | undefined => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 30) : '') || undefined;
 
 async function readJson<T>(bucket: R2Bucket, key: string): Promise<T | null> {
   const obj = await bucket.get(key);
@@ -56,11 +62,12 @@ export async function readShort(bucket: R2Bucket, code: string): Promise<ShortRe
 }
 
 /** Crea el link corto de un dispositivo nuevo. Devuelve null si ya hay demasiados. */
-export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown): Promise<boolean> {
+export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown): Promise<boolean> {
   const codes = await codesOf(bucket, cfgId);
   if (codes.length >= MAX_DEVICES) return false;
   const f = parseFilter(filter);
-  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}) };
+  const acc = cleanAccount(account);
+  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}), ...(acc ? { account: acc } : {}) };
   await bucket.put(shortKey(code), JSON.stringify(rec), JSON_TYPE);
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: [...codes, code] }), JSON_TYPE);
   return true;
@@ -70,7 +77,7 @@ export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Devi
   const out: Device[] = [];
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}) });
+    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}) });
   }
   return out;
 }
@@ -91,13 +98,22 @@ export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string
   return true;
 }
 
-/** Cambia las credenciales de todos los links de la configuración sin tocar sus códigos: las
- *  URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
-export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string): Promise<number> {
+/** El token (credenciales cifradas) de otro dispositivo de la misma cuenta, para dar de alta uno nuevo sin pedirlas de nuevo. */
+export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account: string): Promise<string | null> {
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (rec && rec.cfgId === cfgId && rec.account === account) return rec.token;
+  }
+  return null;
+}
+
+/** Cambia las credenciales de los links de una cuenta (sin `account`: la principal) sin tocar sus
+ *  códigos: las URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
+export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string, account?: string): Promise<number> {
   let n = 0;
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (!rec || rec.cfgId !== cfgId) continue;
+    if (!rec || rec.cfgId !== cfgId || rec.account !== account) continue;
     await bucket.put(shortKey(code), JSON.stringify({ ...rec, token }), JSON_TYPE);
     n++;
   }
