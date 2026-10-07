@@ -9,10 +9,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 
 ## 1.6.3
 
-- Links tiene su propia **ayuda** (botón «?» junto al título): qué es un dispositivo, cómo funciona el perfil, marcar secciones
-  y canales, desactivar y cambiar los datos del proveedor.
-- El modo del perfil se entiende mejor: «Con lo que marques abajo… Ocultarlo / Mostrar solo eso», con una explicación debajo
-  de qué pasa en cada caso (y qué pasa con las categorías nuevas del proveedor).
+- Links tiene su propia **ayuda** (botón «?» junto al título): qué es un dispositivo, cómo funciona el perfil, secciones y
+  canales sueltos, desactivar y cambiar los datos del proveedor.
+- El perfil se simplifica: se quita el modo. Cada categoría, sección o canal tiene un interruptor que significa «se ve en este
+  dispositivo» (encendido) o «no se ve» (apagado), como en el resto de la app. «Mostrar todo» y «Ocultar todo» reemplazan a los
+  botones anteriores. Las categorías nuevas del proveedor aparecen encendidas.
 
 ## 1.6.2
 

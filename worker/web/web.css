@@ -925,8 +925,4 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .pf-head .menu-text { font-weight: 600; }
 .pf-row.pf-head { background: var(--surface-2); }
 #pfSum { margin-top: 12px; }
-.pf-mode-row { flex-wrap: wrap; }
-.pf-mode-row .menu-text { flex: 1 1 0; min-width: 0; }
-.pf-mode-row .seg { flex: 1 1 100%; display: flex; }
-.pf-mode-row .seg button { flex: 1; }
-#pfModeHint { margin-top: 10px; }
+.pf-row.is-off .menu-text { opacity: .55; }
