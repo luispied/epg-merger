@@ -3163,6 +3163,95 @@ function renderAccountRow() {
   row.classList.toggle('warn', warn);
 }
 
+// ------------------------------------------------------------------ guía: ahora y después
+// Qué da cada canal ahora y qué sigue, con los índices por hora de ahora y de las dos horas siguientes.
+const GUIDE_PAGE = 40;
+let guideIdx: HourIndex[] = [];
+let guideShown = GUIDE_PAGE;
+
+/** Lo que da ahora un canal de la guía y lo que sigue (de los índices por hora ya cargados). */
+function slotsOf(idxs: HourIndex[], id: string, t = Date.now() / 1000): { now: NowPlaying | null; next: NowPlaying | null } {
+  const all: NowPlaying[] = [];
+  for (const idx of idxs) for (const [s, e, ti] of idx.c[id] ?? []) all.push({ title: idx.t[ti], start: idx.h + s * 60, stop: idx.h + e * 60 });
+  all.sort((a, b) => a.start - b.start);
+  const now = all.find((x) => x.start <= t && t < x.stop) ?? null;
+  const next = all.find((x) => x.start >= (now ? now.stop : t)) ?? null;
+  return { now, next };
+}
+
+async function loadGuideIdx() {
+  const got = await Promise.all([0, 1, 2].map((h) => hourIndex(h)));
+  guideIdx = got.filter((x): x is HourIndex => !!x);
+}
+
+/** Canales con guía asignada que se ven en la lista, en el orden de las categorías. */
+function guideChannels(): number[] {
+  const order = new Map(groups().map((g, i) => [g, i]));
+  return state.channels.map((_, i) => i).filter((i) => {
+    const inf = info(state.channels[i]);
+    return !!inf.epg && !inf.hidden && !inf.divider && !inf.noGuide;
+  }).sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0) || withinPos(a) - withinPos(b));
+}
+
+function renderGuide() {
+  const q = fold($<HTMLInputElement>('#guideQ').value.trim());
+  const cat = $<HTMLSelectElement>('#guideCat').value;
+  const t = Date.now() / 1000;
+  const rows: { i: number; now: NowPlaying | null; next: NowPlaying | null }[] = [];
+  for (const i of guideChannels()) {
+    const ch = state.channels[i];
+    if (cat && groupOf(ch) !== cat) continue;
+    const epg = info(ch).epg!;
+    const { now, next } = slotsOf(guideIdx, epg, t);
+    if (q) {
+      const name = state.cfg!.channels[ch.name]?.name || ch.name;
+      if (!fold(`${name} ${now?.title ?? ''} ${next?.title ?? ''}`).includes(q)) continue;
+    }
+    rows.push({ i, now, next });
+  }
+  const shown = rows.slice(0, guideShown);
+  $('#guideMeta').textContent = guideIdx.length ? plural(rows.length, 'canal', 'canales') : 'Todavía no hay datos de programación';
+  $('#guideList').innerHTML = shown.length ? shown.map(({ i, now, next }) => {
+    const ch = state.channels[i];
+    const e = state.cfg!.channels[ch.name] ?? {};
+    const name = e.name || stripDisplayPrefix(ch.name, state.rules!)[0];
+    return `<div class="menu-row static guide-row" data-i="${i}" role="button" tabindex="0" aria-label="${esc(name)}">
+      ${logoHtml(e.epg ?? null, '', e.customLogo, name)}
+      <span class="menu-text"><span class="gd-name">${esc(name)}</span>
+        <small class="gd-now">${now ? `${esc(now.title)} · hasta ${hhmm(now.stop)}` : 'Sin programación en este horario'}</small>
+        ${next ? `<small class="gd-next">${hhmm(next.start)} · ${esc(next.title)}</small>` : ''}</span>
+    </div>`;
+  }).join('') : `<p class="help">${guideIdx.length ? 'Ningún canal coincide.' : 'Cuando la corrida diaria suba la programación, la ves acá.'}</p>`;
+  $('#guideMore').hidden = rows.length <= guideShown;
+}
+
+function setupGuide() {
+  const dlg = $('#guideDialog') as HTMLDialogElement;
+  $('#tabGuide').onclick = async () => {
+    guideShown = GUIDE_PAGE;
+    $<HTMLInputElement>('#guideQ').value = '';
+    const cats = groups().filter((g) => !headersNow().has(g) && !state.cfg!.groups.hidden.includes(g));
+    $<HTMLSelectElement>('#guideCat').innerHTML = `<option value="">Todas las categorías</option>${cats.map((g) => `<option value="${esc(g)}">${esc(groupLabel(g))}</option>`).join('')}`;
+    openDock(dlg);
+    $('#guideMeta').textContent = 'Cargando…';
+    await loadGuideIdx();
+    renderGuide();
+  };
+  let t = 0;
+  $<HTMLInputElement>('#guideQ').oninput = () => {
+    clearTimeout(t);
+    t = window.setTimeout(() => { guideShown = GUIDE_PAGE; renderGuide(); }, 150);
+  };
+  $<HTMLSelectElement>('#guideCat').onchange = () => { guideShown = GUIDE_PAGE; renderGuide(); };
+  $('#guideMore').onclick = () => { guideShown += GUIDE_PAGE; renderGuide(); };
+  const open = (ev: Event) => {
+    const row = (ev.target as HTMLElement).closest<HTMLElement>('.guide-row');
+    if (row) openChannel(Number(row.dataset.i));
+  };
+  $('#guideList').onclick = open;
+  $('#guideList').onkeydown = (ev) => { if ((ev as KeyboardEvent).key === 'Enter') open(ev); };
+}
+
 function refreshDownRow() {
   const sub = $('#downSub');
   sub.textContent = 'Calculando…';
@@ -3380,6 +3469,7 @@ function setupEditor() {
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
   });
+  setupGuide();
   $('#categoriesBtn').onclick = () => {
     $<HTMLInputElement>('#categoriesFilter').value = '';
     renderCategories();

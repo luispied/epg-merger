@@ -927,3 +927,14 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 #pfSum { margin-top: 12px; }
 .pf-row.is-off .menu-text { opacity: .55; }
 #accountRow.warn .menu-text small { color: var(--orange, #ffb020); opacity: 1; font-weight: 600; }
+
+/* Guía: ahora y después */
+.guide-cat { margin-top: 10px; }
+.guide-cat .select { width: 100%; }
+.guide-row { align-items: flex-start; cursor: pointer; }
+.guide-row .logo { flex: none; margin-top: 2px; }
+.guide-row .menu-text { min-width: 0; flex: 1; }
+.guide-row .gd-name { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-row small { display: block; }
+.guide-row .gd-now { color: var(--text); opacity: .9; }
+.guide-row .gd-next { opacity: .65; }
