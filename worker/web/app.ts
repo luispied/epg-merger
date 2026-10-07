@@ -2369,91 +2369,122 @@ const filterSummary = (f?: DeviceFilter) => {
   return f.only ? `solo ${parts}` : `sin ${parts}`;
 };
 
-/** Perfil de un dispositivo: elegir qué categorías y canales ve su playlist. La dirección no cambia. */
+/** Perfil de un dispositivo: elegir qué categorías y canales ve su playlist. La dirección no cambia.
+ *  Mismo patrón que Categorías: filas en una tarjeta con interruptores, y secciones que agrupan. */
 function renderDeviceProfile(dev: Device) {
   const body = $('#linksBody');
   $('#linksBack').hidden = false;
   body.onclick = null;
   body.onchange = null;
   const hiddenG = new Set(state.cfg!.groups.hidden ?? []);
+  const headers = sectionHeaders();
   const cats = groups().filter((g) => !hiddenG.has(g));
   const count = new Map<string, number>();
   for (const ch of state.channels) {
     if (state.cfg!.channels[ch.name]?.hidden) continue;
     count.set(groupOf(ch), (count.get(groupOf(ch)) ?? 0) + 1);
   }
+  // Categorías de cada sección (hasta la siguiente).
+  const members = new Map<string, string[]>();
+  let cur: string | null = null;
+  for (const g of cats) {
+    if (headers.has(g)) {
+      cur = g;
+      members.set(g, []);
+    } else if (cur) members.get(cur)!.push(g);
+  }
   const pickG = new Set(dev.filter?.groups ?? []);
   const pickC = new Set(dev.filter?.channels ?? []);
   let only = dev.filter?.only === true;
-  const headers = sectionHeaders();
-  let sectionMap = new Map<string, string[]>();
+  const current = (): DeviceFilter => ({ only, groups: [...pickG], channels: [...pickC] });
+  const query = () => fold(body.querySelector<HTMLInputElement>('#pfQ')?.value.trim() ?? '');
+  const matches = (g: string) => !query() || fold(`${groupLabel(g)} ${g}`).includes(query());
+  const row = (attrs: string, title: string, sub: string, on: boolean, head = false) => `
+    <label class="menu-row static pf-row${head ? ' pf-head' : ''}">
+      <span class="menu-text">${esc(title)}<small>${esc(sub)}</small></span>
+      <input type="checkbox" class="switch" ${attrs}${on ? ' checked' : ''} aria-label="${esc(title)}">
+    </label>`;
   const draw = () => {
-    const q = body.querySelector<HTMLInputElement>('#pfQ')?.value ?? '';
-    const qn = q.trim().toLowerCase();
-    const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(groupOf(ch))
-      && !pickG.has(groupOf(ch)) && (state.cfg!.channels[ch.name]?.name || ch.name).toLowerCase().includes(qn)).slice(0, 30) : [];
-    // Secciones: cada encabezado agrupa las categorías que le siguen hasta el próximo.
-    const rows: string[] = [];
-    const sectionMembers = new Map<string, string[]>();
-    let cur: string | null = null;
-    for (const g of cats) {
-      if (headers.has(g)) { cur = g; sectionMembers.set(g, []); } else if (cur) sectionMembers.get(cur)!.push(g);
-    }
-    for (const g of cats) {
-      const isHead = headers.has(g);
-      const mem = sectionMembers.get(g) ?? [];
-      if (qn && !groupLabel(g).toLowerCase().includes(qn)) continue;
-      if (isHead) {
-        const on = mem.filter((m) => pickG.has(m)).length;
-        const all = mem.length > 0 && on === mem.length;
-        rows.push(`<label class="pf-row pf-head"><input type="checkbox" data-sec="${esc(g)}"${all ? ' checked' : ''}${!all && (on || pickG.has(g)) ? ' data-partial="1"' : ''}><span>${esc(sectionTitle(groupLabel(g)))}</span><small>${mem.length} ${mem.length === 1 ? 'categoría' : 'categorías'}</small></label>`);
-      } else {
-        rows.push(`<label class="pf-row"><input type="checkbox" data-g="${esc(g)}"${pickG.has(g) ? ' checked' : ''}><span>${esc(groupLabel(g))}</span><small>${count.get(g) ?? 0}</small></label>`);
-      }
-    }
+    const qn = query();
+    const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(groupOf(ch)) && !pickG.has(groupOf(ch))
+      && fold(state.cfg!.channels[ch.name]?.name || ch.name).includes(qn)).slice(0, 30) : [];
+    const rows = cats.filter(matches).map((g) => {
+      if (!headers.has(g)) return row(`data-g="${esc(g)}"`, groupLabel(g), plural(count.get(g) ?? 0, 'canal', 'canales'), pickG.has(g));
+      const mem = members.get(g) ?? [];
+      const on = mem.filter((m) => pickG.has(m)).length;
+      const sub = on && on < mem.length ? `${on} de ${plural(mem.length, 'categoría', 'categorías')}` : plural(mem.length, 'categoría', 'categorías');
+      return row(`data-sec="${esc(g)}"`, sectionTitle(groupLabel(g)), sub, mem.length > 0 ? on === mem.length : pickG.has(g), true);
+    }).join('');
     body.querySelector('#pfList')!.innerHTML = `
-      ${rows.join('')}
-      ${qn ? `<h4 class="sub-title">Canales</h4>${chans.length ? chans.map((ch) => `<label class="pf-row"><input type="checkbox" data-c="${esc(ch.name)}"${pickC.has(ch.name) ? ' checked' : ''}><span>${esc(state.cfg!.channels[ch.name]?.name || ch.name)}</span><small>${esc(groupLabel(groupOf(ch)))}</small></label>`).join('') : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
-    body.querySelectorAll<HTMLInputElement>('[data-partial]').forEach((el) => { el.indeterminate = true; });
-    sectionMap = sectionMembers;
-    const sum = body.querySelector('#pfSum')!;
-    sum.textContent = pickG.size || pickC.size ? filterSummary({ only, groups: [...pickG], channels: [...pickC] }) : 'Ve todo (sin perfil)';
+      ${rows ? `<div class="menu">${rows}</div>` : (qn && !chans.length ? '' : '<p class="help">Ninguna categoría coincide.</p>')}
+      ${qn ? `<h3 class="sec-title">Canales</h3>${chans.length ? `<div class="menu">${chans.map((ch) =>
+        row(`data-c="${esc(ch.name)}"`, state.cfg!.channels[ch.name]?.name || ch.name, groupLabel(groupOf(ch)), pickC.has(ch.name))).join('')}</div>`
+        : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
+    body.querySelector('#pfSum')!.textContent = pickG.size || pickC.size ? `Este dispositivo: ${filterSummary(current())}` : 'Este dispositivo ve todo (sin perfil).';
   };
   body.innerHTML = `
-    <h3 class="sub-title">Perfil de ${esc(dev.name)}</h3>
+    <h3 class="sub-title">${esc(dev.name)}</h3>
     <p class="help">Elegí qué ve este dispositivo. El link no cambia: la lista se actualiza sola la próxima vez que el reproductor la baje.</p>
-    <div class="pf-mode" role="radiogroup" aria-label="Modo del perfil">
-      <label><input type="radio" name="pfMode" value="hide"${only ? '' : ' checked'}> Ocultar lo marcado</label>
-      <label><input type="radio" name="pfMode" value="only"${only ? ' checked' : ''}> Mostrar solo lo marcado</label>
+    <h3 class="sec-title">Modo</h3>
+    <div class="menu">
+      <div class="menu-row static pf-mode-row">
+        <span class="menu-icon">${icon('list-filter')}</span>
+        <span class="menu-text">Lo que marques<small id="pfModeHint"></small></span>
+        <div class="seg" role="radiogroup" aria-label="Modo del perfil" id="pfMode">
+          <button type="button" role="radio" data-value="hide">Se oculta</button>
+          <button type="button" role="radio" data-value="only">Se muestra solo</button>
+        </div>
+      </div>
     </div>
-    <input class="input" id="pfQ" type="search" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal">
-    <div class="pf-bulk"><button type="button" class="btn btn-gray sm" id="pfAll">${icon('list-checks')}Elegir todo</button>
-      <button type="button" class="btn btn-gray sm" id="pfNone">${icon('square')}Deseleccionar todo</button></div>
-    <div class="pf-list" id="pfList"></div>
-    <p class="help" id="pfSum"></p>
-    <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar perfil</button>
-      <button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar perfil (ver todo)</button></div>`;
+    <h3 class="sec-title">Categorías y canales</h3>
+    <label class="search-field cat-filter">
+      ${icon('search')}
+      <input type="search" id="pfQ" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal">
+    </label>
+    <div class="ch-chips cat-chips">
+      <button type="button" class="chip-btn" id="pfAll">${icon('list-checks')}Elegir todo</button>
+      <button type="button" class="chip-btn" id="pfNone">${icon('square')}Deseleccionar todo</button>
+    </div>
+    <div id="pfList"></div>
+    <p class="meta-line" id="pfSum"></p>
+    <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar perfil</button></div>
+    <div class="form-actions"><button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar perfil (ver todo)</button></div>`;
+  const modeUi = () => {
+    for (const b of $$('#pfMode button')) b.setAttribute('aria-checked', String(b.dataset.value === (only ? 'only' : 'hide')));
+    $('#pfModeHint').textContent = only ? 'Ve únicamente lo marcado' : 'Ve todo menos lo marcado';
+  };
+  modeUi();
   draw();
   body.oninput = (ev) => { if ((ev.target as HTMLElement).id === 'pfQ') draw(); };
+  $('#pfMode').onclick = (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLElement>('button[data-value]');
+    if (!b) return;
+    only = b.dataset.value === 'only';
+    modeUi();
+    draw();
+  };
   body.onchange = (ev) => {
     const t = ev.target as HTMLInputElement;
-    if (t.name === 'pfMode') only = t.value === 'only';
-    else if (t.dataset.g !== undefined) t.checked ? pickG.add(t.dataset.g) : pickG.delete(t.dataset.g);
+    if (t.dataset.g !== undefined) t.checked ? pickG.add(t.dataset.g) : pickG.delete(t.dataset.g);
     else if (t.dataset.sec !== undefined) {
-      // Un clic en la sección marca (o desmarca) todas sus categorías, y a ella misma.
-      const mem = [...(sectionMap.get(t.dataset.sec) ?? []), t.dataset.sec];
-      const all = mem.every((m) => pickG.has(m));
-      for (const m of mem) all ? pickG.delete(m) : pickG.add(m);
-    }
-    else if (t.dataset.c !== undefined) t.checked ? pickC.add(t.dataset.c) : pickC.delete(t.dataset.c);
+      // Un toque en la sección marca (o desmarca) todas sus categorías, y a ella misma.
+      const all = [...(members.get(t.dataset.sec) ?? []), t.dataset.sec];
+      for (const m of all) t.checked ? pickG.add(m) : pickG.delete(m);
+    } else if (t.dataset.c !== undefined) t.checked ? pickC.add(t.dataset.c) : pickC.delete(t.dataset.c);
     else return;
     // Un canal suelto de una categoría ya marcada sobra.
     for (const n of [...pickC]) {
       const ch = state.channels.find((x) => x.name === n);
       if (ch && pickG.has(groupOf(ch))) pickC.delete(n);
     }
-    if (t.dataset.g !== undefined || t.dataset.sec !== undefined) draw();
-    else body.querySelector('#pfSum')!.textContent = filterSummary({ only, groups: [...pickG], channels: [...pickC] });
+    draw();
+  };
+  // «Todo» actúa sobre lo que se ve (con búsqueda, solo lo que coincide).
+  $('#pfAll').onclick = () => { for (const g of cats.filter(matches)) pickG.add(g); draw(); };
+  $('#pfNone').onclick = () => {
+    if (!query()) pickC.clear();
+    for (const g of cats.filter(matches)) pickG.delete(g);
+    draw();
   };
   const save = async (filter: DeviceFilter | null, msg: string) => {
     try {
@@ -2464,24 +2495,13 @@ function renderDeviceProfile(dev: Device) {
       toast((e as Error).message, 'bad', 6000);
     }
   };
-  // «Todo» actúa sobre lo que se ve (con búsqueda, solo lo que coincide).
-  const visible = () => {
-    const qn = body.querySelector<HTMLInputElement>('#pfQ')!.value.trim().toLowerCase();
-    return cats.filter((g) => !qn || groupLabel(g).toLowerCase().includes(qn));
-  };
-  $('#pfAll').onclick = () => { for (const g of visible()) pickG.add(g); draw(); };
-  $('#pfNone').onclick = () => {
-    if (!body.querySelector<HTMLInputElement>('#pfQ')!.value.trim()) pickC.clear();
-    for (const g of visible()) pickG.delete(g);
-    draw();
-  };
   $('#pfSave').onclick = () => {
-    if (only && !pickG.size && !pickC.size) {
-      toast('Marcá al menos una categoría o un canal para «Mostrar solo lo marcado»', 'bad');
+    if (!pickG.size && !pickC.size) {
+      if (only) toast('Marcá al menos una categoría o un canal para que vea solo lo marcado', 'bad');
+      else void save(null, 'Sin perfil: ve todo');
       return;
     }
-    if (!pickG.size && !pickC.size) return void save(null, 'Sin perfil: ve todo');
-    return void save({ only, groups: [...pickG], channels: [...pickC] }, `Perfil guardado: ${filterSummary({ only, groups: [...pickG], channels: [...pickC] })}`);
+    void save(current(), `Perfil guardado: ${filterSummary(current())}`);
   };
   $('#pfClear').onclick = () => void save(null, 'Sin perfil: ve todo');
 }
