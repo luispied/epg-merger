@@ -918,8 +918,12 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .gc-now { margin: 12px 0 0; }
 
 /* Perfil de un dispositivo (Links) */
-.seg { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 12px; }
-.seg label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.pf-mode { display: flex; flex-direction: column; margin: 8px 0 12px; }
+.pf-mode label { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.pf-mode input, .pf-row input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent, #4c8dff); }
+#pfQ { width: 100%; }
+.pf-bulk { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.pf-head { font-weight: 600; margin-top: 6px; }
 .pf-list { display: flex; flex-direction: column; margin: 8px 0; max-height: 46vh; overflow-y: auto; }
 .pf-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 4px; }
 .pf-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

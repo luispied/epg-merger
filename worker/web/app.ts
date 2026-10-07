@@ -2385,26 +2385,50 @@ function renderDeviceProfile(dev: Device) {
   const pickG = new Set(dev.filter?.groups ?? []);
   const pickC = new Set(dev.filter?.channels ?? []);
   let only = dev.filter?.only === true;
+  const headers = sectionHeaders();
+  let sectionMap = new Map<string, string[]>();
   const draw = () => {
     const q = body.querySelector<HTMLInputElement>('#pfQ')?.value ?? '';
     const qn = q.trim().toLowerCase();
     const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(groupOf(ch))
       && !pickG.has(groupOf(ch)) && (state.cfg!.channels[ch.name]?.name || ch.name).toLowerCase().includes(qn)).slice(0, 30) : [];
-    const catsShown = cats.filter((g) => !qn || groupLabel(g).toLowerCase().includes(qn));
+    // Secciones: cada encabezado agrupa las categorías que le siguen hasta el próximo.
+    const rows: string[] = [];
+    const sectionMembers = new Map<string, string[]>();
+    let cur: string | null = null;
+    for (const g of cats) {
+      if (headers.has(g)) { cur = g; sectionMembers.set(g, []); } else if (cur) sectionMembers.get(cur)!.push(g);
+    }
+    for (const g of cats) {
+      const isHead = headers.has(g);
+      const mem = sectionMembers.get(g) ?? [];
+      if (qn && !groupLabel(g).toLowerCase().includes(qn)) continue;
+      if (isHead) {
+        const on = mem.filter((m) => pickG.has(m)).length;
+        const all = mem.length > 0 && on === mem.length;
+        rows.push(`<label class="pf-row pf-head"><input type="checkbox" data-sec="${esc(g)}"${all ? ' checked' : ''}${!all && (on || pickG.has(g)) ? ' data-partial="1"' : ''}><span>${esc(sectionTitle(groupLabel(g)))}</span><small>${mem.length} ${mem.length === 1 ? 'categoría' : 'categorías'}</small></label>`);
+      } else {
+        rows.push(`<label class="pf-row"><input type="checkbox" data-g="${esc(g)}"${pickG.has(g) ? ' checked' : ''}><span>${esc(groupLabel(g))}</span><small>${count.get(g) ?? 0}</small></label>`);
+      }
+    }
     body.querySelector('#pfList')!.innerHTML = `
-      ${catsShown.map((g) => `<label class="pf-row"><input type="checkbox" data-g="${esc(g)}"${pickG.has(g) ? ' checked' : ''}><span>${esc(groupLabel(g))}</span><small>${count.get(g) ?? 0}</small></label>`).join('')}
+      ${rows.join('')}
       ${qn ? `<h4 class="sub-title">Canales</h4>${chans.length ? chans.map((ch) => `<label class="pf-row"><input type="checkbox" data-c="${esc(ch.name)}"${pickC.has(ch.name) ? ' checked' : ''}><span>${esc(state.cfg!.channels[ch.name]?.name || ch.name)}</span><small>${esc(groupLabel(groupOf(ch)))}</small></label>`).join('') : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
+    body.querySelectorAll<HTMLInputElement>('[data-partial]').forEach((el) => { el.indeterminate = true; });
+    sectionMap = sectionMembers;
     const sum = body.querySelector('#pfSum')!;
     sum.textContent = pickG.size || pickC.size ? filterSummary({ only, groups: [...pickG], channels: [...pickC] }) : 'Ve todo (sin perfil)';
   };
   body.innerHTML = `
     <h3 class="sub-title">Perfil de ${esc(dev.name)}</h3>
     <p class="help">Elegí qué ve este dispositivo. El link no cambia: la lista se actualiza sola la próxima vez que el reproductor la baje.</p>
-    <div class="seg" role="radiogroup" aria-label="Modo del perfil">
+    <div class="pf-mode" role="radiogroup" aria-label="Modo del perfil">
       <label><input type="radio" name="pfMode" value="hide"${only ? '' : ' checked'}> Ocultar lo marcado</label>
       <label><input type="radio" name="pfMode" value="only"${only ? ' checked' : ''}> Mostrar solo lo marcado</label>
     </div>
     <input class="input" id="pfQ" type="search" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal">
+    <div class="pf-bulk"><button type="button" class="btn btn-gray sm" id="pfAll">${icon('list-checks')}Elegir todo</button>
+      <button type="button" class="btn btn-gray sm" id="pfNone">${icon('square')}Deseleccionar todo</button></div>
     <div class="pf-list" id="pfList"></div>
     <p class="help" id="pfSum"></p>
     <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar perfil</button>
@@ -2415,6 +2439,12 @@ function renderDeviceProfile(dev: Device) {
     const t = ev.target as HTMLInputElement;
     if (t.name === 'pfMode') only = t.value === 'only';
     else if (t.dataset.g !== undefined) t.checked ? pickG.add(t.dataset.g) : pickG.delete(t.dataset.g);
+    else if (t.dataset.sec !== undefined) {
+      // Un clic en la sección marca (o desmarca) todas sus categorías, y a ella misma.
+      const mem = [...(sectionMap.get(t.dataset.sec) ?? []), t.dataset.sec];
+      const all = mem.every((m) => pickG.has(m));
+      for (const m of mem) all ? pickG.delete(m) : pickG.add(m);
+    }
     else if (t.dataset.c !== undefined) t.checked ? pickC.add(t.dataset.c) : pickC.delete(t.dataset.c);
     else return;
     // Un canal suelto de una categoría ya marcada sobra.
@@ -2422,7 +2452,7 @@ function renderDeviceProfile(dev: Device) {
       const ch = state.channels.find((x) => x.name === n);
       if (ch && pickG.has(groupOf(ch))) pickC.delete(n);
     }
-    if (t.dataset.g !== undefined) draw();
+    if (t.dataset.g !== undefined || t.dataset.sec !== undefined) draw();
     else body.querySelector('#pfSum')!.textContent = filterSummary({ only, groups: [...pickG], channels: [...pickC] });
   };
   const save = async (filter: DeviceFilter | null, msg: string) => {
@@ -2433,6 +2463,17 @@ function renderDeviceProfile(dev: Device) {
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
+  };
+  // «Todo» actúa sobre lo que se ve (con búsqueda, solo lo que coincide).
+  const visible = () => {
+    const qn = body.querySelector<HTMLInputElement>('#pfQ')!.value.trim().toLowerCase();
+    return cats.filter((g) => !qn || groupLabel(g).toLowerCase().includes(qn));
+  };
+  $('#pfAll').onclick = () => { for (const g of visible()) pickG.add(g); draw(); };
+  $('#pfNone').onclick = () => {
+    if (!body.querySelector<HTMLInputElement>('#pfQ')!.value.trim()) pickC.clear();
+    for (const g of visible()) pickG.delete(g);
+    draw();
   };
   $('#pfSave').onclick = () => {
     if (only && !pickG.size && !pickC.size) {
