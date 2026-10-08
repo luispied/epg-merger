@@ -4117,7 +4117,7 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
 }
 
 // Lista de demostración: canales públicos y gratuitos (iptv-org), legales para probar.
-const DEMO_M3U = 'https://iptv-org.github.io/iptv/countries/ar.m3u';
+const DEMO_M3U = 'https://iptv-org.github.io/iptv/countries/uy.m3u';
 
 function setupOnboarding() {
   $('#demoBtn').onclick = () => {
