@@ -1,6 +1,7 @@
 // Relay de Grilla (ver ../relay/README.md): el proveedor bloquea los pedidos que salen de Cloudflare, así que, si hay un
 // relay configurado (RELAY_URL y RELAY_SECRET), el Worker le manda las credenciales de la persona (las descifra de su
-// link) y el relay hace el pedido desde otra IP. No guarda nada. Sin relay, todo sigue como antes (la corrida de GitHub).
+// link) y el relay hace el pedido desde otra IP. No guarda nada. Sin relay, la lista la sube la persona (navegador o
+// tools/grilla_home.py) y no hay prueba de canales.
 import type { Env } from './env.ts';
 import { type Channel, parseUploadedList, ProviderError } from './provider.ts';
 

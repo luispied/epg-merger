@@ -25,11 +25,11 @@ import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYT
 import { addDevice, anyToken, cleanAccount, listDevices, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
-import { dispatchRefresh, dispatchWorkflow } from './github.ts';
+import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
-import { accountKey, isLinked, knownToGithub, linkConfig, linkHash } from './link.ts';
+import { accountKey } from './account.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
-import { refreshOnDemand, refreshViaRelay } from './refresh.ts';
+import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
 import { checkAllHealth } from './streamcheck.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
@@ -81,22 +81,13 @@ function credentialsFrom(body: Record<string, unknown>, cfg: Config): Credential
   return { u: body.username, p: body.password };
 }
 
-/** Si GitHub ya conoce esta cuenta (está en XTREAM_PROFILES), anota la configuración para que baje su lista y pruebe sus datos. */
-async function linkWithGithub(env: Env, ctx: Ctx, cache: SimpleCache, cfgId: string, username: string, password: string): Promise<void> {
-  const hash = await linkHash(username, password);
-  if (!(await knownToGithub(env.BUCKET, hash)) || (await isLinked(env.BUCKET, hash, cfgId))) return;
-  await linkConfig(env.BUCKET, hash, cfgId);
-  ctx.waitUntil(dispatchRefresh(env, cache));
-}
-
-/** Baja la lista ahora por el relay (credenciales de un dispositivo principal de la configuración); sin relay o sin dispositivo, lanza la corrida de GitHub. */
+/** Baja la lista ahora por el relay, con las credenciales de un dispositivo principal de la configuración. Sin relay o
+ *  sin dispositivo no hace nada: la lista la vuelve a subir la persona (navegador o tools/grilla_home.py). */
 async function refreshNow(env: Env, cache: SimpleCache, cfgId: string, servers: string[]): Promise<void> {
-  if (relayConfigured(env)) {
-    const token = await anyToken(env.BUCKET, cfgId);
-    const creds = token ? await decryptToken(env.TOKEN_KEY, cfgId, token) : null;
-    if (creds && 'u' in creds && await refreshViaRelay(env, cache, cfgId, servers, creds.u, creds.p, undefined, new Date(), true)) return;
-  }
-  await dispatchRefresh(env, cache, { fresh_minutes: '5' });
+  if (!relayConfigured(env)) return;
+  const token = await anyToken(env.BUCKET, cfgId);
+  const creds = token ? await decryptToken(env.TOKEN_KEY, cfgId, token) : null;
+  if (creds && 'u' in creds) await refreshViaRelay(env, cache, cfgId, servers, creds.u, creds.p, undefined, new Date(), true);
 }
 
 const listKey = (cfgId: string) => `https://grilla.internal/list/${cfgId}`;
@@ -115,7 +106,7 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
     return { channels: await loadM3u((creds as { url: string }).url) };
   }
   if (cfg.provider.list === 'upload') {
-    // La sube otro (GitHub o la app): el Worker no le pide nada al proveedor.
+    // La baja el relay o la sube la persona (navegador o tools/grilla_home.py): el Worker no le pide nada al proveedor.
     const uploaded = await env.BUCKET.get(r2ListKey(cfgId));
     if (!uploaded) {
       // Todavía no hay lista: con relay se baja en este mismo pedido.
@@ -171,12 +162,11 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   let list: LiveList;
   try {
     list = await liveList(cfgId, cfg, creds, env, ctx, cache);
-    // Lista que baja GitHub: si tiene unos minutos, se pide una nueva para el próximo pedido (ver refresh.ts).
-    if (cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
+    // Lista guardada: si tiene unos minutos, el relay baja una nueva para el próximo pedido (ver refresh.ts).
+    if (cfg.provider.type === 'xtream' && cfg.provider.list === 'upload' && relayConfigured(env) && 'u' in creds) {
       const provider = cfg.provider;
-      ctx.waitUntil(env.BUCKET.head(r2ListKey(cfgId)).then((h) => relayConfigured(env) && 'u' in creds
-        ? refreshViaRelay(env, cache, cfgId, provider.servers, creds.u, creds.p, h?.uploaded)
-        : refreshOnDemand(env, cache, cfgId, h?.uploaded)).catch(() => false));
+      ctx.waitUntil(env.BUCKET.head(r2ListKey(cfgId))
+        .then((h) => refreshViaRelay(env, cache, cfgId, provider.servers, creds.u, creds.p, h?.uploaded)).catch(() => false));
     }
   } catch (e) {
     return new Response(`El proveedor no respondió: ${(e as Error).message}`, { status: 502 });
@@ -251,7 +241,6 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
     } catch (e) {
       if (!(e instanceof ProviderError)) throw e;
-      // Si el proveedor bloquea al Worker pero GitHub tiene esta cuenta, la lista la baja GitHub.
       // Si el proveedor bloquea al Worker pero hay un relay, la lista la baja el relay.
       if (body.type === 'xtream' && relayConfigured(env) && Array.isArray(body.servers)) {
         try {
@@ -261,8 +250,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           if (!(re instanceof ProviderError)) throw re;
         }
       }
-      const github = body.type === 'xtream' && await knownToGithub(env.BUCKET, await linkHash(String(body.username), String(body.password)));
-      return json({ error: e.message, github }, 502);
+      return json({ error: e.message }, 502);
     }
     return fail(400, 'pedido inválido');
   }
@@ -274,19 +262,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   if (section === 'cfg' && !cfgId && method === 'POST') {
     if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
     const raw = await readJson(request) as Record<string, unknown>;
-    const created = await createConfig(env.BUCKET, parseConfig(raw));
-    // "link": usuario y contraseña, solo para la huella que conecta con GitHub (no se guardan).
-    const link = raw.link as { username?: unknown; password?: unknown } | undefined;
-    let github = false;
-    if (link && typeof link.username === 'string' && typeof link.password === 'string') {
-      const hash = await linkHash(link.username, link.password);
-      if (await knownToGithub(env.BUCKET, hash)) {
-        await linkConfig(env.BUCKET, hash, created.cfgId);
-        github = true;
-        ctx.waitUntil(dispatchRefresh(env, cache));
-      }
-    }
-    return json({ ...created, github }, 201);
+    return json(await createConfig(env.BUCKET, parseConfig(raw)), 201);
   }
 
   if (section === 'cfg' && cfgId) {
@@ -326,20 +302,20 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       return json({ started: await dispatchRefresh(env, cache), autoRefresh: !!env.GITHUB_TOKEN });
     }
     if (action === 'health' && parts[4] === 'run' && method === 'POST') {
-      // Probar los canales a mano (corre en GitHub, tarda unos minutos): una vez por día, igual que la corrida de la madrugada.
+      // Probar los canales a mano (lo hace el cron del Worker por el relay): una vez por día, igual que la prueba de la madrugada.
       const { checked, requested } = await healthTimes(env.BUCKET, cfgId);
       const last = Math.max(checked ?? 0, requested ?? 0);
       const nowMs = Date.now();
       if (nowMs - last < HEALTH_EVERY_MS) {
         return json({ started: false, reason: 'recent', last: new Date(last).toISOString(), nextAt: new Date(last + HEALTH_EVERY_MS).toISOString() });
       }
-      // Con relay, la prueba la hace el cron del Worker (healthreq/ es el pedido); sin relay, la corrida de GitHub.
-      if (!relayConfigured(env) && !(await dispatchWorkflow(env, 'check-streams.yml'))) return json({ started: false, reason: env.GITHUB_TOKEN ? 'github' : 'no-token' });
+      // La prueba la hace el cron del Worker (healthreq/ es el pedido). Sin relay no hay cómo.
+      if (!relayConfigured(env)) return json({ started: false, reason: 'no-relay' });
       await env.BUCKET.put(`healthreq/${cfgId}.json`, JSON.stringify({ at: new Date(nowMs).toISOString() }), { httpMetadata: { contentType: 'application/json' } });
       return json({ started: true, requested: new Date(nowMs).toISOString() });
     }
     if (action === 'health' && method === 'GET') {
-      // Canales caídos: lo deja la corrida diaria de GitHub (tools/check_streams.py). Sin corrida todavía, vacío.
+      // Canales caídos: lo deja la prueba diaria del cron del Worker (streamcheck.ts). Sin prueba todavía, vacío.
       const saved = await env.BUCKET.get(`health/${cfgId}.json`);
       let data: Record<string, unknown> = { channels: {} };
       try {
@@ -423,8 +399,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const body = await readJson(request, 4 * 1024) as { servers?: unknown };
       const servers = parseServers(typeof body.servers === 'string' ? body.servers.split(/[\s,]+/) : body.servers);
       await saveConfig(env.BUCKET, cfgId, { ...stored.config, provider: { ...stored.config.provider, servers } }, stored.keyHash);
-      // La lista se vuelve a bajar enseguida, con los servidores nuevos: por el relay si hay uno (con las credenciales de
-      // un dispositivo de la cuenta principal) y, si no, por la corrida de GitHub.
+      // La lista se vuelve a bajar enseguida, con los servidores nuevos, por el relay (con las credenciales de un
+      // dispositivo de la cuenta principal).
       ctx.waitUntil(refreshNow(env, cache, cfgId, servers));
       return json({ ok: true, servers });
     }
@@ -436,9 +412,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const creds = credentialsFrom(raw, stored.config);
       const key = 'u' in creds ? await accountKey(creds.u, creds.p) : undefined;
       const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account), key);
-      if ('u' in creds) {
-        await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
-        if (!cleanAccount(raw.account) && stored.config.provider.type === 'xtream') ctx.waitUntil(refreshViaRelay(env, cache, cfgId, stored.config.provider.servers, creds.u, creds.p, undefined, new Date(), true));
+      if ('u' in creds && !cleanAccount(raw.account) && stored.config.provider.type === 'xtream') {
+        ctx.waitUntil(refreshViaRelay(env, cache, cfgId, stored.config.provider.servers, creds.u, creds.p, undefined, new Date(), true));
       }
       return json({ ok: true, updated });
     }
@@ -457,10 +432,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       } else {
         const creds = credentialsFrom(raw, stored.config);
         token = await encryptToken(env.TOKEN_KEY, cfgId, creds);
-        if ('u' in creds) {
-          key = await accountKey(creds.u, creds.p);
-          await linkWithGithub(env, ctx, cache, cfgId, creds.u, creds.p);
-        }
+        if ('u' in creds) key = await accountKey(creds.u, creds.p);
       }
       const origin = new URL(request.url).origin;
       const code = randomId(8);

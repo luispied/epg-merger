@@ -1,7 +1,7 @@
 # Relay de Grilla
 
 Servicio chico que pide al proveedor IPTV lo que el Worker de Cloudflare no puede pedir (el proveedor bloquea
-las IPs de Cloudflare). Reemplaza al secret `XTREAM_PROFILES` de GitHub: el Worker ya tiene las credenciales de
+las IPs de Cloudflare). Reemplazó al secret `XTREAM_PROFILES` de GitHub para listas y pruebas: el Worker ya tiene las credenciales de
 cada persona (cifradas en sus links) y se las manda al relay en cada pedido; el relay las usa y las descarta.
 
 ## Qué hace
@@ -43,4 +43,5 @@ Cualquier plataforma que corra un contenedor sirve (un VPS con Docker, Oracle Cl
 importa es que la IP de salida no esté bloqueada por el proveedor.
 
 ## Sin relay
-Si el Worker no tiene `RELAY_URL` y `RELAY_SECRET`, todo sigue como antes (la corrida de GitHub).
+Si el Worker no tiene `RELAY_URL` y `RELAY_SECRET`, la lista la sube la persona (desde el navegador o con
+`tools/grilla_home.py`) y no hay prueba de canales caídos ni datos de la cuenta. La corrida de GitHub ya no baja listas.

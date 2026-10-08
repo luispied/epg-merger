@@ -17,7 +17,7 @@ export interface ShortRecord {
   filter?: DeviceFilter;
   /** Cuenta del proveedor con la que reproduce (por ejemplo, la de un familiar). Sin dato = la cuenta principal. */
   account?: string;
-  /** Huella de la cuenta del proveedor (ver link.ts → accountKey): para mostrar su vencimiento. */
+  /** Huella de la cuenta del proveedor (ver account.ts): para mostrar su vencimiento. */
   key?: string;
 }
 export interface Device {

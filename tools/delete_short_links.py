@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from push_lists import R2  # noqa: E402
+from r2 import R2  # noqa: E402
 
 PREFIXES = ('short/', 'devices/')
 

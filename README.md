@@ -285,21 +285,23 @@ override correspondiente.
 
 ## Relay: sin secrets por persona en GitHub (`relay/`)
 
-El proveedor bloquea las IPs de Cloudflare, así que el Worker no puede pedirle la lista. Hasta ahora lo hacía una
-corrida de GitHub con las credenciales en el secret `XTREAM_PROFILES` (una cuenta por persona: no escala). El
-**relay** (`relay/`, ver `relay/README.md`) es un servicio chico que corre en un servidor con IP no bloqueada: el Worker,
+El proveedor bloquea las IPs de Cloudflare, así que el Worker no puede pedirle la lista. Antes lo hacía una
+corrida de GitHub con las credenciales en el secret `XTREAM_PROFILES` (una cuenta por persona: no escala); ese camino
+ya no existe. El **relay** (`relay/`, ver `relay/README.md`) es un servicio chico que corre en un servidor con IP no bloqueada: el Worker,
 que ya tiene las credenciales de cada persona cifradas en sus links, se las manda en cada pedido y el relay las usa y
 las descarta. Con `RELAY_URL` y `RELAY_SECRET` cargados en el Worker:
 
 - al dar de alta una configuración con un proveedor que bloquea al Worker, la lista la baja el relay;
 - cuando alguien pide la playlist y la lista guardada tiene más de 10 minutos, se renueva por el relay (sin gastar minutos de Actions);
-- al cambiar los servidores o los datos de la cuenta, la lista se baja de nuevo enseguida.
-
+- al cambiar los servidores o los datos de la cuenta, la lista se baja de nuevo enseguida;
 - la prueba de canales caídos y el vencimiento de cada cuenta (la tuya y las de familiares) las hace el cron del Worker
   (cada 30 minutos, una vez por día por configuración o cuando alguien toca «Probar ahora», hasta 200 canales por vez) y deja
-  `health/<cfgId>.json` con el mismo formato de siempre (`src/streamcheck.ts`).
+  `health/<cfgId>.json` (`src/streamcheck.ts`).
 
-Sin esas variables todo sigue como antes (corrida de GitHub). Retirar ese camino viejo es el último paso (`planes/relay.md`).
+Sin esas variables, la lista la sube la persona (desde el navegador o con `tools/grilla_home.py`) y no hay prueba de
+canales caídos. `XTREAM_PROFILES` queda solo para la corrida diaria (`merge-epgs.yml`: catálogo y reporte de cruce).
+
+Las claves `known/` y `links/` que quedaron en R2 del camino viejo ya no se usan: se pueden borrar a mano.
 
 ## Varias personas con el mismo proveedor
 
@@ -401,17 +403,9 @@ Las claves van solo a los secretos del repo: no se pegan en el chat ni en ningú
 fuentes → publicación de `merged.xml.gz` y `epg_catalog.json` al release → subida de la guía a R2
 → subida de los `match_report.json` como artifact.
 
-`refresh-lists.yml` (cada 3 horas, y a pedido del Worker) baja la lista del proveedor desde
-GitHub —para los proveedores que bloquean a Cloudflare— y arma la guía de cada configuración.
-Descarga `merged.xml.gz` del release con el `GITHUB_TOKEN`, así funciona con el repo privado.
-Además, cuando alguien pide la playlist y la lista guardada tiene más de 10 minutos, el Worker lanza esta
-misma corrida con `fresh_minutes=10` (`worker/src/refresh.ts`): una vez cada 10 minutos por configuración y
-hasta 12 por día, para que un canal nuevo del proveedor (un partido en PPV) no espere las 3 horas.
-
-`check-streams.yml` (una vez por día, a las 07:30 UTC) prueba una tanda de ~200 canales con
-`tools/check_streams.py` —de a uno, leyendo solo los primeros bytes— y deja el resultado en R2
-(`health/<cfgId>.json`) para que Grilla marque los canales caídos. Solo avisa, no oculta nada.
+`refresh-lists.yml` (cada 3 horas, y a pedido del Worker) arma la guía de las configuraciones nuevas o
+cambiadas. Descarga `merged.xml.gz` del release con el `GITHUB_TOKEN`, así funciona con el repo privado. No usa
+credenciales del proveedor: la lista y la prueba de canales caídos las hace el Worker por el relay (ver «Relay»).
 
 Con el repo privado en el plan Free hay ~2000 minutos de Actions por mes: la corrida diaria
-gasta unos 8–10 minutos, por eso `refresh-lists` va cada 3 horas y no más seguido; el chequeo de
-canales caídos gasta unos 5 minutos por día.
+gasta unos 8–10 minutos y `refresh-lists` uno o dos por corrida.

@@ -414,7 +414,7 @@
     <details>
       <summary>¿Cuándo se ven los cambios en el reproductor?<span data-icon="chevron-down"></span></summary>
       <p>Cada cambio se guarda solo. La <b>playlist</b> los tiene al instante. La <b>guía</b> se vuelve a armar en unos minutos: un aviso te dice cuándo está lista, y en <b>Configuración → Actualizar la guía ahora</b> (si está disponible) la pedís en el momento. Después, en el reproductor, actualizá la lista y la guía (o esperá a que lo haga solo).</p>
-      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): si tu proveedor bloquea al servidor y la lista la baja GitHub, cada vez que tu reproductor pide la playlist y la copia guardada tiene más de 10 minutos, Grilla pide una nueva. Ese pedido sale con lo que había y el siguiente, uno o dos minutos después, ya trae el canal: actualizá la lista en el reproductor.</p>
+      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): si tu proveedor bloquea al servidor y la lista la baja el relay, cada vez que tu reproductor pide la playlist y la copia guardada tiene más de 10 minutos, Grilla pide una nueva. Ese pedido sale con lo que había y el siguiente ya trae el canal: actualizá la lista en el reproductor.</p>
     </details>
 
     <details>
@@ -441,7 +441,7 @@
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), GitHub prueba una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado acá. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado acá. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
       </details>
       <details>
         <summary>Vencimiento de tu suscripción<span data-icon="chevron-down"></span></summary>
@@ -507,7 +507,7 @@
       </details>
       <details>
         <summary>¿Cambió la dirección del servicio de IPTV?<span data-icon="chevron-down"></span></summary>
-        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en esa sección ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja GitHub, la próxima descarga ya usa la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en «¿Cambiaron tus datos del proveedor?».</p>
+        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en esa sección ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en «¿Cambiaron tus datos del proveedor?».</p>
       </details>
       <details>
         <summary>¿Cambiaron tus datos del proveedor?<span data-icon="chevron-down"></span></summary>

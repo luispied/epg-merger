@@ -1,19 +1,18 @@
-// Prueba de canales caídos y datos de cada cuenta (vencimiento, conexiones) por el relay, sin depender de la corrida de
-// GitHub ni del secret XTREAM_PROFILES. Lo hace el cron del Worker (cada 30 minutos): una vez por día por configuración,
-// o cuando alguien tocó «Probar ahora» (health/run deja un pedido en healthreq/). El resultado queda en health/<cfgId>.json,
-// con el mismo formato que dejaba tools/check_streams.py.
+// Prueba de canales caídos y datos de cada cuenta (vencimiento, conexiones) por el relay. Lo hace el cron del Worker
+// (cada 30 minutos): una vez por día por configuración, o cuando alguien tocó «Probar ahora» (health/run deja un pedido
+// en healthreq/). El resultado queda en health/<cfgId>.json.
 import { decryptToken } from './crypto.ts';
 import { type Config, loadConfig } from './config.ts';
 import { accountTokens } from './devices.ts';
 import type { Env } from './env.ts';
-import { accountKey } from './link.ts';
+import { accountKey } from './account.ts';
 import type { Channel } from './provider.ts';
 import { relayConfigured, relayPost } from './relay.ts';
 
 /** Una sola prueba por día (la de la madrugada o una lanzada a mano). */
 export const CHECK_EVERY_MS = 20 * 3600 * 1000;
 export const CHUNK = 50; // canales por pedido al relay
-export const MAX_CHUNKS = 4; // 200 canales por corrida, como la de GitHub
+export const MAX_CHUNKS = 4; // 200 canales por corrida
 const MAX_CONFIGS_PER_TICK = 5;
 const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.

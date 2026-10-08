@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import pytest  # noqa: E402
 
 import server  # noqa: E402
+import xtream_client  # noqa: E402
 
 PUBLIC = lambda host, _p: [(2, 1, 6, '', ('93.184.216.34', 0))]  # noqa: E731
 
@@ -139,3 +140,26 @@ def test_el_relay_no_escribe_credenciales_en_el_log(monkeypatch, capsys):
     out = capsys.readouterr()
     assert 'clave_secreta' not in out.out + out.err and 'usuario_x' not in out.out + out.err
     assert 'prov.example' not in out.out + out.err
+
+
+def test_canales_sin_urls_ni_credenciales():
+    streams = [
+        {'name': 'AR| Telefe', 'stream_id': 10, 'category_id': 1, 'stream_icon': 'http://i', 'epg_channel_id': 'telefe.ar'},
+        {'name': 'Evento', 'stream_id': '12', 'category_id': '9', 'container_extension': 'ts'},
+        {'name': 'Roto', 'stream_id': None},
+    ]
+    assert xtream_client.worker_channels(streams, {'1': 'Argentina'}) == [
+        {'name': 'AR| Telefe', 'category': 'Argentina', 'id': '10', 'ext': 'm3u8', 'icon': 'http://i', 'epgId': 'telefe.ar'},
+        {'name': 'Evento', 'category': 'General', 'id': '12', 'ext': 'ts', 'icon': '', 'epgId': None},
+    ]
+
+
+def test_datos_de_la_cuenta_solo_con_lista_blanca():
+    data = {'user_info': {'username': 'user', 'password': 'secreta', 'status': 'Active', 'exp_date': '1793836800',
+                          'is_trial': '0', 'max_connections': '2', 'active_cons': '1'}, 'server_info': {'url': 'x'}}
+    info = xtream_client.account_info(data)
+    assert info == {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 2}
+    assert 'secreta' not in json.dumps(info) and 'user' not in json.dumps(info).replace('trial', '')
+    assert xtream_client.account_info({'user_info': {'exp_date': None}})['expires'] is None
+    assert xtream_client.account_info({'user_info': {'exp_date': '0'}})['expires'] is None
+    assert xtream_client.account_info({'algo': 1}) is None and xtream_client.account_info(None) is None

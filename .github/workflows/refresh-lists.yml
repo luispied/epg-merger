@@ -1,20 +1,13 @@
-name: Refresh Grilla lists
+name: Refresh Grilla guides
 
-# Lista del proveedor para Grilla web (tools/push_lists.py) y guía de las configuraciones
-# nuevas o cambiadas (tools/refresh_epgs.py). El proveedor bloquea los pedidos
-# que salen de Cloudflare, así que la baja GitHub y la deja en R2. Corre cada 3 horas y, además,
-# cuando el Worker la pide (configuración nueva o editada, o alguien pidió la playlist y la lista guardada tiene unos
-# minutos: worker/src/github.ts y refresh.ts); solo le pide la lista al proveedor cuando hay una configuración nueva
-# esperándola o cuando la que hay tiene más de 3 horas (o de `fresh_minutes`, si el pedido trae ese dato). Pocas corridas a propósito: en un repo privado las Actions tienen un tope de minutos.
+# Guía de las configuraciones nuevas o cambiadas (tools/refresh_epgs.py), con la guía fusionada de la última corrida
+# diaria. Sin credenciales del proveedor: la lista y la prueba de canales las hace el Worker por el relay (relay/).
+# Corre cada 3 horas y, además, cuando el Worker la pide (configuración nueva o editada: worker/src/github.ts). El
+# archivo conserva su nombre para que un Worker publicado antes que este cambio la siga encontrando.
 on:
   schedule:
     - cron: '12 */3 * * *'
   workflow_dispatch:
-    inputs:
-      fresh_minutes:
-        description: 'Volver a bajar las listas que tengan más de estos minutos (vacío: 3 horas)'
-        required: false
-        default: ''
 
 permissions:
   contents: read
@@ -24,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  push:
+  guides:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,21 +26,6 @@ jobs:
       with:
         python-version: '3.11'
     - run: pip install -r requirements.txt boto3
-    - name: Push lists to R2
-      env:
-        XTREAM_PROFILES: ${{ secrets.XTREAM_PROFILES }}
-        XTREAM_USERNAME: ${{ secrets.XTREAM_USERNAME }}
-        XTREAM_PASSWORD: ${{ secrets.XTREAM_PASSWORD }}
-        XTREAM_SERVERS: ${{ secrets.XTREAM_SERVERS }}
-        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        R2_BUCKET: ${{ vars.R2_BUCKET }}
-        # Lo pone el Worker cuando alguien pide la playlist y la lista guardada ya tiene unos minutos (worker/src/refresh.ts).
-        REFRESH_MINUTES: ${{ inputs.fresh_minutes }}
-      run: python tools/push_lists.py
-    # La guía de las configuraciones nuevas o cambiadas, con la guía fusionada de la última
-    # corrida diaria (no vuelve a bajar las fuentes).
     - name: Build guides for new or changed configs
       env:
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}

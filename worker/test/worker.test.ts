@@ -4,15 +4,13 @@ import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
-import { dispatchWorkflow } from '../src/github.ts';
-import { MAX_PER_DAY, refreshOnDemand, STALE_AFTER_MS } from '../src/refresh.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
-import { linkHash } from '../src/link.ts';
+import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
-import { CATEGORIES, makeEnv, MemoryCache, mockXtream, STREAMS } from './helpers.ts';
+import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
 
 const BASE = 'https://grilla.example';
 const S1 = 'http://s1.example:8080';
@@ -303,24 +301,20 @@ test('ids con código (UUID): la lista subida y el redirect los aceptan', async 
   assert.equal(res.headers.get('Location'), `${S1}/live/user/pa%20ss/${uuid}.ts`);
 });
 
-test('vínculo con GitHub: si GitHub conoce la cuenta, la configuración queda anotada para que suba la lista', async () => {
+test('sin relay, un proveedor que bloquea al Worker es un error y la configuración no guarda la contraseña', async () => {
   const t = makeEnv();
   const mock = mockXtream({ down: [S1] });
   restore = mock.restore;
   const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string }> };
-  const list = (u: string, p: string) => handle(req('/api/provider/list', { method: 'POST', headers: { 'CF-Connecting-IP': `ip-${Math.random()}` }, body: JSON.stringify({
-    type: 'xtream', servers: [S1], username: u, password: p }) }), t.env, t.ctx, t.cache);
-  assert.deepEqual(((await (await list('user', 'pa ss')).json()) as { github: boolean }).github, false);
-  const { linkHash } = await import('../src/link.ts');
-  const hash = await linkHash('user', 'pa ss');
-  await t.env.BUCKET.put(`known/${hash}`, '');
-  const r = await (await list('user', 'pa ss')).json() as { github: boolean; error: string };
-  assert.equal(r.github, true);
-  assert.equal(((await (await list('user', 'otra')).json()) as { github: boolean }).github, false, 'con otra clave no');
-  const created = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'ip-cfg' }, body: JSON.stringify({
-    provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: {}, link: { username: 'user', password: 'pa ss' } }) }), t.env, t.ctx, t.cache)).json() as { cfgId: string; github: boolean };
-  assert.equal(created.github, true);
-  assert.deepEqual(JSON.parse(bucket.data.get(`links/${hash}.json`)!.value), { cfgIds: [created.cfgId], pending: true });
+  const res = await handle(req('/api/provider/list', { method: 'POST', headers: { 'CF-Connecting-IP': 'ip-bloq' }, body: JSON.stringify({
+    type: 'xtream', servers: [S1], username: 'user', password: 'pa ss' }) }), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 502);
+  assert.deepEqual(Object.keys(await res.json() as object), ['error']);
+  // Un "link" que mande una web vieja se ignora: no queda nada en known/ ni en links/.
+  const created = await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'ip-cfg' }, body: JSON.stringify({
+    provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: {}, link: { username: 'user', password: 'pa ss' } }) }), t.env, t.ctx, t.cache);
+  assert.equal(created.status, 201);
+  assert.ok(![...bucket.data.keys()].some((k) => k.startsWith('known/') || k.startsWith('links/')));
   const all = [...bucket.data.values()].map((v) => v.value).join('');
   assert.ok(!all.includes('pa ss'), 'no guarda la contraseña');
 });
@@ -719,12 +713,12 @@ test('cuentas: un dispositivo puede usar otra cuenta del proveedor, se reutiliza
   assert.equal(((await res2.json()) as { updated: number }).updated, 2); // el de setup() y el de 'TV'
   const list = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { name: string; account?: string }[] };
   assert.deepEqual(list.devices.filter((d) => d.account).map((d) => d.name).sort(), ['Celu', 'Tablet']);
-  // Cada dispositivo lleva la huella de su cuenta (la que GitHub usa para publicar su vencimiento); la de reutilizar se hereda.
+  // Cada dispositivo lleva la huella de su cuenta (con la que la prueba diaria publica su vencimiento); la de reutilizar se hereda.
   const keys = (await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { name: string; accountKey?: string }[] }).devices;
   const keyOf = (n: string) => keys.find((d) => d.name === n)?.accountKey;
-  assert.equal(keyOf('Tablet'), (await linkHash('mama2', 'c')).slice(0, 12));
+  assert.equal(keyOf('Tablet'), await accountKey('mama2', 'c'));
   assert.equal(keyOf('Celu'), keyOf('Tablet'));
-  assert.equal(keyOf('TV'), (await linkHash('yo2', 'd')).slice(0, 12));
+  assert.equal(keyOf('TV'), await accountKey('yo2', 'd'));
 });
 
 test('perfiles: cada link filtra por categoría y por canal, y se cambia sin cambiar la dirección', async () => {
@@ -895,11 +889,13 @@ test('recordatorios: la API los guarda, los lista y los borra; la corrida avisa 
   }
 });
 
-test('probar canales a mano: una vez por día, sin token avisa y con GitHub lanza el workflow', async () => {
+test('probar canales a mano: una vez por día, sin relay avisa y con relay deja el pedido al cron (sin GitHub)', async () => {
   const t = await setup();
   const run = () => handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'POST', key: t.editKey, body: '{}' }), t.env, t.ctx, t.cache);
-  assert.deepEqual(await (await run()).json(), { started: false, reason: 'no-token' });
+  assert.deepEqual(await (await run()).json(), { started: false, reason: 'no-relay' });
   t.env.GITHUB_TOKEN = 'ghs_test';
+  t.env.RELAY_URL = 'https://relay.example';
+  t.env.RELAY_SECRET = 'r'.repeat(40);
   const calls: string[] = [];
   const real = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -912,12 +908,11 @@ test('probar canales a mano: una vez por día, sin token avisa y con GitHub lanz
   try {
     const first = await (await run()).json() as { started: boolean; requested: string };
     assert.equal(first.started, true);
-    assert.deepEqual(calls, ['POST /actions/workflows/check-streams.yml/dispatches']);
+    assert.deepEqual(calls, []);
     // Otra vez el mismo día: no se vuelve a lanzar, y dice cuándo.
     const again = await (await run()).json() as { started: boolean; reason: string; nextAt: string };
     assert.deepEqual([again.started, again.reason], [false, 'recent']);
     assert.ok(Date.parse(again.nextAt) > Date.now() + 19 * 3600 * 1000);
-    assert.equal(calls.length, 1);
     // La lista de canales caídos trae cuándo se pidió.
     const h = await (await handle(req(`/api/cfg/${t.cfgId}/health`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { requested?: string };
     assert.equal(h.requested, first.requested);
@@ -1068,86 +1063,7 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
   assert.equal(isDue({ checked: now.toISOString() }, new Date(now.getTime() + 1000).toISOString(), new Date(now.getTime() + 2000)), true);
 });
 
-test('refresco al pedir la playlist: solo con la lista guardada vieja, una vez cada 10 minutos y con tope por día', async () => {
-  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
-  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
-  const putList = (ageMin: number) => bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels: [{ name: 'A', category: 'X', id: '1', ext: 'ts', icon: '', epgId: null }] }), uploaded: new Date(Date.now() - ageMin * 60_000) });
-  const playlist = () => handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache);
-  const gh: { url: string; body: string }[] = [];
-  const real = globalThis.fetch;
-  const installGithub = () => {
-    const base = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).startsWith('https://api.github.com/')) {
-        gh.push({ url: String(input), body: String(init?.body) });
-        return new Response(null, { status: 204 });
-      }
-      return base(input, init);
-    }) as typeof fetch;
-  };
-  installGithub();
-  try {
-    // Sin token del Worker no pasa nada.
-    putList(60);
-    assert.equal((await playlist()).status, 200);
-    await t.settle();
-    assert.equal(gh.length, 0);
-    t.env.GITHUB_TOKEN = 'ghs_test';
-    // Lista recién subida: no hace falta.
-    putList(2);
-    await playlist();
-    await t.settle();
-    assert.equal(gh.length, 0);
-    // Lista vieja: la playlist sale igual con lo que hay, y se lanza el refresco con el umbral de 10 minutos.
-    putList(30);
-    const res = await playlist();
-    assert.match(await res.text(), /,A\n/);
-    await t.settle();
-    assert.equal(gh.length, 1);
-    assert.match(gh[0].url, /\/actions\/workflows\/refresh-lists\.yml\/dispatches$/);
-    assert.deepEqual(JSON.parse(gh[0].body), { ref: 'main', inputs: { fresh_minutes: '10' } });
-    // Otro pedido enseguida (la lista sigue vieja hasta que termine la corrida): no se vuelve a lanzar.
-    await playlist();
-    await t.settle();
-    assert.equal(gh.length, 1);
-    // Una configuración sin lista subida por GitHub (la baja el Worker) no lanza nada.
-    const direct = await setup();
-    installGithub(); // setup() vuelve a simular el proveedor
-    direct.env.GITHUB_TOKEN = 'ghs_test';
-    (direct.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> }).data.set(`list/${direct.cfgId}.json`, { value: '{"channels":[]}', uploaded: new Date(Date.now() - 120 * 60_000) });
-    await handle(new Request(direct.playlistUrl), direct.env, direct.ctx, direct.cache);
-    await direct.settle();
-    assert.equal(gh.length, 1);
-    // Tope por día: pasado el máximo, ya no.
-    const env2 = makeEnv();
-    env2.env.GITHUB_TOKEN = 'ghs_test';
-    const before = gh.length;
-    for (let i = 0; i < MAX_PER_DAY + 3; i++) {
-      await refreshOnDemand(env2.env, new MemoryCache(), `cfg${i}`, new Date(Date.now() - 2 * STALE_AFTER_MS));
-    }
-    assert.equal(gh.length - before, MAX_PER_DAY);
-  } finally {
-    globalThis.fetch = real;
-  }
-});
-
-test('dispatchWorkflow: si el workflow todavía no declara los datos (422), se lanza sin ellos', async () => {
-  const env = { BUCKET: {} as never, TOKEN_KEY: 'x', GITHUB_TOKEN: 'ghs_test' };
-  const bodies: string[] = [];
-  const real = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    bodies.push(String(init?.body));
-    return new Response(null, { status: bodies.length === 1 ? 422 : 204 });
-  }) as typeof fetch;
-  try {
-    assert.equal(await dispatchWorkflow(env, 'refresh-lists.yml', { fresh_minutes: '10' }), true);
-    assert.deepEqual(bodies.map((b) => JSON.parse(b)), [{ ref: 'main', inputs: { fresh_minutes: '10' } }, { ref: 'main' }]);
-  } finally {
-    globalThis.fetch = real;
-  }
-});
-
-test('servidores: se cambian sin tocar los links, se validan y la lista se vuelve a pedir a GitHub', async () => {
+test('servidores: se cambian sin tocar los links, se validan y sin relay no se lanza nada en GitHub', async () => {
   const t = await setup();
   const put = (body: unknown, key: string | undefined = t.editKey) =>
     handle(req(`/api/cfg/${t.cfgId}/servers`, { method: 'PUT', key, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
@@ -1175,8 +1091,8 @@ test('servidores: se cambian sin tocar los links, se validan y la lista se vuelv
     const cfg = await (await handle(req(`/api/cfg/${t.cfgId}`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { provider: { servers: string[] }; channels: object };
     assert.deepEqual(cfg.provider.servers, ['http://nuevo.example:8080', 'https://respaldo.example', 'http://tercero.example']);
     assert.ok(Object.keys(cfg.channels).length > 0, 'las ediciones de canales se conservan');
-    // Se lanza la corrida de GitHub que baja la lista, sin esperar a las 3 horas.
-    assert.deepEqual(gh.map((b) => JSON.parse(b)), [{ ref: 'main', inputs: { fresh_minutes: '5' } }]);
+    // La lista la baja el relay (ver el test del relay): GitHub ya no baja listas.
+    assert.deepEqual(gh, []);
     // Los links siguen siendo los mismos y el redirect usa el servidor nuevo.
     const after = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { playlistUrl: string }[] };
     assert.deepEqual(after.devices.map((d) => d.playlistUrl), before.devices.map((d) => d.playlistUrl));

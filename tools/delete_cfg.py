@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Borra una configuración de Grilla web de R2, con todo lo suyo: la configuración, su lista,
-su guía, su comparación, sus links cortos y su anotación en las cuentas enlazadas.
+su guía, su comparación y sus links cortos.
 
 Para limpiar configuraciones de prueba. Se le pasa el id o el comienzo del id (como lo muestra
 "Compare Grilla web", p. ej. `-wPXj0`); tiene que coincidir con una sola configuración.
@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from push_lists import R2  # noqa: E402
+from r2 import R2  # noqa: E402
 
 
 def delete_config(r2, prefix):
@@ -37,13 +37,6 @@ def delete_config(r2, prefix):
         if got and json.loads(got[0] or b'{}').get('cfgId') == cfg_id:
             r2.delete(key)
             deleted.append(key)
-    for key in list(r2.keys('links/')):
-        got = r2.get(key)
-        data = json.loads(got[0] or b'{}') if got else {}
-        if cfg_id in data.get('cfgIds', []):
-            data['cfgIds'] = [c for c in data['cfgIds'] if c != cfg_id]
-            r2.put(key, json.dumps(data).encode('utf-8'))
-            deleted.append(f'{key} (enlace)')
     return cfg_id, deleted
 
 
