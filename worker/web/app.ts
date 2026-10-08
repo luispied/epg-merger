@@ -3097,14 +3097,21 @@ function renderAddDevice(p: Profile) {
         : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
       if (Object.values(creds).some((v) => !v)) return void toast('Completá los datos del proveedor', 'bad');
     } else if (!p.account && state.creds) creds = state.creds as Record<string, string>;
+    // Se lee todo antes de esperar a la red: un segundo toque (o Enter) mientras guarda ya no encuentra el formulario.
+    const form = ev.currentTarget as HTMLFormElement;
+    const name = $<HTMLInputElement>('#lnkName').value.trim();
+    const btn = $<HTMLButtonElement>('#makeLinks');
+    if (btn.disabled) return;
+    btn.disabled = true;
     try {
       await saveNow();
-      const name = $<HTMLInputElement>('#lnkName').value.trim();
       const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, ...(p.account ? { account: p.account } : {}), name } });
       if (needsCreds) state.creds = creds as typeof state.creds;
-      renderLinkResult({ ...r, name });
+      if (form.isConnected) renderLinkResult({ ...r, name });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
+    } finally {
+      btn.disabled = false;
     }
   };
 }
@@ -3126,17 +3133,22 @@ function renderAddProfile() {
     ev.preventDefault();
     const account = $<HTMLInputElement>('#npName').value.trim().replace(/\s+/g, ' ');
     if (profilesOf(profileDevices).some((x) => x.account === account || x.name === account)) return void toast(`Ya hay un perfil «${account}»`, 'bad');
+    const name = $<HTMLInputElement>('#npDevice').value.trim();
+    const creds = { username: $<HTMLInputElement>('#npUser').value.trim(), password: $<HTMLInputElement>('#npPass').value };
+    const btn = $<HTMLButtonElement>('#profileForm button[type=submit]');
+    if (btn.disabled) return;
+    btn.disabled = true;
     try {
       await saveNow();
-      const name = $<HTMLInputElement>('#npDevice').value.trim();
-      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST',
-        body: { username: $<HTMLInputElement>('#npUser').value.trim(), password: $<HTMLInputElement>('#npPass').value, account, name } });
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, account, name } });
       linksView = { v: 'profile', account };
       $('#linksTitle').textContent = account;
       toast(`Perfil «${account}» creado`, 'ok');
       renderLinkResult({ ...r, name });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
+    } finally {
+      btn.disabled = false;
     }
   };
 }

@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.23.1
+
+- Arreglo: al generar un link, un segundo toque mientras se guardaba mostraba el error «null is not an object (#lnkName)». Ahora el botón se bloquea hasta terminar (también en «Crear perfil»).
+
 ## 1.23.0
 
 - Perfiles rediseñado (opción H): una lista corta con una fila por perfil, agrupadas por proveedor. Cada perfil tiene su página con suscripción, conexiones, sus dispositivos, «Agregar dispositivo» (ya no pregunta a qué perfil), usuario y contraseña, y «Usar este perfil». El del perfil en uso tiene además «Canales caídos» y «Probar ahora».
