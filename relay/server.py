@@ -30,16 +30,13 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, 'tools'))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests  # noqa: E402
 
-import check_streams  # noqa: E402
-import push_lists  # noqa: E402
 import xtream_client  # noqa: E402
-from xtream_client import XtreamError, build_stream_url, get_live_categories, get_live_streams  # noqa: E402
+from xtream_client import (REJECTS_TO_ABORT, XtreamError, build_stream_url, get_live_categories, get_live_streams,  # noqa: E402
+                           pick_server, probe, worker_channels)
 
 # Sin avisos de progreso del cliente Xtream: sus errores pueden llevar la URL con usuario y contraseña.
 xtream_client.LOG = lambda *args, **kwargs: None
@@ -110,11 +107,11 @@ def clean_credentials(body, resolve=socket.getaddrinfo):
 
 def do_list(servers, user, password):
     server, streams = get_live_streams(servers, user, password)
-    return {'server': server, 'channels': push_lists.worker_channels(streams, get_live_categories(server, user, password))}
+    return {'server': server, 'channels': worker_channels(streams, get_live_categories(server, user, password))}
 
 
 def do_account(servers, user, password, pick=None):
-    server, account = (pick or check_streams.pick_server)(servers, user, password)
+    server, account = (pick or pick_server)(servers, user, password)
     if not server:
         raise XtreamError('sin servidor')
     return {'server': server, 'account': account}
@@ -132,7 +129,7 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, clock=ti
         items.append((cid, ext))
     info = do_account(servers, user, password, pick)
     session = requests.Session()
-    prober = prober or (lambda url: check_streams.probe(session, url))
+    prober = prober or (lambda url: probe(session, url))
     results, rejects, started = {}, 0, clock()
     aborted = False
     for cid, ext in items:
@@ -141,7 +138,7 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, clock=ti
         result = prober(build_stream_url(info['server'], user, password, cid, ext))
         if result == 'rejected':
             rejects += 1
-            if rejects >= check_streams.REJECTS_TO_ABORT:
+            if rejects >= REJECTS_TO_ABORT:
                 aborted = True  # la cuenta rechaza: no es el canal
                 results = {}
                 break

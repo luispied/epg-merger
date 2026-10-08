@@ -15,8 +15,9 @@ las usa y las descarta, no guarda nada ni las escribe en el log, y solo habla co
 2. ✅ Prueba de canales caídos y vencimiento de cada cuenta: el cron del Worker (`src/streamcheck.ts`) llama a `/v1/probe` y
    `/v1/account` y escribe `health/<cfgId>.json`; con relay, «Probar ahora» deja un pedido en `healthreq/` (lo toma el cron, hasta
    30 minutos) en vez de lanzar `check-streams.yml`.
-3. ⏳ Retirar el camino de GitHub para listas y pruebas (`XTREAM_PROFILES`, `known/`, `links/`), dejando en GitHub solo
-   lo que no usa credenciales (guía fusionada y guía por configuración).
+3. ✅ Retirar el camino de GitHub para listas y pruebas (`XTREAM_PROFILES`, `known/`, `links/`): fuera `push_lists.py`,
+   `check_streams.py` y `check-streams.yml`; `refresh-lists.yml` solo arma guías. `XTREAM_PROFILES` queda únicamente para
+   la corrida diaria (`merge-epgs.yml`: catálogo y reporte de cruce). Mergear solo con el relay andando en producción.
 
 ## Qué hace falta de parte de Luis
 - Publicar `relay/` (ver `relay/README.md`) y cargar `RELAY_URL` y `RELAY_SECRET` en el Worker. El secret se genera en

@@ -33,12 +33,10 @@ def test_borra_todo_lo_de_la_configuracion_y_nada_mas():
         'list/-wPXj0aaaaaaaaaa.json': b'{}', 'epg/-wPXj0aaaaaaaaaa.xml.gz': b'x',
         'short/abc.json': json.dumps({'cfgId': '-wPXj0aaaaaaaaaa', 'token': 't'}).encode(),
         'short/def.json': json.dumps({'cfgId': '0bRZUwbbbbbbbbbb', 'token': 't'}).encode(),
-        'links/h.json': json.dumps({'cfgIds': ['-wPXj0aaaaaaaaaa', '0bRZUwbbbbbbbbbb'], 'pending': False}).encode(),
     })
     cfg_id, _ = delete_config(r2, '-wPXj0')
     assert cfg_id == '-wPXj0aaaaaaaaaa'
-    assert sorted(r2.d) == ['cfg/0bRZUwbbbbbbbbbb.json', 'links/h.json', 'short/def.json']
-    assert json.loads(r2.d['links/h.json'])['cfgIds'] == ['0bRZUwbbbbbbbbbb']
+    assert sorted(r2.d) == ['cfg/0bRZUwbbbbbbbbbb.json', 'short/def.json']
 
 
 def test_no_borra_si_el_comienzo_es_ambiguo_o_corto():

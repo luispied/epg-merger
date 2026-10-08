@@ -2,8 +2,7 @@
 FROM python:3.12-slim
 WORKDIR /app
 RUN pip install --no-cache-dir requests
-COPY xtream_client.py profiles.py ./
-COPY tools/check_streams.py tools/push_lists.py tools/
+COPY xtream_client.py ./
 COPY relay/server.py relay/
 ENV PORT=8080
 EXPOSE 8080

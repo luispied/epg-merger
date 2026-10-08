@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Sube la lista de tu proveedor a Grilla web desde un equipo de tu casa (Raspberry Pi, NAS,
-una PC o un Android viejo con Termux), para no depender de GitHub.
+una PC o un Android viejo con Termux), para cuando el Worker no tiene relay.
 
 Para qué: algunos proveedores (como el de Luis) no le contestan a Cloudflare, así que el Worker
-no puede bajar la lista. Hoy la baja GitHub cada 3 horas; con esto la baja tu propia conexión
+no puede bajar la lista. Sin relay (relay/), con esto la baja tu propia conexión
 (la misma IP que usa tu reproductor) y la sube al Worker con tu clave de edición.
 
 Datos (variables de entorno, o un archivo con `KEY=valor` por línea pasado con `--env`; ese
@@ -32,8 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
 
-from push_lists import worker_channels  # noqa: E402
-from xtream_client import XtreamError, get_live_categories, get_live_streams  # noqa: E402
+from xtream_client import XtreamError, get_live_categories, get_live_streams, worker_channels  # noqa: E402
 
 DEFAULT_WORKER = 'https://grilla.grilla.workers.dev'
 

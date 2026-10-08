@@ -101,8 +101,7 @@ ABC Chicago, "FOX 4" → Fox Deportes, "HBO Zone" → Showtime Familyzone).
   "RTLZWEI") siguen sin resolverse.
 - La cobertura real depende de las fuentes: muchos canales locales de estas listas no tienen
   guía en ninguna fuente activa (las sugerencias de "Fuentes de EPG" ayudan).
-- Falta comparar la cobertura con IPTVEditor / m3u4u usando `prueba-argentina.m3u` (lo hace
-  Luis, porque esos servicios piden cuenta).
+- Comparación de cobertura con IPTVEditor / m3u4u: descartada (08/10, Luis).
 
 ## Segunda ronda (29/09/2026)
 
@@ -151,8 +150,7 @@ los 462 canales de Luis sin guía: esos canales no están en ninguna fuente acti
 
 **Conclusión de la etapa:** con lo asignado al 99 % en el banco y 91 % en la muestra revisada a
 mano (los 2 errores son ambiguos), el matcher ya no es el cuello de botella; lo que limita la
-cobertura son las fuentes de EPG. Falta la comparación de cobertura con IPTVEditor / m3u4u
-(`prueba-argentina.m3u`) para decidir la Etapa 1.
+cobertura son las fuentes de EPG. (La comparación con IPTVEditor / m3u4u quedó descartada el 08/10.)
 
 ## Cuarta ronda: aprender de los overrides (29/09/2026)
 

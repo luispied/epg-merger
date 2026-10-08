@@ -616,8 +616,8 @@ function computeInfo(ch: Channel) {
 }
 
 // ------------------------------------------------------------------ canales caídos
-// Una corrida diaria de GitHub prueba una tanda de streams y deja el resultado en el Worker
-// (tools/check_streams.py). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
+// Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
+// (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number }
 interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
@@ -3065,28 +3065,7 @@ function setProviderType(t: 'xtream' | 'm3u') {
   $('#uploadBox').hidden = true;
 }
 
-/** Proveedor que bloquea al Worker pero cuya cuenta tiene la corrida de GitHub: se crea la
- *  configuración sin lista, GitHub la sube en su próxima corrida (cada 10 minutos) y la web
- *  espera sola. */
-async function onboardViaGithub(servers: string[], username: string, password: string) {
-  const st = $('#onboardStatus');
-  try {
-    status(st, 'Armando tu configuración…');
-    state.cfg = { version: 1, provider: { type: 'xtream', servers, list: 'upload' }, channels: {}, groups: { order: [], hidden: [] } };
-    const r = await api<{ cfgId: string; editKey: string }>('/api/cfg', {
-      method: 'POST', auth: false, body: { ...state.cfg, link: { username, password } },
-    });
-    state.local = { cfgId: r.cfgId, editKey: r.editKey };
-    saveLocal(state.local);
-    writeDraft(null);
-    status(st, null);
-    await openSaved();
-  } catch (e) {
-    status(st, `No se pudo: ${(e as Error).message}`, 'bad');
-  }
-}
-
-/** Espera la lista que sube GitHub (cada 10 minutos), consultando cada 15 segundos. */
+/** Espera la lista que todavía no se subió (la baja el relay o la sube tools/grilla_home.py), consultando cada 15 segundos. */
 async function waitForList(say: (t: string) => void): Promise<Channel[]> {
   const started = Date.now();
   for (;;) {
@@ -3172,13 +3151,7 @@ function setupOnboarding() {
       // Si el proveedor bloquea al Worker y la lista la bajó el relay, el Worker no vuelve a pedirla: usa la guardada.
       await finishOnboarding(r.channels, { type: 'xtream', servers, ...(r.viaRelay ? { list: 'upload' as const } : {}) });
     } catch (e) {
-      // Hay proveedores que bloquean los pedidos que salen de Cloudflare. Si GitHub tiene esta
-      // cuenta, la lista la baja GitHub y no hay que hacer nada más.
-      if ((e as { data?: { github?: boolean } }).data?.github) {
-        await onboardViaGithub(servers, username, password);
-        return;
-      }
-      // Si no, la baja el navegador de la persona (una descarga común, sin CORS) y la sube.
+      // Hay proveedores que bloquean los pedidos que salen de Cloudflare y no hay relay: la baja el navegador de la persona (una descarga común, sin CORS) y la sube.
       status(st, null);
       console.info('provider/list:', (e as Error).message);
       writeDraft({ upload: true });
@@ -3326,7 +3299,6 @@ async function importBackup(file: File) {
   }
 }
 
-/** Suscripción del proveedor (la anota la corrida diaria de GitHub): cuándo vence y cuántas conexiones permite. */
 /** Datos de una cuenta del proveedor (vencimiento, conexiones) en una frase y si hay que avisar. */
 function accountSummary(acc: Account): { text: string; warn: boolean } {
   const parts: string[] = [];
@@ -3344,7 +3316,7 @@ function accountSummary(acc: Account): { text: string; warn: boolean } {
 }
 
 /** Una fila por cuenta del proveedor que usan tus dispositivos (la tuya y las de familiares); la de cada una
- *  se reconoce por la huella que anota GitHub. Sin huellas todavía, la fila de siempre con los datos de la principal. */
+ *  se reconoce por su huella (la anota la prueba diaria). Sin huellas todavía, la fila de siempre con los datos de la principal. */
 function renderAccountRow(devices: Device[] = []) {
   const box = $('#accountRows');
   const byKey = streamHealth?.accounts ?? {};
@@ -3688,10 +3660,8 @@ function setupEditor() {
         toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
         await loadStreamHealth();
         renderDownRow();
-      } else if (r.reason === 'no-token') {
-        toast('El Worker no tiene el token de GitHub para lanzarla: se lanza desde GitHub → Actions', 'bad', 7000);
       } else {
-        toast('GitHub no aceptó el pedido: probá de nuevo en un rato', 'bad', 6000);
+        toast('La prueba de canales necesita el relay: falta cargar RELAY_URL y RELAY_SECRET en el Worker', 'bad', 7000);
       }
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);

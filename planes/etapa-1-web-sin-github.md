@@ -138,11 +138,11 @@ gratis para el servicio mientras entre en los planes gratuitos.
      web con las de GitHub. Corre solo después de cada corrida diaria y avisa (falla) solo si
      aparece una diferencia nueva. Primera comparación (30/09): la configuración importada da
      lo mismo que GitHub; las diferencias que quedan son ediciones propias.
-   - Falta: usar los links nuevos en TiviMate unos días y decidir si el flujo de GitHub queda
-     solo de respaldo. La corrida diaria sigue igual: arma la guía compartida.
+   - ✅ El flujo de GitHub (gists, Pages, importación) se quitó en #193; la lista y la prueba de
+     canales pasan al relay (`planes/relay.md`). La corrida diaria sigue igual: arma la guía compartida.
 
 **Herramientas de operación:**
-- 02/10: se sacó "Asignar también las dudosas" (lo dudoso queda como sugerencia con su porcentaje y botón Usar) y "Importar desde Grilla (GitHub)" quedó oculto: se muestra abriendo `/?importar` (para Paola). Pendiente: sacarlo del todo el 08/10, cuando termine la semana de prueba.
+- 02/10: se sacó "Asignar también las dudosas" (lo dudoso queda como sugerencia con su porcentaje y botón Usar) y "Importar desde Grilla (GitHub)" quedó oculto: se muestra abriendo `/?importar` (para Paola). ✅ Sacado del todo el 05/10 junto con la interfaz de GitHub (`docs/`), en #193.
 - Dispositivos (02/10): cada link corto es un dispositivo con nombre, fecha y último uso (`worker/src/devices.ts`); se quita uno sin afectar a los demás. `tools/delete_short_links.py` (workflow "Delete Grilla short links") borra todos los links cortos.
 - `tools/delete_cfg.py` (workflow "Delete Grilla config"): borra una configuración de prueba con
   todo lo suyo (lista, guía, links cortos, enlaces).
