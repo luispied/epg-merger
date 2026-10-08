@@ -2985,7 +2985,6 @@ function renderProfileList(body: HTMLElement) {
     <button type="button" class="icon-btn" data-provider="${esc(cfgId)}" aria-label="Ajustes de ${esc(name)}" title="Ajustes del proveedor">${icon('settings')}</button></div>`;
   const multi = otherProviders.length > 0;
   body.innerHTML = `
-    <p class="help">Cada <b>cuenta</b> es un usuario y contraseña de tu proveedor, con su vencimiento y sus conexiones. Dentro, cada <b>perfil</b> elige qué se ve y tiene sus links. La cuenta <b>en uso</b> baja la lista y prueba los canales caídos.</p>
     ${head(providerName(h, cur), cur, multi)}
     ${myAccounts().map((a) => `<div class="menu">${accountRow(a, accountData(a), a.account === activeAccount())}
       ${a.profiles.map((p) => profileRow(p)).join('')}

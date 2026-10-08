@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.8
+
+- Perfiles: sin el párrafo explicativo de arriba; ya está en la ayuda (?) y la lista arranca directo con el proveedor.
+
 ## 1.24.7
 
 - Ayudas al día con los últimos cambios: la de Perfil explica proveedor › cuenta › perfil › links (conexiones en uso, el aviso de vencimiento, desactivar un link, Qué ve) sin repetir secciones; la principal suma la pestaña **Revisar** y su pie (Usar sugerencia, Sin guía, Saltar), tirar para refrescar, **Reintentar** y los filtros que aparecen solos (Nuevos, Sin programación, Caídos).
