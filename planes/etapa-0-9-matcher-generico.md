@@ -97,8 +97,15 @@ ABC Chicago, "FOX 4" → Fox Deportes, "HBO Zone" → Showtime Familyzone).
   como sugerencia en "A revisar") o subir el umbral.
 - Una guía sin país conocido (fuentes de EE.UU. sin sufijo) puede quedar "Bien" para un canal
   de otro país si no hay otra (QVC de Italia → QVC de EE.UU.).
-- Variantes regionales ("Telefe Salta" → Telefe) y palabras compuestas ("RTL Zwei" vs
-  "RTLZWEI") siguen sin resolverse.
+- Variantes regionales ("Telefe Salta" → Telefe): **medido y descartado (08/10/2026)**. Probar
+  el nombre sin las últimas 1-2 palabras cuando no hay guía agrega más errores que aciertos: en el
+  banco, 18 canales nuevos y ~15 mal ("MTV Geordies" → MTV, "Bibel TV Impuls" → Bibel TV, "Caracol
+  HD2" → Caracol); en la lista de Luis, 53 nuevos y ~5 bien ("Canal 13 Señal Nacional",
+  "Chilevision Señal Nacional", "Mega Nacional", "Teletrak (Valparaiso Sporting)", "Paraguay TV
+  (PYTV)") contra "ATV Mas" → ATV, "DAZN Combat" → DAZN, "UFC Fight Pass" → UFC, "TUDN VIX" →
+  TUDN… Ni exigiendo nombre completo, país igual y palabras poco comunes queda a favor: no hay
+  forma genérica de saber que la cola es un lugar. Esos pocos se eligen a mano en la web.
+  Palabras compuestas ("RTL Zwei" vs "RTLZWEI"): resuelto en la segunda ronda.
 - La cobertura real depende de las fuentes: muchos canales locales de estas listas no tienen
   guía en ninguna fuente activa (las sugerencias de "Fuentes de EPG" ayudan).
 - Comparación de cobertura con IPTVEditor / m3u4u: descartada (08/10, Luis).
