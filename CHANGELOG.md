@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.20.0
+
+- Perfiles, primera parte (en el Worker; la web llega en la próxima versión, ver `planes/perfiles.md`): cada configuración tiene un perfil activo (la cuenta principal o la de un familiar). La prueba de canales caídos y la lista que baja el relay se hacen con la cuenta del perfil activo; al cambiarlo, la prueba se pide enseguida y lo que había probado la cuenta anterior no cuenta.
+- Un link se puede pasar a otro perfil o a otra configuración (otro proveedor) sin cambiar su dirección: el reproductor no hay que tocarlo y con la próxima actualización usa la cuenta nueva.
+- Hogar: una clave que junta todas las configuraciones de una persona. El Worker guarda solo lo que cifra el navegador.
+
 ## 1.19.1
 
 - Las fuentes de EPG van enmascaradas: en la guía de la web y en el XML que baja el reproductor cada fuente tiene un alias opaco en vez de su nombre, y el texto del alta ya no nombra proveedores. La web ya no puede pedir el catálogo ni el uso de fuentes (no los usaba). El matching no cambia.

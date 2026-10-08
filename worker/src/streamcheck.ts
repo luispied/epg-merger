@@ -1,6 +1,7 @@
 // Prueba de canales caídos y datos de cada cuenta (vencimiento, conexiones) por el relay. Lo hace el cron del Worker
 // (cada 30 minutos): una vez por día por configuración, o cuando alguien tocó «Probar ahora» (health/run deja un pedido
-// en healthreq/). El resultado queda en health/<cfgId>.json.
+// en healthreq/). El resultado queda en health/<cfgId>.json. Los canales los prueba el perfil activo de la configuración
+// (`activeAccount`); de las demás cuentas solo se traen sus datos.
 import { decryptToken } from './crypto.ts';
 import { type Config, loadConfig } from './config.ts';
 import { accountTokens } from './devices.ts';
@@ -28,6 +29,8 @@ export interface HealthState {
   channels?: Record<string, Entry>;
   account?: unknown;
   accounts?: Record<string, unknown>;
+  /** Huella de la cuenta que probó los canales (el perfil activo de ese momento). */
+  probedBy?: string;
   [k: string]: unknown;
 }
 
@@ -78,7 +81,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const prev = await readJson<HealthState>(env, `health/${cfgId}.json`);
   const req = await readJson<{ at?: string }>(env, `healthreq/${cfgId}.json`);
   if (!force && !isDue(prev, req?.at, now)) return false;
-  const tokens = await accountTokens(env.BUCKET, cfgId);
+  const tokens = await accountTokens(env.BUCKET, cfgId, stored.config.activeAccount);
   if (!tokens.length) return false;
   const servers = stored.config.provider.servers;
   const state: HealthState = { ...(prev ?? {}), attempted: now.toISOString() };
@@ -88,7 +91,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const list = await readJson<{ channels?: Channel[] }>(env, `list/${cfgId}.json`);
   const channels = visibleChannels(list?.channels ?? [], stored.config);
   const known = new Set(channels.map((c) => c.id));
-  const seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
+  let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
+  let probedBy = prev?.probedBy;
   let first = true;
   for (const t of tokens) {
     const creds = await decryptToken(env.TOKEN_KEY, cfgId, t.token);
@@ -97,7 +101,9 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
     const key = await accountKey(u, p);
     try {
       if (first && channels.length) {
-        // La cuenta principal prueba los canales (en tandas) y, de paso, trae sus datos.
+        // El perfil activo prueba los canales (en tandas) y, de paso, trae sus datos. Si cambió de perfil, lo que probó
+        // la cuenta anterior no vale para esta: se empieza de cero.
+        if (probedBy !== key) { seen = {}; probedBy = key; }
         const batch = pickBatch(channels, seen, CHUNK * MAX_CHUNKS);
         for (let i = 0; i < batch.length; i += CHUNK) {
           const res = await relayPost<ProbeResponse>(env, '/v1/probe', {
@@ -120,7 +126,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
     }
     first = false;
   }
-  const out: HealthState = { ...state, channels: seen, total: channels.length, accounts };
+  const out: HealthState = { ...state, channels: seen, total: channels.length, accounts, ...(probedBy ? { probedBy } : {}) };
   if (tested) { out.checked = now.toISOString(); out.tested = tested; }
   if (primaryAccount) out.account = primaryAccount;
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);

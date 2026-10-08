@@ -34,6 +34,9 @@ export interface Config {
   /** Cómo elegir la guía (importado de la corrida de GitHub): umbral, señal horaria preferida y
    *  país/fuentes preferidas por categoría cruda del proveedor. Solo lo usa la interfaz. */
   matching?: Matching;
+  /** Perfil activo: la cuenta adicional (nombre de `account` de sus links) con la que se prueban los canales y se baja la
+   *  lista. Sin dato = la cuenta principal. */
+  activeAccount?: string;
 }
 
 export interface Matching {
@@ -158,12 +161,14 @@ export function parseConfig(raw: unknown): Config {
     }
   }
   const custom = strList(g.custom, 2000);
+  const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const separators = strList(g.separators, 2000);
   return {
     version: 1,
     provider,
     ...(r.directUrls === true ? { directUrls: true } : {}),
     ...(matching ? { matching } : {}),
+    ...(activeAccount ? { activeAccount } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),

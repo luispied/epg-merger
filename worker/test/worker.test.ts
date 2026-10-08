@@ -1016,12 +1016,13 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
       calls.push({ path: url.pathname, body });
       const account = { status: 'Active', expires: body.username === 'user' ? '2026-12-01T00:00:00+00:00' : '2027-02-01T00:00:00+00:00', trial: false, maxConnections: 2 };
       if (url.pathname === '/v1/account') return new Response(JSON.stringify({ server: S1, account }));
+      if (url.pathname === '/v1/list') return new Response(JSON.stringify({ server: S1, channels }));
       const results = Object.fromEntries((body.channels ?? []).map((c: { id: string }) => [c.id, c.id === '2' ? 'down' : 'up']));
       return new Response(JSON.stringify({ server: S1, account, results: aborted ? {} : results, aborted }));
     }
     return base(input, init);
   }) as typeof fetch;
-  const health = () => JSON.parse(bucket.data.get(`health/${t.cfgId}.json`)!.value) as { checked?: string; tested?: number; total?: number; account?: { expires: string }; accounts: Record<string, { expires: string }>; channels: Record<string, { ok: boolean; fails: number }> };
+  const health = () => JSON.parse(bucket.data.get(`health/${t.cfgId}.json`)!.value) as { probedBy?: string; checked?: string; tested?: number; total?: number; account?: { expires: string }; accounts: Record<string, { expires: string }>; channels: Record<string, { ok: boolean; fails: number }> };
   const now = new Date('2026-10-07T10:00:00Z');
   try {
     // Sin relay no hace nada.
@@ -1055,6 +1056,26 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 30 * 3600_000)), true);
     assert.equal(health().channels['2'].fails, 2);
     assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 31 * 3600_000)), false);
+    // Perfil activo: Mamá. La prueba se pide enseguida, la hace su cuenta y lo que probó la anterior no cuenta.
+    aborted = false;
+    const setActive = (account: string) => handle(req(`/api/cfg/${t.cfgId}/active`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ account }) }), t.env, t.ctx, t.cache);
+    assert.equal((await setActive('Nadie')).status, 400);
+    assert.deepEqual(await (await setActive('Mamá')).json(), { ok: true, activeAccount: 'Mamá' });
+    assert.ok(bucket.data.has(`healthreq/${t.cfgId}.json`));
+    // (el pedido queda con la hora real; acá se lo corre a después de la última prueba del test)
+    bucket.data.set(`healthreq/${t.cfgId}.json`, { value: JSON.stringify({ at: new Date(now.getTime() + 32 * 3600_000).toISOString() }) });
+    const before = calls.length;
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 32.5 * 3600_000)), true);
+    const after = calls.slice(before).filter((c) => c.path === '/v1/probe');
+    assert.ok(after.length && after.every((c) => c.body.username === 'mama'));
+    h = health();
+    assert.equal(h.channels['2'].fails, 1);
+    assert.equal(h.account!.expires, '2027-02-01T00:00:00+00:00');
+    assert.equal(h.probedBy, await accountKey('mama', 'x'));
+    // Guardar la configuración desde una web que no conoce el perfil activo no lo borra.
+    await handle(req(`/api/cfg/${t.cfgId}`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: {} }) }), t.env, t.ctx, t.cache);
+    assert.equal((await (await handle(req(`/api/cfg/${t.cfgId}`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { activeAccount?: string }).activeAccount, 'Mamá');
+    assert.deepEqual(await (await setActive('')).json(), { ok: true, activeAccount: '' });
   } finally {
     globalThis.fetch = base;
   }
@@ -1167,4 +1188,57 @@ test('playlist: los logos de la guía salen por el Worker; los propios, tal cual
   assert.match(text, /tvg-name="Telefe" tvg-logo="https:\/\/grilla\.example\/logo\/b4009f79b7b3189c"/);
   assert.match(text, /tvg-logo="https:\/\/mi\.logo\/espn\.png"/);
   assert.match(text, /tvg-name="Canal oculto" tvg-logo="https:\/\/grilla\.example\/logo\/b4009f79b7b3189c"/);
+});
+
+test('mover un link: a otro perfil o a otro proveedor, con la misma dirección', async () => {
+  const t = await setup();
+  const code = (url: string) => /\/l\/([^.]+)\.m3u8$/.exec(url)![1];
+  const main = code(t.playlistUrl);
+  const post = (cfgId: string, key: string, body: Record<string, unknown>) => handle(req(`/api/cfg/${cfgId}/token`, { method: 'POST', key, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  const tv = (await (await post(t.cfgId, t.editKey, { username: 'mama', password: 'b', account: 'Mamá', name: 'TV de Mamá' })).json() as { code: string }).code;
+  const move = (cfgId: string, key: string, c: string, body: Record<string, unknown>) => handle(req(`/api/cfg/${cfgId}/devices/${c}/move`, { method: 'POST', key, body: JSON.stringify(body) }), t.env, t.ctx, t.cache);
+  const rec = async (c: string) => JSON.parse(await (await t.env.BUCKET.get(`short/${c}.json`))!.text()) as { cfgId: string; token: string; account?: string; key?: string; name: string };
+  const devices = async (cfgId: string, key: string) => (await (await handle(req(`/api/cfg/${cfgId}/devices`, { key }), t.env, t.ctx, t.cache)).json() as { devices: { code: string; account?: string; playlistUrl: string }[] }).devices;
+  // Mismo proveedor: «TV de Mamá» pasa a la cuenta principal; mismo código, credenciales de la principal.
+  assert.deepEqual(await (await move(t.cfgId, t.editKey, tv, {})).json(), { ok: true });
+  let r = await rec(tv);
+  assert.equal(r.account, undefined);
+  assert.equal(r.key, await accountKey('user', 'pa ss'));
+  assert.deepEqual(await decryptToken(t.env.TOKEN_KEY, t.cfgId, r.token), { u: 'user', p: 'pa ss' });
+  // A un perfil sin links: hacen falta su usuario y contraseña.
+  assert.equal((await move(t.cfgId, t.editKey, tv, { account: 'Paola' })).status, 400);
+  assert.equal((await move(t.cfgId, t.editKey, tv, { account: 'Paola', username: 'pao', password: 'p' })).status, 200);
+  assert.equal((await rec(tv)).account, 'Paola');
+  // Otro proveedor: otra configuración, con su clave de edición.
+  const other = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'move-2' }, body: JSON.stringify(CONFIG) }), t.env, t.ctx, t.cache)).json() as { cfgId: string; editKey: string };
+  await post(other.cfgId, other.editKey, { username: 'user', password: 'pa ss', name: 'Celu' });
+  assert.equal((await move(t.cfgId, t.editKey, tv, { to: other.cfgId, toKey: 'mala' })).status, 401);
+  assert.equal((await move(t.cfgId, t.editKey, tv, { to: 'NoExisteNoExiste1234' , toKey: other.editKey })).status, 404);
+  assert.equal((await move(t.cfgId, t.editKey, tv, { to: other.cfgId, toKey: other.editKey })).status, 200);
+  r = await rec(tv);
+  assert.equal(r.cfgId, other.cfgId);
+  assert.equal(r.name, 'TV de Mamá');
+  assert.deepEqual(await decryptToken(t.env.TOKEN_KEY, other.cfgId, r.token), { u: 'user', p: 'pa ss' });
+  assert.equal(await decryptToken(t.env.TOKEN_KEY, t.cfgId, r.token), null);
+  assert.deepEqual((await devices(t.cfgId, t.editKey)).map((d) => d.code), [main]);
+  const moved = (await devices(other.cfgId, other.editKey)).find((d) => d.code === tv)!;
+  assert.equal(moved.playlistUrl, `${BASE}/l/${tv}.m3u8`);
+  // La dirección de siempre sirve la playlist del proveedor nuevo; la configuración de antes ya no puede tocarlo.
+  assert.equal((await handle(req(`/l/${tv}.m3u8`), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await move(t.cfgId, t.editKey, tv, {})).status, 400);
+});
+
+test('hogar: guarda solo lo que cifra el navegador, con su clave', async () => {
+  const t = makeEnv();
+  const call = (path: string, init: RequestInit & { key?: string } = {}) => handle(req(path, { headers: { 'CF-Connecting-IP': 'home' }, ...init }), t.env, t.ctx, t.cache);
+  assert.equal((await call('/api/home', { method: 'POST', body: JSON.stringify({ data: 'no es base64 <>' }) })).status, 400);
+  const created = await (await call('/api/home', { method: 'POST', body: JSON.stringify({ v: 1, data: 'abc_DEF-123' }) })).json() as { homeId: string; homeKey: string };
+  assert.equal((await call(`/api/home/${created.homeId}`)).status, 401);
+  assert.equal((await call(`/api/home/${created.homeId}`, { key: 'mala' })).status, 401);
+  assert.deepEqual(await (await call(`/api/home/${created.homeId}`, { key: created.homeKey })).json(), { v: 1, data: 'abc_DEF-123' });
+  assert.equal((await call(`/api/home/${created.homeId}`, { method: 'PUT', key: created.homeKey, body: JSON.stringify({ v: 1, data: 'xyz' }) })).status, 200);
+  assert.deepEqual(await (await call(`/api/home/${created.homeId}`, { key: created.homeKey })).json(), { v: 1, data: 'xyz' });
+  assert.ok(!(await (await t.env.BUCKET.get(`home/${created.homeId}.json`))!.text()).includes(created.homeKey));
+  assert.equal((await call(`/api/home/${created.homeId}`, { method: 'DELETE', key: created.homeKey })).status, 200);
+  assert.equal((await call(`/api/home/${created.homeId}`, { key: created.homeKey })).status, 404);
 });

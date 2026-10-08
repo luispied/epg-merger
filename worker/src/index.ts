@@ -6,6 +6,9 @@
 //   PUT    /api/cfg/<cfgId>              (Bearer editKey) guardarla
 //   DELETE /api/cfg/<cfgId>              (Bearer editKey) borrarla
 //   POST   /api/cfg/<cfgId>/token        (Bearer editKey) credenciales → token y links
+//   PUT    /api/cfg/<cfgId>/active       (Bearer editKey) perfil activo: con qué cuenta se prueban canales y se baja la lista
+//   POST   /api/cfg/<cfgId>/devices/<código>/move  (Bearer editKey) pasar un link a otro perfil o proveedor (mismo código)
+//   POST   /api/home                     nuevo hogar → {homeId, homeKey} · GET/PUT/DELETE /api/home/<homeId> (Bearer homeKey)
 //   PUT    /api/cfg/<cfgId>/list         (Bearer editKey) subir la lista (proveedores que bloquean Cloudflare)
 //   GET    /api/cfg/<cfgId>/list         (Bearer editKey) la última lista guardada (para editar en la web)
 //   GET    /api/cfg/<cfgId>/status       (Bearer editKey) si la guía ya tiene los últimos cambios
@@ -23,8 +26,8 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config } from './config.ts';
-import { addDevice, anyToken, cleanAccount, listDevices, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
-import { decryptToken, encryptToken, randomId, type Credentials } from './crypto.ts';
+import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
@@ -34,6 +37,7 @@ import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
 import { checkAllHealth } from './streamcheck.ts';
+import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -83,11 +87,11 @@ function credentialsFrom(body: Record<string, unknown>, cfg: Config): Credential
   return { u: body.username, p: body.password };
 }
 
-/** Baja la lista ahora por el relay, con las credenciales de un dispositivo principal de la configuración. Sin relay o
+/** Baja la lista ahora por el relay, con las credenciales de un dispositivo del perfil activo (`active`) o de la principal. Sin relay o
  *  sin dispositivo no hace nada: la lista la vuelve a subir la persona (navegador o tools/grilla_home.py). */
-async function refreshNow(env: Env, cache: SimpleCache, cfgId: string, servers: string[]): Promise<void> {
+async function refreshNow(env: Env, cache: SimpleCache, cfgId: string, servers: string[], active?: string): Promise<void> {
   if (!relayConfigured(env)) return;
-  const token = await anyToken(env.BUCKET, cfgId);
+  const token = await anyToken(env.BUCKET, cfgId, active);
   const creds = token ? await decryptToken(env.TOKEN_KEY, cfgId, token) : null;
   if (creds && 'u' in creds) await refreshViaRelay(env, cache, cfgId, servers, creds.u, creds.p, undefined, new Date(), true);
 }
@@ -270,13 +274,38 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return json(await createConfig(env.BUCKET, parseConfig(raw)), 201);
   }
 
+  if (section === 'home') {
+    // Hogar: todas las configuraciones de una persona bajo una clave. El Worker guarda solo lo que cifra el navegador.
+    if (!cfgId && method === 'POST') {
+      if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
+      return json(await createHome(env.BUCKET, parseHome(await readJson(request, MAX_HOME_BYTES))), 201);
+    }
+    if (cfgId && !action) {
+      const home = await loadHome(env.BUCKET, cfgId);
+      if (!home) return fail(404, 'hogar inexistente');
+      if (!(await authorized(request, home.keyHash))) return fail(401, 'clave del hogar inválida');
+      if (method === 'GET') return json(home.data, 200, { 'Cache-Control': 'no-store' });
+      if (method === 'PUT') {
+        await saveHome(env.BUCKET, cfgId, parseHome(await readJson(request, MAX_HOME_BYTES)), home.keyHash);
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        await env.BUCKET.delete(`home/${cfgId}.json`);
+        return json({ ok: true });
+      }
+    }
+  }
+
   if (section === 'cfg' && cfgId) {
     const stored = await loadConfig(env.BUCKET, cfgId);
     if (!stored) return fail(404, 'configuración inexistente');
     if (!(await authorized(request, stored.keyHash))) return fail(401, 'clave de edición inválida');
     if (!action && method === 'GET') return json(stored.config);
     if (!action && method === 'PUT') {
-      await saveConfig(env.BUCKET, cfgId, parseConfig(await readJson(request)), stored.keyHash);
+      const raw = await readJson(request) as Record<string, unknown>;
+      // El perfil activo se cambia con PUT …/active; una web que no lo conoce no lo borra.
+      const config = parseConfig('activeAccount' in raw || !stored.config.activeAccount ? raw : { ...raw, activeAccount: stored.config.activeAccount });
+      await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
       // La guía de esta configuración se vuelve a armar con los cambios.
       ctx.waitUntil(dispatchRefresh(env, cache));
       return json({ ok: true });
@@ -397,6 +426,47 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (code && SHORT_RE.test(code) && method === 'DELETE') {
         return (await removeDevice(env.BUCKET, cfgId, code)) ? json({ ok: true }) : fail(404, 'dispositivo inexistente');
       }
+      if (code && SHORT_RE.test(code) && parts[5] === 'move' && method === 'POST') {
+        // Pasar el link a otro perfil de esta configuración o a otra configuración (otro proveedor, con su clave de
+        // edición en `toKey`). El código no cambia: la dirección del link es la misma y el reproductor no se toca.
+        const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
+        const to = typeof raw.to === 'string' && raw.to ? raw.to : cfgId;
+        let target = stored;
+        if (to !== cfgId) {
+          const other = await loadConfig(env.BUCKET, to);
+          if (!other) return fail(404, 'la configuración de destino no existe');
+          if (typeof raw.toKey !== 'string' || (await sha256Hex(raw.toKey)) !== other.keyHash) return fail(401, 'clave de edición del destino inválida');
+          target = other;
+        }
+        const account = cleanAccount(raw.account);
+        const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
+        // El token está atado a su configuración: el de un link del perfil de destino o, si no tiene, las credenciales.
+        let found = hasCreds ? null : await tokenOfAccount(env.BUCKET, to, account);
+        if (!found) {
+          if (!hasCreds) return fail(400, `${account ? `el perfil «${account}»` : 'la cuenta principal'} no tiene links: cargá su usuario y contraseña`);
+          const creds = credentialsFrom(raw, target.config);
+          found = { token: await encryptToken(env.TOKEN_KEY, to, creds), ...('u' in creds ? { key: await accountKey(creds.u, creds.p) } : {}) };
+        }
+        return (await moveDevice(env.BUCKET, code, cfgId, to, found.token, account, found.key))
+          ? json({ ok: true }) : fail(400, 'no se pudo mover: el link no es de esta configuración o el destino ya tiene demasiados dispositivos');
+      }
+    }
+    if (action === 'active' && method === 'PUT') {
+      // Cambiar el perfil activo: la lista y la prueba de canales caídos pasan a hacerse con esa cuenta. La prueba se
+      // pide enseguida (la toma el cron), aunque ya se haya hecho hoy con el perfil anterior.
+      const raw = await readJson(request, 4 * 1024) as Record<string, unknown>;
+      const account = cleanAccount(raw.account);
+      if (account && !(await tokenOfAccount(env.BUCKET, cfgId, account))) return fail(400, `no hay un perfil «${account}»`);
+      const { activeAccount: _prev, ...rest } = stored.config;
+      const config = { ...rest, ...(account ? { activeAccount: account } : {}) };
+      await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
+      if ((_prev ?? '') !== (account ?? '')) {
+        if (relayConfigured(env)) {
+          await env.BUCKET.put(`healthreq/${cfgId}.json`, JSON.stringify({ at: new Date().toISOString() }), { httpMetadata: { contentType: 'application/json' } });
+        }
+        if (config.provider.type === 'xtream') ctx.waitUntil(refreshNow(env, cache, cfgId, config.provider.servers, account));
+      }
+      return json({ ok: true, activeAccount: account ?? '' });
     }
     if (action === 'servers' && method === 'PUT') {
       // Cambió la dirección del servicio de IPTV (o falló): los links no cambian; los streams y la lista pasan a usar la nueva.
@@ -406,7 +476,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await saveConfig(env.BUCKET, cfgId, { ...stored.config, provider: { ...stored.config.provider, servers } }, stored.keyHash);
       // La lista se vuelve a bajar enseguida, con los servidores nuevos, por el relay (con las credenciales de un
       // dispositivo de la cuenta principal).
-      ctx.waitUntil(refreshNow(env, cache, cfgId, servers));
+      ctx.waitUntil(refreshNow(env, cache, cfgId, servers, stored.config.activeAccount));
       return json({ ok: true, servers });
     }
     if (action === 'credentials' && method === 'PUT') {
@@ -417,7 +487,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const creds = credentialsFrom(raw, stored.config);
       const key = 'u' in creds ? await accountKey(creds.u, creds.p) : undefined;
       const updated = await rekeyDevices(env.BUCKET, cfgId, await encryptToken(env.TOKEN_KEY, cfgId, creds), cleanAccount(raw.account), key);
-      if ('u' in creds && !cleanAccount(raw.account) && stored.config.provider.type === 'xtream') {
+      if ('u' in creds && (cleanAccount(raw.account) ?? '') === (stored.config.activeAccount ?? '') && stored.config.provider.type === 'xtream') {
         ctx.waitUntil(refreshViaRelay(env, cache, cfgId, stored.config.provider.servers, creds.u, creds.p, undefined, new Date(), true));
       }
       return json({ ok: true, updated });

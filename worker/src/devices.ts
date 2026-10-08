@@ -101,8 +101,8 @@ export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string
   return true;
 }
 
-/** El token (credenciales cifradas) de otro dispositivo de la misma cuenta, para dar de alta uno nuevo sin pedirlas de nuevo. */
-export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account: string): Promise<{ token: string; key?: string } | null> {
+/** El token (credenciales cifradas) de otro dispositivo de la misma cuenta (sin `account`: la principal), para dar de alta uno nuevo sin pedirlas de nuevo. */
+export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: string): Promise<{ token: string; key?: string } | null> {
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
     if (rec && rec.cfgId === cfgId && rec.account === account) return { token: rec.token, key: rec.key };
@@ -145,18 +145,16 @@ export async function touchDevice(bucket: R2Bucket, code: string, rec: ShortReco
   await bucket.put(shortKey(code), JSON.stringify({ ...rec, lastUsed: now.toISOString() }), JSON_TYPE);
 }
 
-/** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta). */
-export async function anyToken(bucket: R2Bucket, cfgId: string): Promise<string | null> {
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId && rec.active !== false && !rec.account) return rec.token;
-  }
-  return null;
+/** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta): del
+ *  perfil activo (`active`, sin dato = la cuenta principal) o, si ese perfil no tiene links activos, de la principal. */
+export async function anyToken(bucket: R2Bucket, cfgId: string, active?: string): Promise<string | null> {
+  return (await accountTokens(bucket, cfgId, active))[0]?.token ?? null;
 }
 
 /** Un token activo por cuenta del proveedor de la configuración (la principal y las de familiares), para tareas en
- *  segundo plano que necesitan hablar con el proveedor en nombre de cada una. La principal va primero. */
-export async function accountTokens(bucket: R2Bucket, cfgId: string): Promise<{ account?: string; token: string }[]> {
+ *  segundo plano que necesitan hablar con el proveedor en nombre de cada una. Va primero el perfil activo (`active`, sin
+ *  dato = la principal); si no tiene links activos, la principal. */
+export async function accountTokens(bucket: R2Bucket, cfgId: string, active?: string): Promise<{ account?: string; token: string }[]> {
   const seen = new Map<string, { account?: string; token: string }>();
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
@@ -164,5 +162,24 @@ export async function accountTokens(bucket: R2Bucket, cfgId: string): Promise<{ 
     const id = rec.account ?? '';
     if (!seen.has(id)) seen.set(id, { ...(rec.account ? { account: rec.account } : {}), token: rec.token });
   }
-  return [...seen.values()].sort((a, b) => Number(!!a.account) - Number(!!b.account));
+  const rank = (t: { account?: string }) => ((t.account ?? '') === (active ?? '') ? 0 : t.account ? 2 : 1);
+  return [...seen.values()].sort((a, b) => rank(a) - rank(b));
+}
+
+/** Pasa el link de un dispositivo a otro perfil (cuenta) de la misma configuración o a otra configuración (otro
+ *  proveedor), con el token de su destino. El código no cambia: la dirección del link sigue siendo la misma y el
+ *  reproductor no hay que tocarlo. Devuelve false si el link no es de `from` o si el destino ya tiene demasiados. */
+export async function moveDevice(bucket: R2Bucket, code: string, from: string, to: string, token: string, account?: string, key?: string): Promise<boolean> {
+  const rec = await readShort(bucket, code);
+  if (!rec || rec.cfgId !== from) return false;
+  const target = from === to ? null : await codesOf(bucket, to);
+  if (target && target.length >= MAX_DEVICES) return false;
+  const { account: _a, key: _k, ...rest } = rec;
+  const next: ShortRecord = { ...rest, cfgId: to, token, ...(account ? { account } : {}), ...(key ? { key } : {}) };
+  if (target) {
+    await bucket.put(idxKey(to), JSON.stringify({ codes: [...target.filter((c) => c !== code), code] }), JSON_TYPE);
+  }
+  await bucket.put(shortKey(code), JSON.stringify(next), JSON_TYPE);
+  if (target) await bucket.put(idxKey(from), JSON.stringify({ codes: (await codesOf(bucket, from)).filter((c) => c !== code) }), JSON_TYPE);
+  return true;
 }
