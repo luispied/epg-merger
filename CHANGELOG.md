@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.0
+
+- **Usar en otro dispositivo**: el respaldo y el código de hogar quedan juntos en una sola página (en Perfil, y con un atajo desde Configuración). El código es lo recomendado; el archivo de respaldo queda como alternativa, para tener una copia aparte. La pantalla de bienvenida ofrece las dos: «Pegá el código o importá un respaldo».
+- Arreglo: el código ya no pierde proveedores. Antes cada dispositivo subía su lista sin mirar la del servidor, así que si sumabas un proveedor en el celular y después otro en la compu, el del celular desaparecía del código. Ahora se juntan antes de subir, y un proveedor quitado en un dispositivo no vuelve a aparecer desde otro.
+
 ## 1.24.9
 
 - La barra inferior baja más en iPhone: queda a ~18px del borde (antes ~38px, porque sumaba entera la zona de la rayita de inicio). Sin esa zona, sigue a 4px.
