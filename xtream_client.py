@@ -106,6 +106,10 @@ def account_info(data):
         out['maxConnections'] = int(str(info.get('max_connections')))
     except (TypeError, ValueError):
         pass
+    try:
+        out['activeConnections'] = int(str(info.get('active_cons')))
+    except (TypeError, ValueError):
+        pass
     return out
 
 

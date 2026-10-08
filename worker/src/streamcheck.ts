@@ -151,3 +151,21 @@ export async function checkAllHealth(env: Env, now = new Date()): Promise<number
   } while (cursor);
   return done;
 }
+
+/** Datos de cada cuenta de la configuración ahora mismo (vencimiento, conexiones en uso), por el relay: para la pantalla
+ *  de Perfiles. Por huella de cuenta; una cuenta que no contesta no aparece. Sin relay o sin cuentas, vacío. */
+export async function liveAccounts(env: Env, cfgId: string, config: Config): Promise<Record<string, unknown>> {
+  if (!relayConfigured(env) || config.provider.type !== 'xtream') return {};
+  const servers = config.provider.servers;
+  const out: Record<string, unknown> = {};
+  await Promise.all((await accountTokens(env.BUCKET, cfgId, config.activeAccount)).map(async (t) => {
+    const creds = await decryptToken(env.TOKEN_KEY, cfgId, t.token);
+    if (!creds || !('u' in creds)) return;
+    const { u, p } = creds as Creds;
+    try {
+      const res = await relayPost<{ account?: unknown }>(env, '/v1/account', { servers, username: u, password: p }, 12_000);
+      if (res.account) out[await accountKey(u, p)] = res.account;
+    } catch { /* sin datos de esa cuenta */ }
+  }));
+  return out;
+}

@@ -36,5 +36,9 @@ Maqueta: https://claude.ai/artifact/SyGGdMx6tLMAWb7nVNZwtN
 - Desde un link: «Mover a otro perfil», con la dirección a la vista para dejar claro que no cambia.
 
 ## Etapas
-1. Worker: `activeAccount`, prueba y lista con la cuenta activa, mover links entre perfiles y proveedores, hogar.
-2. Web: pestaña Perfil, perfiles por proveedor, cambio de perfil activo, mover link, aviso en Canales, hogar.
+1. ✅ Worker: `activeAccount`, prueba y lista con la cuenta activa, mover links entre perfiles y proveedores, hogar (1.20.0).
+2. ✅ Web, un proveedor: pestaña Perfil, tarjetas por perfil con suscripción, conexiones en uso y caídos, perfil activo,
+   cambio rápido, mover link a otro perfil, aviso en Canales (1.21.0). Conexiones en uso: `activeConnections` del relay
+   (hay que volver a publicar `relay/`).
+3. Web, varios proveedores: la web guarda varias configuraciones (una por proveedor) en el hogar, Perfiles las agrupa por
+   proveedor, cambiar a un perfil de otro proveedor cambia la grilla, y mover un link entre proveedores.

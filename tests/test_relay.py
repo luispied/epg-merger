@@ -158,7 +158,7 @@ def test_datos_de_la_cuenta_solo_con_lista_blanca():
     data = {'user_info': {'username': 'user', 'password': 'secreta', 'status': 'Active', 'exp_date': '1793836800',
                           'is_trial': '0', 'max_connections': '2', 'active_cons': '1'}, 'server_info': {'url': 'x'}}
     info = xtream_client.account_info(data)
-    assert info == {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 2}
+    assert info == {'status': 'Active', 'expires': '2026-11-05T00:00:00+00:00', 'trial': False, 'maxConnections': 2, 'activeConnections': 1}
     assert 'secreta' not in json.dumps(info) and 'user' not in json.dumps(info).replace('trial', '')
     assert xtream_client.account_info({'user_info': {'exp_date': None}})['expires'] is None
     assert xtream_client.account_info({'user_info': {'exp_date': '0'}})['expires'] is None
