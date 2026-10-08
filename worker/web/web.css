@@ -993,3 +993,9 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .profile-card .device-list { gap: 0; }
 .profile-card .device [data-dev=show] { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .profile-card .device .icon-btn { width: 40px; height: 40px; }
+.provider-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 -4px; }
+.provider-head:first-of-type { margin-top: 12px; }
+.provider-tag { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.profile-pick .provider-tag { margin: 8px 2px 0; }
+.add-provider { margin: 16px 0 8px; }
+#askText { white-space: pre-line; overflow-wrap: anywhere; }

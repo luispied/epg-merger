@@ -7,6 +7,14 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.22.0
+
+- Varios proveedores: la web guarda todas tus configuraciones (una por proveedor) en un **hogar**. Perfiles las agrupa por proveedor, cada grupo se puede renombrar y «Agregar otro proveedor» crea una configuración nueva sin perder la actual.
+- Usar un perfil de otro proveedor lo vuelve su perfil activo y abre su grilla. El cambio rápido (mantener apretada la pestaña Perfil) también muestra los perfiles de todos los proveedores.
+- Un dispositivo se puede pasar a un perfil de otro proveedor con su botón ⇄: el link no cambia.
+- Código de hogar: en Configuración, «Abrir en otro dispositivo» muestra un código que, puesto en otro navegador («Usar un código de hogar», o «Tengo un código de hogar» al empezar), trae todos los proveedores. El Worker guarda el hogar cifrado en el navegador; sin el código no se puede leer.
+- El respaldo (Exportar) incluye todas las configuraciones del hogar, y al importarlo se suman.
+
 ## 1.21.0
 
 - Perfiles en la web: la pestaña de abajo «Links» pasa a ser **«Perfil»**, con la inicial del perfil activo. Un toque abre Perfiles: una tarjeta por cuenta del proveedor (la tuya y las de familiares) con días de suscripción, conexiones en uso, canales caídos (del activo) y sus dispositivos; «Usar» la vuelve el perfil activo. Mantener apretada la pestaña (o clic derecho) cambia de perfil sin entrar.
