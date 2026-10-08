@@ -67,6 +67,12 @@ export async function readShort(bucket: R2Bucket, code: string): Promise<ShortRe
   return v && v.cfgId && v.token ? v : null;
 }
 
+/** Los registros de los links de una configuración, leídos en paralelo (uno por uno tardaba un pedido a R2 por link). */
+async function recordsOf(bucket: R2Bucket, cfgId: string): Promise<[string, ShortRecord | null][]> {
+  const codes = await codesOf(bucket, cfgId);
+  return Promise.all(codes.map(async (code) => [code, await readShort(bucket, code)] as [string, ShortRecord | null]));
+}
+
 /** Crea el link corto de un dispositivo nuevo. Devuelve null si ya hay demasiados. */
 export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown, key?: string, profile?: string): Promise<boolean> {
   const codes = await codesOf(bucket, cfgId);
@@ -81,8 +87,7 @@ export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, 
 
 export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Device[]> {
   const out: Device[] = [];
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}), ...(rec.key ? { accountKey: rec.key } : {}), ...(rec.profile ? { profile: rec.profile } : {}) });
   }
   return out;
@@ -106,8 +111,7 @@ export async function updateDevice(bucket: R2Bucket, cfgId: string, code: string
 
 /** El token (credenciales cifradas) de otro dispositivo de la misma cuenta (sin `account`: la principal), para dar de alta uno nuevo sin pedirlas de nuevo. */
 export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: string): Promise<{ token: string; key?: string } | null> {
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (rec && rec.cfgId === cfgId && rec.account === account) return { token: rec.token, key: rec.key };
   }
   return null;
@@ -117,8 +121,7 @@ export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: 
  *  ni borra un registro: los links siguen con la misma dirección. Devuelve cuántos cambió. */
 export async function updateRecords(bucket: R2Bucket, cfgId: string, change: (rec: ShortRecord, code: string) => ShortRecord | null | Promise<ShortRecord | null>): Promise<number> {
   let n = 0;
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (!rec || rec.cfgId !== cfgId) continue;
     const next = await change(rec, code);
     if (!next) continue;
@@ -131,8 +134,7 @@ export async function updateRecords(bucket: R2Bucket, cfgId: string, change: (re
 /** Cambia el nombre de un perfil adicional (`account` de sus links): mismo token, misma huella, mismo código. */
 export async function renameAccount(bucket: R2Bucket, cfgId: string, from: string, to: string): Promise<number> {
   let n = 0;
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (!rec || rec.cfgId !== cfgId || rec.account !== from) continue;
     await bucket.put(shortKey(code), JSON.stringify({ ...rec, account: to }), JSON_TYPE);
     n++;
@@ -144,8 +146,7 @@ export async function renameAccount(bucket: R2Bucket, cfgId: string, from: strin
  *  códigos: las URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
 export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string, account?: string, key?: string): Promise<number> {
   let n = 0;
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (!rec || rec.cfgId !== cfgId || rec.account !== account) continue;
     await bucket.put(shortKey(code), JSON.stringify({ ...rec, token, ...(key ? { key } : {}) }), JSON_TYPE);
     n++;
@@ -162,8 +163,7 @@ export async function removeDevice(bucket: R2Bucket, cfgId: string, code: string
 }
 
 export async function removeAllDevices(bucket: R2Bucket, cfgId: string): Promise<void> {
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (rec && rec.cfgId === cfgId) await bucket.delete(shortKey(code));
   }
   await bucket.delete(idxKey(cfgId));
@@ -186,8 +186,7 @@ export async function anyToken(bucket: R2Bucket, cfgId: string, active?: string)
  *  dato = la principal); si no tiene links activos, la principal. */
 export async function accountTokens(bucket: R2Bucket, cfgId: string, active?: string): Promise<{ account?: string; token: string }[]> {
   const seen = new Map<string, { account?: string; token: string }>();
-  for (const code of await codesOf(bucket, cfgId)) {
-    const rec = await readShort(bucket, code);
+  for (const [code, rec] of await recordsOf(bucket, cfgId)) {
     if (!rec || rec.cfgId !== cfgId || rec.active === false) continue;
     const id = rec.account ?? '';
     if (!seen.has(id)) seen.set(id, { ...(rec.account ? { account: rec.account } : {}), token: rec.token });

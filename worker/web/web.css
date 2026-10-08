@@ -1007,6 +1007,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Cuentas > perfiles: los perfiles van debajo de su cuenta, con sangría. */
 .menu-row.sub-row { padding-left: 32px; min-height: 52px; }
 .menu-row.sub-row .menu-icon { width: 32px; height: 32px; }
+.avatar.sm { width: 28px; height: 28px; font-size: 12px; flex: none; }
 .menu-row.sub-row .menu-text small { display: block; color: var(--muted); }
 .profile-row .pc-badge { padding: 2px 8px; font-size: 11px; }
 .add-row, .add-row .menu-icon { color: var(--accent); }

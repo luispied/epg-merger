@@ -215,7 +215,10 @@ const saveLocal = (l: Local | null) => {
   } catch { /* sin storage */ }
 };
 
+/** Cuántos cambios de links, perfiles o cuentas se mandaron al Worker: Perfil dibuja con lo que ya tiene solo si no hubo ninguno desde que lo bajó. */
+let apiWrites = 0;
 async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown; auth?: boolean; key?: string } = {}): Promise<T> {
+  if (opts.method && opts.method !== 'GET' && /\/(devices|profiles|token|account-name|credentials|active)\b/.test(path)) apiWrites++;
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
@@ -319,6 +322,7 @@ async function switchProvider(cfgId: string) {
   state.creds = null;
   profileDevices = [];
   profileDefs = [];
+  profilesAt = -1;
   liveAccounts = {};
   streamHealth = null;
   await openSaved();
@@ -2731,14 +2735,22 @@ async function loadOtherProviders(live: boolean) {
   }));
 }
 const otherAccounts = (o: OtherProvider) => accountsOf(o.devices, o.profiles, o.mainName);
+/** Hasta qué cambio están al día los perfiles bajados (-1: nunca se bajaron). */
+let profilesAt = -1;
 async function loadProfiles(live = true) {
   if (!state.local) return;
-  try {
-    const r = await api<DevicesResponse>(`/api/cfg/${state.local.cfgId}/devices`);
-    profileDevices = r.devices;
-    profileDefs = r.profiles ?? [];
-  } catch { /* sin conexión: queda lo último */ }
-  await loadOtherProviders(live && Date.now() - liveAt > 60_000);
+  const cfgId = state.local.cfgId;
+  const writes = apiWrites;
+  // Los de esta configuración y los de los demás proveedores, a la vez.
+  await Promise.all([
+    api<DevicesResponse>(`/api/cfg/${cfgId}/devices`).then((r) => {
+      if (state.local?.cfgId !== cfgId) return;
+      profileDevices = r.devices;
+      profileDefs = r.profiles ?? [];
+      profilesAt = writes;
+    }).catch(() => { /* sin conexión: queda lo último */ }),
+    loadOtherProviders(live && Date.now() - liveAt > 60_000),
+  ]);
   renderTabAvatar();
   renderProfileNotice();
   if (!live) return;
@@ -2938,7 +2950,7 @@ const accountRow = (a: AccountView, acc: Account | undefined, on: boolean, cfgId
     <span class="menu-text"><span class="pr-title">${esc(a.name)}${on ? '<span class="pc-badge">En uso</span>' : ''}</span><small class="${l.tone}">${esc(l.text)}</small></span>${icon('chevron-right')}</button>`;
 };
 const profileRow = (p: ProfileView, cfgId?: string) => `<button type="button" class="menu-row profile-row sub-row" data-pid="${esc(p.id)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
-    <span class="menu-icon">${icon(p.filter ? 'list-filter' : 'tv')}</span>
+    <span class="avatar sm" aria-hidden="true">${esc(initialOf(p.name))}</span>
     <span class="menu-text">${esc(p.name)}<small>${esc(profileSub(p))}</small></span>${icon('chevron-right')}</button>`;
 
 /** La lista: por proveedor (el de la grilla abierta primero), cada cuenta con sus perfiles debajo. */
@@ -3504,19 +3516,18 @@ async function renderLinks(result?: LinkResult) {
   body.onchange = null;
   body.oninput = null;
   if (!body.firstElementChild) body.innerHTML = '<p class="help">Cargando…</p>';
-  await loadProfiles(false);
-  const v = linksView;
-  const ok = v.v === 'account' ? renderAccountPage(body, v.account, v.cfgId)
-    : v.v === 'profile' ? renderProfilePage(body, v.id, v.cfgId)
-    : v.v === 'provider' ? renderProviderPage(body, v.cfgId)
-    : v.v === 'hogar' ? (renderHogarPage(body), true)
-    : false;
-  if (!ok) {
-    linksView = { v: 'list' };
-    $('#linksTitle').textContent = 'Perfiles';
-    renderProfileList(body);
+  // Si lo que se tiene está al día (nada cambió desde que se bajó), se dibuja ya y se actualiza por detrás; si no, se espera.
+  const sig = () => JSON.stringify([profileDevices, profileDefs, otherProviders.map((o) => [o.devices, o.profiles])]);
+  if (profilesAt >= 0 && profilesAt === apiWrites && drawLinksView(body)) {
+    const before = sig();
+    const view = linksView;
+    void loadProfiles(false).then(() => {
+      if (sig() !== before && linksView === view && !linksSub && $<HTMLDialogElement>('#linksDialog').open) void renderLinks();
+    });
+  } else {
+    await loadProfiles(false);
+    drawLinksView(body, false);
   }
-  $('#linksBack').hidden = linksView.v === 'list';
   // Vencimiento y conexiones en uso al momento: se piden al abrir (si hace más de un minuto) y se vuelve a dibujar.
   if (Date.now() - liveAt > 60_000) {
     loadProfiles().then(() => {
@@ -3524,6 +3535,24 @@ async function renderLinks(result?: LinkResult) {
       if (Date.now() - liveAt <= 60_000 && $<HTMLDialogElement>('#linksDialog').open && !linksSub) void renderLinks();
     });
   }
+}
+
+/** Dibuja la página en la que se está; con `strict`, devuelve false si esa página no existe (sin caer a la lista). */
+function drawLinksView(body: HTMLElement, strict = true): boolean {
+  const v = linksView;
+  const ok = v.v === 'account' ? renderAccountPage(body, v.account, v.cfgId)
+    : v.v === 'profile' ? renderProfilePage(body, v.id, v.cfgId)
+    : v.v === 'provider' ? renderProviderPage(body, v.cfgId)
+    : v.v === 'hogar' ? (renderHogarPage(body), true)
+    : v.v === 'list';
+  if (!ok && strict) return false;
+  if (!ok || v.v === 'list') {
+    linksView = { v: 'list' };
+    $('#linksTitle').textContent = 'Perfiles';
+    renderProfileList(body);
+  }
+  $('#linksBack').hidden = linksView.v === 'list';
+  return true;
 }
 
 const filterSummary = (f?: DeviceFilter) => {

@@ -4,7 +4,7 @@
 import { PROFILE_ID_RE, saveConfig, type Config, type ProfileDef } from './config.ts';
 import { accountKey } from './account.ts';
 import { decryptToken, randomId } from './crypto.ts';
-import { updateRecords, listDevices, type ShortRecord } from './devices.ts';
+import { updateRecords, listDevices, type Device, type ShortRecord } from './devices.ts';
 import type { R2Bucket } from './env.ts';
 
 const sameAccount = (a?: string, b?: string) => (a ?? '') === (b ?? '');
@@ -15,9 +15,9 @@ export const newProfileId = () => randomId(6);
 /** Los links sin perfil (los de antes) pasan a uno: uno por cuenta y filtro. Sin filtro, el perfil se llama como la cuenta;
  *  con filtro, como el primer dispositivo que lo tenía. Solo agrega el id de perfil a los registros. Devuelve la config
  *  (cambiada si hizo falta). */
-export async function ensureProfiles(bucket: R2Bucket, cfgId: string, config: Config, keyHash: string): Promise<Config> {
+export async function ensureProfiles(bucket: R2Bucket, cfgId: string, config: Config, keyHash: string, known?: Device[]): Promise<Config> {
   const profiles = [...(config.profiles ?? [])];
-  const devices = await listDevices(bucket, cfgId);
+  const devices = known ?? await listDevices(bucket, cfgId);
   const valid = (d: { profile?: string; account?: string }) => {
     const p = profiles.find((x) => x.id === d.profile);
     return !!p && sameAccount(p.account, d.account);
@@ -51,9 +51,9 @@ export const findProfile = (config: Config, id: unknown): ProfileDef | undefined
 /** Los links de antes no guardaban la huella de su cuenta (`key`), y sin ella la web no encuentra el vencimiento ni las
  *  conexiones en uso de esa cuenta. Se completa una vez, descifrando el token: solo se agrega `key` al registro (el código
  *  y el token no cambian). Devuelve cuántos completó. */
-export async function ensureAccountKeys(bucket: R2Bucket, tokenKey: string, cfgId: string, config: Config): Promise<number> {
+export async function ensureAccountKeys(bucket: R2Bucket, tokenKey: string, cfgId: string, config: Config, known?: Device[]): Promise<number> {
   if (config.provider.type !== 'xtream') return 0;
-  if ((await listDevices(bucket, cfgId)).every((d) => d.accountKey)) return 0;
+  if ((known ?? await listDevices(bucket, cfgId)).every((d) => d.accountKey)) return 0;
   return updateRecords(bucket, cfgId, async (rec) => {
     if (rec.key) return null;
     const creds = await decryptToken(tokenKey, cfgId, rec.token);
