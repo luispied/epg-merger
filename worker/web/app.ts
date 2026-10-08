@@ -22,6 +22,9 @@ interface Config {
   groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] };
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
+  /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
+   *  Se cambia con PUT …/active (ver «perfiles»). */
+  activeAccount?: string;
 }
 declare const __APP_VERSION__: string;
 declare const __APP_COMMIT__: string;
@@ -42,6 +45,7 @@ Object.assign(window.ICONS, {
   bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
+  'arrow-right-left': '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
@@ -638,7 +642,7 @@ function computeInfo(ch: Channel) {
 // ------------------------------------------------------------------ canales caídos
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
-interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number }
+interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number }
 interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
@@ -654,6 +658,7 @@ async function loadStreamHealth() {
     streamHealth = null;
   }
   render();
+  renderProfileNotice();
 }
 
 // ------------------------------------------------------------------ salud de la guía
@@ -2458,6 +2463,211 @@ const ago = (iso?: string) => {
   return `usado hace ${Math.round(min / 1440)} d`;
 };
 
+// ------------------------------------------------------------------ perfiles
+// Un perfil es una cuenta del proveedor (la principal o la de un familiar: `account` en sus links), con su vencimiento,
+// sus conexiones en uso y sus dispositivos. El activo (config.activeAccount) es el que baja la lista y prueba los canales
+// caídos; su inicial va en la pestaña «Perfil». Ver planes/perfiles.md.
+interface Profile { account: string; name: string; key?: string; devices: Device[] }
+let profileDevices: Device[] = [];
+let liveAccounts: Record<string, Account> = {};
+const activeAccount = () => state.cfg?.activeAccount ?? '';
+const profileName = (account: string) => account || 'Tu cuenta';
+const initialOf = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
+
+/** Los perfiles de la configuración, por sus dispositivos: la principal siempre, después las demás en orden de alta. */
+function profilesOf(devices: Device[]): Profile[] {
+  const out = new Map<string, Profile>([['', { account: '', name: profileName(''), devices: [] }]]);
+  for (const d of devices) {
+    const acc = d.account ?? '';
+    if (!out.has(acc)) out.set(acc, { account: acc, name: profileName(acc), devices: [] });
+    const p = out.get(acc)!;
+    p.devices.push(d);
+    p.key ??= d.accountKey;
+  }
+  return [...out.values()];
+}
+
+/** Datos de la cuenta de un perfil: los de ahora (relay) o, si no, los de la última prueba. */
+const accountOfProfile = (p: Profile): Account | undefined =>
+  (p.key && (liveAccounts[p.key] ?? streamHealth?.accounts?.[p.key])) || (!p.account && !p.key ? streamHealth?.account : undefined);
+const daysLeft = (acc?: Account) => (acc?.expires ? Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000) : null);
+
+function renderTabAvatar() {
+  const el = document.querySelector<HTMLElement>('#tabAvatar');
+  if (!el) return;
+  const name = profileName(activeAccount());
+  el.textContent = initialOf(name);
+  $('#tabLinks').setAttribute('aria-label', `Perfil: ${name} (mantené apretado para cambiar)`);
+}
+
+/** Aviso arriba de los canales, solo si el perfil activo necesita atención: vence pronto o tiene las conexiones llenas. */
+function renderProfileNotice() {
+  const box = document.querySelector<HTMLButtonElement>('#profileNotice');
+  if (!box) return;
+  const p = profilesOf(profileDevices).find((x) => x.account === activeAccount());
+  const acc = p && accountOfProfile(p);
+  const days = daysLeft(acc);
+  const who = p?.account ? `La cuenta de ${p.account}` : 'Tu cuenta';
+  let text = '';
+  if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
+  else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${acc.activeConnections} de ${acc.maxConnections} en uso)`;
+  box.hidden = !text;
+  if (!text) return;
+  box.innerHTML = `${icon('clock')}<span class="pn-text"><strong>${esc(text)}</strong><small>Tocá para ver tus perfiles o cambiar de cuenta</small></span>${icon('chevron-right')}`;
+}
+
+/** Dispositivos y datos de las cuentas: para la pestaña, el aviso y la pantalla de Perfiles. */
+let liveAt = 0;
+async function loadProfiles(live = true) {
+  if (!state.local) return;
+  try {
+    profileDevices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices;
+  } catch { /* sin conexión: queda lo último */ }
+  renderTabAvatar();
+  renderProfileNotice();
+  if (!live) return;
+  try {
+    liveAccounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${state.local.cfgId}/accounts`)).accounts;
+    liveAt = Date.now();
+  } catch { /* sin relay o sin conexión: los de la última prueba */ }
+  renderProfileNotice();
+}
+
+async function setActiveProfile(account: string) {
+  if (account === activeAccount()) return;
+  try {
+    await api(`/api/cfg/${state.local!.cfgId}/active`, { method: 'PUT', body: { account } });
+    if (state.cfg) {
+      if (account) state.cfg.activeAccount = account;
+      else delete state.cfg.activeAccount;
+    }
+    renderTabAvatar();
+    renderProfileNotice();
+    toast(`Perfil activo: ${profileName(account)}. La prueba de canales caídos se hace con esta cuenta en un rato`, 'ok', 6000);
+    loadStreamHealth();
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
+}
+
+/** Mantener apretada la pestaña (o clic derecho): lista corta de perfiles para cambiar de activo sin entrar. */
+function openProfileSwitch() {
+  const list = $('#profileSwitchList');
+  const profiles = profilesOf(profileDevices);
+  list.innerHTML = profiles.map((p) => {
+    const acc = accountOfProfile(p);
+    const days = daysLeft(acc);
+    const on = p.account === activeAccount();
+    return `<button type="button" class="profile-opt${on ? ' on' : ''}" data-account="${esc(p.account)}"${on ? ' aria-current="true"' : ''}>
+      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
+      <span class="po-text"><strong>${esc(p.name)}</strong><small>${esc([days === null ? '' : days < 0 ? 'vencida' : `${plural(days, 'día', 'días')}`, plural(p.devices.length, 'link', 'links')].filter(Boolean).join(' · '))}</small></span>
+      ${on ? icon('check') : ''}</button>`;
+  }).join('');
+  list.onclick = async (ev) => {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-account]');
+    if (!btn) return;
+    ($('#profileSwitch') as HTMLDialogElement).close();
+    await setActiveProfile(btn.dataset.account ?? '');
+  };
+  ($('#profileSwitch') as HTMLDialogElement).showModal();
+}
+
+/** Tarjeta de un perfil en la pantalla de Perfiles: datos de la cuenta y sus dispositivos. */
+function profileCard(p: Profile): string {
+  const on = p.account === activeAccount();
+  const acc = accountOfProfile(p);
+  const days = daysLeft(acc);
+  const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
+  const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
+  const stats = [
+    stat(days === null ? '—' : days < 0 ? 'Vencida' : plural(days, 'día', 'días'), 'Suscripción', days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : 'ok'),
+    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${acc.activeConnections} de ${acc.maxConnections}`,
+      acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
+      acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''),
+    on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
+  ].join('');
+  return `<section class="profile-card${on ? ' on' : ''}" data-account="${esc(p.account)}">
+    <div class="pc-head">
+      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
+      <span class="pc-name"><strong>${esc(p.name)}</strong><small>${on ? 'Perfil activo' : 'Perfil'} · ${plural(p.devices.length, 'link', 'links')}</small></span>
+      ${on ? '<span class="pc-badge">Activo</span>' : `<button type="button" class="btn btn-tonal" data-use="${esc(p.account)}">Usar</button>`}
+    </div>
+    <div class="pc-stats">${stats}</div>
+    ${p.devices.length ? `<div class="device-list">${p.devices.map(deviceRow).join('')}</div>` : '<p class="help">Este perfil no tiene dispositivos.</p>'}
+  </section>`;
+}
+
+const deviceRow = (d: Device) => `
+      <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
+        <div class="device-top">
+          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
+          <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
+        </div>
+        <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
+        <button class="icon-btn" data-dev="profile" aria-label="Filtro de ${esc(d.name)}: qué categorías y canales ve">${icon('list-filter')}</button>
+        <button class="icon-btn" data-dev="move" aria-label="Mover ${esc(d.name)} a otro perfil">${icon('arrow-right-left')}</button>
+        <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
+        <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
+      </div>`;
+
+/** Pasar un dispositivo a otro perfil: el link sigue siendo el mismo, cambia la cuenta con la que reproduce. */
+function renderMoveDevice(dev: Device) {
+  const body = $('#linksBody');
+  $('#linksBack').hidden = false;
+  body.onclick = null;
+  body.onchange = null;
+  const p = state.cfg!.provider;
+  const others = profilesOf(profileDevices).filter((x) => x.account !== (dev.account ?? ''));
+  body.innerHTML = `
+    <h3 class="sub-title">Mover «${esc(dev.name)}»</h3>
+    <p class="help">La dirección <b>no cambia</b>: el reproductor no hay que tocarlo. Con la próxima actualización de la lista empieza a usar la otra cuenta.</p>
+    <div class="url-box">${esc(dev.playlistUrl)}</div>
+    <form class="stack" id="moveForm" autocomplete="off">
+      <div class="profile-pick">
+        ${others.map((o, i) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${esc(o.account)}"${i === 0 ? ' checked' : ''}>
+          <span class="avatar" aria-hidden="true">${esc(initialOf(o.name))}</span>
+          <span class="po-text"><strong>${esc(o.name)}</strong><small>${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
+        ${p.type === 'xtream' ? `<label class="profile-opt"><input type="radio" name="moveTo" value="__new"${others.length ? '' : ' checked'}>
+          <span class="avatar" aria-hidden="true">+</span>
+          <span class="po-text"><strong>Otro perfil nuevo</strong><small>La cuenta de un familiar, por ejemplo</small></span></label>` : ''}
+      </div>
+      <div class="stack" id="moveCreds" hidden>
+        <label class="field" id="moveNameField"><span>Nombre del perfil</span><input class="input" id="moveName" maxlength="30" placeholder="Mamá"></label>
+        <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="moveUser" autocapitalize="off" spellcheck="false"></label>
+        <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="movePass" type="password"></label>
+      </div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('arrow-right-left')}Mover</button></div>
+    </form>`;
+  const choice = () => body.querySelector<HTMLInputElement>('input[name=moveTo]:checked')?.value ?? '';
+  const sync = () => {
+    const v = choice();
+    const target = others.find((o) => o.account === v);
+    // Un perfil sin links (la principal, si no tiene ninguno) también necesita usuario y contraseña.
+    $('#moveCreds').hidden = !(v === '__new' || (target && !target.devices.length));
+    $('#moveNameField').hidden = v !== '__new';
+  };
+  body.onchange = sync;
+  sync();
+  $('#moveForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const v = choice();
+    const needCreds = !$('#moveCreds').hidden;
+    const account = v === '__new' ? $<HTMLInputElement>('#moveName').value.trim() : v;
+    const creds = needCreds ? { username: $<HTMLInputElement>('#moveUser').value.trim(), password: $<HTMLInputElement>('#movePass').value } : {};
+    if ((v === '__new' && !account) || (needCreds && Object.values(creds).some((x) => !x))) {
+      toast(v === '__new' ? 'Completá el nombre, el usuario y la contraseña del perfil nuevo' : 'Completá el usuario y la contraseña de esa cuenta', 'bad');
+      return;
+    }
+    try {
+      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/move`, { method: 'POST', body: { ...creds, ...(account ? { account } : {}) } });
+      toast(`«${dev.name}» ahora usa ${account ? `la cuenta de ${account}` : 'tu cuenta'}. Su link no cambió`, 'ok', 6000);
+      renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
 /** Pantalla de "Tus links": la lista de dispositivos (un link por cada uno) y el formulario para
  *  agregar otro. Con `result`, los links de un dispositivo. */
 async function renderLinks(result?: LinkResult) {
@@ -2468,29 +2678,18 @@ async function renderLinks(result?: LinkResult) {
   body.onclick = null;
   body.onchange = null;
   body.innerHTML = '<p class="help">Cargando…</p>';
-  let devices: Device[] = [];
-  try {
-    devices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local!.cfgId}/devices`)).devices;
-  } catch { /* sin lista: se puede agregar igual */ }
+  await loadProfiles(false);
+  const devices = profileDevices;
+  const profiles = profilesOf(devices).sort((a, b) => Number(b.account === activeAccount()) - Number(a.account === activeAccount()));
   const needsCreds = !state.creds;
   // Cuentas adicionales del proveedor (por ejemplo, la de un familiar): se reconocen por los dispositivos que las usan.
   const accounts = [...new Set(devices.map((d) => d.account).filter((a): a is string => !!a))];
-  const accOptions = (extra: string) => `<option value="">Mi cuenta</option>${accounts.map((a) => `<option value="${esc(a)}">${esc(a)}</option>`).join('')}${extra}`;
+  const accOptions = (extra: string, selected = '') => `<option value="">${profileName('')}</option>${accounts.map((a) => `<option value="${esc(a)}"${a === selected ? ' selected' : ''}>${esc(a)}</option>`).join('')}${extra}`;
   body.innerHTML = `
-    <p>Un link por dispositivo: así sabés cuál es cuál. Podés desactivar uno (su playlist muestra un aviso y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás.
-      Cada uno puede tener su propio perfil —qué categorías y canales ve—; sin perfil muestra todo lo de tu configuración. Los links llevan tus datos del proveedor cifrados:
+    <p>Cada perfil es una cuenta de tu proveedor, con sus dispositivos. El <b>activo</b> es el que se usa para bajar la lista y probar los canales caídos.
+      Un link por dispositivo: podés desactivarlo, filtrar qué ve, pasarlo a otro perfil o quitarlo, sin afectar a los demás. Los links llevan tus datos del proveedor cifrados:
       el servidor no los guarda en claro.</p>
-    ${devices.length ? `<div class="device-list">${devices.map((d) => `
-      <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
-        <div class="device-top">
-          <div class="device-info"><strong>${esc(d.name)}</strong>${d.account ? `<span class="acc-tag">Cuenta: ${esc(d.account)}</span>` : ''}<small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
-          <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
-        </div>
-        <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
-        <button class="icon-btn" data-dev="profile" aria-label="Perfil de ${esc(d.name)}: qué categorías y canales ve">${icon('list-filter')}</button>
-        <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
-        <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
-      </div>`).join('')}</div>` : '<p class="help">Todavía no tenés dispositivos.</p>'}
+    <div class="profile-list">${profiles.map(profileCard).join('')}</div>
     ${p.type === 'xtream' ? `<details class="creds-change" id="serversDetails">
       <summary>¿Cambió la dirección del servicio de IPTV?</summary>
       <p class="help">Es la dirección (URL) del servidor de tu proveedor. Una por línea: la primera es la principal y las demás, de respaldo. Los links de tus dispositivos <b>no cambian</b>: se actualizan solos la próxima vez que el reproductor pida la lista.</p>
@@ -2503,7 +2702,7 @@ async function renderLinks(result?: LinkResult) {
       <summary>¿Cambiaron tus datos del proveedor?</summary>
       <p class="help">Los links de todos tus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
       <form class="stack" id="credsForm" autocomplete="off">
-        ${accounts.length ? `<label class="field"><span>Cuenta</span><select class="select" id="chgAccount">${accOptions('')}</select></label>` : ''}
+        ${accounts.length ? `<label class="field"><span>Perfil</span><select class="select" id="chgAccount">${accOptions('', activeAccount())}</select></label>` : ''}
         ${p.type === 'xtream' ? `
           <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
           <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
@@ -2514,9 +2713,9 @@ async function renderLinks(result?: LinkResult) {
     <h3 class="sub-title">Agregar dispositivo</h3>
     <form class="stack" id="linksForm" autocomplete="off">
       <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
-      ${p.type === 'xtream' ? `<label class="field"><span>Cuenta del proveedor</span><select class="select" id="lnkAccount">${accOptions('<option value="__new">Otra cuenta nueva (de un familiar)…</option>')}</select></label>
+      ${p.type === 'xtream' ? `<label class="field"><span>Perfil</span><select class="select" id="lnkAccount">${accOptions('<option value="__new">Otro perfil nuevo (la cuenta de un familiar)…</option>', activeAccount())}</select></label>
       <div class="stack" id="newAccount" hidden>
-        <label class="field"><span>Nombre de la cuenta</span><input class="input" id="lnkAccName" maxlength="30" placeholder="Mamá"></label>
+        <label class="field"><span>Nombre del perfil</span><input class="input" id="lnkAccName" maxlength="30" placeholder="Mamá"></label>
         <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="lnkAccUser" autocapitalize="off" spellcheck="false"></label>
         <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="lnkAccPass" type="password"></label>
       </div>` : ''}
@@ -2528,6 +2727,13 @@ async function renderLinks(result?: LinkResult) {
       </div>
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
     </form>`;
+  // Vencimiento y conexiones en uso al momento: se piden al abrir (si hace más de un minuto) y se actualizan las tarjetas.
+  if (Date.now() - liveAt > 60_000) {
+    loadProfiles().then(() => {
+      const list = body.querySelector('.profile-list');
+      if (list && $('#linksBack').hidden) list.innerHTML = profiles.map(profileCard).join('');
+    });
+  }
   body.onchange = async (ev) => {
     const sw = (ev.target as HTMLElement).closest<HTMLInputElement>('[data-dev-active]');
     if (!sw) return;
@@ -2541,6 +2747,11 @@ async function renderLinks(result?: LinkResult) {
     renderLinks();
   };
   body.onclick = async (ev) => {
+    const use = (ev.target as HTMLElement).closest<HTMLElement>('[data-use]');
+    if (use) {
+      await setActiveProfile(use.dataset.use ?? '');
+      return void renderLinks();
+    }
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-dev]');
     if (!btn) return;
     const row = btn.closest<HTMLElement>('.device')!;
@@ -2549,6 +2760,8 @@ async function renderLinks(result?: LinkResult) {
       renderLinkResult(dev);
     } else if (btn.dataset.dev === 'profile') {
       renderDeviceProfile(dev);
+    } else if (btn.dataset.dev === 'move') {
+      renderMoveDevice(dev);
     } else if (btn.dataset.dev === 'rename') {
       const name = await promptDialog({ title: 'Nombre del dispositivo', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
       if (name === null || !name.trim()) return;
@@ -2659,7 +2872,7 @@ const filterSummary = (f?: DeviceFilter) => {
   return f.only ? `solo ${parts}` : `sin ${parts}`;
 };
 
-/** Perfil de un dispositivo: qué categorías y canales se ven en su playlist (un interruptor por fila:
+/** Filtro de un dispositivo: qué categorías y canales se ven en su playlist (un interruptor por fila:
  *  encendido = se ve). La dirección no cambia. Mismo patrón que Categorías. */
 function renderDeviceProfile(dev: Device) {
   const body = $('#linksBody');
@@ -2683,7 +2896,7 @@ function renderDeviceProfile(dev: Device) {
       members.set(g, []);
     } else if (cur) members.get(cur)!.push(g);
   }
-  // Lo que NO se ve. Un perfil viejo de «solo lo marcado» se convierte: queda oculto lo que no estaba marcado.
+  // Lo que NO se ve. Un filtro viejo de «solo lo marcado» se convierte: queda oculto lo que no estaba marcado.
   const offG = new Set<string>();
   const offC = new Set<string>();
   if (dev.filter?.only) for (const g of cats) { if (!dev.filter.groups.includes(g)) offG.add(g); }
@@ -2713,7 +2926,7 @@ function renderDeviceProfile(dev: Device) {
       ${qn ? `<h3 class="sec-title">Canales</h3>${chans.length ? `<div class="menu">${chans.map((ch) =>
         row(`data-c="${esc(ch.name)}"`, state.cfg!.channels[ch.name]?.name || ch.name, groupLabel(groupOf(ch)), !offC.has(ch.name))).join('')}</div>`
         : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
-    body.querySelector('#pfSum')!.textContent = offG.size || offC.size ? `Este dispositivo: ${filterSummary(current())}` : 'Este dispositivo ve todo (sin perfil).';
+    body.querySelector('#pfSum')!.textContent = offG.size || offC.size ? `Este dispositivo: ${filterSummary(current())}` : 'Este dispositivo ve todo (sin filtro).';
   };
   body.innerHTML = `
     <h3 class="sub-title">${esc(dev.name)}</h3>
@@ -2728,8 +2941,8 @@ function renderDeviceProfile(dev: Device) {
     </div>
     <div id="pfList"></div>
     <p class="meta-line" id="pfSum"></p>
-    <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar perfil</button></div>
-    <div class="form-actions"><button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar perfil (ver todo)</button></div>`;
+    <div class="form-actions"><button type="button" class="btn btn-primary btn-block" id="pfSave">Guardar filtro</button></div>
+    <div class="form-actions"><button type="button" class="btn btn-gray btn-block" id="pfClear">Quitar filtro (ver todo)</button></div>`;
   draw();
   body.oninput = (ev) => { if ((ev.target as HTMLElement).id === 'pfQ') draw(); };
   body.onchange = (ev) => {
@@ -2771,10 +2984,10 @@ function renderDeviceProfile(dev: Device) {
     }
   };
   $('#pfSave').onclick = () => {
-    if (!offG.size && !offC.size) return void save(null, 'Sin perfil: ve todo');
-    void save(current(), `Perfil guardado: ${filterSummary(current())}`);
+    if (!offG.size && !offC.size) return void save(null, 'Sin filtro: ve todo');
+    void save(current(), `Filtro guardado: ${filterSummary(current())}`);
   };
-  $('#pfClear').onclick = () => void save(null, 'Sin perfil: ve todo');
+  $('#pfClear').onclick = () => void save(null, 'Sin filtro: ve todo');
 }
 
 function renderLinkResult(result: LinkResult) {
@@ -3241,6 +3454,7 @@ function showEditor() {
   loadHourNow();
   loadHealth();
   loadStreamHealth();
+  loadProfiles();
 }
 
 async function openSaved() {
@@ -3289,6 +3503,7 @@ async function openSaved() {
     refreshGuideStatus();
     loadHealth();
     loadStreamHealth();
+    loadProfiles();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -3614,17 +3829,37 @@ function setupEditor() {
     renderCategories();
     openDock($('#categoriesDialog') as HTMLDialogElement);
   };
-  // Barra inferior: Canales (volver arriba), Revisar, Categorías y Links.
+  // Barra inferior: Canales (volver arriba), Revisar, Categorías y Perfil.
   $('#helpTopBtn').onclick = () => openHelp('main');
   $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   $('#tabReview').onclick = () => {
     if (reviewList().length) startReview();
     else toast('¡No queda nada por revisar!', 'ok');
   };
-  $('#tabLinks').onclick = () => {
+  // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
+  const openProfiles = () => {
     renderLinks();
     ($('#linksDialog') as HTMLDialogElement).showModal();
   };
+  let pressTimer = 0;
+  let pressed = false;
+  const tabProfile = $('#tabLinks');
+  tabProfile.onpointerdown = () => {
+    pressed = false;
+    pressTimer = window.setTimeout(() => { pressed = true; navigator.vibrate?.(10); openProfileSwitch(); }, 500);
+  };
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel'] as const) tabProfile.addEventListener(ev, () => clearTimeout(pressTimer));
+  tabProfile.oncontextmenu = (ev) => {
+    ev.preventDefault();
+    clearTimeout(pressTimer);
+    if (!pressed) openProfileSwitch();
+    pressed = true;
+  };
+  tabProfile.onclick = () => {
+    if (pressed) { pressed = false; return; }
+    openProfiles();
+  };
+  $('#profileNotice').onclick = openProfiles;
   $('#linksBack').onclick = () => renderLinks();
   $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');
   wireNested('#helpDialog', '#helpBack', '#helpClose');

@@ -6,6 +6,7 @@
 //   PUT    /api/cfg/<cfgId>              (Bearer editKey) guardarla
 //   DELETE /api/cfg/<cfgId>              (Bearer editKey) borrarla
 //   POST   /api/cfg/<cfgId>/token        (Bearer editKey) credenciales → token y links
+//   GET    /api/cfg/<cfgId>/accounts     (Bearer editKey) vencimiento y conexiones en uso de cada perfil, al momento (relay)
 //   PUT    /api/cfg/<cfgId>/active       (Bearer editKey) perfil activo: con qué cuenta se prueban canales y se baja la lista
 //   POST   /api/cfg/<cfgId>/devices/<código>/move  (Bearer editKey) pasar un link a otro perfil o proveedor (mismo código)
 //   POST   /api/home                     nuevo hogar → {homeId, homeKey} · GET/PUT/DELETE /api/home/<homeId> (Bearer homeKey)
@@ -36,7 +37,7 @@ import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
-import { checkAllHealth } from './streamcheck.ts';
+import { checkAllHealth, liveAccounts } from './streamcheck.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
@@ -450,6 +451,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         return (await moveDevice(env.BUCKET, code, cfgId, to, found.token, account, found.key))
           ? json({ ok: true }) : fail(400, 'no se pudo mover: el link no es de esta configuración o el destino ya tiene demasiados dispositivos');
       }
+    }
+    if (action === 'accounts' && method === 'GET') {
+      // Vencimiento y conexiones en uso de cada perfil, al momento (por el relay); `live: false` = sin relay.
+      return json({ live: relayConfigured(env), accounts: await liveAccounts(env, cfgId, stored.config) }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'active' && method === 'PUT') {
       // Cambiar el perfil activo: la lista y la prueba de canales caídos pasan a hacerse con esa cuenta. La prueba se

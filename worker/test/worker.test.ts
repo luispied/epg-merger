@@ -1076,6 +1076,11 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     await handle(req(`/api/cfg/${t.cfgId}`, { method: 'PUT', key: t.editKey, body: JSON.stringify({ provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: {} }) }), t.env, t.ctx, t.cache);
     assert.equal((await (await handle(req(`/api/cfg/${t.cfgId}`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { activeAccount?: string }).activeAccount, 'Mamá');
     assert.deepEqual(await (await setActive('')).json(), { ok: true, activeAccount: '' });
+    // Datos de cada perfil al momento, por huella.
+    const live = await (await handle(req(`/api/cfg/${t.cfgId}/accounts`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { live: boolean; accounts: Record<string, { expires: string }> };
+    assert.equal(live.live, true);
+    assert.equal(live.accounts[await accountKey('mama', 'x')].expires, '2027-02-01T00:00:00+00:00');
+    assert.equal(live.accounts[await accountKey('user', 'pa ss')].expires, '2026-12-01T00:00:00+00:00');
   } finally {
     globalThis.fetch = base;
   }
