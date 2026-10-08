@@ -2,7 +2,8 @@
 // (config.profiles); cada link guarda el id de su perfil y una copia del filtro, así la playlist se sirve igual que
 // siempre. Nada de esto cambia la dirección de un link ni borra uno.
 import { PROFILE_ID_RE, saveConfig, type Config, type ProfileDef } from './config.ts';
-import { randomId } from './crypto.ts';
+import { accountKey } from './account.ts';
+import { decryptToken, randomId } from './crypto.ts';
 import { updateRecords, listDevices, type ShortRecord } from './devices.ts';
 import type { R2Bucket } from './env.ts';
 
@@ -46,3 +47,17 @@ export async function ensureProfiles(bucket: R2Bucket, cfgId: string, config: Co
 
 export const findProfile = (config: Config, id: unknown): ProfileDef | undefined =>
   typeof id === 'string' && PROFILE_ID_RE.test(id) ? config.profiles?.find((p) => p.id === id) : undefined;
+
+/** Los links de antes no guardaban la huella de su cuenta (`key`), y sin ella la web no encuentra el vencimiento ni las
+ *  conexiones en uso de esa cuenta. Se completa una vez, descifrando el token: solo se agrega `key` al registro (el código
+ *  y el token no cambian). Devuelve cuántos completó. */
+export async function ensureAccountKeys(bucket: R2Bucket, tokenKey: string, cfgId: string, config: Config): Promise<number> {
+  if (config.provider.type !== 'xtream') return 0;
+  if ((await listDevices(bucket, cfgId)).every((d) => d.accountKey)) return 0;
+  return updateRecords(bucket, cfgId, async (rec) => {
+    if (rec.key) return null;
+    const creds = await decryptToken(tokenKey, cfgId, rec.token);
+    if (!creds || !('u' in creds)) return null;
+    return { ...rec, key: await accountKey(creds.u, creds.p) };
+  });
+}
