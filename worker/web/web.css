@@ -739,6 +739,9 @@ body.onboard-busy #onboarding button[type=submit], body.onboard-busy #onboarding
 .bulk-move .btn { flex: none; min-height: 48px; }
 #bulkBody .menu { margin-top: 0; }
 .rv-actions .btn-gray { flex: none; min-width: 112px; }
+/* Con tres botones (sugerencia, sin guía, saltar) los secundarios se achican al contenido. */
+.rv-actions:has(> .btn-gray + .btn-gray) .btn-gray { min-width: 0; padding: 0 14px; }
+.rv-actions:has(> .btn-gray + .btn-gray) .btn-primary { min-width: 0; padding: 0 12px; white-space: nowrap; }
 
 /* ---- Etapa 3: barra inferior y detalles ---- */
 :root { --tab-h: 60px; }

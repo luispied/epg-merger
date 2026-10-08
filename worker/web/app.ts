@@ -1721,6 +1721,9 @@ function openChannel(i: number) {
       : score ? (auto!.score >= GOOD
         ? `<span class="gc-chip ok" title="Coincidencia buena">${icon('check', 'sm')}${score} %</span>`
         : `<span class="gc-chip warn" title="Coincidencia dudosa: conviene revisarla">${score} % · dudosa</span>`) : '';
+    // Con pie de revisión, las decisiones (usar sugerencia, sin guía, saltar) viven solo ahí.
+    const hasActions = needsReview || sheetReview;
+    const footerNoEpg = hasActions && !(!epg && edit.manual);
     const current = epg
       ? `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div></div>${stateChip}</div>
          <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
@@ -1730,8 +1733,8 @@ function openChannel(i: number) {
         const l = eventLabel(evSheet.start);
         return `<div class="gc-event ${l.cls}">${icon('clock', 'sm')}<span>${esc(l.text)}</span><small>hora de tu dispositivo</small></div>`;
       })() : ''}${suggestion
-        ? `<div class="gc-sug">Sugerencia: <b>${esc(guideLabel(suggestion.channelId))}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
-           <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
+        ? `<div class="gc-sug">Sugerencia: <b>${esc(guideLabel(suggestion.channelId))}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>${hasActions ? ''
+           : `<button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button>`}</div>` : ''}`;
     const rp = sheetReview ? reviewProgress() : null;
     // El progreso va en el encabezado fijo de la hoja (no se tapa al desplazar).
     const progressBox = $('#channelProgress');
@@ -1740,8 +1743,9 @@ function openChannel(i: number) {
       <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rp.pct}"><i style="width:${rp.pct}%"></i></div>` : '';
     const useSuggestion = !epg && !!suggestion;
     const okLabel = useSuggestion ? 'Usar sugerencia' : needsReview || epg ? 'Está bien' : 'Siguiente';
-    const actions = needsReview || sheetReview ? `<div class="rv-actions">
+    const actions = hasActions ? `<div class="rv-actions">
         <button type="button" class="btn btn-primary" data-rv="ok">${icon('check')}${okLabel}</button>
+        ${footerNoEpg ? `<button type="button" class="btn btn-gray" data-rv="no-epg">Sin guía</button>` : ''}
         ${sheetReview ? `<button type="button" class="btn btn-gray" data-rv="skip">Saltar</button>` : ''}</div>` : '';
     body.innerHTML = `${meta}
       <h3 class="sec-title">Guía asignada</h3>
@@ -1750,7 +1754,7 @@ function openChannel(i: number) {
       <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía"></label>
       <div class="ch-chips">
         <button type="button" class="chip-btn" data-act="auto"${edit.manual ? '' : ' disabled'}>${icon('undo-2', 'sm')}Automática</button>
-        <button type="button" class="chip-btn" data-act="no-epg"${!epg && edit.manual ? ' disabled' : ''}>${icon('ban', 'sm')}Sin guía</button>
+        ${footerNoEpg ? '' : `<button type="button" class="chip-btn" data-act="no-epg"${!epg && edit.manual ? ' disabled' : ''}>${icon('ban', 'sm')}Sin guía</button>`}
       </div>
       <div class="list search-results" hidden></div>
       ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score, { home: mixedCountries ? home : null })).join('')}</div>` : ''}
@@ -1810,6 +1814,8 @@ function openChannel(i: number) {
       if (rv === 'ok') {
         const target = epg ?? suggestion?.channelId;
         if (target) chooseEpg(ch, target, epg ? 'Guía confirmada' : 'Sugerencia aplicada');
+      } else if (rv === 'no-epg') {
+        update(noEpg, 'Quedó sin guía');
       }
       afterReview();
       return;
