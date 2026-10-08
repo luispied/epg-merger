@@ -40,5 +40,6 @@ Maqueta: https://claude.ai/artifact/SyGGdMx6tLMAWb7nVNZwtN
 2. ✅ Web, un proveedor: pestaña Perfil, tarjetas por perfil con suscripción, conexiones en uso y caídos, perfil activo,
    cambio rápido, mover link a otro perfil, aviso en Canales (1.21.0). Conexiones en uso: `activeConnections` del relay
    (hay que volver a publicar `relay/`).
-3. Web, varios proveedores: la web guarda varias configuraciones (una por proveedor) en el hogar, Perfiles las agrupa por
-   proveedor, cambiar a un perfil de otro proveedor cambia la grilla, y mover un link entre proveedores.
+3. ✅ Web, varios proveedores: la web guarda varias configuraciones (una por proveedor) en el hogar, Perfiles las agrupa por
+   proveedor, cambiar a un perfil de otro proveedor cambia la grilla, mover un link entre proveedores y código de hogar
+   para abrir todo en otro dispositivo (1.22.0).

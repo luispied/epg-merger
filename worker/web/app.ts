@@ -45,6 +45,7 @@ Object.assign(window.ICONS, {
   bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
+  house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'arrow-right-left': '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
@@ -212,14 +213,146 @@ const saveLocal = (l: Local | null) => {
   } catch { /* sin storage */ }
 };
 
-async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown; auth?: boolean } = {}): Promise<T> {
+async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown; auth?: boolean; key?: string } = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
-  if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
+  // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
+  if (opts.key) headers.Authorization = `Bearer ${opts.key}`;
+  else if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
   const res = await fetch(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
   return data as T;
+}
+
+// ------------------------------------------------------------------ hogar
+// Todas las configuraciones (una por proveedor) de esta persona. Se guardan en este navegador y, si hay más de una, en el
+// Worker como hogar (/api/home): cifradas acá con una clave que sale de la del hogar, así el servidor no ve las claves de
+// edición. Con el código del hogar (id.clave) se abre todo en otro dispositivo. Ver planes/perfiles.md.
+interface HomeConfig { cfgId: string; editKey: string; name?: string }
+interface Home { configs: HomeConfig[]; homeId?: string; homeKey?: string }
+const HOME_KEY = 'grilla_home_v1';
+function loadHome(): Home {
+  let h: Home = { configs: [] };
+  try {
+    h = JSON.parse(localStorage.getItem(HOME_KEY) || 'null') ?? h;
+  } catch { /* sin storage */ }
+  if (!Array.isArray(h.configs)) h.configs = [];
+  // La configuración abierta siempre está en el hogar (las de antes de esta versión entran solas).
+  if (state.local && !h.configs.some((c) => c.cfgId === state.local!.cfgId)) h.configs.unshift({ ...state.local });
+  return h;
+}
+let homeSync = 0;
+function saveHome(h: Home, sync = true) {
+  try {
+    localStorage.setItem(HOME_KEY, JSON.stringify(h));
+  } catch { /* sin storage */ }
+  if (!sync || (h.configs.length < 2 && !h.homeId)) return;
+  clearTimeout(homeSync);
+  homeSync = window.setTimeout(() => void pushHome(h).catch(() => {}), 500);
+}
+const providerName = (h: Home, cfgId: string) => {
+  const i = h.configs.findIndex((c) => c.cfgId === cfgId);
+  return h.configs[i]?.name || `Proveedor ${i + 1}`;
+};
+
+const te = new TextEncoder();
+const b64u = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = (t: string) => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (t.length % 4)) % 4)), (c) => c.charCodeAt(0));
+async function homeCryptoKey(homeKey: string) {
+  const raw = await crypto.subtle.digest('SHA-256', te.encode(`grilla-hogar-cifrado\n${homeKey}`));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+async function sealHome(h: Home): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await homeCryptoKey(h.homeKey!), te.encode(JSON.stringify({ configs: h.configs }))));
+  const out = new Uint8Array(iv.length + ct.length);
+  out.set(iv);
+  out.set(ct, iv.length);
+  return b64u(out);
+}
+async function openHome(homeKey: string, data: string): Promise<HomeConfig[]> {
+  const raw = unb64u(data);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, await homeCryptoKey(homeKey), raw.slice(12));
+  const configs = (JSON.parse(new TextDecoder().decode(pt)) as { configs?: HomeConfig[] }).configs;
+  return Array.isArray(configs) ? configs.filter((c) => typeof c?.cfgId === 'string' && typeof c?.editKey === 'string') : [];
+}
+/** Sube el hogar al Worker (lo crea la primera vez). */
+async function pushHome(h: Home) {
+  if (!h.homeId || !h.homeKey) {
+    // El Worker arma el id y la clave; el contenido se cifra después con esa clave.
+    const created = await api<{ homeId: string; homeKey: string }>('/api/home', { method: 'POST', auth: false, body: { v: 1, data: 'nuevo' } });
+    h.homeId = created.homeId;
+    h.homeKey = created.homeKey;
+    saveHome(h, false);
+  }
+  await api(`/api/home/${h.homeId}`, { method: 'PUT', key: h.homeKey, body: { v: 1, data: await sealHome(h) } });
+}
+const homeCode = (h: Home) => (h.homeId && h.homeKey ? `${h.homeId}.${h.homeKey}` : '');
+/** Trae un hogar con su código y lo junta con el de este navegador. Devuelve cuántas configuraciones suma. */
+async function joinHome(code: string): Promise<number> {
+  const m = /^([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{20,})$/.exec(code.trim());
+  if (!m) throw new Error('el código no es de un hogar de Grilla');
+  const data = await api<{ data: string }>(`/api/home/${m[1]}`, { key: m[2] });
+  const configs = await openHome(m[2], data.data);
+  const h = loadHome();
+  let added = 0;
+  for (const c of configs) {
+    if (h.configs.some((x) => x.cfgId === c.cfgId)) continue;
+    h.configs.push(c);
+    added++;
+  }
+  h.homeId = m[1];
+  h.homeKey = m[2];
+  saveHome(h);
+  return added;
+}
+/** Abre otra configuración del hogar (otro proveedor): cambia la grilla, la lista y los perfiles. */
+async function switchProvider(cfgId: string) {
+  const c = loadHome().configs.find((x) => x.cfgId === cfgId);
+  if (!c || c.cfgId === state.local?.cfgId) return;
+  for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
+  state.local = { cfgId: c.cfgId, editKey: c.editKey };
+  saveLocal(state.local);
+  state.creds = null;
+  profileDevices = [];
+  liveAccounts = {};
+  streamHealth = null;
+  await openSaved();
+}
+/** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero. */
+async function useHomeCode() {
+  const code = await promptDialog({ title: 'Código del hogar', ok: 'Usar', icon: 'house', input: { label: 'Código', placeholder: 'Pegá el código del hogar' } });
+  if (!code) return;
+  try {
+    const added = await joinHome(code);
+    toast(added ? `Listo: ${plural(added, 'proveedor sumado', 'proveedores sumados')}` : 'Ya tenías todos los proveedores de ese hogar', 'ok', 6000);
+    for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
+    if (!state.local) {
+      const first = loadHome().configs[0];
+      if (!first) return;
+      state.local = { cfgId: first.cfgId, editKey: first.editKey };
+      saveLocal(state.local);
+      await openSaved();
+    } else void loadProfiles();
+  } catch (e) {
+    toast(`No se pudo usar el código: ${(e as Error).message}`, 'bad', 6000);
+  }
+}
+/** Agregar otro proveedor: el alta de siempre, sin perder la configuración abierta (queda en el hogar). */
+let addingFrom: Local | null = null;
+async function addProvider() {
+  if (!state.local) return;
+  if (!(await confirmDialog({ title: 'Agregar otro proveedor', icon: 'plus',
+    text: 'Vas a cargar otra lista (otro servicio de IPTV) con su propia grilla. Tu configuración de ahora queda guardada y la abrís desde Perfiles.', ok: 'Continuar' }))) return;
+  saveHome(loadHome());
+  for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
+  addingFrom = state.local;
+  state.local = null;
+  state.cfg = null;
+  state.creds = null;
+  state.channels = [];
+  showOnboarding();
 }
 
 // Preferencias de este navegador (no viajan con la configuración).
@@ -2518,11 +2651,27 @@ function renderProfileNotice() {
 
 /** Dispositivos y datos de las cuentas: para la pestaña, el aviso y la pantalla de Perfiles. */
 let liveAt = 0;
+/** Los demás proveedores del hogar: sus perfiles (por sus dispositivos) y los datos de sus cuentas. */
+interface OtherProvider { cfgId: string; editKey: string; name: string; devices: Device[]; accounts: Record<string, Account> }
+let otherProviders: OtherProvider[] = [];
+async function loadOtherProviders(live: boolean) {
+  const h = loadHome();
+  otherProviders = await Promise.all(h.configs.filter((c) => c.cfgId !== state.local?.cfgId).map(async (c) => {
+    const prev = otherProviders.find((o) => o.cfgId === c.cfgId);
+    const o: OtherProvider = { cfgId: c.cfgId, editKey: c.editKey, name: providerName(h, c.cfgId), devices: prev?.devices ?? [], accounts: prev?.accounts ?? {} };
+    try {
+      o.devices = (await api<{ devices: Device[] }>(`/api/cfg/${c.cfgId}/devices`, { key: c.editKey })).devices;
+      if (live) o.accounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${c.cfgId}/accounts`, { key: c.editKey })).accounts;
+    } catch { /* sin conexión o configuración borrada: queda lo último */ }
+    return o;
+  }));
+}
 async function loadProfiles(live = true) {
   if (!state.local) return;
   try {
     profileDevices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices;
   } catch { /* sin conexión: queda lo último */ }
+  await loadOtherProviders(live && Date.now() - liveAt > 60_000);
   renderTabAvatar();
   renderProfileNotice();
   if (!live) return;
@@ -2531,6 +2680,19 @@ async function loadProfiles(live = true) {
     liveAt = Date.now();
   } catch { /* sin relay o sin conexión: los de la última prueba */ }
   renderProfileNotice();
+}
+
+/** Usar un perfil de otro proveedor: pasa a ser su perfil activo y se abre esa configuración (otra grilla). */
+async function useOtherProfile(cfgId: string, account: string) {
+  const o = otherProviders.find((x) => x.cfgId === cfgId);
+  if (!o) return;
+  try {
+    await api(`/api/cfg/${cfgId}/active`, { method: 'PUT', key: o.editKey, body: { account } });
+    toast(`Perfil activo: ${profileName(account)} (${o.name}). Cargando su grilla…`, 'ok', 6000);
+    await switchProvider(cfgId);
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
 }
 
 async function setActiveProfile(account: string) {
@@ -2550,32 +2712,37 @@ async function setActiveProfile(account: string) {
   }
 }
 
-/** Mantener apretada la pestaña (o clic derecho): lista corta de perfiles para cambiar de activo sin entrar. */
+/** Mantener apretada la pestaña (o clic derecho): lista corta de perfiles para cambiar de activo sin entrar. Con varios
+ *  proveedores, agrupados por proveedor; elegir uno de otro proveedor abre su grilla. */
 function openProfileSwitch() {
   const list = $('#profileSwitchList');
-  const profiles = profilesOf(profileDevices);
-  list.innerHTML = profiles.map((p) => {
-    const acc = accountOfProfile(p);
+  const h = loadHome();
+  const multi = otherProviders.length > 0;
+  const opt = (p: Profile, acc: Account | undefined, on: boolean, cfgId?: string) => {
     const days = daysLeft(acc);
-    const on = p.account === activeAccount();
-    return `<button type="button" class="profile-opt${on ? ' on' : ''}" data-account="${esc(p.account)}"${on ? ' aria-current="true"' : ''}>
+    return `<button type="button" class="profile-opt${on ? ' on' : ''}" data-account="${esc(p.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}${on ? ' aria-current="true"' : ''}>
       <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
       <span class="po-text"><strong>${esc(p.name)}</strong><small>${esc([days === null ? '' : days < 0 ? 'vencida' : `${plural(days, 'día', 'días')}`, plural(p.devices.length, 'link', 'links')].filter(Boolean).join(' · '))}</small></span>
       ${on ? icon('check') : ''}</button>`;
-  }).join('');
+  };
+  list.innerHTML = (multi ? `<div class="provider-tag">${esc(providerName(h, state.local!.cfgId))}</div>` : '')
+    + profilesOf(profileDevices).map((p) => opt(p, accountOfProfile(p), p.account === activeAccount())).join('')
+    + otherProviders.map((o) => `<div class="provider-tag">${esc(o.name)}</div>`
+      + profilesOf(o.devices).map((p) => opt(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')).join('');
   list.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-account]');
     if (!btn) return;
     ($('#profileSwitch') as HTMLDialogElement).close();
-    await setActiveProfile(btn.dataset.account ?? '');
+    if (btn.dataset.cfg) await useOtherProfile(btn.dataset.cfg, btn.dataset.account ?? '');
+    else await setActiveProfile(btn.dataset.account ?? '');
   };
   ($('#profileSwitch') as HTMLDialogElement).showModal();
 }
 
 /** Tarjeta de un perfil en la pantalla de Perfiles: datos de la cuenta y sus dispositivos. */
-function profileCard(p: Profile): string {
-  const on = p.account === activeAccount();
-  const acc = accountOfProfile(p);
+function profileCard(p: Profile, other?: OtherProvider): string {
+  const on = !other && p.account === activeAccount();
+  const acc = other ? (p.key ? other.accounts[p.key] : undefined) : accountOfProfile(p);
   const days = daysLeft(acc);
   const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
   const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
@@ -2590,10 +2757,13 @@ function profileCard(p: Profile): string {
     <div class="pc-head">
       <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
       <span class="pc-name"><strong>${esc(p.name)}</strong><small>${on ? 'Perfil activo' : 'Perfil'} · ${plural(p.devices.length, 'link', 'links')}</small></span>
-      ${on ? '<span class="pc-badge">Activo</span>' : `<button type="button" class="btn btn-tonal" data-use="${esc(p.account)}">Usar</button>`}
+      ${on ? '<span class="pc-badge">Activo</span>' : `<button type="button" class="btn btn-tonal" data-use="${esc(p.account)}"${other ? ` data-cfg="${esc(other.cfgId)}"` : ''}>Usar</button>`}
     </div>
     <div class="pc-stats">${stats}</div>
-    ${p.devices.length ? `<div class="device-list">${p.devices.map(deviceRow).join('')}</div>` : '<p class="help">Este perfil no tiene dispositivos.</p>'}
+    ${!p.devices.length ? '<p class="help">Este perfil no tiene dispositivos.</p>'
+      : other ? `<div class="device-list">${p.devices.map((d) => `<div class="device${d.active ? '' : ' off'}"><div class="device-top"><div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado'}</small></div></div></div>`).join('')}</div>
+        <p class="help">Para editar sus dispositivos, usá este perfil.</p>`
+      : `<div class="device-list">${p.devices.map(deviceRow).join('')}</div>`}
   </section>`;
 }
 
@@ -2618,6 +2788,9 @@ function renderMoveDevice(dev: Device) {
   body.onchange = null;
   const p = state.cfg!.provider;
   const others = profilesOf(profileDevices).filter((x) => x.account !== (dev.account ?? ''));
+  // Perfiles de los demás proveedores: el link pasa a esa configuración (otra grilla) y sigue con la misma dirección.
+  const remote = otherProviders.flatMap((o) => profilesOf(o.devices).map((x) => ({ ...x, cfg: o })));
+  const h = loadHome();
   body.innerHTML = `
     <h3 class="sub-title">Mover «${esc(dev.name)}»</h3>
     <p class="help">La dirección <b>no cambia</b>: el reproductor no hay que tocarlo. Con la próxima actualización de la lista empieza a usar la otra cuenta.</p>
@@ -2626,7 +2799,10 @@ function renderMoveDevice(dev: Device) {
       <div class="profile-pick">
         ${others.map((o, i) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${esc(o.account)}"${i === 0 ? ' checked' : ''}>
           <span class="avatar" aria-hidden="true">${esc(initialOf(o.name))}</span>
-          <span class="po-text"><strong>${esc(o.name)}</strong><small>${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
+          <span class="po-text"><strong>${esc(o.name)}</strong><small>${remote.length ? `${esc(providerName(h, state.local!.cfgId))} · ` : ''}${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
+        ${remote.map((o) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${esc(o.account)}" data-cfg="${esc(o.cfg.cfgId)}">
+          <span class="avatar" aria-hidden="true">${esc(initialOf(o.name))}</span>
+          <span class="po-text"><strong>${esc(o.name)}</strong><small>${esc(o.cfg.name)} · otra grilla · ${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
         ${p.type === 'xtream' ? `<label class="profile-opt"><input type="radio" name="moveTo" value="__new"${others.length ? '' : ' checked'}>
           <span class="avatar" aria-hidden="true">+</span>
           <span class="po-text"><strong>Otro perfil nuevo</strong><small>La cuenta de un familiar, por ejemplo</small></span></label>` : ''}
@@ -2638,10 +2814,13 @@ function renderMoveDevice(dev: Device) {
       </div>
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('arrow-right-left')}Mover</button></div>
     </form>`;
-  const choice = () => body.querySelector<HTMLInputElement>('input[name=moveTo]:checked')?.value ?? '';
+  const picked = () => body.querySelector<HTMLInputElement>('input[name=moveTo]:checked');
+  const choice = () => picked()?.value ?? '';
+  const targetCfg = () => remote.find((o) => o.cfg.cfgId === picked()?.dataset.cfg)?.cfg;
   const sync = () => {
     const v = choice();
-    const target = others.find((o) => o.account === v);
+    const cfg = targetCfg();
+    const target = cfg ? remote.find((o) => o.cfg === cfg && o.account === v) : others.find((o) => o.account === v);
     // Un perfil sin links (la principal, si no tiene ninguno) también necesita usuario y contraseña.
     $('#moveCreds').hidden = !(v === '__new' || (target && !target.devices.length));
     $('#moveNameField').hidden = v !== '__new';
@@ -2658,9 +2837,11 @@ function renderMoveDevice(dev: Device) {
       toast(v === '__new' ? 'Completá el nombre, el usuario y la contraseña del perfil nuevo' : 'Completá el usuario y la contraseña de esa cuenta', 'bad');
       return;
     }
+    const cfg = targetCfg();
     try {
-      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/move`, { method: 'POST', body: { ...creds, ...(account ? { account } : {}) } });
-      toast(`«${dev.name}» ahora usa ${account ? `la cuenta de ${account}` : 'tu cuenta'}. Su link no cambió`, 'ok', 6000);
+      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/move`, { method: 'POST',
+        body: { ...creds, ...(account ? { account } : {}), ...(cfg ? { to: cfg.cfgId, toKey: cfg.editKey } : {}) } });
+      toast(`«${dev.name}» ahora usa ${account ? `la cuenta de ${account}` : 'tu cuenta'}${cfg ? ` en ${cfg.name}` : ''}. Su link no cambió`, 'ok', 6000);
       renderLinks();
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
@@ -2689,7 +2870,13 @@ async function renderLinks(result?: LinkResult) {
     <p>Cada perfil es una cuenta de tu proveedor, con sus dispositivos. El <b>activo</b> es el que se usa para bajar la lista y probar los canales caídos.
       Un link por dispositivo: podés desactivarlo, filtrar qué ve, pasarlo a otro perfil o quitarlo, sin afectar a los demás. Los links llevan tus datos del proveedor cifrados:
       el servidor no los guarda en claro.</p>
-    <div class="profile-list">${profiles.map(profileCard).join('')}</div>
+    ${otherProviders.length ? `<div class="provider-head"><span class="provider-tag">${esc(providerName(loadHome(), state.local!.cfgId))} · en uso</span>
+      <button type="button" class="icon-btn" data-rename-provider="${esc(state.local!.cfgId)}" aria-label="Cambiar nombre del proveedor">${icon('pencil')}</button></div>` : ''}
+    <div class="profile-list">${profiles.map((x) => profileCard(x)).join('')}</div>
+    ${otherProviders.map((o) => `<div class="provider-head"><span class="provider-tag">${esc(o.name)}</span>
+      <button type="button" class="icon-btn" data-rename-provider="${esc(o.cfgId)}" aria-label="Cambiar nombre de ${esc(o.name)}">${icon('pencil')}</button></div>
+      <div class="profile-list">${profilesOf(o.devices).map((x) => profileCard(x, o)).join('')}</div>`).join('')}
+    <button type="button" class="btn btn-tonal btn-block add-provider" data-add-provider>${icon('plus')}Agregar otro proveedor</button>
     ${p.type === 'xtream' ? `<details class="creds-change" id="serversDetails">
       <summary>¿Cambió la dirección del servicio de IPTV?</summary>
       <p class="help">Es la dirección (URL) del servidor de tu proveedor. Una por línea: la primera es la principal y las demás, de respaldo. Los links de tus dispositivos <b>no cambian</b>: se actualizan solos la próxima vez que el reproductor pida la lista.</p>
@@ -2730,8 +2917,8 @@ async function renderLinks(result?: LinkResult) {
   // Vencimiento y conexiones en uso al momento: se piden al abrir (si hace más de un minuto) y se actualizan las tarjetas.
   if (Date.now() - liveAt > 60_000) {
     loadProfiles().then(() => {
-      const list = body.querySelector('.profile-list');
-      if (list && $('#linksBack').hidden) list.innerHTML = profiles.map(profileCard).join('');
+      // Se vuelve a dibujar todo (también los otros proveedores) solo si llegaron datos nuevos: sin relay no hay bucle.
+      if (Date.now() - liveAt <= 60_000 && $<HTMLDialogElement>('#linksDialog').open && $('#linksBack').hidden) renderLinks();
     });
   }
   body.onchange = async (ev) => {
@@ -2749,7 +2936,20 @@ async function renderLinks(result?: LinkResult) {
   body.onclick = async (ev) => {
     const use = (ev.target as HTMLElement).closest<HTMLElement>('[data-use]');
     if (use) {
+      if (use.dataset.cfg) return void useOtherProfile(use.dataset.cfg, use.dataset.use ?? '');
       await setActiveProfile(use.dataset.use ?? '');
+      return void renderLinks();
+    }
+    if ((ev.target as HTMLElement).closest('[data-add-provider]')) return void addProvider();
+    const ren = (ev.target as HTMLElement).closest<HTMLElement>('[data-rename-provider]');
+    if (ren) {
+      const h = loadHome();
+      const c = h.configs.find((x) => x.cfgId === ren.dataset.renameProvider);
+      if (!c) return;
+      const name = await promptDialog({ title: 'Nombre del proveedor', ok: 'Guardar', input: { label: 'Nombre', value: providerName(h, c.cfgId) } });
+      if (name === null) return;
+      c.name = name.trim().slice(0, 30) || undefined;
+      saveHome(h);
       return void renderLinks();
     }
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-dev]');
@@ -3285,15 +3485,24 @@ function showOnboarding(reload = false) {
     if (p.type === 'xtream') $<HTMLTextAreaElement>('#servers').value = p.servers.join('\n');
   }
   let cancel = $('#cancelReload');
-  if (reload && !cancel) {
+  if ((reload || addingFrom) && !cancel) {
     cancel = document.createElement('button');
     cancel.id = 'cancelReload';
     cancel.className = 'btn btn-gray btn-block';
     cancel.textContent = 'Cancelar';
-    cancel.onclick = () => showEditor();
     $('#onboarding .card').appendChild(cancel);
   }
-  if (cancel) cancel.hidden = !reload;
+  if (cancel) {
+    cancel.hidden = !reload && !addingFrom;
+    // Cancelar el alta de otro proveedor vuelve a la configuración que estaba abierta.
+    cancel.onclick = () => {
+      if (!addingFrom) return showEditor();
+      state.local = addingFrom;
+      addingFrom = null;
+      saveLocal(state.local);
+      void openSaved();
+    };
+  }
   restoreDraft();
 }
 
@@ -3339,6 +3548,8 @@ async function finishOnboarding(channels: Channel[], provider: Provider) {
     else {
       state.local = { ...(await api<{ cfgId: string; editKey: string }>('/api/cfg', { method: 'POST', body: state.cfg, auth: false })) };
       saveLocal(state.local);
+      addingFrom = null;
+      saveHome(loadHome()); // entra al hogar (con otro proveedor, se sube cifrado)
     }
     await storeList();
     writeDraft(null);
@@ -3441,6 +3652,10 @@ function setupOnboarding() {
     ev.preventDefault();
     $<HTMLInputElement>('#backupFile').click();
   };
+  $('#homeLink').onclick = (ev) => {
+    ev.preventDefault();
+    void useHomeCode();
+  };
 }
 
 // ------------------------------------------------------------------ editor
@@ -3480,6 +3695,7 @@ async function openSaved() {
     } catch { /* sin storage */ }
     cfg.groups = { ...cfg.groups, order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
     state.cfg = cfg;
+    saveHome(loadHome(), false);
     state.channels = await loadStoredList();
     if (!state.channels.length && cfg.provider.type === 'xtream' && cfg.provider.list === 'upload') {
       state.channels = await waitForList(say);
@@ -3518,7 +3734,8 @@ async function openSaved() {
 }
 
 function exportBackup() {
-  const data = { grilla: 1, worker: location.origin, cfgId: state.local!.cfgId, editKey: state.local!.editKey };
+  // `configs`: todos los proveedores del hogar (un respaldo viejo trae solo cfgId y editKey, y se sigue aceptando).
+  const data = { grilla: 1, worker: location.origin, cfgId: state.local!.cfgId, editKey: state.local!.editKey, configs: loadHome().configs };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   a.download = 'grilla-respaldo.json';
@@ -3534,6 +3751,11 @@ async function importBackup(file: File) {
     state.local = { cfgId: data.cfgId, editKey: data.editKey };
     await api(`/api/cfg/${data.cfgId}`);
     saveLocal(state.local);
+    const h = loadHome();
+    for (const c of (Array.isArray(data.configs) ? data.configs : []) as HomeConfig[]) {
+      if (typeof c?.cfgId === 'string' && typeof c?.editKey === 'string' && !h.configs.some((x) => x.cfgId === c.cfgId)) h.configs.push(c);
+    }
+    saveHome(h);
     ($('#settingsDialog') as HTMLDialogElement).close();
     await openSaved();
   } catch (e) {
@@ -4008,12 +4230,37 @@ function setupEditor() {
     try {
       localStorage.removeItem(LIST_KEY(state.local!.cfgId));
     } catch { /* sin storage */ }
+    const h = loadHome();
+    h.configs = h.configs.filter((c) => c.cfgId !== state.local!.cfgId);
+    saveHome(h);
     saveLocal((state.local = null));
-      state.creds = null;
+    state.creds = null;
     state.cfg = null;
     ($('#settingsDialog') as HTMLDialogElement).close();
+    // Con otros proveedores en el hogar, se abre el siguiente.
+    if (h.configs[0]) {
+      state.local = { cfgId: h.configs[0].cfgId, editKey: h.configs[0].editKey };
+      saveLocal(state.local);
+      return void openSaved();
+    }
     showOnboarding();
   };
+  // Hogar: el código para abrir todos los proveedores en otro dispositivo, y usar el de otro.
+  $('#homeCodeBtn').onclick = async () => {
+    const h = loadHome();
+    try {
+      if (!h.homeId) await pushHome(h);
+    } catch (e) {
+      return void toast((e as Error).message, 'bad', 6000);
+    }
+    const code = homeCode(loadHome());
+    if (await confirmDialog({ title: 'Código del hogar', icon: 'house', ok: 'Copiar',
+      text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Grilla → «Tengo un código de hogar»). Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
+      await copyText(code);
+      toast('Código del hogar copiado', 'ok');
+    }
+  };
+  $('#homeJoinBtn').onclick = () => void useHomeCode();
   const theme = (() => {
     try {
       return localStorage.getItem('grilla_theme') || 'dark';
