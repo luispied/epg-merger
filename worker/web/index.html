@@ -81,7 +81,7 @@
       <div class="status-bar" id="onboardStatus" hidden></div>
       <p class="help">Usuario y contraseña se guardan solo cifrados, junto a tus links de reproducción:
         no van en tu configuración ni en el respaldo.</p>
-      <p class="help"><a href="#" id="restoreLink">Ya tengo una configuración (importar respaldo)</a> · <a href="#" id="homeLink">Tengo un código de hogar</a></p>
+      <p class="help">¿Ya usás Grilla en otro dispositivo? <a href="#" id="homeLink">Pegá el código</a> o <a href="#" id="restoreLink">importá un respaldo</a>.</p>
     </div>
     <p class="help legal">Grilla no ofrece canales ni listas: organiza la lista que ya tenés. Las guías de programación vienen de fuentes públicas.</p>
     <p class="app-version" data-version></p>
@@ -271,17 +271,12 @@
         <span data-icon="chevron-right"></span>
       </button>
     </div>
-    <p class="help settings-moved">La suscripción, los canales caídos, la dirección del servicio, recargar la lista y el hogar están en <b>Perfil</b>, abajo.</p>
-    <h3 class="sec-title">Respaldo</h3>
+    <p class="help settings-moved">La suscripción, los canales caídos, la dirección del servicio y recargar la lista están en <b>Perfil</b>, abajo.</p>
+    <h3 class="sec-title">Otro dispositivo</h3>
     <div class="menu">
-      <button class="menu-row" id="exportBtn">
-        <span class="menu-icon"><span data-icon="download"></span></span>
-        <span class="menu-text">Exportar respaldo</span>
-        <span data-icon="chevron-right"></span>
-      </button>
-      <button class="menu-row" id="importBtn">
-        <span class="menu-icon"><span data-icon="upload"></span></span>
-        <span class="menu-text">Importar respaldo</span>
+      <button class="menu-row" id="otherDeviceBtn">
+        <span class="menu-icon"><span data-icon="arrow-right-left"></span></span>
+        <span class="menu-text">Usar en otro dispositivo<small>Con un código o un archivo de respaldo</small></span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
@@ -419,7 +414,7 @@
     </details>
     </div>
     <div class="help-topic" data-topic="settings" hidden>
-      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista, hogar) está en la pestaña <b>Perfil</b>.</p>
+      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista) está en la pestaña <b>Perfil</b>.</p>
       <details open>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
         <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una guía vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
@@ -429,8 +424,11 @@
         <p>La guía se vuelve a armar sola cada día y unos minutos después de tus cambios. Si ves el botón <b>Actualizar la guía ahora</b>, la pide en el momento.</p>
       </details>
       <details>
-        <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
-        <p><b>Exportar respaldo</b> baja un archivo pequeño con la llave para editar tus configuraciones, una por proveedor (no lleva tu usuario ni tu contraseña). Para seguir en otro dispositivo o navegador, abrí Grilla ahí y tocá <b>Importar respaldo</b>: se suman a las que ya haya. Guardalo en un lugar privado: quien lo tenga puede editar tu configuración. Para no andar con archivos, usá el código de <b>Hogar</b> en Perfil.</p>
+        <summary>Usar en otro dispositivo<span data-icon="chevron-down"></span></summary>
+        <p>En <b>Usar en otro dispositivo</b> (acá o en Perfil) hay dos formas de pasar tus proveedores, cuentas y perfiles a otro celular, TV o computadora. Ninguna lleva tu usuario ni tu contraseña, y lo que traen se suma a lo que ya haya.</p>
+        <p><b>Con un código</b> (lo recomendado): <b>Ver tu código</b> en este dispositivo y <b>Pegar un código</b> en el otro. El código se mantiene al día: si después sumás o quitás un proveedor en cualquiera de los dos, se actualiza solo.</p>
+        <p><b>Con un archivo</b>: <b>Descargar respaldo</b> guarda una copia de hoy, sin dejar nada en el servidor; sirve para tener una copia aparte, por ejemplo antes de quitar un proveedor. <b>Importar respaldo</b> la vuelve a cargar.</p>
+        <p>Guardá el código y el archivo en un lugar privado: con ellos se pueden editar tus configuraciones.</p>
       </details>
       <details>
         <summary>Tema, avisos, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
@@ -438,7 +436,7 @@
       </details>
       <details>
         <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
-        <p>Se guardan solo cifrados, junto a tus links de reproducción, y se usan para bajar tu lista y reproducir. No van en tu configuración, en el respaldo ni en el código de hogar.</p>
+        <p>Se guardan solo cifrados, junto a tus links de reproducción, y se usan para bajar tu lista y reproducir. No van en tu configuración, en el respaldo ni en el código para otro dispositivo.</p>
       </details>
       <details>
         <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
@@ -482,8 +480,8 @@
         <p>Al apagar una <b>sección</b> se apagan todas las categorías que tiene adentro (y al encenderla, se encienden); si solo algunas se ven, aparece «2 de 4 categorías se ven». «Mostrar todo» y «Ocultar todo» actúan sobre lo que ves en pantalla. Con el buscador también encontrás <b>canales sueltos</b> para apagarlos sin tocar su categoría.</p>
       </details>
       <details>
-        <summary>Proveedores y hogar<span data-icon="chevron-down"></span></summary>
-        <p>Perfil agrupa todo por proveedor, y cada proveedor tiene su propia grilla: usar una cuenta de otro proveedor abre la suya. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Agregar proveedor</b> suma otra lista de IPTV. <b>Hogar</b> te da un código para abrir todos tus proveedores, cuentas y perfiles en otro dispositivo.</p>
+        <summary>Proveedores y otros dispositivos<span data-icon="chevron-down"></span></summary>
+        <p>Perfil agrupa todo por proveedor, y cada proveedor tiene su propia grilla: usar una cuenta de otro proveedor abre la suya. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Agregar proveedor</b> suma otra lista de IPTV. <b>Usar en otro dispositivo</b> te da un código (o un archivo de respaldo) para abrir todos tus proveedores, cuentas y perfiles en otro celular, TV o computadora.</p>
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
