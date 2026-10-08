@@ -215,6 +215,21 @@ const saveLocal = (l: Local | null) => {
   } catch { /* sin storage */ }
 };
 
+/** Un GET que falla por la red o por un error pasajero del servidor (5xx) se reintenta dos veces (a los 0,6 y 1,8 s):
+ *  con datos móviles el primer pedido a veces se corta y la grilla quedaba sin cargar. Los cambios no se reintentan. */
+async function fetchRetry(path: string, init: RequestInit = {}): Promise<Response> {
+  const get = !init.method || init.method === 'GET';
+  for (let i = 0; ; i++) {
+    try {
+      const res = await fetch(path, init);
+      if (!get || res.status < 500 || i >= 2) return res;
+    } catch (e) {
+      if (!get || i >= 2) throw e;
+    }
+    await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
+  }
+}
+
 /** Cuántos cambios de links, perfiles o cuentas se mandaron al Worker: Perfil dibuja con lo que ya tiene solo si no hubo ninguno desde que lo bajó. */
 let apiWrites = 0;
 async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown; auth?: boolean; key?: string } = {}): Promise<T> {
@@ -224,7 +239,7 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
   if (opts.key) headers.Authorization = `Bearer ${opts.key}`;
   else if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
-  const res = await fetch(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+  const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
   return data as T;
@@ -554,7 +569,9 @@ const selection = { active: false, items: new Set<number>() };
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
-  const guide = await (await fetch('/api/guide/index.json')).json() as {
+  const res = await fetchRetry('/api/guide/index.json');
+  if (!res.ok) throw new Error(`la guía no respondió (HTTP ${res.status})`);
+  const guide = await res.json() as {
     matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[];
   };
   onStatus('Preparando la guía…');
@@ -4215,8 +4232,59 @@ async function openSaved() {
       saveLocal((state.local = null));
       state.creds = null;
       showOnboarding();
-    } else status(st, `No se pudo abrir: ${msg}`, 'bad');
+    } else {
+      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad');
+      st.insertAdjacentHTML('beforeend', `<button type="button" class="btn btn-tonal sm" id="retryOpen">${icon('refresh-cw')}Reintentar</button>`);
+      $('#retryOpen').onclick = () => void refreshGrid();
+    }
   }
+}
+
+/** Volver a cargar la grilla (tirando hacia abajo o con «Reintentar»): primero se guarda lo pendiente; después se
+ *  vuelven a bajar la configuración, la lista y la guía. */
+let refreshing = false;
+async function refreshGrid() {
+  if (refreshing || !state.local) return;
+  refreshing = true;
+  document.body.classList.add('refreshing');
+  try {
+    if (state.cfg && !$('#editor main').classList.contains('loading')) await saveNow(false);
+    await openSaved();
+  } finally {
+    refreshing = false;
+    document.body.classList.remove('refreshing');
+  }
+}
+
+/** Tirar hacia abajo estando arriba de todo recarga la grilla (como en las apps del celular). */
+function wirePullToRefresh() {
+  const ind = $('#ptr');
+  const MAX = 96, GO = 72;
+  let y0 = -1, dy = 0;
+  const reset = () => {
+    y0 = -1;
+    dy = 0;
+    ind.style.transform = '';
+    ind.classList.remove('ready', 'pulling');
+  };
+  window.addEventListener('touchstart', (ev) => {
+    const editorOpen = !$('#editor').hidden && !document.querySelector('dialog[open]') && !document.body.classList.contains('selecting');
+    y0 = editorOpen && window.scrollY <= 0 && !refreshing ? ev.touches[0].clientY : -1;
+  }, { passive: true });
+  window.addEventListener('touchmove', (ev) => {
+    if (y0 < 0) return;
+    dy = Math.min(MAX, Math.max(0, (ev.touches[0].clientY - y0) * 0.5));
+    if (window.scrollY > 0) return reset();
+    ind.classList.toggle('pulling', dy > 4);
+    ind.classList.toggle('ready', dy >= GO);
+    ind.style.transform = `translate(-50%, ${dy}px) rotate(${dy * 3}deg)`;
+  }, { passive: true });
+  window.addEventListener('touchend', () => {
+    const go = y0 >= 0 && dy >= GO;
+    reset();
+    if (go) void refreshGrid();
+  });
+  window.addEventListener('touchcancel', reset);
 }
 
 function exportBackup() {
@@ -4529,6 +4597,7 @@ function setupEditor() {
     renderCategories();
     openDock($('#categoriesDialog') as HTMLDialogElement);
   };
+  wirePullToRefresh();
   // Barra inferior: Canales (volver arriba), Revisar, Categorías y Perfil.
   $('#helpTopBtn').onclick = () => openHelp('main');
   $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
