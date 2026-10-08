@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.2
+
+- «Probar con canales de ejemplo» usa canales públicos y gratuitos de Uruguay en vez de Argentina.
+
 ## 1.25.1
 
 - La barra inferior queda a 1rem (16px) del borde inferior en todos los equipos.
