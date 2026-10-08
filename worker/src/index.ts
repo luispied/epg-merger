@@ -27,7 +27,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config } from './config.ts';
-import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -305,7 +305,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (!action && method === 'PUT') {
       const raw = await readJson(request) as Record<string, unknown>;
       // El perfil activo se cambia con PUT …/active; una web que no lo conoce no lo borra.
-      const config = parseConfig('activeAccount' in raw || !stored.config.activeAccount ? raw : { ...raw, activeAccount: stored.config.activeAccount });
+      // El perfil activo y el nombre del principal se cambian con sus propias rutas: si la web no los manda, se conservan.
+      const keep = Object.fromEntries((['activeAccount', 'mainName'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
+      const config = parseConfig({ ...raw, ...keep });
       await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
       // La guía de esta configuración se vuelve a armar con los cambios.
       ctx.waitUntil(dispatchRefresh(env, cache));
@@ -418,7 +420,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         const devices = (await listDevices(env.BUCKET, cfgId)).map((d) => ({
           ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
-        return json({ devices }, 200, { 'Cache-Control': 'no-store' });
+        return json({ devices, activeAccount: stored.config.activeAccount ?? '', mainName: stored.config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
       }
       if (code && SHORT_RE.test(code) && method === 'PATCH') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
@@ -473,6 +475,24 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       return json({ ok: true, activeAccount: account ?? '' });
     }
+    if (action === 'profiles' && method === 'PUT') {
+      // Cambiar el nombre de un perfil. `from` vacío = la cuenta principal (se guarda en la configuración); otro = el
+      // `account` de sus links, que se reescribe en cada registro sin tocar el código ni el token: los links no cambian.
+      const raw = await readJson(request, 4 * 1024) as Record<string, unknown>;
+      const from = cleanAccount(raw.from);
+      const to = cleanAccount(raw.to);
+      if (to && to !== from && (await tokenOfAccount(env.BUCKET, cfgId, to))) return fail(400, `ya hay un perfil «${to}»`);
+      if (!from) {
+        const { mainName: _m, ...rest } = stored.config;
+        await saveConfig(env.BUCKET, cfgId, { ...rest, ...(to ? { mainName: to } : {}) }, stored.keyHash);
+        return json({ ok: true, renamed: 0 });
+      }
+      if (!to) return fail(400, 'falta el nombre nuevo');
+      const renamed = await renameAccount(env.BUCKET, cfgId, from, to);
+      if (!renamed) return fail(404, `no hay un perfil «${from}»`);
+      if (stored.config.activeAccount === from) await saveConfig(env.BUCKET, cfgId, { ...stored.config, activeAccount: to }, stored.keyHash);
+      return json({ ok: true, renamed });
+    }
     if (action === 'servers' && method === 'PUT') {
       // Cambió la dirección del servicio de IPTV (o falló): los links no cambian; los streams y la lista pasan a usar la nueva.
       if (stored.config.provider.type !== 'xtream') return fail(400, 'esta configuración usa una lista M3U: la dirección se cambia en «¿Cambiaron tus datos del proveedor?»');
@@ -505,9 +525,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
       let token: string;
       let key: string | undefined;
-      if (account && !hasCreds) {
+      if (!hasCreds) {
+        // Sin datos: los de otro link del mismo perfil (también de la principal, si ya tiene alguno).
         const found = await tokenOfAccount(env.BUCKET, cfgId, account);
-        if (!found) return fail(400, `no hay una cuenta «${account}»: cargá su usuario y contraseña`);
+        if (!found) return fail(400, account ? `no hay una cuenta «${account}»: cargá su usuario y contraseña` : 'cargá el usuario y la contraseña de tu cuenta');
         ({ token, key } = found);
       } else {
         const creds = credentialsFrom(raw, stored.config);

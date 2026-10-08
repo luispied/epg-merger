@@ -43,3 +43,6 @@ Maqueta: https://claude.ai/artifact/SyGGdMx6tLMAWb7nVNZwtN
 3. ✅ Web, varios proveedores: la web guarda varias configuraciones (una por proveedor) en el hogar, Perfiles las agrupa por
    proveedor, cambiar a un perfil de otro proveedor cambia la grilla, mover un link entre proveedores y código de hogar
    para abrir todo en otro dispositivo (1.22.0).
+4. ✅ Pantalla Perfiles rediseñada (opción H de la maqueta, 1.23.0): lista por proveedor, página por perfil, por proveedor y
+   del hogar; renombrar perfiles (`PUT /api/cfg/<id>/profiles`, `mainName` para la principal) y borrarlos moviendo sus
+   links a otro perfil (nunca se borra un link). Lo de cada cuenta y proveedor salió de Configuración.

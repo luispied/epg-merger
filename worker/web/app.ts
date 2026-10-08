@@ -25,6 +25,7 @@ interface Config {
   /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
    *  Se cambia con PUT …/active (ver «perfiles»). */
   activeAccount?: string;
+  mainName?: string;
 }
 declare const __APP_VERSION__: string;
 declare const __APP_COMMIT__: string;
@@ -46,6 +47,7 @@ Object.assign(window.ICONS, {
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
   house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  server: '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
   'arrow-right-left': '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
   lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
@@ -339,6 +341,50 @@ async function useHomeCode() {
     toast(`No se pudo usar el código: ${(e as Error).message}`, 'bad', 6000);
   }
 }
+/** Quitar el proveedor abierto: borra su configuración (sus links dejan de andar) y abre el siguiente del hogar. */
+async function forgetConfig() {
+  if (!await confirmDialog({
+    title: `¿Quitar ${providerName(loadHome(), state.local!.cfgId)}?`, text: 'Tus links de reproducción dejan de funcionar. No se puede deshacer.',
+    ok: 'Quitar', danger: true,
+  })) return;
+  try {
+    await api(`/api/cfg/${state.local!.cfgId}`, { method: 'DELETE' });
+  } catch { /* ya no estaba */ }
+  try {
+    localStorage.removeItem(LIST_KEY(state.local!.cfgId));
+  } catch { /* sin storage */ }
+  const h = loadHome();
+  h.configs = h.configs.filter((c) => c.cfgId !== state.local!.cfgId);
+  saveHome(h);
+  saveLocal((state.local = null));
+  state.creds = null;
+  state.cfg = null;
+  for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
+  // Con otros proveedores en el hogar, se abre el siguiente.
+  if (h.configs[0]) {
+    state.local = { cfgId: h.configs[0].cfgId, editKey: h.configs[0].editKey };
+    saveLocal(state.local);
+    return void openSaved();
+  }
+  showOnboarding();
+}
+
+/** El código del hogar, para abrir todos los proveedores en otro dispositivo. */
+async function showHomeCode() {
+  const h = loadHome();
+  try {
+    if (!h.homeId) await pushHome(h);
+  } catch (e) {
+    return void toast((e as Error).message, 'bad', 6000);
+  }
+  const code = homeCode(loadHome());
+  if (await confirmDialog({ title: 'Código del hogar', icon: 'house', ok: 'Copiar',
+    text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Grilla → «Tengo un código de hogar»). Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
+    await copyText(code);
+    toast('Código del hogar copiado', 'ok');
+  }
+}
+
 /** Agregar otro proveedor: el alta de siempre, sin perder la configuración abierta (queda en el hogar). */
 let addingFrom: Local | null = null;
 async function addProvider() {
@@ -1142,7 +1188,9 @@ const VIEW_BTN: Record<ViewMode, [string, string]> = {
 };
 
 /** Comienzo de un evento (PPV) que figura en el nombre del canal, pasado a la hora de este dispositivo. */
-const eventOf = (ch: Channel) => parseEvent(ch.name, pref('grilla_event_tz', 'America/Mexico_City'), Date.now());
+/** Zona horaria de los eventos: la del proveedor abierto (antes era una sola para todos). */
+const eventTz = () => pref(`grilla_event_tz_${state.local?.cfgId ?? ''}`, pref('grilla_event_tz', 'America/Mexico_City'));
+const eventOf = (ch: Channel) => parseEvent(ch.name, eventTz(), Date.now());
 const EVENT_LIVE_MS = 3 * 3600000;
 function eventLabel(start: number): { text: string; cls: string } {
   const now = Date.now();
@@ -2366,7 +2414,7 @@ function renderChannelOrder(g: string) {
   $('#orderBody').innerHTML = `
     <p class="help">Arrastrá desde <span class="inline-icon">${icon('grip-vertical')}</span> para ordenar los canales de esta categoría en la playlist. Los canales nuevos del proveedor van al final.</p>
     <div class="menu" id="orderList">${names.map((n, k) => {
-      const shown = state.cfg!.channels[n]?.name || parseEvent(n, pref('grilla_event_tz', 'America/Mexico_City'), Date.now())?.clean || stripDisplayPrefix(n, state.rules!)[0];
+      const shown = state.cfg!.channels[n]?.name || parseEvent(n, eventTz(), Date.now())?.clean || stripDisplayPrefix(n, state.rules!)[0];
       return `<div class="menu-row static ord-row" data-k="${k}">
         <button type="button" class="drag-handle" aria-label="Mover ${esc(shown)}">${icon('grip-vertical')}</button>
         <span class="menu-text">${esc(shown)}</span></div>`;
@@ -2604,15 +2652,15 @@ interface Profile { account: string; name: string; key?: string; devices: Device
 let profileDevices: Device[] = [];
 let liveAccounts: Record<string, Account> = {};
 const activeAccount = () => state.cfg?.activeAccount ?? '';
-const profileName = (account: string) => account || 'Tu cuenta';
+const profileName = (account: string, main = state.cfg?.mainName) => account || main || 'Tu cuenta';
 const initialOf = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
 
 /** Los perfiles de la configuración, por sus dispositivos: la principal siempre, después las demás en orden de alta. */
-function profilesOf(devices: Device[]): Profile[] {
-  const out = new Map<string, Profile>([['', { account: '', name: profileName(''), devices: [] }]]);
+function profilesOf(devices: Device[], main?: string): Profile[] {
+  const out = new Map<string, Profile>([['', { account: '', name: profileName('', main), devices: [] }]]);
   for (const d of devices) {
     const acc = d.account ?? '';
-    if (!out.has(acc)) out.set(acc, { account: acc, name: profileName(acc), devices: [] });
+    if (!out.has(acc)) out.set(acc, { account: acc, name: profileName(acc, main), devices: [] });
     const p = out.get(acc)!;
     p.devices.push(d);
     p.key ??= d.accountKey;
@@ -2640,7 +2688,7 @@ function renderProfileNotice() {
   const p = profilesOf(profileDevices).find((x) => x.account === activeAccount());
   const acc = p && accountOfProfile(p);
   const days = daysLeft(acc);
-  const who = p?.account ? `La cuenta de ${p.account}` : 'Tu cuenta';
+  const who = p && (p.account || state.cfg?.mainName) ? `La cuenta de ${p.name}` : 'Tu cuenta';
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
   else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${acc.activeConnections} de ${acc.maxConnections} en uso)`;
@@ -2652,15 +2700,17 @@ function renderProfileNotice() {
 /** Dispositivos y datos de las cuentas: para la pestaña, el aviso y la pantalla de Perfiles. */
 let liveAt = 0;
 /** Los demás proveedores del hogar: sus perfiles (por sus dispositivos) y los datos de sus cuentas. */
-interface OtherProvider { cfgId: string; editKey: string; name: string; devices: Device[]; accounts: Record<string, Account> }
+interface OtherProvider { cfgId: string; editKey: string; name: string; devices: Device[]; accounts: Record<string, Account>; mainName?: string }
 let otherProviders: OtherProvider[] = [];
 async function loadOtherProviders(live: boolean) {
   const h = loadHome();
   otherProviders = await Promise.all(h.configs.filter((c) => c.cfgId !== state.local?.cfgId).map(async (c) => {
     const prev = otherProviders.find((o) => o.cfgId === c.cfgId);
-    const o: OtherProvider = { cfgId: c.cfgId, editKey: c.editKey, name: providerName(h, c.cfgId), devices: prev?.devices ?? [], accounts: prev?.accounts ?? {} };
+    const o: OtherProvider = { cfgId: c.cfgId, editKey: c.editKey, name: providerName(h, c.cfgId), devices: prev?.devices ?? [], accounts: prev?.accounts ?? {}, mainName: prev?.mainName };
     try {
-      o.devices = (await api<{ devices: Device[] }>(`/api/cfg/${c.cfgId}/devices`, { key: c.editKey })).devices;
+      const r = await api<{ devices: Device[]; mainName?: string }>(`/api/cfg/${c.cfgId}/devices`, { key: c.editKey });
+      o.devices = r.devices;
+      o.mainName = r.mainName || undefined;
       if (live) o.accounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${c.cfgId}/accounts`, { key: c.editKey })).accounts;
     } catch { /* sin conexión o configuración borrada: queda lo último */ }
     return o;
@@ -2728,7 +2778,7 @@ function openProfileSwitch() {
   list.innerHTML = (multi ? `<div class="provider-tag">${esc(providerName(h, state.local!.cfgId))}</div>` : '')
     + profilesOf(profileDevices).map((p) => opt(p, accountOfProfile(p), p.account === activeAccount())).join('')
     + otherProviders.map((o) => `<div class="provider-tag">${esc(o.name)}</div>`
-      + profilesOf(o.devices).map((p) => opt(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')).join('');
+      + profilesOf(o.devices, o.mainName).map((p) => opt(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')).join('');
   list.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-account]');
     if (!btn) return;
@@ -2737,34 +2787,6 @@ function openProfileSwitch() {
     else await setActiveProfile(btn.dataset.account ?? '');
   };
   ($('#profileSwitch') as HTMLDialogElement).showModal();
-}
-
-/** Tarjeta de un perfil en la pantalla de Perfiles: datos de la cuenta y sus dispositivos. */
-function profileCard(p: Profile, other?: OtherProvider): string {
-  const on = !other && p.account === activeAccount();
-  const acc = other ? (p.key ? other.accounts[p.key] : undefined) : accountOfProfile(p);
-  const days = daysLeft(acc);
-  const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
-  const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
-  const stats = [
-    stat(days === null ? '—' : days < 0 ? 'Vencida' : plural(days, 'día', 'días'), 'Suscripción', days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : 'ok'),
-    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${acc.activeConnections} de ${acc.maxConnections}`,
-      acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
-      acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''),
-    on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
-  ].join('');
-  return `<section class="profile-card${on ? ' on' : ''}" data-account="${esc(p.account)}">
-    <div class="pc-head">
-      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
-      <span class="pc-name"><strong>${esc(p.name)}</strong><small>${on ? 'Perfil activo' : 'Perfil'} · ${plural(p.devices.length, 'link', 'links')}</small></span>
-      ${on ? '<span class="pc-badge">Activo</span>' : `<button type="button" class="btn btn-tonal" data-use="${esc(p.account)}"${other ? ` data-cfg="${esc(other.cfgId)}"` : ''}>Usar</button>`}
-    </div>
-    <div class="pc-stats">${stats}</div>
-    ${!p.devices.length ? '<p class="help">Este perfil no tiene dispositivos.</p>'
-      : other ? `<div class="device-list">${p.devices.map((d) => `<div class="device${d.active ? '' : ' off'}"><div class="device-top"><div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado'}</small></div></div></div>`).join('')}</div>
-        <p class="help">Para editar sus dispositivos, usá este perfil.</p>`
-      : `<div class="device-list">${p.devices.map(deviceRow).join('')}</div>`}
-  </section>`;
 }
 
 const deviceRow = (d: Device) => `
@@ -2782,10 +2804,7 @@ const deviceRow = (d: Device) => `
 
 /** Pasar un dispositivo a otro perfil: el link sigue siendo el mismo, cambia la cuenta con la que reproduce. */
 function renderMoveDevice(dev: Device) {
-  const body = $('#linksBody');
-  $('#linksBack').hidden = false;
-  body.onclick = null;
-  body.onchange = null;
+  const body = subPage();
   const p = state.cfg!.provider;
   const others = profilesOf(profileDevices).filter((x) => x.account !== (dev.account ?? ''));
   // Perfiles de los demás proveedores: el link pasa a esa configuración (otra grilla) y sigue con la misma dirección.
@@ -2849,125 +2868,166 @@ function renderMoveDevice(dev: Device) {
   };
 }
 
-/** Pantalla de "Tus links": la lista de dispositivos (un link por cada uno) y el formulario para
- *  agregar otro. Con `result`, los links de un dispositivo. */
-async function renderLinks(result?: LinkResult) {
-  if (result) return renderLinkResult(result);
-  const p = state.cfg!.provider;
+// Perfiles (opción H): una lista corta (una fila por perfil, agrupadas por proveedor) y una página por perfil, por
+// proveedor y para el hogar. Lo de un dispositivo (links, filtro, mover) y los formularios son subpáginas: «‹» vuelve a
+// la página de donde salieron. Ningún paso cambia la dirección de un link.
+type LinksView = { v: 'list' } | { v: 'profile'; account: string; cfgId?: string } | { v: 'provider'; cfgId: string } | { v: 'hogar' };
+let linksView: LinksView = { v: 'list' };
+let linksSub = false;
+const isCurrent = (cfgId?: string) => !cfgId || cfgId === state.local?.cfgId;
+const otherOf = (cfgId?: string) => (isCurrent(cfgId) ? undefined : otherProviders.find((o) => o.cfgId === cfgId));
+function openLinksView(v: LinksView) {
+  linksView = v;
+  void renderLinks();
+}
+/** Subpágina de Perfiles: muestra «‹» y deja el cuerpo listo para dibujar. */
+function subPage(): HTMLElement {
   const body = $('#linksBody');
-  $('#linksBack').hidden = true;
+  linksSub = true;
+  $('#linksBack').hidden = false;
   body.onclick = null;
   body.onchange = null;
-  body.innerHTML = '<p class="help">Cargando…</p>';
-  await loadProfiles(false);
-  const devices = profileDevices;
-  const profiles = profilesOf(devices).sort((a, b) => Number(b.account === activeAccount()) - Number(a.account === activeAccount()));
-  const needsCreds = !state.creds;
-  // Cuentas adicionales del proveedor (por ejemplo, la de un familiar): se reconocen por los dispositivos que las usan.
-  const accounts = [...new Set(devices.map((d) => d.account).filter((a): a is string => !!a))];
-  const accOptions = (extra: string, selected = '') => `<option value="">${profileName('')}</option>${accounts.map((a) => `<option value="${esc(a)}"${a === selected ? ' selected' : ''}>${esc(a)}</option>`).join('')}${extra}`;
+  return body;
+}
+const menuRow = (attrs: string, ico: string, title: string, sub = '', cls = '', chevron = true) =>
+  `<button type="button" class="menu-row${cls ? ` ${cls}` : ''}" ${attrs}><span class="menu-icon">${icon(ico)}</span>
+    <span class="menu-text">${title}${sub ? `<small>${sub}</small>` : ''}</span>${chevron ? icon('chevron-right') : ''}</button>`;
+
+/** Una línea con lo importante de un perfil: días, conexiones en uso y links. */
+function profileLine(p: Profile, acc?: Account): { text: string; tone: string } {
+  const days = daysLeft(acc);
+  const parts: string[] = [];
+  if (days !== null) parts.push(days < 0 ? 'Vencida' : days === 0 ? 'Vence hoy' : days <= 7 ? `Vence en ${plural(days, 'día', 'días')}` : plural(days, 'día', 'días'));
+  if (acc?.maxConnections) parts.push(acc.activeConnections === undefined ? `hasta ${acc.maxConnections} a la vez` : `${acc.activeConnections} de ${acc.maxConnections} en uso`);
+  parts.push(p.devices.length ? plural(p.devices.length, 'link', 'links') : 'sin links');
+  return { text: parts.join(' · '), tone: days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : '' };
+}
+function profileStatsHtml(p: Profile, acc: Account | undefined, on: boolean): string {
+  const days = daysLeft(acc);
+  const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
+  const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
+  return [
+    stat(days === null ? '—' : days < 0 ? 'Vencida' : plural(days, 'día', 'días'), 'Suscripción', days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : 'ok'),
+    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${acc.activeConnections} de ${acc.maxConnections}`,
+      acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
+      acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''),
+    on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
+  ].join('');
+}
+
+/** La lista: una fila por perfil, agrupadas por proveedor (el de la grilla abierta primero). */
+function renderProfileList(body: HTMLElement) {
+  const h = loadHome();
+  const cur = state.local!.cfgId;
+  const xtream = state.cfg!.provider.type === 'xtream';
+  const row = (p: Profile, acc: Account | undefined, on: boolean, cfgId?: string) => {
+    const l = profileLine(p, acc);
+    return `<button type="button" class="menu-row profile-row" data-profile="${esc(p.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
+      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
+      <span class="menu-text"><span class="pr-title">${esc(p.name)}${on ? '<span class="pc-badge">En uso</span>' : ''}</span><small class="${l.tone}">${esc(l.text)}</small></span>${icon('chevron-right')}</button>`;
+  };
+  const head = (name: string, cfgId: string, inUse: boolean) => `<div class="provider-head"><span class="provider-tag">${esc(name)}${inUse ? ' · en uso' : ''}</span>
+    <button type="button" class="icon-btn" data-provider="${esc(cfgId)}" aria-label="Ajustes de ${esc(name)}" title="Ajustes del proveedor">${icon('settings')}</button></div>`;
+  const multi = otherProviders.length > 0;
   body.innerHTML = `
-    <p>Cada perfil es una cuenta de tu proveedor, con sus dispositivos. El <b>activo</b> es el que se usa para bajar la lista y probar los canales caídos.
-      Un link por dispositivo: podés desactivarlo, filtrar qué ve, pasarlo a otro perfil o quitarlo, sin afectar a los demás. Los links llevan tus datos del proveedor cifrados:
-      el servidor no los guarda en claro.</p>
-    ${otherProviders.length ? `<div class="provider-head"><span class="provider-tag">${esc(providerName(loadHome(), state.local!.cfgId))} · en uso</span>
-      <button type="button" class="icon-btn" data-rename-provider="${esc(state.local!.cfgId)}" aria-label="Cambiar nombre del proveedor">${icon('pencil')}</button></div>` : ''}
-    <div class="profile-list">${profiles.map((x) => profileCard(x)).join('')}</div>
-    ${otherProviders.map((o) => `<div class="provider-head"><span class="provider-tag">${esc(o.name)}</span>
-      <button type="button" class="icon-btn" data-rename-provider="${esc(o.cfgId)}" aria-label="Cambiar nombre de ${esc(o.name)}">${icon('pencil')}</button></div>
-      <div class="profile-list">${profilesOf(o.devices).map((x) => profileCard(x, o)).join('')}</div>`).join('')}
-    <button type="button" class="btn btn-tonal btn-block add-provider" data-add-provider>${icon('plus')}Agregar otro proveedor</button>
-    ${p.type === 'xtream' ? `<details class="creds-change" id="serversDetails">
-      <summary>¿Cambió la dirección del servicio de IPTV?</summary>
-      <p class="help">Es la dirección (URL) del servidor de tu proveedor. Una por línea: la primera es la principal y las demás, de respaldo. Los links de tus dispositivos <b>no cambian</b>: se actualizan solos la próxima vez que el reproductor pida la lista.</p>
-      <form class="stack" id="serversForm" autocomplete="off">
-        <label class="field"><span>Servidores</span><textarea class="input mono" id="chgServers" rows="3" spellcheck="false" autocapitalize="off" placeholder="http://servidor.ejemplo:8080" required>${esc(p.servers.join('\n'))}</textarea></label>
-        <div class="form-actions"><button type="submit" class="btn btn-tonal btn-block">Guardar servidores</button></div>
-      </form>
-    </details>` : ''}
-    ${devices.length ? `<details class="creds-change">
-      <summary>¿Cambiaron tus datos del proveedor?</summary>
-      <p class="help">Los links de todos tus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
-      <form class="stack" id="credsForm" autocomplete="off">
-        ${accounts.length ? `<label class="field"><span>Perfil</span><select class="select" id="chgAccount">${accOptions('', activeAccount())}</select></label>` : ''}
-        ${p.type === 'xtream' ? `
-          <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
-          <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
-          : '<label class="field"><span>URL de la lista</span><input class="input" id="chgUrl" type="url" required></label>'}
-        <div class="form-actions"><button type="submit" class="btn btn-tonal btn-block">Actualizar en todos los links</button></div>
-      </form>
-    </details>` : ''}
-    <h3 class="sub-title">Agregar dispositivo</h3>
-    <form class="stack" id="linksForm" autocomplete="off">
-      <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
-      ${p.type === 'xtream' ? `<label class="field"><span>Perfil</span><select class="select" id="lnkAccount">${accOptions('<option value="__new">Otro perfil nuevo (la cuenta de un familiar)…</option>', activeAccount())}</select></label>
-      <div class="stack" id="newAccount" hidden>
-        <label class="field"><span>Nombre del perfil</span><input class="input" id="lnkAccName" maxlength="30" placeholder="Mamá"></label>
-        <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="lnkAccUser" autocapitalize="off" spellcheck="false"></label>
-        <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="lnkAccPass" type="password"></label>
-      </div>` : ''}
-      <div class="stack" id="mainCreds">
-      ${needsCreds && p.type === 'xtream' ? `
-        <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
-        <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
-      ${needsCreds && p.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
-      </div>
-      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
-    </form>`;
-  // Vencimiento y conexiones en uso al momento: se piden al abrir (si hace más de un minuto) y se actualizan las tarjetas.
-  if (Date.now() - liveAt > 60_000) {
-    loadProfiles().then(() => {
-      // Se vuelve a dibujar todo (también los otros proveedores) solo si llegaron datos nuevos: sin relay no hay bucle.
-      if (Date.now() - liveAt <= 60_000 && $<HTMLDialogElement>('#linksDialog').open && $('#linksBack').hidden) renderLinks();
-    });
+    <p class="help">Cada perfil es una cuenta de tu proveedor, con sus dispositivos. El perfil <b>en uso</b> es el que baja la lista y prueba los canales caídos.</p>
+    ${head(providerName(h, cur), cur, multi)}
+    <div class="menu">${profilesOf(profileDevices).map((p) => row(p, accountOfProfile(p), p.account === activeAccount())).join('')}
+      ${xtream ? menuRow('data-add-profile', 'plus', 'Agregar perfil', 'La cuenta de un familiar u otra del mismo proveedor', 'add-row', false) : ''}</div>
+    ${otherProviders.map((o) => `${head(o.name, o.cfgId, false)}
+      <div class="menu">${profilesOf(o.devices, o.mainName).map((p) => row(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')}</div>`).join('')}
+    <div class="menu">
+      ${menuRow('data-add-provider', 'plus', 'Agregar proveedor', 'Otra lista de IPTV, con su propia grilla', 'add-row', false)}
+      ${menuRow('data-hogar', 'house', 'Hogar', 'Abrir todos tus proveedores en otro dispositivo')}
+    </div>`;
+  body.onclick = (ev) => {
+    const t = ev.target as HTMLElement;
+    const prov = t.closest<HTMLElement>('[data-provider]');
+    if (prov) return openLinksView({ v: 'provider', cfgId: prov.dataset.provider! });
+    const prof = t.closest<HTMLElement>('[data-profile]');
+    if (prof) return openLinksView({ v: 'profile', account: prof.dataset.profile ?? '', ...(prof.dataset.cfg ? { cfgId: prof.dataset.cfg } : {}) });
+    if (t.closest('[data-add-profile]')) return renderAddProfile();
+    if (t.closest('[data-add-provider]')) return void addProvider();
+    if (t.closest('[data-hogar]')) return openLinksView({ v: 'hogar' });
+  };
+}
+
+/** La página de un perfil: sus números, sus dispositivos y su cuenta. Uno de otro proveedor se ve sin editar: al usarlo
+ *  se abre su grilla. */
+function renderProfilePage(body: HTMLElement, account: string, cfgId?: string): boolean {
+  const other = otherOf(cfgId);
+  if (cfgId && !isCurrent(cfgId) && !other) return false;
+  const p = (other ? profilesOf(other.devices, other.mainName) : profilesOf(profileDevices)).find((x) => x.account === account);
+  if (!p) return false;
+  const on = !other && account === activeAccount();
+  const acc = other ? (p.key ? other.accounts[p.key] : undefined) : accountOfProfile(p);
+  const h = loadHome();
+  const xtream = state.cfg!.provider.type === 'xtream';
+  $('#linksTitle').textContent = p.name;
+  body.innerHTML = `
+    <div class="profile-hero">
+      <span class="avatar big${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
+      <strong>${esc(p.name)}</strong>
+      <small>${esc(other ? other.name : providerName(h, state.local!.cfgId))}${on ? ' · <span class="pc-badge">En uso</span>' : ''}</small>
+    </div>
+    <div class="pc-stats">${profileStatsHtml(p, acc, on)}</div>
+    ${on ? '' : `<button type="button" class="btn btn-primary btn-block" data-use>Usar este perfil</button>`}
+    ${other ? '<p class="help">Es de otro proveedor: al usarlo se abre su grilla. Para cambiar sus dispositivos o su cuenta, usalo primero.</p>' : ''}
+    ${on ? `<div class="menu"><div class="menu-row" id="downRow" role="button" tabindex="0" aria-label="Canales caídos: ver la lista">
+        <span class="menu-icon">${icon('triangle-alert')}</span><span class="menu-text">Canales caídos<small id="downSub">Calculando…</small></span>
+        <button type="button" class="btn btn-tonal sm" id="runCheckBtn">Probar ahora</button></div></div>` : ''}
+    <h3 class="sub-title">Dispositivos</h3>
+    ${p.devices.length ? `<section class="profile-card"><div class="device-list">${p.devices.map((d) => (other
+      ? `<div class="device${d.active ? '' : ' off'}"><div class="device-top"><div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado'}</small></div></div></div>`
+      : deviceRow(d))).join('')}</div></section>` : '<p class="help">Este perfil todavía no tiene dispositivos.</p>'}
+    ${other ? '' : `<button type="button" class="btn btn-tonal btn-block" data-add-device>${icon('plus')}Agregar dispositivo</button>
+    <h3 class="sub-title">Cuenta</h3>
+    <div class="menu">
+      ${menuRow('data-act="rename"', 'pencil', 'Cambiar nombre', 'Los links no cambian')}
+      ${menuRow('data-act="creds"', 'key-round', xtream ? 'Usuario y contraseña' : 'URL de la lista', 'Si cambiaron en tu proveedor: los links quedan iguales')}
+      ${p.account ? menuRow('data-act="delete"', 'trash-2', 'Borrar perfil', 'Sus dispositivos pasan a otro perfil, con los mismos links', 'danger') : ''}
+    </div>`}`;
+  if (on) {
+    wireDownRow();
+    renderDownRow();
+    void loadStreamHealth().then(renderDownRow);
   }
   body.onchange = async (ev) => {
     const sw = (ev.target as HTMLElement).closest<HTMLInputElement>('[data-dev-active]');
     if (!sw) return;
-    const dev = devices.find((d) => d.code === sw.closest<HTMLElement>('.device')!.dataset.code)!;
+    const dev = p.devices.find((d) => d.code === sw.closest<HTMLElement>('.device')!.dataset.code)!;
     try {
       await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { active: sw.checked } });
       toast(sw.checked ? `“${dev.name}” activado` : `“${dev.name}” desactivado: su playlist muestra un aviso hasta que lo actives`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
-    renderLinks();
+    void renderLinks();
   };
   body.onclick = async (ev) => {
-    const use = (ev.target as HTMLElement).closest<HTMLElement>('[data-use]');
-    if (use) {
-      if (use.dataset.cfg) return void useOtherProfile(use.dataset.cfg, use.dataset.use ?? '');
-      await setActiveProfile(use.dataset.use ?? '');
+    const t = ev.target as HTMLElement;
+    if (t.closest('[data-use]')) {
+      if (other) return void useOtherProfile(other.cfgId, p.account);
+      await setActiveProfile(p.account);
       return void renderLinks();
     }
-    if ((ev.target as HTMLElement).closest('[data-add-provider]')) return void addProvider();
-    const ren = (ev.target as HTMLElement).closest<HTMLElement>('[data-rename-provider]');
-    if (ren) {
-      const h = loadHome();
-      const c = h.configs.find((x) => x.cfgId === ren.dataset.renameProvider);
-      if (!c) return;
-      const name = await promptDialog({ title: 'Nombre del proveedor', ok: 'Guardar', input: { label: 'Nombre', value: providerName(h, c.cfgId) } });
-      if (name === null) return;
-      c.name = name.trim().slice(0, 30) || undefined;
-      saveHome(h);
-      return void renderLinks();
-    }
-    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-dev]');
-    if (!btn) return;
-    const row = btn.closest<HTMLElement>('.device')!;
-    const dev = devices.find((d) => d.code === row.dataset.code)!;
-    if (btn.dataset.dev === 'show') {
-      renderLinkResult(dev);
-    } else if (btn.dataset.dev === 'profile') {
-      renderDeviceProfile(dev);
-    } else if (btn.dataset.dev === 'move') {
-      renderMoveDevice(dev);
-    } else if (btn.dataset.dev === 'rename') {
+    if (t.closest('[data-add-device]')) return renderAddDevice(p);
+    const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'rename') return void renameProfile(p);
+    if (act === 'creds') return renderCreds(p);
+    if (act === 'delete') return renderDeleteProfile(p);
+    const btn = t.closest<HTMLElement>('[data-dev]');
+    if (!btn || other) return;
+    const dev = p.devices.find((d) => d.code === btn.closest<HTMLElement>('.device')!.dataset.code)!;
+    if (btn.dataset.dev === 'show') renderLinkResult(dev);
+    else if (btn.dataset.dev === 'profile') renderDeviceProfile(dev);
+    else if (btn.dataset.dev === 'move') renderMoveDevice(dev);
+    else if (btn.dataset.dev === 'rename') {
       const name = await promptDialog({ title: 'Nombre del dispositivo', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
       if (name === null || !name.trim()) return;
       try {
         await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { name } });
-        renderLinks();
+        void renderLinks();
       } catch (e) {
         toast((e as Error).message, 'bad', 6000);
       }
@@ -2978,91 +3038,308 @@ async function renderLinks(result?: LinkResult) {
       try {
         await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'DELETE' });
         toast(`“${dev.name}” quitado`, 'ok');
-        renderLinks();
+        void renderLinks();
       } catch (e) {
         toast((e as Error).message, 'bad', 6000);
       }
     }
   };
-  const serversForm = document.querySelector<HTMLFormElement>('#serversForm');
-  if (serversForm && p.type === 'xtream') serversForm.onsubmit = async (ev) => {
-    ev.preventDefault();
-    const servers = $<HTMLTextAreaElement>('#chgServers').value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
-    if (!servers.length) {
-      toast('Poné al menos una dirección', 'bad');
-      return;
+  return true;
+}
+
+/** Cambiar el nombre de un perfil. El de la cuenta principal se guarda en la configuración; vacío vuelve a «Tu cuenta». */
+async function renameProfile(p: Profile) {
+  const name = await promptDialog({ title: 'Nombre del perfil', ok: 'Guardar',
+    input: { label: 'Nombre', value: p.account || state.cfg?.mainName || '', placeholder: p.account ? 'Mamá' : 'Tu cuenta' } });
+  if (name === null) return;
+  const to = name.trim().replace(/\s+/g, ' ').slice(0, 30);
+  if (p.account && !to) return void toast('Poné un nombre para el perfil', 'bad');
+  if (to === (p.account || state.cfg?.mainName || '')) return;
+  try {
+    await api(`/api/cfg/${state.local!.cfgId}/profiles`, { method: 'PUT', body: { from: p.account, to } });
+    if (state.cfg) {
+      if (!p.account) {
+        if (to) state.cfg.mainName = to;
+        else delete state.cfg.mainName;
+      } else if (state.cfg.activeAccount === p.account) state.cfg.activeAccount = to;
     }
-    try {
-      const r = await api<{ servers: string[] }>(`/api/cfg/${state.local!.cfgId}/servers`, { method: 'PUT', body: { servers } });
-      p.servers = r.servers;
-      toast('Listo: el servicio quedó con la dirección nueva y los links siguen iguales', 'ok', 6000);
-      renderLinks();
-    } catch (e) {
-      toast((e as Error).message, 'bad', 6000);
-    }
-  };
-  const credsForm = document.querySelector<HTMLFormElement>('#credsForm');
-  if (credsForm) credsForm.onsubmit = async (ev) => {
-    ev.preventDefault();
-    const creds = p.type === 'xtream'
-      ? { username: $<HTMLInputElement>('#chgUser').value.trim(), password: $<HTMLInputElement>('#chgPass').value }
-      : { url: $<HTMLInputElement>('#chgUrl').value.trim() };
-    if (Object.values(creds).some((v) => !v)) {
-      toast('Completá los datos nuevos', 'bad');
-      return;
-    }
-    try {
-      const account = document.querySelector<HTMLSelectElement>('#chgAccount')?.value || '';
-      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: { ...creds, ...(account ? { account } : {}) } });
-      if (!account) state.creds = creds;
-      toast(`Listo: ${r.updated} ${r.updated === 1 ? 'link' : 'links'} con los datos nuevos, sin cambiar de dirección`, 'ok', 6000);
-      renderLinks();
-    } catch (e) {
-      toast((e as Error).message, 'bad', 6000);
-    }
-  };
-  const accSel = document.querySelector<HTMLSelectElement>('#lnkAccount');
-  const syncAccount = () => {
-    const v = accSel?.value ?? '';
-    $('#newAccount').hidden = v !== '__new';
-    $('#mainCreds').hidden = v !== '';
-    for (const el of document.querySelectorAll<HTMLInputElement>('#mainCreds input')) el.required = v === '' && needsCreds;
-  };
-  if (accSel) { accSel.onchange = syncAccount; syncAccount(); }
+    if (p.account) linksView = { v: 'profile', account: to };
+    toast(`Listo: el perfil se llama «${profileName(p.account ? to : '')}». Los links no cambiaron`, 'ok', 5000);
+    renderTabAvatar();
+    void renderLinks();
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
+}
+
+/** Agregar un dispositivo a un perfil: un link nuevo con la cuenta de ese perfil. */
+function renderAddDevice(p: Profile) {
+  const body = subPage();
+  const prov = state.cfg!.provider;
+  // La principal sin links ni datos en este navegador necesita sus datos; las demás usan los de sus otros links.
+  const needsCreds = !p.account && !p.devices.length && !state.creds;
+  body.innerHTML = `
+    <h3 class="sub-title">Agregar dispositivo a ${esc(p.name)}</h3>
+    <form class="stack" id="linksForm" autocomplete="off">
+      <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
+      ${needsCreds && prov.type === 'xtream' ? `
+        <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
+        <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
+      ${needsCreds && prov.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
+    </form>`;
   $('#linksForm').onsubmit = async (ev) => {
     ev.preventDefault();
-    const choice = accSel?.value ?? '';
-    let creds: Record<string, string> | null = state.creds;
-    let account = '';
-    if (choice === '__new') {
-      account = $<HTMLInputElement>('#lnkAccName').value.trim();
-      creds = { username: $<HTMLInputElement>('#lnkAccUser').value.trim(), password: $<HTMLInputElement>('#lnkAccPass').value };
-      if (!account || Object.values(creds).some((v) => !v)) {
-        toast('Completá el nombre, el usuario y la contraseña de la otra cuenta', 'bad');
-        return;
-      }
-    } else if (choice) {
-      account = choice;
-      creds = {}; // se reutilizan los datos de esa cuenta (cifrados en sus otros dispositivos)
-    } else if (!creds) {
-      creds = p.type === 'xtream'
+    let creds: Record<string, string> = {};
+    if (needsCreds) {
+      creds = prov.type === 'xtream'
         ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
         : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
-      if (Object.values(creds).some((v) => !v)) {
-        toast('Completá los datos del proveedor', 'bad');
-        return;
-      }
-    }
+      if (Object.values(creds).some((v) => !v)) return void toast('Completá los datos del proveedor', 'bad');
+    } else if (!p.account && state.creds) creds = state.creds as Record<string, string>;
     try {
       await saveNow();
       const name = $<HTMLInputElement>('#lnkName').value.trim();
-      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, ...(account ? { account } : {}), name } });
-      if (!choice) state.creds = creds as typeof state.creds;
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, ...(p.account ? { account: p.account } : {}), name } });
+      if (needsCreds) state.creds = creds as typeof state.creds;
       renderLinkResult({ ...r, name });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
   };
+}
+
+/** Un perfil nuevo: la cuenta de un familiar (u otra del mismo proveedor), con su primer dispositivo. */
+function renderAddProfile() {
+  const body = subPage();
+  body.innerHTML = `
+    <h3 class="sub-title">Perfil nuevo</h3>
+    <p class="help">Otra cuenta del mismo proveedor, por ejemplo la de un familiar. Tiene su vencimiento, sus conexiones y sus links.</p>
+    <form class="stack" id="profileForm" autocomplete="off">
+      <label class="field"><span>Nombre del perfil</span><input class="input" id="npName" maxlength="30" placeholder="Mamá" required></label>
+      <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="npUser" autocapitalize="off" spellcheck="false" required></label>
+      <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="npPass" type="password" required></label>
+      <label class="field"><span>Su primer dispositivo</span><input class="input" id="npDevice" maxlength="40" placeholder="TV de Mamá" required></label>
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('plus')}Crear perfil</button></div>
+    </form>`;
+  $('#profileForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const account = $<HTMLInputElement>('#npName').value.trim().replace(/\s+/g, ' ');
+    if (profilesOf(profileDevices).some((x) => x.account === account || x.name === account)) return void toast(`Ya hay un perfil «${account}»`, 'bad');
+    try {
+      await saveNow();
+      const name = $<HTMLInputElement>('#npDevice').value.trim();
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST',
+        body: { username: $<HTMLInputElement>('#npUser').value.trim(), password: $<HTMLInputElement>('#npPass').value, account, name } });
+      linksView = { v: 'profile', account };
+      $('#linksTitle').textContent = account;
+      toast(`Perfil «${account}» creado`, 'ok');
+      renderLinkResult({ ...r, name });
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
+/** Cambiaron el usuario y la contraseña (o la URL) de un perfil: sus links quedan iguales y usan los datos nuevos. */
+function renderCreds(p: Profile) {
+  const body = subPage();
+  const prov = state.cfg!.provider;
+  body.innerHTML = `
+    <h3 class="sub-title">${prov.type === 'xtream' ? 'Usuario y contraseña' : 'URL de la lista'} de ${esc(p.name)}</h3>
+    <p class="help">Si cambiaron en tu proveedor. Los links de sus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
+    <form class="stack" id="credsForm" autocomplete="off">
+      ${prov.type === 'xtream' ? `
+        <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
+        <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
+        : '<label class="field"><span>URL de la lista</span><input class="input" id="chgUrl" type="url" required></label>'}
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">Actualizar sus links</button></div>
+    </form>`;
+  $('#credsForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const creds = prov.type === 'xtream'
+      ? { username: $<HTMLInputElement>('#chgUser').value.trim(), password: $<HTMLInputElement>('#chgPass').value }
+      : { url: $<HTMLInputElement>('#chgUrl').value.trim() };
+    if (Object.values(creds).some((v) => !v)) return void toast('Completá los datos nuevos', 'bad');
+    try {
+      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: { ...creds, ...(p.account ? { account: p.account } : {}) } });
+      if (!p.account) state.creds = creds;
+      toast(`Listo: ${r.updated} ${r.updated === 1 ? 'link' : 'links'} con los datos nuevos, sin cambiar de dirección`, 'ok', 6000);
+      void renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
+/** Borrar un perfil: sus dispositivos pasan a otro perfil (con la misma dirección) y el perfil desaparece. Nunca se borra un link. */
+function renderDeleteProfile(p: Profile) {
+  const body = subPage();
+  // Solo perfiles con links: de ellos sale la cuenta para los dispositivos que llegan.
+  const targets = profilesOf(profileDevices).filter((x) => x.account !== p.account && x.devices.length);
+  body.innerHTML = `
+    <h3 class="sub-title">Borrar «${esc(p.name)}»</h3>
+    ${!p.devices.length ? '<p class="help">No tiene dispositivos: desaparece solo.</p>'
+      : !targets.length ? '<p class="help">Para borrarlo, sus dispositivos tienen que pasar a otro perfil con links. Agregá primero un dispositivo a otro perfil, o movelos uno por uno con ⇄.</p>'
+      : `<p class="help">${p.devices.length === 1 ? 'Su dispositivo pasa' : `Sus ${p.devices.length} dispositivos pasan`} al perfil que elijas. Los links <b>no cambian</b>: el reproductor no hay que tocarlo.</p>
+    <form class="stack" id="deleteForm">
+      <div class="profile-pick">${targets.map((x, i) => `<label class="profile-opt"><input type="radio" name="delTo" value="${esc(x.account)}"${i === 0 ? ' checked' : ''}>
+        <span class="avatar" aria-hidden="true">${esc(initialOf(x.name))}</span>
+        <span class="po-text"><strong>${esc(x.name)}</strong><small>${plural(x.devices.length, 'link', 'links')}</small></span></label>`).join('')}</div>
+      <div class="form-actions"><button type="submit" class="btn btn-danger btn-block">${icon('trash-2')}Borrar perfil</button></div>
+    </form>`}`;
+  const form = document.querySelector<HTMLFormElement>('#deleteForm');
+  if (!form) return;
+  form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const to = body.querySelector<HTMLInputElement>('input[name=delTo]:checked')?.value ?? '';
+    const target = targets.find((x) => x.account === to)!;
+    try {
+      for (const d of p.devices) {
+        await api(`/api/cfg/${state.local!.cfgId}/devices/${d.code}/move`, { method: 'POST', body: to ? { account: to } : {} });
+      }
+      if (activeAccount() === p.account) await setActiveProfile(to);
+      toast(`«${p.name}» borrado: sus dispositivos pasaron a ${target.name} con los mismos links`, 'ok', 6000);
+      linksView = { v: 'list' };
+      void renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+      void renderLinks();
+    }
+  };
+}
+
+const EVENT_TZS: [string, string][] = [
+  ['America/Mexico_City', 'México'], ['America/Bogota', 'Colombia / Perú'], ['America/Argentina/Buenos_Aires', 'Argentina / Uruguay'],
+  ['America/Santiago', 'Chile'], ['America/New_York', 'EE. UU. Este'], ['America/Chicago', 'EE. UU. Centro'],
+  ['America/Los_Angeles', 'EE. UU. Oeste'], ['Europe/Madrid', 'España'], ['UTC', 'UTC'],
+];
+
+/** La página de un proveedor: su nombre, la dirección del servicio, recargar la lista, la hora de eventos y quitarlo.
+ *  Uno de otro proveedor solo se renombra o se abre. */
+function renderProviderPage(body: HTMLElement, cfgId: string): boolean {
+  const h = loadHome();
+  const other = otherOf(cfgId);
+  if (!isCurrent(cfgId) && !other) return false;
+  const name = other ? other.name : providerName(h, state.local!.cfgId);
+  const prov = state.cfg!.provider;
+  $('#linksTitle').textContent = name;
+  body.innerHTML = other ? `
+    <div class="menu">
+      ${menuRow('data-act="name"', 'pencil', 'Nombre', esc(name))}
+      ${menuRow('data-act="open"', 'tv', 'Abrir su grilla', 'Para cambiar sus ajustes, abrilo primero')}
+    </div>` : `
+    <div class="menu">
+      ${menuRow('data-act="name"', 'pencil', 'Nombre', esc(name))}
+      ${prov.type === 'xtream' ? menuRow('data-act="servers"', 'server', 'Dirección del servicio', esc(plural(prov.servers.length, 'servidor', 'servidores'))) : ''}
+      ${menuRow('data-act="reload"', 'refresh-cw', 'Recargar la lista', 'Trae los canales nuevos del proveedor')}
+      <label class="menu-row static"><span class="menu-icon">${icon('clock')}</span>
+        <span class="menu-text">Hora de eventos<small>Zona del proveedor</small></span>
+        <select class="select compact" id="eventTzSelect">${EVENT_TZS.map(([v, l]) => `<option value="${v}"${v === eventTz() ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    </div>
+    <div class="menu danger-zone">${menuRow('data-act="forget"', 'trash-2', 'Quitar proveedor', 'Sus links dejan de funcionar. No se puede deshacer', 'danger', false)}</div>`;
+  body.onchange = (ev) => {
+    const sel = (ev.target as HTMLElement).closest<HTMLSelectElement>('#eventTzSelect');
+    if (!sel) return;
+    setPref(`grilla_event_tz_${state.local!.cfgId}`, sel.value);
+    render();
+  };
+  body.onclick = async (ev) => {
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'name') {
+      const hh = loadHome();
+      const c = hh.configs.find((x) => x.cfgId === cfgId);
+      if (!c) return;
+      const n = await promptDialog({ title: 'Nombre del proveedor', ok: 'Guardar', input: { label: 'Nombre', value: providerName(hh, cfgId) } });
+      if (n === null) return;
+      c.name = n.trim().slice(0, 30) || undefined;
+      saveHome(hh);
+      if (other) other.name = providerName(hh, cfgId);
+      void renderLinks();
+    } else if (act === 'open') {
+      await switchProvider(cfgId);
+    } else if (act === 'servers') {
+      renderServers();
+    } else if (act === 'reload') {
+      ($('#linksDialog') as HTMLDialogElement).close();
+      showOnboarding(true);
+    } else if (act === 'forget') {
+      await forgetConfig();
+    }
+  };
+  return true;
+}
+
+/** Cambió la dirección del servicio de IPTV: los links no cambian. */
+function renderServers() {
+  const body = subPage();
+  const prov = state.cfg!.provider;
+  if (prov.type !== 'xtream') return;
+  body.innerHTML = `
+    <h3 class="sub-title">Dirección del servicio</h3>
+    <p class="help">Es la dirección (URL) del servidor de tu proveedor. Una por línea: la primera es la principal y las demás, de respaldo. Los links de tus dispositivos <b>no cambian</b>: se actualizan solos la próxima vez que el reproductor pida la lista.</p>
+    <form class="stack" id="serversForm" autocomplete="off">
+      <label class="field"><span>Servidores</span><textarea class="input mono" id="chgServers" rows="3" spellcheck="false" autocapitalize="off" placeholder="http://servidor.ejemplo:8080" required>${esc(prov.servers.join('\n'))}</textarea></label>
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">Guardar servidores</button></div>
+    </form>`;
+  $('#serversForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const servers = $<HTMLTextAreaElement>('#chgServers').value.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+    if (!servers.length) return void toast('Poné al menos una dirección', 'bad');
+    try {
+      const r = await api<{ servers: string[] }>(`/api/cfg/${state.local!.cfgId}/servers`, { method: 'PUT', body: { servers } });
+      prov.servers = r.servers;
+      toast('Listo: el servicio quedó con la dirección nueva y los links siguen iguales', 'ok', 6000);
+      void renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
+/** El hogar: el código para abrir todos los proveedores en otro dispositivo, y usar el de otro. */
+function renderHogarPage(body: HTMLElement) {
+  $('#linksTitle').textContent = 'Hogar';
+  body.innerHTML = `
+    <p class="help">El hogar junta todos tus proveedores y perfiles. Con su código abrís todo en otro celular o computadora, sin importar respaldos.</p>
+    <div class="menu">
+      ${menuRow('data-act="code"', 'key-round', 'Abrir en otro dispositivo', 'Muestra el código del hogar')}
+      ${menuRow('data-act="join"', 'plus', 'Usar un código de hogar', 'Suma los proveedores de otro dispositivo')}
+    </div>`;
+  body.onclick = (ev) => {
+    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'code') void showHomeCode();
+    else if (act === 'join') void useHomeCode();
+  };
+}
+
+/** Perfiles: dibuja la página en la que se está (la lista, si esa página ya no existe). Con `result`, los links de un dispositivo. */
+async function renderLinks(result?: LinkResult) {
+  if (result) return renderLinkResult(result);
+  const body = $('#linksBody');
+  linksSub = false;
+  body.onclick = null;
+  body.onchange = null;
+  if (!body.firstElementChild) body.innerHTML = '<p class="help">Cargando…</p>';
+  await loadProfiles(false);
+  const v = linksView;
+  const ok = v.v === 'profile' ? renderProfilePage(body, v.account, v.cfgId)
+    : v.v === 'provider' ? renderProviderPage(body, v.cfgId)
+    : v.v === 'hogar' ? (renderHogarPage(body), true)
+    : false;
+  if (!ok) {
+    linksView = { v: 'list' };
+    $('#linksTitle').textContent = 'Perfiles';
+    renderProfileList(body);
+  }
+  $('#linksBack').hidden = linksView.v === 'list';
+  // Vencimiento y conexiones en uso al momento: se piden al abrir (si hace más de un minuto) y se vuelve a dibujar.
+  if (Date.now() - liveAt > 60_000) {
+    loadProfiles().then(() => {
+      // Solo si llegaron datos nuevos (sin relay no hay bucle) y se sigue en la misma página.
+      if (Date.now() - liveAt <= 60_000 && $<HTMLDialogElement>('#linksDialog').open && !linksSub) void renderLinks();
+    });
+  }
 }
 
 const filterSummary = (f?: DeviceFilter) => {
@@ -3075,10 +3352,7 @@ const filterSummary = (f?: DeviceFilter) => {
 /** Filtro de un dispositivo: qué categorías y canales se ven en su playlist (un interruptor por fila:
  *  encendido = se ve). La dirección no cambia. Mismo patrón que Categorías. */
 function renderDeviceProfile(dev: Device) {
-  const body = $('#linksBody');
-  $('#linksBack').hidden = false;
-  body.onclick = null;
-  body.onchange = null;
+  const body = subPage();
   const hiddenG = new Set(state.cfg!.groups.hidden ?? []);
   const headers = sectionHeaders();
   const cats = groups().filter((g) => !hiddenG.has(g));
@@ -3191,8 +3465,7 @@ function renderDeviceProfile(dev: Device) {
 }
 
 function renderLinkResult(result: LinkResult) {
-  const body = $('#linksBody');
-  $('#linksBack').hidden = false;
+  const body = subPage();
   body.innerHTML = `
     ${result.name ? `<h3 class="sub-title">${esc(result.name)}</h3>` : ''}
     <div class="lc-actions">
@@ -3764,45 +4037,6 @@ async function importBackup(file: File) {
   }
 }
 
-/** Datos de una cuenta del proveedor (vencimiento, conexiones) en una frase y si hay que avisar. */
-function accountSummary(acc: Account): { text: string; warn: boolean } {
-  const parts: string[] = [];
-  let warn = false;
-  if (acc.expires) {
-    const days = Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000);
-    const date = new Date(acc.expires).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
-    warn = days <= 7;
-    parts.push(days < 0 ? `Venció el ${date}` : days === 0 ? `Vence hoy (${date})` : `Vence el ${date} · ${days === 1 ? 'falta 1 día' : `faltan ${days} días`}`);
-  } else parts.push('Sin fecha de vencimiento');
-  if (acc.trial) parts.push('de prueba');
-  if (acc.status && acc.status.toLowerCase() !== 'active') parts.push(`estado: ${acc.status}`);
-  if (acc.maxConnections) parts.push(`${plural(acc.maxConnections, 'conexión', 'conexiones')} a la vez`);
-  return { text: parts.join(' · '), warn };
-}
-
-/** Una fila por cuenta del proveedor que usan tus dispositivos (la tuya y las de familiares); la de cada una
- *  se reconoce por su huella (la anota la prueba diaria). Sin huellas todavía, la fila de siempre con los datos de la principal. */
-function renderAccountRow(devices: Device[] = []) {
-  const box = $('#accountRows');
-  const byKey = streamHealth?.accounts ?? {};
-  const rows: { title: string; acc: Account }[] = [];
-  const seen = new Set<string>();
-  for (const d of [...devices].sort((a, b) => Number(!!a.account) - Number(!!b.account))) {
-    if (!d.accountKey || seen.has(d.accountKey) || !byKey[d.accountKey]) continue;
-    seen.add(d.accountKey);
-    rows.push({ title: d.account ? `Suscripción de ${d.account}` : 'Tu suscripción', acc: byKey[d.accountKey] });
-  }
-  if (!rows.length && streamHealth?.account) rows.push({ title: 'Tu suscripción', acc: streamHealth.account });
-  box.hidden = !rows.length;
-  box.innerHTML = rows.map((r) => {
-    const s = accountSummary(r.acc);
-    return `<div class="menu-row static acc-row${s.warn ? ' warn' : ''}">
-      <span class="menu-icon">${icon('clock')}</span>
-      <span class="menu-text">${esc(r.title)}<small>${esc(s.text)}</small></span>
-    </div>`;
-  }).join('');
-}
-
 /** La prueba de canales corre una vez por día: la fila «Probar ahora» dice cuándo se puede volver a lanzar. */
 const CHECK_EVERY_H = 20;
 function checkWaitHours(): number {
@@ -3811,7 +4045,8 @@ function checkWaitHours(): number {
 }
 /** Una sola fila «Canales caídos»: el resultado de las pruebas hechas y, al costado, el botón para probar ahora. */
 function renderDownRow() {
-  const sub = $('#downSub');
+  const sub = document.querySelector<HTMLElement>('#downSub');
+  if (!sub) return; // la fila está en la página del perfil en uso
   const wait = checkWaitHours();
   const requested = Date.parse(streamHealth?.requested ?? '') || 0;
   const checked = Date.parse(streamHealth?.checked ?? '') || 0;
@@ -3833,15 +4068,45 @@ function renderDownRow() {
   btn.textContent = running ? 'Probando…' : 'Probar ahora';
 }
 
-function refreshDownRow() {
-  $('#downSub').textContent = 'Calculando…';
-  const devices = state.local
-    ? api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`).then((r) => r.devices).catch(() => [] as Device[])
-    : Promise.resolve([] as Device[]);
-  Promise.all([loadStreamHealth(), devices]).then(([, devs]) => {
-    renderAccountRow(devs);
-    renderDownRow();
-  });
+/** La fila «Canales caídos» de la página del perfil en uso: tocarla filtra la grilla; «Probar ahora» lanza la prueba. */
+function wireDownRow() {
+  $('#runCheckBtn').onclick = async (ev) => {
+    ev.stopPropagation(); // el resto de la fila abre el filtro «Caídos»
+    const wait = checkWaitHours();
+    if (wait > 0) {
+      toast(`La prueba de canales corre una vez por día: se puede volver a lanzar en ${Math.ceil(wait)} h`, 'info', 5000);
+      return;
+    }
+    try {
+      const r = await api<{ started: boolean; reason?: string; requested?: string; nextAt?: string }>(`/api/cfg/${state.local!.cfgId}/health/run`, { method: 'POST', body: {} });
+      if (r.started) {
+        streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
+        renderDownRow();
+        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir tu perfil)', 'ok', 6000);
+      } else if (r.reason === 'recent') {
+        toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
+        await loadStreamHealth();
+        renderDownRow();
+      } else {
+        toast('La prueba de canales necesita el relay: falta cargar RELAY_URL y RELAY_SECRET en el Worker', 'bad', 7000);
+      }
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+  $('#downRow').onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target === ev.currentTarget) ($('#downRow') as HTMLElement).click(); };
+  $('#downRow').onclick = () => {
+    const n = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+    if (!n) {
+      toast(streamHealth?.checked ? 'No hay canales caídos entre los que ya se probaron' : 'Todavía no se probó ningún canal: corre una vez por día', 'info');
+      return;
+    }
+    ($('#linksDialog') as HTMLDialogElement).close();
+    state.filter = 'caidos';
+    state.shown = PAGE;
+    render();
+    window.scrollTo(0, 0);
+  };
 }
 
 function refreshHealthRow() {
@@ -4059,8 +4324,9 @@ function setupEditor() {
     else toast('¡No queda nada por revisar!', 'ok');
   };
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
-  const openProfiles = () => {
-    renderLinks();
+  const openProfiles = (v: LinksView = { v: 'list' }) => {
+    linksView = v;
+    void renderLinks();
     ($('#linksDialog') as HTMLDialogElement).showModal();
   };
   let pressTimer = 0;
@@ -4081,8 +4347,11 @@ function setupEditor() {
     if (pressed) { pressed = false; return; }
     openProfiles();
   };
-  $('#profileNotice').onclick = openProfiles;
-  $('#linksBack').onclick = () => renderLinks();
+  $('#profileNotice').onclick = () => openProfiles({ v: 'profile', account: activeAccount() });
+  $('#linksBack').onclick = () => {
+    if (!linksSub) linksView = { v: 'list' };
+    void renderLinks();
+  };
   $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');
   wireNested('#helpDialog', '#helpBack', '#helpClose');
   // Ordenar los canales se abre desde la hoja de la categoría: «‹» vuelve a esa hoja y «×» cierra.
@@ -4128,46 +4397,8 @@ function setupEditor() {
     render();
     window.scrollTo(0, 0);
   };
-  $('#runCheckBtn').onclick = async (ev) => {
-    ev.stopPropagation(); // el resto de la fila abre el filtro «Caídos»
-    const wait = checkWaitHours();
-    if (wait > 0) {
-      toast(`La prueba de canales corre una vez por día: se puede volver a lanzar en ${Math.ceil(wait)} h`, 'info', 5000);
-      return;
-    }
-    try {
-      const r = await api<{ started: boolean; reason?: string; requested?: string; nextAt?: string }>(`/api/cfg/${state.local!.cfgId}/health/run`, { method: 'POST', body: {} });
-      if (r.started) {
-        streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
-        renderDownRow();
-        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir Configuración)', 'ok', 6000);
-      } else if (r.reason === 'recent') {
-        toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
-        await loadStreamHealth();
-        renderDownRow();
-      } else {
-        toast('La prueba de canales necesita el relay: falta cargar RELAY_URL y RELAY_SECRET en el Worker', 'bad', 7000);
-      }
-    } catch (e) {
-      toast((e as Error).message, 'bad', 6000);
-    }
-  };
-  $('#downRow').onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target === ev.currentTarget) ($('#downRow') as HTMLElement).click(); };
-  $('#downRow').onclick = () => {
-    const n = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
-    if (!n) {
-      toast(streamHealth?.checked ? 'No hay canales caídos entre los que ya se probaron' : 'Todavía no se probó ningún canal: corre una vez por día', 'info');
-      return;
-    }
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    state.filter = 'caidos';
-    state.shown = PAGE;
-    render();
-    window.scrollTo(0, 0);
-  };
   $('#settingsBtn').onclick = () => {
     refreshHealthRow();
-    refreshDownRow();
     $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
     const apply = $('#applyGuideBtn');
     apply.hidden = true;
@@ -4181,7 +4412,6 @@ function setupEditor() {
     $<HTMLInputElement>('#logosToggle').checked = logosOn();
     $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
     void refreshPushRow();
-    $<HTMLSelectElement>('#eventTzSelect').value = pref('grilla_event_tz', 'America/Mexico_City');
     openDock($('#settingsDialog') as HTMLDialogElement);
   };
   $('#applyGuideBtn').onclick = async () => {
@@ -4196,10 +4426,6 @@ function setupEditor() {
       toast((e as Error).message, 'bad');
     }
   };
-  $('#reloadListBtn').onclick = () => {
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    showOnboarding(true);
-  };
   document.body.classList.toggle('no-logos', !logosOn());
   $<HTMLInputElement>('#logosToggle').onchange = (ev) => {
     const on = (ev.target as HTMLInputElement).checked;
@@ -4209,58 +4435,12 @@ function setupEditor() {
   };
   $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
   $<HTMLInputElement>('#pushToggle').onchange = (ev) => setPush((ev.target as HTMLInputElement).checked);
-  $<HTMLSelectElement>('#eventTzSelect').onchange = (ev) => {
-    setPref('grilla_event_tz', (ev.target as HTMLSelectElement).value);
-    render();
-  };
   $('#exportBtn').onclick = exportBackup;
   $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (f) importBackup(f);
   };
-  $('#forgetBtn').onclick = async () => {
-    if (!await confirmDialog({
-      title: '¿Borrar tu configuración?', text: 'Tus links de reproducción dejan de funcionar. No se puede deshacer.',
-      ok: 'Borrar', danger: true,
-    })) return;
-    try {
-      await api(`/api/cfg/${state.local!.cfgId}`, { method: 'DELETE' });
-    } catch { /* ya no estaba */ }
-    try {
-      localStorage.removeItem(LIST_KEY(state.local!.cfgId));
-    } catch { /* sin storage */ }
-    const h = loadHome();
-    h.configs = h.configs.filter((c) => c.cfgId !== state.local!.cfgId);
-    saveHome(h);
-    saveLocal((state.local = null));
-    state.creds = null;
-    state.cfg = null;
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    // Con otros proveedores en el hogar, se abre el siguiente.
-    if (h.configs[0]) {
-      state.local = { cfgId: h.configs[0].cfgId, editKey: h.configs[0].editKey };
-      saveLocal(state.local);
-      return void openSaved();
-    }
-    showOnboarding();
-  };
-  // Hogar: el código para abrir todos los proveedores en otro dispositivo, y usar el de otro.
-  $('#homeCodeBtn').onclick = async () => {
-    const h = loadHome();
-    try {
-      if (!h.homeId) await pushHome(h);
-    } catch (e) {
-      return void toast((e as Error).message, 'bad', 6000);
-    }
-    const code = homeCode(loadHome());
-    if (await confirmDialog({ title: 'Código del hogar', icon: 'house', ok: 'Copiar',
-      text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Grilla → «Tengo un código de hogar»). Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
-      await copyText(code);
-      toast('Código del hogar copiado', 'ok');
-    }
-  };
-  $('#homeJoinBtn').onclick = () => void useHomeCode();
   const theme = (() => {
     try {
       return localStorage.getItem('grilla_theme') || 'dark';

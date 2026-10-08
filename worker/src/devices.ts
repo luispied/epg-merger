@@ -110,6 +110,18 @@ export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: 
   return null;
 }
 
+/** Cambia el nombre de un perfil adicional (`account` de sus links): mismo token, misma huella, mismo código. */
+export async function renameAccount(bucket: R2Bucket, cfgId: string, from: string, to: string): Promise<number> {
+  let n = 0;
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (!rec || rec.cfgId !== cfgId || rec.account !== from) continue;
+    await bucket.put(shortKey(code), JSON.stringify({ ...rec, account: to }), JSON_TYPE);
+    n++;
+  }
+  return n;
+}
+
 /** Cambia las credenciales de los links de una cuenta (sin `account`: la principal) sin tocar sus
  *  códigos: las URLs cortas siguen siendo las mismas y los reproductores no hay que reconfigurarlos. */
 export async function rekeyDevices(bucket: R2Bucket, cfgId: string, token: string, account?: string, key?: string): Promise<number> {

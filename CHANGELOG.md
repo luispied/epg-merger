@@ -7,6 +7,14 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.23.0
+
+- Perfiles rediseñado (opción H): una lista corta con una fila por perfil, agrupadas por proveedor. Cada perfil tiene su página con suscripción, conexiones, sus dispositivos, «Agregar dispositivo» (ya no pregunta a qué perfil), usuario y contraseña, y «Usar este perfil». El del perfil en uso tiene además «Canales caídos» y «Probar ahora».
+- Los perfiles se pueden **renombrar**, también el tuyo (antes siempre «Tu cuenta»), y **borrar**: sus dispositivos pasan a otro perfil con los mismos links. «Agregar perfil» crea la cuenta de un familiar con su primer dispositivo.
+- El engranaje de cada proveedor tiene su nombre, la dirección del servicio, recargar la lista, la hora de eventos (ahora una por proveedor) y «Quitar proveedor». «Hogar» tiene el código para abrir todo en otro dispositivo.
+- Configuración queda con la guía, el respaldo y las preferencias: la suscripción, los canales caídos, recargar la lista, la hora de eventos, el hogar y borrar la configuración pasaron a Perfil.
+- Un dispositivo nuevo de tu cuenta ya no pide usuario y contraseña si otro link tuyo los tiene.
+
 ## 1.22.0
 
 - Varios proveedores: la web guarda todas tus configuraciones (una por proveedor) en un **hogar**. Perfiles las agrupa por proveedor, cada grupo se puede renombrar y «Agregar otro proveedor» crea una configuración nueva sin perder la actual.
