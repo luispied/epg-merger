@@ -48,7 +48,7 @@ export interface PlaylistOptions {
   streamUrl: (ch: Channel) => string;
   /** Dirección del canal de aviso de un separador creado a mano (no se reproduce nada). */
   separatorUrl?: string;
-  /** Dirección con la que sale un logo (los de la guía, por el Worker: ver logos.ts). */
+  /** Dirección con la que sale el logo que eligió la guía (por el Worker: ver logos.ts). */
   logoUrl?: (url: string) => string;
 }
 
@@ -75,8 +75,8 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
     const epg = edit.epg ?? null;
     // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
     // que la persona haya puesto uno propio.
-    const raw = edit.customLogo || (epg ? edit.logo || ch.icon : '');
-    const logo = raw && opts.logoUrl ? opts.logoUrl(raw) : raw;
+    const guideLogo = edit.logo && opts.logoUrl ? opts.logoUrl(edit.logo) : edit.logo;
+    const logo = edit.customLogo || (epg ? guideLogo || ch.icon : '');
     const custom = within.get(group)?.get(ch.name);
     rows.push({
       group: order.get(group) ?? order.size,

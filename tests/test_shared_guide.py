@@ -9,7 +9,7 @@ from lxml import etree
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import shared_guide  # noqa: E402
-from source_alias import logo_key, logo_path, source_alias  # noqa: E402
+from source_alias import logo_key, logo_path, scrub_element, scrub_text, source_alias  # noqa: E402
 
 
 def test_alias_estable_y_opaco():
@@ -49,14 +49,35 @@ def test_indice_con_canales_fuentes_y_reglas(tmp_path):
         assert json.load(f) == index
 
 
-def test_logos_por_el_worker(tmp_path):
-    # Misma clave que logoKey en worker/src/logos.ts.
+def test_imagenes_por_el_worker(tmp_path):
+    # Misma clave que mediaKey en worker/src/logos.ts.
     assert logo_key('http://x/t.png') == 'b4009f79b7b3189c'
     assert logo_path('http://x/t.png') == '/logo/b4009f79b7b3189c'
+    assert logo_path('http://x/t.png', 'img') == '/img/b4009f79b7b3189c'
     assert logo_path('') == ''
-    logos = shared_guide.logo_map(etree.fromstring(GUIDE))
-    assert logos == {'b4009f79b7b3189c': 'http://x/t.png'}
-    path = shared_guide.write_logo_map(logos, str(tmp_path))
-    assert path.endswith(os.path.join('logo', 'map.json'))
-    with open(path, encoding='utf-8') as f:
-        assert json.load(f) == logos
+    progs = etree.fromstring(b"""<tv><programme channel="Telefe.ar"><title>A</title><icon src="http://y/p.jpg"/></programme>
+      <programme channel="TBS.us"><title>B</title></programme></tv>""").findall('programme')
+    maps = shared_guide.media_maps(etree.fromstring(GUIDE), progs)
+    pk = logo_key('http://y/p.jpg')
+    assert maps == {'logo': {'b4009f79b7b3189c': 'http://x/t.png'}, 'img': {pk: 'http://y/p.jpg'}}
+    shared_guide.write_media_maps(maps, str(tmp_path))
+    # Un archivo por prefijo: 1 caracter para logos, 2 para imágenes de programa.
+    with open(tmp_path / 'logo' / 'map' / 'b.json', encoding='utf-8') as f:
+        assert json.load(f) == maps['logo']
+    with open(tmp_path / 'img' / 'map' / f'{pk[:2]}.json', encoding='utf-8') as f:
+        assert json.load(f) == maps['img']
+
+
+def test_sin_rastros_de_la_fuente():
+    sites = frozenset({'fuente.org'})
+    assert scrub_text('Ver https://fuente.org/help y https://canal.com', sites) == 'Ver y https://canal.com'
+    assert scrub_text('https://img.fuente.org/x', sites) == ''
+    assert scrub_text('Sin links', sites) == 'Sin links'
+    prog = etree.fromstring(b"""<programme channel="X"><title>Noticias</title><desc>https://fuente.org/help</desc>
+      <icon src="http://y/p.jpg"/><url>https://fuente.org</url></programme>""")
+    scrub_element(prog, 'img', sites)
+    xml = etree.tostring(prog).decode()
+    assert 'fuente.org' not in xml and '<desc' not in xml and '<url' not in xml and 'y/p.jpg' not in xml
+    assert f'src="https://grilla.grilla.workers.dev/img/{logo_key("http://y/p.jpg")}"' in xml
+    # Dos veces da lo mismo (un programa va a varias guías).
+    assert etree.tostring(scrub_element(prog, 'img', sites)).decode() == xml

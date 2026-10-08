@@ -18,7 +18,7 @@
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
-//   GET    /logo/<clave>                      logo de la guía, sin mostrar de qué sitio viene (logos.ts)
+//   GET    /logo/<clave> · /img/<clave>       logo de canal o imagen de programa, sin mostrar el sitio (logos.ts)
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
@@ -29,7 +29,7 @@ import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
-import { logoResolver, serveLogo } from './logos.ts';
+import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
@@ -177,7 +177,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   if (cfg.provider.type === 'xtream' && 'u' in creds && cfg.directUrls) {
     direct = await healthyServer(cfg.provider.servers.map(normalizeServer), creds.u, creds.p, cache, (p) => ctx.waitUntil(p));
   }
-  const logos = Object.values(cfg.channels).flatMap((e) => [e.customLogo, e.logo]).filter((u): u is string => !!u);
+  const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const logoUrl = await logoResolver(env, url.origin, logos);
   const text = buildPlaylist(list.channels, cfg, {
     filter,
@@ -487,7 +487,9 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       }
       if (parts.length === 4 && parts[3] === 'playlist.m3u8') return await servePlaylist(parts[1], parts[2], url, env, ctx, cache);
     }
-    if (request.method === 'GET' && parts[0] === 'logo' && parts.length === 2) return await serveLogo(env, parts[1]);
+    if (request.method === 'GET' && (parts[0] === 'logo' || parts[0] === 'img') && parts.length === 2) {
+      return await serveMedia(env, parts[0], parts[1]);
+    }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 4 && isId(parts[1])) {
       return await serveStream(parts[1], parts[2], parts[3], env, ctx, cache);
     }

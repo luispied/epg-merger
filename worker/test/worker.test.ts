@@ -9,7 +9,7 @@ import { handle, rateLimited } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
-import { logoKey, resetLogoMap } from '../src/logos.ts';
+import { mediaKey, resetMediaMaps } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
 
@@ -1116,11 +1116,13 @@ test('alias de fuente: el mismo que source_alias.py', async () => {
 });
 
 test('logos: /logo/<clave> baja la imagen una vez, la guarda en R2 y no muestra de dónde viene', async () => {
-  resetLogoMap();
+  resetMediaMaps();
   const t = makeEnv();
   const ICON = 'http://x/t.png';
-  assert.equal(await logoKey(ICON), 'b4009f79b7b3189c', 'misma clave que logo_key en source_alias.py');
-  await t.env.BUCKET.put('logo/map.json', JSON.stringify({ b4009f79b7b3189c: ICON, '0000000000000000': 'http://x/page.html' }));
+  assert.equal(await mediaKey(ICON), 'b4009f79b7b3189c', 'misma clave que logo_key en source_alias.py');
+  await t.env.BUCKET.put('logo/map/b.json', JSON.stringify({ b4009f79b7b3189c: ICON }));
+  await t.env.BUCKET.put('logo/map/0.json', JSON.stringify({ '0000000000000000': 'http://x/page.html' }));
+  await t.env.BUCKET.put('img/map/b4.json', JSON.stringify({ b4009f79b7b3189c: ICON }));
   const calls: string[] = [];
   const original = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -1144,16 +1146,23 @@ test('logos: /logo/<clave> baja la imagen una vez, la guarda en R2 y no muestra 
   assert.equal(await t.env.BUCKET.get('logo/img/0000000000000000'), null);
   assert.equal((await get('ffffffffffffffff')).status, 404);
   assert.equal((await get('..%2Fmap.json')).status, 404);
+  // Imagen de programa: se entrega de paso, sin guardarla en R2.
+  const img = await handle(req('/img/b4009f79b7b3189c'), t.env, t.ctx, t.cache);
+  assert.equal(img.status, 200);
+  assert.equal(await img.text(), 'PNG');
+  assert.equal(calls.length, 3, 'la imagen de programa se baja cada vez (no se guarda)');
+  assert.match(img.headers.get('Content-Security-Policy')!, /sandbox/);
+  assert.equal((await handle(req('/img/0000000000000000'), t.env, t.ctx, t.cache)).status, 404);
 });
 
 test('playlist: los logos de la guía salen por el Worker; los propios, tal cual', async () => {
-  resetLogoMap();
+  resetMediaMaps();
   const t = await setup({ channels: {
     'AR| Telefe HD': { epg: 'Telefe.ar', logo: '/logo/b4009f79b7b3189c', name: 'Telefe' },
     ESPN: { epg: 'ESPN.ar', logo: 'http://x/espn.png', customLogo: 'https://mi.logo/espn.png' },
     'Canal oculto': { epg: 'Oculto.ar', logo: 'http://x/t.png' },
   } } as Partial<typeof CONFIG>);
-  await t.env.BUCKET.put('logo/map.json', JSON.stringify({ b4009f79b7b3189c: 'http://x/t.png' }));
+  await t.env.BUCKET.put('logo/map/b.json', JSON.stringify({ b4009f79b7b3189c: 'http://x/t.png' }));
   const text = await (await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).text();
   assert.match(text, /tvg-name="Telefe" tvg-logo="https:\/\/grilla\.example\/logo\/b4009f79b7b3189c"/);
   assert.match(text, /tvg-logo="https:\/\/mi\.logo\/espn\.png"/);

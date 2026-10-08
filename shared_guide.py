@@ -3,9 +3,13 @@
 corrida diaria, en `out/shared/`, para subirlo a Cloudflare R2 (ver `tools/r2_upload.sh`).
 
 - `guide/index.json`: los canales de la guía (id, fuente, nombres, logo), las fuentes (país,
-  prioridad) y `matching_rules.json`. Las fuentes van enmascaradas (`source_alias.py`). Es exactamente lo que `@grilla/core` (core/) necesita
+  prioridad) y `matching_rules.json`. Sin rastro de las fuentes: alias opacos y logos por el
+  Worker (`source_alias.py`). Es exactamente lo que `@grilla/core` (core/) necesita
   para hacer el matching en el navegador: `new EpgIndex(channels, new MatchingRules(rules),
   sources)`.
+
+- `logo/map/*.json`, `img/map/*.json`: {clave: url} de los logos de canal y las imágenes de
+  programa, privados, para que el Worker las sirva sin mostrar el sitio.
 
 La programación por canal (`out/schedule/`) ya la escribe `generate_playlist.py`; el script de
 subida la manda tal cual.
@@ -22,9 +26,9 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
 from channel_names import RULES_PATH  # noqa: E402
-from generate_playlist import MERGED_EPG_PATH, load_epg_channels  # noqa: E402
+from generate_playlist import MERGED_EPG_PATH, iter_programmes, load_epg_channels  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
-from source_alias import logo_key, logo_path, source_alias  # noqa: E402
+from source_alias import logo_key, logo_path, media_urls, shard, source_alias  # noqa: E402
 
 SHARED_DIR = os.path.join('out', 'shared')
 INDEX_VERSION = 1
@@ -62,17 +66,34 @@ def build_index(root, sources, rules, now=None):
     }
 
 
-def logo_map(root):
-    """{clave: url} de todos los logos de la guía: con esto el Worker resuelve /logo/<clave>."""
-    return {logo_key(ch['icon']): ch['icon'] for ch in guide_channels(root) if ch['icon']}
+def media_maps(root, programmes=()):
+    """{'logo': {clave: url}, 'img': {clave: url}}: los logos de canal y las imágenes de programa
+    de la guía. Con esto el Worker resuelve /logo/<clave> e /img/<clave> (source_alias.py)."""
+    maps = {'logo': {}, 'img': {}}
+    for channel in root.findall('channel'):
+        for url in media_urls(channel):
+            maps['logo'][logo_key(url)] = url
+    for programme in programmes:
+        for url in media_urls(programme):
+            maps['img'][logo_key(url)] = url
+    return maps
 
 
-def write_logo_map(logos, out_dir=SHARED_DIR):
-    path = os.path.join(out_dir, 'logo', 'map.json')
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(logos, f, ensure_ascii=False, separators=(',', ':'))
-    return path
+def write_media_maps(maps, out_dir=SHARED_DIR):
+    """Un archivo por prefijo de la clave (`logo/map/<x>.json`, `img/map/<xx>.json`): el Worker
+    lee solo el que necesita. Devuelve las carpetas escritas."""
+    dirs = []
+    for kind, entries in maps.items():
+        shards = {}
+        for key, url in entries.items():
+            shards.setdefault(shard(key, kind), {})[key] = url
+        d = os.path.join(out_dir, kind, 'map')
+        os.makedirs(d, exist_ok=True)
+        for prefix, part in shards.items():
+            with open(os.path.join(d, f'{prefix}.json'), 'w', encoding='utf-8') as f:
+                json.dump(part, f, ensure_ascii=False, separators=(',', ':'))
+        dirs.append(d)
+    return dirs
 
 
 def write_index(index, out_dir=SHARED_DIR):
@@ -94,8 +115,9 @@ def main(argv=None):
     root = load_epg_channels(args.merged)
     index = build_index(root, load_sources(), rules)
     path = write_index(index, args.out)
-    logos = logo_map(root)
-    print(f"🖼️  {write_logo_map(logos, args.out)}: {len(logos)} logos")
+    maps = media_maps(root, iter_programmes(args.merged))
+    write_media_maps(maps, args.out)
+    print(f"🖼️  Imágenes por el Worker: {len(maps['logo'])} logos de canal, {len(maps['img'])} de programas")
     print(f"🌐 {path}: {len(index['channels'])} canales, {len(index['sources'])} fuentes "
           f"({os.path.getsize(path) / 1024 / 1024:.1f} MB)")
     return 0

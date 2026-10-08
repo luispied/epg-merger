@@ -10,7 +10,7 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 ## 1.19.1
 
 - Las fuentes de EPG van enmascaradas: en la guía de la web y en el XML que baja el reproductor cada fuente tiene un alias opaco en vez de su nombre, y el texto del alta ya no nombra proveedores. La web ya no puede pedir el catálogo ni el uso de fuentes (no los usaba). El matching no cambia.
-- Los logos de la guía salen del Worker (`/logo/…`) en la web, la playlist y el XML del reproductor: nadie ve de qué sitio vienen. El Worker baja cada logo la primera vez y después lo sirve desde R2. Los links de reproducción no cambian.
+- Sin rastros de las fuentes, como regla general para cualquier fuente: los logos de canal salen del Worker (`/logo/…`) en la web, la playlist y el XML del reproductor (el Worker baja cada uno la primera vez y después lo sirve desde R2); las imágenes de programa del XML, también (`/img/…`, de paso, sin guardarlas); se sacan los `<url>` de canales y programas y los links a sitios de las fuentes en títulos y descripciones (también en la programación de la web). Los links de reproducción no cambian.
 
 ## 1.19.0
 

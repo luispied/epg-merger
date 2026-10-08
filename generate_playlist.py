@@ -27,7 +27,7 @@ from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex, joined_variant
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
 from providers import M3UProvider, ProviderError, XtreamProvider
-from source_alias import logo_path, source_alias, worker_url
+from source_alias import scrub_element, scrub_text, source_alias
 from xtream_client import get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
@@ -746,10 +746,8 @@ class ProfileEpg:
             # La fuente sale enmascarada: el reproductor no necesita saber de qué proveedor viene.
             if channel.get('source'):
                 channel.set('source', source_alias(channel.get('source')))
-            # El logo, por el Worker: el reproductor no ve de qué sitio viene.
-            for icon in channel.findall('icon'):
-                if icon.get('src'):
-                    icon.set('src', worker_url() + logo_path(icon.get('src')))
+            # Logo por el Worker, sin <url> ni links de la fuente (source_alias.py).
+            scrub_element(channel, 'logo')
             label = self.labels.get(channel_id)
             if label:
                 # La etiqueta va al PRINCIPIO del display-name para que no quede cortada si el
@@ -762,7 +760,7 @@ class ProfileEpg:
 
     def write_programme(self, programme):
         if programme.get('channel') in self.matched_ids:
-            self._xf.write(programme, pretty_print=True)
+            self._xf.write(scrub_element(programme, 'img'), pretty_print=True)
 
 
 def load_epg_channels(path=MERGED_EPG_PATH):
@@ -811,7 +809,7 @@ def _programme_desc(programme):
     """Descripción del programa para mostrar en la interfaz: <desc>, o si no hay, el
     <sub-title> (nombre del episodio). Espacios normalizados y recortada a SCHEDULE_DESC_MAX."""
     for tag in ('desc', 'sub-title'):
-        text = ' '.join((programme.findtext(tag) or '').split())
+        text = ' '.join((scrub_text(programme.findtext(tag)) or '').split())
         if text:
             return text if len(text) <= SCHEDULE_DESC_MAX else text[:SCHEDULE_DESC_MAX - 1].rstrip() + '…'
     return ''
@@ -849,7 +847,7 @@ class ScheduleCollector:
             return
         channel_id = programme.get('channel')
         title_elem = programme.find('title')
-        title = (title_elem.text or '').strip() if title_elem is not None else ''
+        title = (scrub_text(title_elem.text) or '').strip() if title_elem is not None else ''
         if not channel_id or not title:
             return
         self.by_channel.setdefault(channel_id, []).append(
