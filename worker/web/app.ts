@@ -250,7 +250,8 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
 // Worker como hogar (/api/home): cifradas acá con una clave que sale de la del hogar, así el servidor no ve las claves de
 // edición. Con el código del hogar (id.clave) se abre todo en otro dispositivo. Ver planes/perfiles.md.
 interface HomeConfig { cfgId: string; editKey: string; name?: string }
-interface Home { configs: HomeConfig[]; homeId?: string; homeKey?: string }
+// `removed`: las configuraciones quitadas, para que otro dispositivo no las vuelva a sumar al hogar.
+interface Home { configs: HomeConfig[]; removed?: string[]; homeId?: string; homeKey?: string }
 const HOME_KEY = 'grilla_home_v1';
 function loadHome(): Home {
   let h: Home = { configs: [] };
@@ -258,8 +259,9 @@ function loadHome(): Home {
     h = JSON.parse(localStorage.getItem(HOME_KEY) || 'null') ?? h;
   } catch { /* sin storage */ }
   if (!Array.isArray(h.configs)) h.configs = [];
+  if (!Array.isArray(h.removed)) h.removed = [];
   // La configuración abierta siempre está en el hogar (las de antes de esta versión entran solas).
-  if (state.local && !h.configs.some((c) => c.cfgId === state.local!.cfgId)) h.configs.unshift({ ...state.local });
+  if (state.local && !h.configs.some((c) => c.cfgId === state.local!.cfgId) && !h.removed.includes(state.local.cfgId)) h.configs.unshift({ ...state.local });
   return h;
 }
 let homeSync = 0;
@@ -285,17 +287,29 @@ async function homeCryptoKey(homeKey: string) {
 }
 async function sealHome(h: Home): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await homeCryptoKey(h.homeKey!), te.encode(JSON.stringify({ configs: h.configs }))));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await homeCryptoKey(h.homeKey!), te.encode(JSON.stringify({ configs: h.configs, removed: h.removed ?? [] }))));
   const out = new Uint8Array(iv.length + ct.length);
   out.set(iv);
   out.set(ct, iv.length);
   return b64u(out);
 }
-async function openHome(homeKey: string, data: string): Promise<HomeConfig[]> {
+async function openHome(homeKey: string, data: string): Promise<{ configs: HomeConfig[]; removed: string[] }> {
   const raw = unb64u(data);
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, await homeCryptoKey(homeKey), raw.slice(12));
-  const configs = (JSON.parse(new TextDecoder().decode(pt)) as { configs?: HomeConfig[] }).configs;
-  return Array.isArray(configs) ? configs.filter((c) => typeof c?.cfgId === 'string' && typeof c?.editKey === 'string') : [];
+  const { configs, removed } = JSON.parse(new TextDecoder().decode(pt)) as { configs?: HomeConfig[]; removed?: string[] };
+  return {
+    configs: Array.isArray(configs) ? configs.filter((c) => typeof c?.cfgId === 'string' && typeof c?.editKey === 'string') : [],
+    removed: Array.isArray(removed) ? removed.filter((id) => typeof id === 'string') : [],
+  };
+}
+/** Junta en `h` lo del hogar del servidor: suma las configuraciones que falten y saca las quitadas. Devuelve cuántas suma. */
+function mergeHome(h: Home, remote: { configs: HomeConfig[]; removed: string[] }): number {
+  const removed = new Set([...(h.removed ?? []), ...remote.removed]);
+  const before = new Set(h.configs.map((c) => c.cfgId));
+  for (const c of remote.configs) if (!before.has(c.cfgId)) h.configs.push(c);
+  h.configs = h.configs.filter((c) => !removed.has(c.cfgId));
+  h.removed = [...removed].slice(-200);
+  return h.configs.filter((c) => !before.has(c.cfgId)).length;
 }
 /** Sube el hogar al Worker (lo crea la primera vez). */
 async function pushHome(h: Home) {
@@ -305,23 +319,36 @@ async function pushHome(h: Home) {
     h.homeId = created.homeId;
     h.homeKey = created.homeKey;
     saveHome(h, false);
+  } else {
+    // Antes de subir se trae lo del servidor: si otro dispositivo sumó o quitó un proveedor, no se pisa.
+    try {
+      const remote = await api<{ data: string }>(`/api/home/${h.homeId}`, { key: h.homeKey });
+      mergeHome(h, await openHome(h.homeKey, remote.data));
+      saveHome(h, false);
+    } catch { /* hogar recién creado o ilegible: se sube lo de acá */ }
   }
   await api(`/api/home/${h.homeId}`, { method: 'PUT', key: h.homeKey, body: { v: 1, data: await sealHome(h) } });
+}
+/** Trae lo que otro dispositivo sumó o quitó del hogar (como mucho una vez por minuto). */
+let homePulledAt = 0;
+async function pullHome() {
+  const h = loadHome();
+  if (!h.homeId || !h.homeKey || Date.now() - homePulledAt < 60_000) return;
+  homePulledAt = Date.now();
+  try {
+    const before = JSON.stringify([h.configs, h.removed]);
+    mergeHome(h, await openHome(h.homeKey, (await api<{ data: string }>(`/api/home/${h.homeId}`, { key: h.homeKey })).data));
+    if (JSON.stringify([h.configs, h.removed]) !== before) saveHome(h, false);
+  } catch { /* sin conexión: queda lo de acá */ }
 }
 const homeCode = (h: Home) => (h.homeId && h.homeKey ? `${h.homeId}.${h.homeKey}` : '');
 /** Trae un hogar con su código y lo junta con el de este navegador. Devuelve cuántas configuraciones suma. */
 async function joinHome(code: string): Promise<number> {
   const m = /^([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{20,})$/.exec(code.trim());
-  if (!m) throw new Error('el código no es de un hogar de Grilla');
+  if (!m) throw new Error('no es un código de Grilla');
   const data = await api<{ data: string }>(`/api/home/${m[1]}`, { key: m[2] });
-  const configs = await openHome(m[2], data.data);
   const h = loadHome();
-  let added = 0;
-  for (const c of configs) {
-    if (h.configs.some((x) => x.cfgId === c.cfgId)) continue;
-    h.configs.push(c);
-    added++;
-  }
+  const added = mergeHome(h, await openHome(m[2], data.data));
   h.homeId = m[1];
   h.homeKey = m[2];
   saveHome(h);
@@ -344,11 +371,11 @@ async function switchProvider(cfgId: string) {
 }
 /** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero. */
 async function useHomeCode() {
-  const code = await promptDialog({ title: 'Código del hogar', ok: 'Usar', icon: 'house', input: { label: 'Código', placeholder: 'Pegá el código del hogar' } });
+  const code = await promptDialog({ title: 'Pegar un código', ok: 'Usar', icon: 'arrow-right-left', input: { label: 'Código', placeholder: 'El que muestra tu otro dispositivo' } });
   if (!code) return;
   try {
     const added = await joinHome(code);
-    toast(added ? `Listo: ${plural(added, 'proveedor sumado', 'proveedores sumados')}` : 'Ya tenías todos los proveedores de ese hogar', 'ok', 6000);
+    toast(added ? `Listo: ${plural(added, 'proveedor sumado', 'proveedores sumados')}` : 'Ya tenías todos los proveedores de ese código', 'ok', 6000);
     for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
     if (!state.local) {
       const first = loadHome().configs[0];
@@ -375,6 +402,7 @@ async function forgetConfig() {
   } catch { /* sin storage */ }
   const h = loadHome();
   h.configs = h.configs.filter((c) => c.cfgId !== state.local!.cfgId);
+  h.removed = [...(h.removed ?? []), state.local!.cfgId];
   saveHome(h);
   saveLocal((state.local = null));
   state.creds = null;
@@ -398,10 +426,10 @@ async function showHomeCode() {
     return void toast((e as Error).message, 'bad', 6000);
   }
   const code = homeCode(loadHome());
-  if (await confirmDialog({ title: 'Código del hogar', icon: 'house', ok: 'Copiar',
-    text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Grilla → «Tengo un código de hogar»). Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
+  if (await confirmDialog({ title: 'Tu código', icon: 'arrow-right-left', ok: 'Copiar',
+    text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Perfil → Usar en otro dispositivo → Pegar un código). Se mantiene al día solo. Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
     await copyText(code);
-    toast('Código del hogar copiado', 'ok');
+    toast('Código copiado', 'ok');
   }
 }
 
@@ -2764,6 +2792,7 @@ async function loadProfiles(live = true) {
   if (!state.local) return;
   const cfgId = state.local.cfgId;
   const writes = apiWrites;
+  await pullHome();
   // Los de esta configuración y los de los demás proveedores, a la vez.
   await Promise.all([
     api<DevicesResponse>(`/api/cfg/${cfgId}/devices`).then((r) => {
@@ -2995,7 +3024,7 @@ function renderProfileList(body: HTMLElement) {
         ${a.profiles.map((p) => profileRow(p, o.cfgId)).join('')}</div>`).join('')}`).join('')}
     <div class="menu">
       ${menuRow('data-add-provider', 'plus', 'Agregar proveedor', 'Otra lista de IPTV, con su propia grilla', 'add-row', false)}
-      ${menuRow('data-hogar', 'house', 'Hogar', 'Abrir todos tus proveedores en otro dispositivo')}
+      ${menuRow('data-hogar', 'arrow-right-left', 'Usar en otro dispositivo', 'Con un código o un archivo de respaldo')}
     </div>`;
   body.onclick = (ev) => {
     const t = ev.target as HTMLElement;
@@ -3513,19 +3542,28 @@ function renderServers() {
   };
 }
 
-/** El hogar: el código para abrir todos los proveedores en otro dispositivo, y usar el de otro. */
+/** Usar en otro dispositivo: el código del hogar (lo recomendado) y, como alternativa, el archivo de respaldo. */
 function renderHogarPage(body: HTMLElement) {
-  $('#linksTitle').textContent = 'Hogar';
+  $('#linksTitle').textContent = 'Otro dispositivo';
   body.innerHTML = `
-    <p class="help">El hogar junta todos tus proveedores y perfiles. Con su código abrís todo en otro celular o computadora, sin importar respaldos.</p>
+    <p class="help">Pasá todos tus proveedores, cuentas y perfiles a otro celular, TV o computadora. Se suman a los que ya tenga; tu usuario y tu contraseña no viajan.</p>
+    <h3 class="sec-title">Con un código (recomendado)</h3>
     <div class="menu">
-      ${menuRow('data-act="code"', 'key-round', 'Abrir en otro dispositivo', 'Muestra el código del hogar')}
-      ${menuRow('data-act="join"', 'plus', 'Usar un código de hogar', 'Suma los proveedores de otro dispositivo')}
-    </div>`;
+      ${menuRow('data-act="code"', 'key-round', 'Ver tu código', 'Se mantiene al día solo')}
+      ${menuRow('data-act="join"', 'house', 'Pegar un código', 'El que muestra tu otro dispositivo')}
+    </div>
+    <h3 class="sec-title">Con un archivo</h3>
+    <div class="menu">
+      ${menuRow('data-act="export"', 'download', 'Descargar respaldo', 'Una copia de hoy, para guardar')}
+      ${menuRow('data-act="import"', 'upload', 'Importar respaldo', 'Un archivo descargado antes')}
+    </div>
+    <p class="help">Guardá el código y el archivo en privado: con ellos se pueden editar tus configuraciones.</p>`;
   body.onclick = (ev) => {
     const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'code') void showHomeCode();
     else if (act === 'join') void useHomeCode();
+    else if (act === 'export') exportBackup();
+    else if (act === 'import') $<HTMLInputElement>('#backupFile').click();
   };
 }
 
@@ -4311,11 +4349,14 @@ async function importBackup(file: File) {
     await api(`/api/cfg/${data.cfgId}`);
     saveLocal(state.local);
     const h = loadHome();
+    // La que se abre existe en el servidor (se acaba de leer): si figuraba como quitada, vuelve. Las demás quitadas no.
+    h.removed = h.removed!.filter((id) => id !== data.cfgId);
+    if (!h.configs.some((x) => x.cfgId === data.cfgId)) h.configs.unshift({ ...state.local });
     for (const c of (Array.isArray(data.configs) ? data.configs : []) as HomeConfig[]) {
-      if (typeof c?.cfgId === 'string' && typeof c?.editKey === 'string' && !h.configs.some((x) => x.cfgId === c.cfgId)) h.configs.push(c);
+      if (typeof c?.cfgId === 'string' && typeof c?.editKey === 'string' && !h.removed.includes(c.cfgId) && !h.configs.some((x) => x.cfgId === c.cfgId)) h.configs.push(c);
     }
     saveHome(h);
-    ($('#settingsDialog') as HTMLDialogElement).close();
+    for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
     await openSaved();
   } catch (e) {
     state.local = loadLocal();
@@ -4722,8 +4763,10 @@ function setupEditor() {
   };
   $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
   $<HTMLInputElement>('#pushToggle').onchange = (ev) => setPush((ev.target as HTMLInputElement).checked);
-  $('#exportBtn').onclick = exportBackup;
-  $('#importBtn').onclick = () => $<HTMLInputElement>('#backupFile').click();
+  $('#otherDeviceBtn').onclick = () => {
+    ($('#settingsDialog') as HTMLDialogElement).close();
+    openProfiles({ v: 'hogar' });
+  };
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (f) importBackup(f);
