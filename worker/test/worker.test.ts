@@ -9,6 +9,7 @@ import { handle, rateLimited } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
+import { logoKey, resetLogoMap } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
 
@@ -1112,4 +1113,49 @@ test('servidores: se cambian sin tocar los links, se validan y sin relay no se l
 test('alias de fuente: el mismo que source_alias.py', async () => {
   assert.equal(await sourceAlias('epgshare-us2'), 's4b1fdd7b');
   assert.equal(await sourceAlias('programadorx-cl'), 's04f30b9c');
+});
+
+test('logos: /logo/<clave> baja la imagen una vez, la guarda en R2 y no muestra de dónde viene', async () => {
+  resetLogoMap();
+  const t = makeEnv();
+  const ICON = 'http://x/t.png';
+  assert.equal(await logoKey(ICON), 'b4009f79b7b3189c', 'misma clave que logo_key en source_alias.py');
+  await t.env.BUCKET.put('logo/map.json', JSON.stringify({ b4009f79b7b3189c: ICON, '0000000000000000': 'http://x/page.html' }));
+  const calls: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    if (String(input) === ICON) return new Response('PNG', { headers: { 'Content-Type': 'image/png' } });
+    return new Response('<html>', { headers: { 'Content-Type': 'text/html' } });
+  }) as typeof fetch;
+  restore = () => void (globalThis.fetch = original);
+
+  const get = (key: string) => handle(req(`/logo/${key}`), t.env, t.ctx, t.cache);
+  const first = await get('b4009f79b7b3189c');
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get('Content-Type'), 'image/png');
+  assert.match(first.headers.get('Cache-Control')!, /immutable/);
+  assert.equal(await first.text(), 'PNG');
+  const again = await get('b4009f79b7b3189c');
+  assert.equal(await again.text(), 'PNG');
+  assert.deepEqual(calls, [ICON], 'el segundo pedido sale de R2');
+  // Lo que no es imagen no se guarda ni se sirve; claves desconocidas o mal formadas, 404.
+  assert.equal((await get('0000000000000000')).status, 502);
+  assert.equal(await t.env.BUCKET.get('logo/img/0000000000000000'), null);
+  assert.equal((await get('ffffffffffffffff')).status, 404);
+  assert.equal((await get('..%2Fmap.json')).status, 404);
+});
+
+test('playlist: los logos de la guía salen por el Worker; los propios, tal cual', async () => {
+  resetLogoMap();
+  const t = await setup({ channels: {
+    'AR| Telefe HD': { epg: 'Telefe.ar', logo: '/logo/b4009f79b7b3189c', name: 'Telefe' },
+    ESPN: { epg: 'ESPN.ar', logo: 'http://x/espn.png', customLogo: 'https://mi.logo/espn.png' },
+    'Canal oculto': { epg: 'Oculto.ar', logo: 'http://x/t.png' },
+  } } as Partial<typeof CONFIG>);
+  await t.env.BUCKET.put('logo/map.json', JSON.stringify({ b4009f79b7b3189c: 'http://x/t.png' }));
+  const text = await (await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).text();
+  assert.match(text, /tvg-name="Telefe" tvg-logo="https:\/\/grilla\.example\/logo\/b4009f79b7b3189c"/);
+  assert.match(text, /tvg-logo="https:\/\/mi\.logo\/espn\.png"/);
+  assert.match(text, /tvg-name="Canal oculto" tvg-logo="https:\/\/grilla\.example\/logo\/b4009f79b7b3189c"/);
 });

@@ -27,7 +27,7 @@ from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex, joined_variant
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
 from providers import M3UProvider, ProviderError, XtreamProvider
-from source_alias import source_alias
+from source_alias import logo_path, source_alias, worker_url
 from xtream_client import get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
@@ -746,6 +746,10 @@ class ProfileEpg:
             # La fuente sale enmascarada: el reproductor no necesita saber de qué proveedor viene.
             if channel.get('source'):
                 channel.set('source', source_alias(channel.get('source')))
+            # El logo, por el Worker: el reproductor no ve de qué sitio viene.
+            for icon in channel.findall('icon'):
+                if icon.get('src'):
+                    icon.set('src', worker_url() + logo_path(icon.get('src')))
             label = self.labels.get(channel_id)
             if label:
                 # La etiqueta va al PRINCIPIO del display-name para que no quede cortada si el

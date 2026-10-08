@@ -9,7 +9,7 @@ from lxml import etree
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import shared_guide  # noqa: E402
-from source_alias import source_alias  # noqa: E402
+from source_alias import logo_key, logo_path, source_alias  # noqa: E402
 
 
 def test_alias_estable_y_opaco():
@@ -38,10 +38,25 @@ def test_indice_con_canales_fuentes_y_reglas(tmp_path):
     assert 'openepg' not in json.dumps(index) and 'acidjesuz' not in json.dumps(index)
     # En el orden de la guía (el desempate del matcher depende de él) y sin los canales sin id.
     assert index['channels'] == [
-        {'id': 'Telefe.ar', 'source': ar, 'names': ['Telefe'], 'icon': 'http://x/t.png'},
+        {'id': 'Telefe.ar', 'source': ar, 'names': ['Telefe'], 'icon': logo_path('http://x/t.png')},
         {'id': 'TBS.us', 'source': us, 'names': ['TBS', 'TBS HD'], 'icon': ''},
     ]
+
+    assert 'x/t.png' not in json.dumps(index)
 
     path = shared_guide.write_index(index, str(tmp_path))
     with open(path, encoding='utf-8') as f:
         assert json.load(f) == index
+
+
+def test_logos_por_el_worker(tmp_path):
+    # Misma clave que logoKey en worker/src/logos.ts.
+    assert logo_key('http://x/t.png') == 'b4009f79b7b3189c'
+    assert logo_path('http://x/t.png') == '/logo/b4009f79b7b3189c'
+    assert logo_path('') == ''
+    logos = shared_guide.logo_map(etree.fromstring(GUIDE))
+    assert logos == {'b4009f79b7b3189c': 'http://x/t.png'}
+    path = shared_guide.write_logo_map(logos, str(tmp_path))
+    assert path.endswith(os.path.join('logo', 'map.json'))
+    with open(path, encoding='utf-8') as f:
+        assert json.load(f) == logos

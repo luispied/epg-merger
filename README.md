@@ -365,7 +365,7 @@ de proveedor no toca el matching.
 |---|---|---|
 | `merged.xml.gz` | release `latest` | no |
 | `epg_catalog.json` | release `latest` | no |
-| guía (fuentes enmascaradas) y programación de la interfaz | R2 (`guide/`, `ui/schedule/`) | no |
+| guía (fuentes enmascaradas), mapa de logos y programación de la interfaz | R2 (`guide/`, `logo/`, `ui/schedule/`) | no |
 | `playlist.m3u8` | la entrega el Worker (`/p/<código>`) | sí, cifradas en el token |
 
 Las playlists ya no se publican en gists: el Worker las arma al pedirlas y las credenciales
@@ -378,6 +378,10 @@ La corrida diaria sube a un bucket de R2 lo que Grilla web va a leer: el índice
 para `@grilla/core` (`shared_guide.py` → `guide/index.json`) y la programación de la interfaz
 (`ui/schedule/`). Las fuentes de EPG no se nombran en nada de lo que sale del repo: en la guía y en
 el XML de cada configuración van con un alias opaco (`source_alias.py`, `worker/src/crypto.ts`).
+Los logos tampoco: la web, la playlist y el XML los piden al Worker (`/logo/<clave>`). La corrida deja en R2
+`logo/map.json` (privado, {clave: URL original}); el Worker baja cada logo la primera vez que alguien lo
+pide, lo guarda en `logo/img/` y desde ahí lo sirve (`worker/src/logos.ts`). El XML usa el Worker de
+`GRILLA_WORKER` (por defecto `https://grilla.grilla.workers.dev`).
 La subida la hace `tools/r2_upload.sh`. Si faltan los secretos, el paso no hace
 nada; si falla, la corrida sigue igual. El bucket es **privado**: ver
 `planes/licencias-fuentes-epg.md`.

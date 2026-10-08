@@ -24,7 +24,7 @@ sys.path.insert(0, ROOT)
 from channel_names import RULES_PATH  # noqa: E402
 from generate_playlist import MERGED_EPG_PATH, load_epg_channels  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
-from source_alias import source_alias  # noqa: E402
+from source_alias import logo_key, logo_path, source_alias  # noqa: E402
 
 SHARED_DIR = os.path.join('out', 'shared')
 INDEX_VERSION = 1
@@ -50,9 +50,9 @@ def source_info(sources):
 
 
 def build_index(root, sources, rules, now=None):
-    """El índice que se publica: las fuentes van con su alias (source_alias.py), no con su id."""
+    """El índice que se publica: las fuentes van con su alias y los logos por el Worker (source_alias.py)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    channels = [{**ch, 'source': source_alias(ch['source'])} for ch in guide_channels(root)]
+    channels = [{**ch, 'source': source_alias(ch['source']), 'icon': logo_path(ch['icon'])} for ch in guide_channels(root)]
     return {
         'version': INDEX_VERSION,
         'generated_at': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -60,6 +60,19 @@ def build_index(root, sources, rules, now=None):
         'sources': {source_alias(k): v for k, v in source_info(sources).items()},
         'channels': channels,
     }
+
+
+def logo_map(root):
+    """{clave: url} de todos los logos de la guía: con esto el Worker resuelve /logo/<clave>."""
+    return {logo_key(ch['icon']): ch['icon'] for ch in guide_channels(root) if ch['icon']}
+
+
+def write_logo_map(logos, out_dir=SHARED_DIR):
+    path = os.path.join(out_dir, 'logo', 'map.json')
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(logos, f, ensure_ascii=False, separators=(',', ':'))
+    return path
 
 
 def write_index(index, out_dir=SHARED_DIR):
@@ -78,8 +91,11 @@ def main(argv=None):
 
     with open(RULES_PATH, encoding='utf-8') as f:
         rules = json.load(f)
-    index = build_index(load_epg_channels(args.merged), load_sources(), rules)
+    root = load_epg_channels(args.merged)
+    index = build_index(root, load_sources(), rules)
     path = write_index(index, args.out)
+    logos = logo_map(root)
+    print(f"🖼️  {write_logo_map(logos, args.out)}: {len(logos)} logos")
     print(f"🌐 {path}: {len(index['channels'])} canales, {len(index['sources'])} fuentes "
           f"({os.path.getsize(path) / 1024 / 1024:.1f} MB)")
     return 0

@@ -10,7 +10,7 @@ import config_epgs  # noqa: E402
 
 MERGED = b"""<?xml version="1.0" encoding="UTF-8" ?>
 <tv generator-info-name="epg-merger">
-  <channel id="Telefe.ar" source="openepg-argentina"><display-name>Telefe</display-name></channel>
+  <channel id="Telefe.ar" source="openepg-argentina"><display-name>Telefe</display-name><icon src="http://x/t.png"/></channel>
   <channel id="ESPN.ar"><display-name>ESPN</display-name></channel>
   <channel id="TBS.us"><display-name>TBS</display-name></channel>
   <programme channel="ESPN.ar" start="20260929120000 +0000" stop="20260929130000 +0000"><title>SportsCenter</title></programme>
@@ -39,6 +39,8 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path):
     assert 'Noticiero' in xml and 'SportsCenter' in xml and 'Friends' not in xml
     # La fuente sale enmascarada.
     assert 'openepg' not in xml and 'source="s' in xml
+    # Y el logo sale por el Worker.
+    assert 'x/t.png' not in xml and 'src="https://grilla.grilla.workers.dev/logo/b4009f79b7b3189c"' in xml
     # Todos los <channel> antes que el primer <programme> (como pide XMLTV).
     assert xml.rindex('<channel') < xml.index('<programme')
     empty = gzip.decompress((tmp_path / 'out' / 'bbbbbbbbbbbbbbbbbbbbbb.xml.gz').read_bytes()).decode()
