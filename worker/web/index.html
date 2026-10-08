@@ -257,36 +257,20 @@
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
       <p class="meta-line" id="settingsSummary"></p>
     </div>
-    <h3 class="sec-title">Tu lista</h3>
+    <h3 class="sec-title">Guía</h3>
     <div class="menu">
-      <button class="menu-row" id="reloadListBtn">
-        <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
-        <span class="menu-text">Recargar la lista del proveedor</span>
-        <span data-icon="chevron-right"></span>
-      </button>
       <button class="menu-row" id="applyGuideBtn" hidden>
         <span class="menu-icon"><span data-icon="refresh-cw"></span></span>
         <span class="menu-text">Actualizar la guía ahora<small id="applyGuideSub"></small></span>
         <span data-icon="chevron-right"></span>
       </button>
-    </div>
-    <h3 class="sec-title">Guía</h3>
-    <div class="menu">
       <button class="menu-row" id="healthRow">
         <span class="menu-icon"><span data-icon="satellite-dish"></span></span>
         <span class="menu-text">Salud de la guía<small id="healthSub">Calculando…</small></span>
         <span data-icon="chevron-right"></span>
       </button>
-      <div class="menu-row" id="downRow" role="button" tabindex="0" aria-label="Canales caídos: ver la lista">
-        <span class="menu-icon"><span data-icon="triangle-alert"></span></span>
-        <span class="menu-text">Canales caídos<small id="downSub">Calculando…</small></span>
-        <button type="button" class="btn btn-tonal sm" id="runCheckBtn">Probar ahora</button>
-      </div>
     </div>
-    <h3 class="sec-title">Tu proveedor</h3>
-    <div class="menu">
-      <div id="accountRows" hidden></div>
-    </div>
+    <p class="help settings-moved">La suscripción, los canales caídos, la dirección del servicio, recargar la lista y el hogar están en <b>Perfil</b>, abajo.</p>
     <h3 class="sec-title">Respaldo</h3>
     <div class="menu">
       <button class="menu-row" id="exportBtn">
@@ -297,16 +281,6 @@
       <button class="menu-row" id="importBtn">
         <span class="menu-icon"><span data-icon="upload"></span></span>
         <span class="menu-text">Importar respaldo</span>
-        <span data-icon="chevron-right"></span>
-      </button>
-      <button class="menu-row" id="homeCodeBtn">
-        <span class="menu-icon"><span data-icon="key-round"></span></span>
-        <span class="menu-text">Abrir en otro dispositivo<small>El código del hogar abre todos tus proveedores y perfiles</small></span>
-        <span data-icon="chevron-right"></span>
-      </button>
-      <button class="menu-row" id="homeJoinBtn">
-        <span class="menu-icon"><span data-icon="plus"></span></span>
-        <span class="menu-text">Usar un código de hogar<small>Suma los proveedores de otro dispositivo</small></span>
         <span data-icon="chevron-right"></span>
       </button>
     </div>
@@ -340,28 +314,6 @@
           <option value="revisar">A revisar</option>
         </select>
       </label>
-      <label class="menu-row static">
-        <span class="menu-icon"><span data-icon="clock"></span></span>
-        <span class="menu-text">Hora de eventos<small>Zona del proveedor</small></span>
-        <select class="select compact" id="eventTzSelect">
-          <option value="America/Mexico_City">México</option>
-          <option value="America/Bogota">Colombia / Perú</option>
-          <option value="America/Argentina/Buenos_Aires">Argentina / Uruguay</option>
-          <option value="America/Santiago">Chile</option>
-          <option value="America/New_York">EE. UU. Este</option>
-          <option value="America/Chicago">EE. UU. Centro</option>
-          <option value="America/Los_Angeles">EE. UU. Oeste</option>
-          <option value="Europe/Madrid">España</option>
-          <option value="UTC">UTC</option>
-        </select>
-      </label>
-    </div>
-    <h3 class="sec-title">Zona delicada</h3>
-    <div class="menu danger-zone">
-      <button class="menu-row danger" id="forgetBtn">
-        <span class="menu-icon"><span data-icon="trash-2"></span></span>
-        <span class="menu-text">Borrar configuración<small>Tus links dejan de funcionar</small></span>
-      </button>
     </div>
     <p class="app-version" data-version></p>
   </div>
@@ -452,22 +404,10 @@
     </details>
     </div>
     <div class="help-topic" data-topic="settings" hidden>
-      <p>Acá se ajusta Grilla en sí, no los canales. Lo que cambies se guarda en este dispositivo.</p>
+      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada cuenta y cada proveedor (suscripción, canales caídos, dirección del servicio, recargar la lista) está en <b>Perfil</b>.</p>
       <details open>
-        <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>
-        <p>Cuando tu proveedor agrega o saca canales, tocá <b>Recargar la lista del proveedor</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
-      </details>
-      <details>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
         <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una fuente vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
-      </details>
-      <details>
-        <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado acá. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
-      </details>
-      <details>
-        <summary>Vencimiento de tu suscripción<span data-icon="chevron-down"></span></summary>
-        <p>La misma corrida diaria lee del proveedor cuándo vence tu suscripción y cuántas conexiones permite (nunca tu usuario ni tu contraseña) y lo muestra en <b>Tu proveedor</b>. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan la fecha.</p>
       </details>
       <details>
         <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
@@ -475,7 +415,7 @@
       </details>
       <details>
         <summary>Tema, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
-        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste). <b>Avisos</b>: te manda una notificación cuando aparecen canales nuevos en tu lista (solo si el Worker los tiene activados; en iPhone hay que instalar la app primero). <b>Hora de los eventos</b>: la zona horaria de tu proveedor; sirve para pasar a tu hora el comienzo de los eventos que figuran en el nombre del canal (PPV).</p>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste). <b>Avisos</b>: te manda una notificación cuando aparecen canales nuevos en tu lista (solo si el Worker los tiene activados; en iPhone hay que instalar la app primero).</p>
       </details>
       <details>
         <summary>Actualizar la guía ahora<span data-icon="chevron-down"></span></summary>
@@ -484,10 +424,6 @@
       <details>
         <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
         <p>No se guardan en ningún servidor: van cifrados solo dentro de tus links de reproducción. Tu configuración queda asociada a este navegador.</p>
-      </details>
-      <details>
-        <summary>Borrar configuración<span data-icon="chevron-down"></span></summary>
-        <p>Borra tu configuración del servidor y de este dispositivo. <b>Tus links dejan de funcionar</b> y no se puede deshacer: hacé un respaldo antes si dudás.</p>
       </details>
       <details>
         <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
@@ -513,7 +449,19 @@
       <p>Cada <b>dispositivo</b> (la tele del living, el celular…) tiene su propio par de links: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, el filtro, el perfil o tus datos del proveedor.</p>
       <details open>
         <summary>Perfiles: una cuenta del proveedor cada uno<span data-icon="chevron-down"></span></summary>
-        <p>Cada <b>perfil</b> es una cuenta de tu proveedor (la tuya o la de un familiar), con su vencimiento, sus conexiones en uso y sus dispositivos. El <b>perfil activo</b> (su inicial va en la pestaña <b>Perfil</b>) es el que se usa para bajar la lista y para probar los canales caídos. Lo cambiás con «Usar» en su tarjeta, o manteniendo apretada la pestaña. Con <span class="inline-icon" data-icon="arrow-right-left"></span> pasás un dispositivo a otro perfil: <b>su link no cambia</b> y el reproductor empieza a usar la otra cuenta la próxima vez que actualice la lista.</p>
+        <p>Cada <b>perfil</b> es una cuenta de tu proveedor (la tuya o la de un familiar), con su vencimiento, sus conexiones en uso y sus dispositivos. El perfil <b>en uso</b> (su inicial va en la pestaña <b>Perfil</b>) es el que baja la lista y prueba los canales caídos. Tocá un perfil para ver su página: ahí está «Usar este perfil», sus dispositivos, «Agregar dispositivo», cambiarle el nombre, sus datos y borrarlo. Manteniendo apretada la pestaña cambiás de perfil sin entrar.</p>
+      </details>
+      <details>
+        <summary>Cambiar el nombre o borrar un perfil<span data-icon="chevron-down"></span></summary>
+        <p>En la página del perfil, <b>Cambiar nombre</b> le pone otro nombre (también al tuyo, que sin nombre dice «Tu cuenta»). <b>Borrar perfil</b> pasa sus dispositivos a otro perfil y el perfil desaparece. En ningún caso cambian los links.</p>
+      </details>
+      <details>
+        <summary>Mover un dispositivo a otro perfil<span data-icon="chevron-down"></span></summary>
+        <p>Con <span class="inline-icon" data-icon="arrow-right-left"></span> pasás un dispositivo a otro perfil, también de otro proveedor: <b>su link no cambia</b> y el reproductor empieza a usar la otra cuenta la próxima vez que actualice la lista.</p>
+      </details>
+      <details>
+        <summary>Proveedores y hogar<span data-icon="chevron-down"></span></summary>
+        <p>Cada proveedor tiene su propia grilla. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Hogar</b> te da un código para abrir todos tus proveedores y perfiles en otro dispositivo.</p>
       </details>
       <details open>
         <summary>Filtro: qué ve cada dispositivo<span data-icon="chevron-down"></span></summary>
@@ -532,12 +480,28 @@
         <p>El interruptor <b>desactiva</b> el link sin borrarlo: su playlist muestra un aviso con un solo canal hasta que lo reactives. También podés cambiarle el nombre o quitarlo del todo, sin afectar a los demás.</p>
       </details>
       <details>
+        <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba, con la cuenta del perfil en uso, una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en la página del perfil en uso. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+      </details>
+      <details>
+        <summary>Vencimiento de tu suscripción<span data-icon="chevron-down"></span></summary>
+        <p>La misma corrida diaria lee del proveedor cuándo vence tu suscripción y cuántas conexiones permite (nunca tu usuario ni tu contraseña) y lo muestra en cada perfil. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan la fecha.</p>
+      </details>
+      <details>
         <summary>¿Cambió la dirección del servicio de IPTV?<span data-icon="chevron-down"></span></summary>
-        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en esa sección ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en «¿Cambiaron tus datos del proveedor?».</p>
+        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en el engranaje del proveedor, <b>Dirección del servicio</b>, ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en la página del perfil, <b>URL de la lista</b>.</p>
       </details>
       <details>
         <summary>¿Cambiaron tus datos del proveedor?<span data-icon="chevron-down"></span></summary>
-        <p>En esa sección ponés el usuario y la contraseña nuevos (o la URL nueva) y se actualizan <b>todos</b> los dispositivos a la vez, sin cambiar sus direcciones: no hay que tocar nada en el reproductor.</p>
+        <p>En la página del perfil, <b>Usuario y contraseña</b>, ponés los nuevos (o la URL nueva) y se actualizan <b>todos</b> los dispositivos de ese perfil a la vez, sin cambiar sus direcciones: no hay que tocar nada en el reproductor.</p>
+      </details>
+      <details>
+        <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>
+        <p>Cuando tu proveedor agrega o saca canales, abrí el engranaje del proveedor en Perfil y tocá <b>Recargar la lista</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
+      </details>
+      <details>
+        <summary>Quitar un proveedor<span data-icon="chevron-down"></span></summary>
+        <p>En el engranaje del proveedor, <b>Quitar proveedor</b> borra su configuración del servidor y de este dispositivo. <b>Tus links dejan de funcionar</b> y no se puede deshacer: hacé un respaldo antes si dudás.</p>
       </details>
     </div>
     <p class="app-version" data-version></p>

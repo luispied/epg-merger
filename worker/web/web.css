@@ -927,7 +927,6 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .pf-row.pf-head { background: var(--surface-2); }
 #pfSum { margin-top: 12px; }
 .pf-row.is-off .menu-text { opacity: .55; }
-#accountRows .acc-row.warn .menu-text small { color: var(--orange, #ffb020); opacity: 1; font-weight: 600; }
 
 /* Recordatorios de programas («Avisarme») */
 .day-item summary { align-items: center; }
@@ -964,7 +963,6 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .profile-notice[hidden] { display: none; }
 .profile-notice .pn-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .profile-notice small { opacity: .8; }
-.profile-list { display: flex; flex-direction: column; gap: 12px; margin: 12px 0 4px; }
 .profile-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); }
 .profile-card.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .profile-card .device-list { margin: 0; }
@@ -997,5 +995,23 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .provider-head:first-of-type { margin-top: 12px; }
 .provider-tag { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .profile-pick .provider-tag { margin: 8px 2px 0; }
-.add-provider { margin: 16px 0 8px; }
 #askText { white-space: pre-line; overflow-wrap: anywhere; }
+/* Perfiles, opción H: lista de perfiles por proveedor y página de cada uno. */
+.profile-row .avatar { width: 32px; height: 32px; font-size: 14px; }
+.profile-row .menu-text { min-width: 0; flex: 1; }
+.profile-row .menu-text small { display: block; color: var(--muted); }
+.profile-row .menu-text small.warn { color: var(--orange); }
+.profile-row .menu-text small.bad { color: var(--red); }
+.pr-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.profile-row .pc-badge { padding: 2px 8px; font-size: 11px; }
+.add-row, .add-row .menu-icon { color: var(--accent); }
+.add-row .menu-text { font-weight: 600; }
+.add-row .menu-text small { font-weight: 400; color: var(--muted); }
+.profile-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 12px; text-align: center; }
+.profile-hero strong { font-size: 1.25rem; }
+.profile-hero small { color: var(--muted); }
+.avatar.big { width: 64px; height: 64px; font-size: 26px; }
+#linksBody > .pc-stats { margin-bottom: 12px; }
+#linksBody > .btn-block { margin-top: 12px; }
+#linksBody > .profile-card { margin-top: 0; }
+.settings-moved { margin: 8px 4px 0; }

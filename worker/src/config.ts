@@ -37,6 +37,8 @@ export interface Config {
   /** Perfil activo: la cuenta adicional (nombre de `account` de sus links) con la que se prueban los canales y se baja la
    *  lista. Sin dato = la cuenta principal. */
   activeAccount?: string;
+  /** Nombre del perfil de la cuenta principal (sin dato: «Tu cuenta»). Los demás perfiles se llaman como su `account`. */
+  mainName?: string;
 }
 
 export interface Matching {
@@ -162,6 +164,7 @@ export function parseConfig(raw: unknown): Config {
   }
   const custom = strList(g.custom, 2000);
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
+  const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const separators = strList(g.separators, 2000);
   return {
     version: 1,
@@ -169,6 +172,7 @@ export function parseConfig(raw: unknown): Config {
     ...(r.directUrls === true ? { directUrls: true } : {}),
     ...(matching ? { matching } : {}),
     ...(activeAccount ? { activeAccount } : {}),
+    ...(mainName ? { mainName } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),

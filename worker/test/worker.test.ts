@@ -1233,6 +1233,39 @@ test('mover un link: a otro perfil o a otro proveedor, con la misma dirección',
   assert.equal((await move(t.cfgId, t.editKey, tv, {})).status, 400);
 });
 
+test('cambiar el nombre de un perfil: los links no cambian', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const rename = (body: Record<string, unknown>) => call('/profiles', { method: 'PUT', body: JSON.stringify(body) });
+  const tv = (await (await call('/token', { method: 'POST', body: JSON.stringify({ username: 'mama', password: 'b', account: 'Mamá', name: 'TV de Mamá' }) })).json() as { code: string }).code;
+  await call('/active', { method: 'PUT', body: JSON.stringify({ account: 'Mamá' }) });
+  const before = JSON.parse(await (await t.env.BUCKET.get(`short/${tv}.json`))!.text()) as { token: string; key: string };
+  const list = async () => await (await call('/devices')).json() as { devices: { code: string; account?: string }[]; activeAccount: string; mainName: string };
+  // La principal: el nombre se guarda en la configuración y sobrevive a guardarla desde la web sin ese dato.
+  assert.equal((await rename({ from: '', to: 'Luis' })).status, 200);
+  assert.equal((await list()).mainName, 'Luis');
+  const cfg = await (await call('')).json() as Record<string, unknown>;
+  const { mainName: _m, activeAccount: _a, ...rest } = cfg;
+  assert.equal((await call('', { method: 'PUT', body: JSON.stringify(rest) })).status, 200);
+  assert.equal((await list()).mainName, 'Luis');
+  // Un perfil adicional: cambia su `account` (y el activo, si era ese), no el código, el token ni la huella.
+  assert.equal((await rename({ from: 'Mamá', to: '' })).status, 400);
+  assert.equal((await rename({ from: 'Nadie', to: 'Otro' })).status, 404);
+  assert.deepEqual(await (await rename({ from: 'Mamá', to: 'Mami' })).json(), { ok: true, renamed: 1 });
+  const after = JSON.parse(await (await t.env.BUCKET.get(`short/${tv}.json`))!.text()) as { token: string; key: string; account: string };
+  assert.equal(after.account, 'Mami');
+  assert.equal(after.token, before.token);
+  assert.equal(after.key, before.key);
+  const l = await list();
+  assert.equal(l.activeAccount, 'Mami');
+  assert.equal(l.devices.find((d) => d.code === tv)!.account, 'Mami');
+  // No se puede repetir un nombre.
+  await call('/token', { method: 'POST', body: JSON.stringify({ username: 'pao', password: 'p', account: 'Paola', name: 'Celu' }) });
+  assert.equal((await rename({ from: 'Mami', to: 'Paola' })).status, 400);
+  // Un dispositivo nuevo de la principal sin volver a pedir sus datos: usa los de otro link suyo.
+  assert.equal((await call('/token', { method: 'POST', body: JSON.stringify({ name: 'Tablet' }) })).status, 200);
+});
+
 test('hogar: guarda solo lo que cifra el navegador, con su clave', async () => {
   const t = makeEnv();
   const call = (path: string, init: RequestInit & { key?: string } = {}) => handle(req(path, { headers: { 'CF-Connecting-IP': 'home' }, ...init }), t.env, t.ctx, t.cache);
