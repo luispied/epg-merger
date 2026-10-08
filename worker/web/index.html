@@ -31,7 +31,7 @@
   <header class="app-header">
     <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark">Grilla</span></h1></div>
     <p class="hero">Tu lista IPTV, con la guía bien puesta</p>
-    <p class="lead">Ordená tus canales, asignales la guía de programación y copiá dos links para tu reproductor. Sin cuenta: queda guardado en este navegador.</p>
+    <p class="lead">Ordená tus canales, asignales la guía de programación y copiá dos links para tu reproductor. Sin registrarte: queda guardado en este navegador.</p>
     <details class="how-wrap">
       <summary>Cómo funciona</summary>
       <ol class="how">
@@ -79,8 +79,8 @@
           <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt,audio/x-mpegurl,application/vnd.apple.mpegurl" hidden></label>
       </div>
       <div class="status-bar" id="onboardStatus" hidden></div>
-      <p class="help">Usuario y contraseña no se guardan en ningún servidor: van cifrados solo dentro de
-        tus links de reproducción.</p>
+      <p class="help">Usuario y contraseña se guardan solo cifrados, junto a tus links de reproducción:
+        no van en tu configuración ni en el respaldo.</p>
       <p class="help"><a href="#" id="restoreLink">Ya tengo una configuración (importar respaldo)</a> · <a href="#" id="homeLink">Tengo un código de hogar</a></p>
     </div>
     <p class="help legal">Grilla no ofrece canales ni listas: organiza la lista que ya tenés. Las guías de programación vienen de fuentes públicas.</p>
@@ -298,7 +298,7 @@
       </div>
       <label class="menu-row static" id="pushRow" hidden>
         <span class="menu-icon"><span data-icon="bell"></span></span>
-        <span class="menu-text">Avisos<small id="pushHint">Cuando haya canales nuevos en tu lista</small></span>
+        <span class="menu-text">Avisos<small id="pushHint">Canales nuevos, vencimientos y recordatorios</small></span>
         <input type="checkbox" class="switch" id="pushToggle" role="switch">
       </label>
       <label class="menu-row static">
@@ -330,22 +330,30 @@
       <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
 <div class="help-topic" data-topic="main">
-    <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da dos links para tu reproductor. Acá corregís lo que haga falta.</p>
+    <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Revisar</b>, <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links).</p>
 
     <details open>
       <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
-      <p>En la pestaña <b>Perfil</b> (barra de abajo), dentro de un perfil, agregás un <b>link</b> (por ejemplo «TV del living») y se generan dos direcciones: la <b>playlist</b> y la <b>guía</b>. Un mismo link sirve para varios dispositivos. De cada uno podés ver cuándo se usó, cambiarle el nombre, <b>desactivarlo</b> (su playlist muestra un aviso, con un solo canal, y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. Desde ahí también podés mandártelos por WhatsApp o mail, o escanear el código QR desde la tele.</p>
+      <p>En <b>Perfil</b> tocá un perfil (cuelga de su cuenta) y después <b>Agregar link</b>, con un nombre como «TV del living». Cada link son dos direcciones: la <b>playlist</b> y la <b>guía</b>. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con la primera y una guía <i>EPG</i> con la segunda. Con <b>Copiar o compartir</b> las copiás, te las mandás por WhatsApp o mail, o escaneás el código QR desde la tele.</p>
+      <p>Un mismo link sirve para varios dispositivos: cargalo en cada uno. Los links <b>no cambian</b> aunque edites canales, perfiles o cuentas, así que el reproductor se carga una sola vez.</p>
     </details>
 
     <details>
       <summary>¿Cómo leo y edito la lista?<span data-icon="chevron-down"></span></summary>
       <p>Cada fila muestra el canal del proveedor y, debajo, la <b>guía que tiene asignada</b> con su país. A la derecha, una <b>tilde</b> si la coincidencia es buena, un <b>número naranja</b> si es dudosa y <b>«Sin EPG»</b> si no tiene guía. Las categorías van con su encabezado fijo.</p>
       <p><b>Tocá una fila</b> para editar el canal. <b>Deslizala</b> hacia la izquierda para ocultarla (o mostrarla) y hacia la derecha para dejarla sin guía. <b>Mantenela apretada</b> para elegir varios. Con mouse también podés arrastrarla o usar el botón <b>…</b> que aparece al pasar por encima. El botón de la derecha de «N canales» alterna entre la vista <b>condensada</b> y la <b>detallada</b>, que suma lo que está dando ahora la guía de cada canal.</p>
+      <p><b>Tirá hacia abajo</b> estando arriba de todo para volver a cargar la grilla (tus cambios, la lista y la guía), como en las apps del celular.</p>
+    </details>
+
+    <details>
+      <summary>¿Cómo reviso los canales dudosos?<span data-icon="chevron-down"></span></summary>
+      <p>La pestaña <b>Revisar</b> lleva un número con los canales que tienen una guía dudosa o ninguna (pero sí una sugerencia). Tocala, o <b>Empezar</b> en la tarjeta de arriba de la grilla, y Grilla te los muestra de a uno, con una barra de progreso.</p>
+      <p>En cada canal el pie tiene las decisiones: <b>Usar sugerencia</b> (o <b>Está bien</b> si la guía asignada es la correcta), <b>Sin guía</b> para dejarlo así a propósito y <b>Saltar</b> para verlo después. Cada respuesta pasa sola al canal siguiente. Si ninguna opción sirve, buscá otra guía en la misma hoja.</p>
     </details>
 
     <details>
       <summary>¿Cómo cambio la guía (EPG) de un canal?<span data-icon="chevron-down"></span></summary>
-      <p>Tocá el canal. Arriba está la <b>guía asignada</b>, con lo que está dando ahora y un enlace a su programación de hoy y mañana (tocando un programa ves la descripción). Debajo, en <b>Otras opciones</b>, aparecen las alternativas que encontró Grilla con su porcentaje: <b>tocá una y queda elegida</b>.</p>
+      <p>Tocá el canal. Arriba está la <b>guía asignada</b>, con lo que está dando ahora y <b>Ver programación de hoy</b> (tocando un programa ves la descripción). Debajo, en <b>Otras opciones</b>, aparecen las alternativas que encontró Grilla con su porcentaje: <b>tocá una y queda elegida</b>.</p>
       <p>Para otra guía, <b>buscá en toda la guía</b> por nombre del canal o por el programa que está dando: si ves un partido, buscá el partido. <b>Automática</b> vuelve a la guía que eligió Grilla y <b>Sin guía</b> lo deja así a propósito (mejor sin EPG que con uno equivocado). Con las flechas ‹ › de arriba pasás al canal anterior o siguiente de la lista que estabas viendo, sin cerrar la hoja.</p>
       <p><b>Corregís una vez y alcanza:</b> si elegís o confirmás la guía de un canal, Grilla la repite en sus <b>variantes</b> (por ejemplo, el mismo canal en HD, FHD y 4K, del mismo país) que todavía tenían una guía dudosa o ninguna. El aviso dice en cuántas la aplicó y tiene «Deshacer». Las que ya elegiste vos no se tocan.</p>
     </details>
@@ -353,12 +361,13 @@
     <details class="help-more"><summary class="help-more-sum">Más preguntas<span data-icon="chevron-down"></span></summary>
     <details>
       <summary>¿Qué significan los porcentajes y las marcas?<span data-icon="chevron-down"></span></summary>
-      <p>Qué tan seguro está el emparejamiento automático entre el canal y su guía. Desde <b>80 %</b> se considera bueno y en la lista se muestra solo una tilde; por debajo va el número en <b>naranja</b> y conviene revisarlo. En la hoja del canal una guía que elegiste vos lleva <b>«Elegida por vos»</b> (no cambia sola). En un canal sin guía con una <b>sugerencia</b>, el botón <b>Usar sugerencia</b> de abajo la aplica de un toque; al lado, <b>Sin guía</b> lo deja así a propósito.</p>
+      <p>Qué tan seguro está el emparejamiento automático entre el canal y su guía. Desde <b>80 %</b> se considera bueno y en la lista se muestra solo una tilde; por debajo va el número en <b>naranja</b> y conviene revisarlo. En la hoja del canal una guía que elegiste vos lleva <b>«Elegida por vos»</b> (no cambia sola). En un canal que conviene revisar, el pie de la hoja trae <b>Usar sugerencia</b> o <b>Está bien</b> y, al lado, <b>Sin guía</b>.</p>
     </details>
 
     <details>
       <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
       <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con guía dudosa o sin guía pero con una sugerencia. <b>Sin EPG</b>: canales que todavía no tienen guía. <b>Elegidos a mano</b>: los que elegiste vos, incluidos los que dejaste sin guía a propósito. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en «A revisar» ni en «Sin EPG».</p>
+      <p>Tres filtros aparecen solo cuando hacen falta: <b>Nuevos</b> (canales que trajo tu proveedor), <b>Sin programación</b> (desde Salud de la guía) y <b>Caídos</b> (desde Canales caídos, en la página de la cuenta en uso).</p>
     </details>
 
     <details>
@@ -383,13 +392,18 @@
 
     <details>
       <summary>Canales nuevos del proveedor<span data-icon="chevron-down"></span></summary>
-      <p>Cuando tu lista trae canales que no estaban, arriba aparece «Hay N canales nuevos» y el filtro <b>Nuevos</b> (también se marcan con «nuevo» en la fila). Revisalos y tocá <b>Marcar como vistos</b>.</p>
+      <p>Cuando tu lista trae canales que no estaban, arriba de la grilla aparece «N canales nuevos en tu lista» y el filtro <b>Nuevos</b> (también se marcan con «nuevo» en la fila). Revisalos y tocá <b>Marcar como vistos</b>. Con los avisos activados te llega una notificación.</p>
     </details>
 
     <details>
       <summary>¿Cuándo se ven los cambios en el reproductor?<span data-icon="chevron-down"></span></summary>
       <p>Cada cambio se guarda solo. La <b>playlist</b> los tiene al instante. La <b>guía</b> se vuelve a armar en unos minutos: un aviso te dice cuándo está lista, y en <b>Configuración → Actualizar la guía ahora</b> (si está disponible) la pedís en el momento. Después, en el reproductor, actualizá la lista y la guía (o esperá a que lo haga solo).</p>
-      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): si tu proveedor bloquea al servidor y la lista la baja el relay, cada vez que tu reproductor pide la playlist y la copia guardada tiene más de 10 minutos, Grilla pide una nueva. Ese pedido sale con lo que había y el siguiente ya trae el canal: actualizá la lista en el reproductor.</p>
+      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): cada vez que tu reproductor pide la playlist y la lista guardada tiene más de 10 minutos, Grilla baja una nueva. Ese pedido sale con lo que había y el siguiente ya trae el canal: actualizá la lista en el reproductor.</p>
+    </details>
+
+    <details>
+      <summary>La grilla no carga<span data-icon="chevron-down"></span></summary>
+      <p>Con datos móviles un pedido a veces se corta: Grilla lo reintenta solo. Si igual no carga, el aviso trae <b>Reintentar</b>, o tirá hacia abajo la grilla. Sin conexión seguís editando: tus cambios quedan en este dispositivo y se envían cuando vuelve la red.</p>
     </details>
 
     <details>
@@ -405,26 +419,26 @@
     </details>
     </div>
     <div class="help-topic" data-topic="settings" hidden>
-      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada cuenta y cada proveedor (suscripción, canales caídos, dirección del servicio, recargar la lista) está en <b>Perfil</b>.</p>
+      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista, hogar) está en la pestaña <b>Perfil</b>.</p>
       <details open>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
-        <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una fuente vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
-      </details>
-      <details>
-        <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
-        <p><b>Exportar respaldo</b> baja un archivo pequeño con la llave para editar tu configuración (no lleva tu usuario ni tu contraseña). Para seguir en otro dispositivo o navegador, abrí Grilla ahí y tocá <b>Importar respaldo</b>. Guardalo en un lugar privado: quien lo tenga puede editar tu configuración.</p>
-      </details>
-      <details>
-        <summary>Tema, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
-        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste). <b>Avisos</b>: te manda una notificación cuando aparecen canales nuevos en tu lista (solo si el Worker los tiene activados; en iPhone hay que instalar la app primero).</p>
+        <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una guía vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
       </details>
       <details>
         <summary>Actualizar la guía ahora<span data-icon="chevron-down"></span></summary>
         <p>La guía se vuelve a armar sola cada día y unos minutos después de tus cambios. Si ves el botón <b>Actualizar la guía ahora</b>, la pide en el momento.</p>
       </details>
       <details>
+        <summary>Respaldo: pasar tu configuración a otro dispositivo<span data-icon="chevron-down"></span></summary>
+        <p><b>Exportar respaldo</b> baja un archivo pequeño con la llave para editar tus configuraciones, una por proveedor (no lleva tu usuario ni tu contraseña). Para seguir en otro dispositivo o navegador, abrí Grilla ahí y tocá <b>Importar respaldo</b>: se suman a las que ya haya. Guardalo en un lugar privado: quien lo tenga puede editar tu configuración. Para no andar con archivos, usá el código de <b>Hogar</b> en Perfil.</p>
+      </details>
+      <details>
+        <summary>Tema, avisos, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Avisos</b>: notificaciones cuando aparecen canales nuevos en tu lista, cuando se acerca el vencimiento de una cuenta y para los programas que marcaste con la campana (solo si el servidor los tiene activados; en iPhone hay que instalar la app primero). <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
+      </details>
+      <details>
         <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
-        <p>No se guardan en ningún servidor: van cifrados solo dentro de tus links de reproducción. Tu configuración queda asociada a este navegador.</p>
+        <p>Se guardan solo cifrados, junto a tus links de reproducción, y se usan para bajar tu lista y reproducir. No van en tu configuración, en el respaldo ni en el código de hogar.</p>
       </details>
       <details>
         <summary>¿Cómo la instalo como app?<span data-icon="chevron-down"></span></summary>
@@ -447,50 +461,41 @@
       </details>
     </div>
     <div class="help-topic" data-topic="links" hidden>
-      <p>Todo se ordena en <b>cuentas</b>, <b>perfiles</b> y <b>links</b>. Cada link es un par: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, lo que ve un perfil o tus datos del proveedor.</p>
+      <p>Todo se ordena en <b>proveedor › cuenta › perfil › links</b>. La <b>cuenta</b> es tu usuario y contraseña del proveedor, el <b>perfil</b> elige qué se ve y cada <b>link</b> es un par: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, lo que ve un perfil o tus datos del proveedor.</p>
       <details open>
         <summary>Cuentas: tu usuario y contraseña del proveedor<span data-icon="chevron-down"></span></summary>
-        <p>Cada <b>cuenta</b> (la tuya o la de un familiar) tiene su vencimiento y sus conexiones. La cuenta <b>en uso</b> (su inicial va en la pestaña <b>Perfil</b>) es la que baja la lista y prueba los canales caídos. En su página está «Usar esta cuenta», su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Manteniendo apretada la pestaña cambiás de cuenta sin entrar.</p>
+        <p>Cada <b>cuenta</b> (la tuya o la de un familiar) muestra los días de suscripción y las <b>conexiones en uso</b> en este momento. La cuenta <b>en uso</b> lleva su inicial en la pestaña <b>Perfil</b> y es la que baja la lista y prueba los canales caídos. <b>Mantené apretada la pestaña</b> (o clic derecho) para cambiar de cuenta sin entrar.</p>
+        <p>En su página están «Usar esta cuenta», sus perfiles, su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Si la cuenta en uso vence en 7 días o menos o tiene las conexiones llenas, aparece un aviso arriba de los canales.</p>
       </details>
       <details open>
         <summary>Perfiles: qué se ve, dentro de una cuenta<span data-icon="chevron-down"></span></summary>
-        <p>Cada <b>perfil</b> usa la cuenta de la que cuelga y elige qué categorías y canales se ven (por ejemplo «Chicos», sin contenido para adultos). En su página cambiás <b>Qué ve</b>, su cuenta, su nombre, le agregás links o lo borrás (sus links pasan a otro perfil). En ningún caso cambian los links.</p>
+        <p>Cada <b>perfil</b> usa la cuenta de la que cuelga y elige qué categorías y canales se ven, por ejemplo «Chicos», sin contenido para adultos. Se crea con <b>Agregar perfil</b>. En su página cambiás <b>Qué ve</b>, su cuenta, su nombre, le agregás links o lo borrás (sus links pasan a otro perfil). En ningún caso cambian los links.</p>
       </details>
       <details open>
         <summary>Un link, varios dispositivos<span data-icon="chevron-down"></span></summary>
         <p>Un mismo link sirve para todos los dispositivos que quieras: con <b>Copiar o compartir</b> lo cargás en la tele, el celular o la casa de tus padres. Hacé otro link solo si querés apagarlo o pasarlo a otro perfil por separado. Con <span class="inline-icon" data-icon="arrow-right-left"></span> pasás un link a otro perfil, también de otra cuenta o de otro proveedor: <b>su dirección no cambia</b>.</p>
-      </details>
-      <details>
-        <summary>Proveedores y hogar<span data-icon="chevron-down"></span></summary>
-        <p>Cada proveedor tiene su propia grilla. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Hogar</b> te da un código para abrir todos tus proveedores, cuentas y perfiles en otro dispositivo.</p>
-      </details>
-      <details open>
-        <summary>Qué ve un perfil<span data-icon="chevron-down"></span></summary>
-        <p>En la página del perfil, <b>Qué ve</b> elige qué categorías y canales sueltos aparecen en la playlist de <b>todos</b> sus links. Sin filtro, el perfil ve todo lo de tu configuración.</p>
-      </details>
-      <details open>
-        <summary>Qué se ve y qué no<span data-icon="chevron-down"></span></summary>
-        <p>Cada fila tiene un interruptor: <b>encendido</b>, el perfil la ve; <b>apagado</b>, no. Al empezar todo está encendido. Las categorías nuevas que traiga el proveedor aparecen encendidas, así que revisalas de vez en cuando.</p>
-      </details>
-      <details>
-        <summary>Secciones, canales sueltos y «Ocultar todo»<span data-icon="chevron-down"></span></summary>
-        <p>Cada fila es una categoría. Al apagar una <b>sección</b> se apagan todas las categorías que tiene adentro (y al encenderla, se encienden); si solo algunas se ven, aparece «2 de 4 categorías se ven». «Mostrar todo» y «Ocultar todo» actúan sobre lo que ves en pantalla. Con el buscador también encontrás <b>canales sueltos</b> para apagarlos sin tocar su categoría.</p>
-      </details>
-      <details>
-        <summary>Desactivar, renombrar y quitar<span data-icon="chevron-down"></span></summary>
         <p>El interruptor <b>desactiva</b> el link sin borrarlo: su playlist muestra un aviso con un solo canal hasta que lo reactives. También podés cambiarle el nombre o quitarlo del todo, sin afectar a los demás.</p>
       </details>
       <details>
-        <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba, con la cuenta en uso, una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en la página de esa cuenta. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <summary>Qué ve un perfil<span data-icon="chevron-down"></span></summary>
+        <p>En la página del perfil, <b>Qué ve</b> elige qué categorías y canales sueltos aparecen en la playlist de <b>todos</b> sus links. Cada fila tiene un interruptor: <b>encendido</b>, el perfil la ve; <b>apagado</b>, no. Sin filtro, el perfil ve todo lo de tu configuración. Las categorías nuevas que traiga el proveedor aparecen encendidas, así que revisalas de vez en cuando.</p>
+        <p>Al apagar una <b>sección</b> se apagan todas las categorías que tiene adentro (y al encenderla, se encienden); si solo algunas se ven, aparece «2 de 4 categorías se ven». «Mostrar todo» y «Ocultar todo» actúan sobre lo que ves en pantalla. Con el buscador también encontrás <b>canales sueltos</b> para apagarlos sin tocar su categoría.</p>
       </details>
       <details>
-        <summary>Vencimiento de tu suscripción<span data-icon="chevron-down"></span></summary>
-        <p>La misma corrida diaria lee del proveedor cuándo vence tu suscripción y cuántas conexiones permite (nunca tu usuario ni tu contraseña) y lo muestra en cada cuenta. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan la fecha.</p>
+        <summary>Proveedores y hogar<span data-icon="chevron-down"></span></summary>
+        <p>Perfil agrupa todo por proveedor, y cada proveedor tiene su propia grilla: usar una cuenta de otro proveedor abre la suya. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Agregar proveedor</b> suma otra lista de IPTV. <b>Hogar</b> te da un código para abrir todos tus proveedores, cuentas y perfiles en otro dispositivo.</p>
+      </details>
+      <details>
+        <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), Grilla prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+      </details>
+      <details>
+        <summary>Vencimiento y conexiones<span data-icon="chevron-down"></span></summary>
+        <p>Grilla lee del proveedor cuándo vence cada cuenta y cuántas conexiones permite (nunca muestra tu usuario ni tu contraseña). Las <b>conexiones en uso</b> se piden al momento cada vez que abrís Perfil. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan estos datos.</p>
       </details>
       <details>
         <summary>¿Cambió la dirección del servicio de IPTV?<span data-icon="chevron-down"></span></summary>
-        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en el engranaje del proveedor, <b>Dirección del servicio</b>, ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en la página de la cuenta, <b>URL de la lista</b>.</p>
+        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en el engranaje del proveedor, <b>Dirección del servicio</b>, ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). La lista se vuelve a bajar con la dirección nueva y los links de tus dispositivos no cambian: no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en la página de la cuenta, <b>URL de la lista</b>.</p>
       </details>
       <details>
         <summary>¿Cambiaron tus datos del proveedor?<span data-icon="chevron-down"></span></summary>
@@ -498,7 +503,7 @@
       </details>
       <details>
         <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>
-        <p>Cuando tu proveedor agrega o saca canales, abrí el engranaje del proveedor en Perfil y tocá <b>Recargar la lista</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
+        <p>La lista se renueva sola cuando el reproductor la pide y tiene más de 10 minutos. Para traer ya los canales nuevos, abrí el engranaje del proveedor en Perfil y tocá <b>Recargar la lista</b>. Tus cambios se conservan y los canales nuevos toman la guía automática. Si no hay conexión, se hace cuando vuelva.</p>
       </details>
       <details>
         <summary>Quitar un proveedor<span data-icon="chevron-down"></span></summary>

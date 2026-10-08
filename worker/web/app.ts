@@ -3756,7 +3756,7 @@ async function refreshPushRow() {
   if (!key) return;
   row.dataset.key = key;
   toggle.disabled = false;
-  hint.textContent = 'Cuando haya canales nuevos en tu lista';
+  hint.textContent = 'Canales nuevos, vencimientos y recordatorios';
   if (!pushSupported()) {
     toggle.checked = false;
     toggle.disabled = true;
@@ -4369,7 +4369,7 @@ function wireDownRow() {
       if (r.started) {
         streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
         renderDownRow();
-        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir tu perfil)', 'ok', 6000);
+        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir la cuenta)', 'ok', 6000);
       } else if (r.reason === 'recent') {
         toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
         await loadStreamHealth();
