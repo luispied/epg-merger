@@ -106,6 +106,31 @@ sin uso primero), las inactivas y las sugeridas: el switch escribe `"active": fa
 El formato viejo (`"urls": ["...", "..."]`) sigue funcionando: el `id` se deriva del nombre de
 archivo y la prioridad es la posición.
 
+### Fuentes automáticas (`tools/auto_sources.py`)
+
+Para cubrir cualquier país del catálogo sin bajar sus 548 fuentes todos los días, la corrida
+activa sola las fuentes que alguien necesita y retira las que nadie usa:
+
+1. **Demanda:** los canales visibles sin guía de los perfiles de la corrida y de cada
+   configuración de Grilla web (su `cfg/<cfgId>.json` con la lista guardada `list/<cfgId>.json`
+   en R2; las listas M3U no se guardan, así que no suman demanda).
+2. **Candidatas:** hasta 12 fuentes `fresh` del catálogo de los países que faltan, por turnos.
+   Nunca una que esté en `epg_urls.json` (activa o desactivada a mano: lo manual manda), ni una
+   de más de 25 MB, ni una medida hace menos de 7 días que no sumó nada.
+3. **Medición:** el matcher real sobre hasta 6000 canales sin guía (por turnos entre países),
+   como en las sugerencias de arriba. La misma pasada mide cuánto sumarían todavía las
+   automáticas ya activas.
+4. **Decisión:** se activan las que dan al menos un canal con guía firme y rinden ~1 canal cada
+   5 MB o más (una guía dudosa vale ¼), las que más rinden primero, con tope de 4 nuevas por
+   corrida, 30 activas y 120 MB entre todas. Una automática que durante 7 corridas seguidas no
+   usa nadie (perfiles y configuraciones) ni sumaría nada se retira.
+
+El estado está en R2 (`state/auto_sources.json`, privado). La corrida siguiente lo baja antes de
+fusionar (`auto_sources.py pull` → `auto_sources.json`) y `merge_epgs.py` suma esas fuentes
+detrás de las de `epg_urls.json` (prioridad 1000 en adelante): una fuente activada hoy entra en
+la guía mañana. Las configuraciones de Grilla web toman la guía nueva la próxima vez que se
+abren (el cruce automático corre en el navegador).
+
 ### Deduplicación
 
 Un canal presente en varias fuentes (los 7 archivos de España comparten decenas de

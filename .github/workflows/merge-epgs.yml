@@ -37,10 +37,21 @@ jobs:
         python-version: '3.11'
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: pip install -r requirements.txt boto3
 
     - name: Run tests
       run: python -m pytest tests/ -q
+
+    # Fuentes automáticas (tools/auto_sources.py): las que activó la corrida anterior según lo que
+    # les falta a las listas. Sin R2 o si falla, se fusiona solo lo de epg_urls.json.
+    - name: Pull auto sources
+      continue-on-error: true
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/auto_sources.py pull
 
     - name: Merge EPGs
       run: python merge_epgs.py
@@ -92,6 +103,18 @@ jobs:
       continue-on-error: true
       timeout-minutes: 10
       run: python tools/source_coverage.py
+
+    # Activa fuentes del catálogo para los países que les faltan a las listas (perfiles y
+    # configuraciones de Grilla web) y retira las que nadie usa. Entran en la corrida siguiente.
+    - name: Update auto sources
+      continue-on-error: true
+      timeout-minutes: 10
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/auto_sources.py update
 
     # Guía compartida para Grilla web (Etapa 1) en Cloudflare R2: índice de la guía para
     # @grilla/core y los datos de la interfaz. Sin los secretos R2_* no hace nada; si falla,

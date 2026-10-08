@@ -101,10 +101,11 @@ def _site(host):
 
 @functools.lru_cache(maxsize=1)
 def source_sites():
-    """Sitios de las fuentes de EPG activas (de sus URLs)."""
-    from merge_epgs import load_sources  # tarde: merge_epgs no hace falta para lo demás
+    """Sitios de las fuentes de EPG activas y de todo el catálogo (de sus URLs): una fuente
+    automática (tools/auto_sources.py) puede entrar en la guía sin estar en epg_urls.json."""
+    from merge_epgs import load_catalog, load_sources  # tarde: merge_epgs no hace falta para lo demás
     sites = set()
-    for s in load_sources():
+    for s in [*load_sources(), *load_catalog().values()]:
         m = re.match(r'https?://([^/:]+)', s.get('url') or '', re.I)
         if m:
             sites.add(_site(m.group(1)))
