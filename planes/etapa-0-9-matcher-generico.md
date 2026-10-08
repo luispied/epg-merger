@@ -101,8 +101,7 @@ ABC Chicago, "FOX 4" → Fox Deportes, "HBO Zone" → Showtime Familyzone).
   "RTLZWEI") siguen sin resolverse.
 - La cobertura real depende de las fuentes: muchos canales locales de estas listas no tienen
   guía en ninguna fuente activa (las sugerencias de "Fuentes de EPG" ayudan).
-- Falta comparar la cobertura con IPTVEditor / m3u4u usando `prueba-argentina.m3u` (lo hace
-  Luis, porque esos servicios piden cuenta).
+- Comparación de cobertura con IPTVEditor / m3u4u: descartada (08/10, Luis).
 
 ## Segunda ronda (29/09/2026)
 
