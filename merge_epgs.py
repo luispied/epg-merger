@@ -19,6 +19,9 @@ from lxml import etree
 from epg_http import download_all
 
 SOURCES_PATH = 'epg_urls.json'
+# Fuentes automáticas (tools/auto_sources.py): las baja de R2 el paso `pull` antes de fusionar.
+AUTO_SOURCES_PATH = 'auto_sources.json'
+AUTO_PRIORITY = 1000
 OUTPUT_PATH = 'merged.xml.gz'
 
 # Algunas fuentes (schedulesdirect.org, visto en "HBO Family", "Universal Kids", "NBC Sports
@@ -54,7 +57,7 @@ def load_catalog(path=CATALOG_PATH):
         return {}
 
 
-def load_sources(path=SOURCES_PATH, catalog_path=CATALOG_PATH):
+def load_sources(path=SOURCES_PATH, catalog_path=CATALOG_PATH, auto_path=AUTO_SOURCES_PATH):
     """Carga las fuentes EPG desde epg_urls.json.
 
     Acepta el formato nuevo ("sources": lista de objetos con id/url/country/priority) y el
@@ -62,6 +65,9 @@ def load_sources(path=SOURCES_PATH, catalog_path=CATALOG_PATH):
     'priority' por defecto es la posición en el archivo — o sea que sin declarar prioridades
     el comportamiento es el de siempre: gana la fuente que aparece primero. Menor = mejor.
     Las fuentes con "active": false (o con la url comentada con '#') se saltean.
+
+    Después van las fuentes automáticas de `auto_path` (tools/auto_sources.py), del catálogo y
+    detrás de todas las de epg_urls.json: una fuente que figura ahí, activa o no, no se suma sola.
     """
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -112,7 +118,29 @@ def load_sources(path=SOURCES_PATH, catalog_path=CATALOG_PATH):
             'country': entry.get('country'),
             'priority': entry.get('priority', i),
         })
-    return sources
+    return sources + _auto_sources(auto_path, catalog_path, raw, seen_ids)
+
+
+def _auto_sources(auto_path, catalog_path, raw, seen_ids):
+    if not auto_path:
+        return []
+    try:
+        with open(auto_path, 'r', encoding='utf-8') as f:
+            active = json.load(f).get('active') or {}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        return []
+    manual_urls = {(e if isinstance(e, str) else e.get('url') or '').lstrip('#').strip() for e in raw}
+    manual_ids = {e.get('id') for e in raw if isinstance(e, dict)}
+    catalog = load_catalog(catalog_path)
+    out = []
+    for n, source_id in enumerate(active):
+        known = catalog.get(source_id)
+        if not known or source_id in manual_ids or source_id in seen_ids or known['url'] in manual_urls:
+            continue
+        seen_ids.add(source_id)
+        out.append({'id': source_id, 'url': known['url'], 'country': known.get('country'),
+                    'priority': AUTO_PRIORITY + n})
+    return out
 
 
 def _iter_source(data):
@@ -145,7 +173,8 @@ def merge_epgs(output_path=OUTPUT_PATH):
         print("❌ No hay fuentes para procesar")
         return
 
-    print(f"📋 Encontradas {len(sources)} fuentes de EPG")
+    auto = sum(1 for s in sources if s['priority'] >= AUTO_PRIORITY)
+    print(f"📋 Encontradas {len(sources)} fuentes de EPG" + (f" ({auto} automáticas)" if auto else ''))
     print("-" * 60)
 
     tmpdir = tempfile.mkdtemp(prefix='epg-merge-')
