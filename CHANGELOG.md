@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.5
+
+- En la revisión de un canal, **Sin guía** pasa al pie junto a **Usar sugerencia** y **Saltar**, y la tarjeta de la sugerencia ya no repite el botón **Usar**. Elegir **Sin guía** ahí pasa al canal siguiente.
+
 ## 1.24.4
 
 - Tirar hacia abajo estando arriba de la grilla la vuelve a cargar (configuración, lista y guía), como en las apps del celular.
