@@ -25,10 +25,10 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
-from channel_names import RULES_PATH  # noqa: E402
+from channel_names import RULES_PATH, parse_channel_name  # noqa: E402
 from generate_playlist import MERGED_EPG_PATH, iter_programmes, load_epg_channels  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
-from source_alias import logo_key, logo_path, media_urls, shard, source_alias  # noqa: E402
+from source_alias import channel_alias, fold_key, logo_key, logo_path, media_urls, shard, source_alias  # noqa: E402
 
 SHARED_DIR = os.path.join('out', 'shared')
 INDEX_VERSION = 1
@@ -53,10 +53,21 @@ def source_info(sources):
     return {s['id']: {'country': s.get('country'), 'priority': s.get('priority', 0)} for s in sources}
 
 
+def masked_channel(ch):
+    """Un canal del índice sin rastros de la fuente: id con alias (más la clave del id plegado, para
+    resolver el id de EPG de la lista, y la región que daba el id real), fuente con alias y logo por el Worker."""
+    out = {'id': channel_alias(ch['id']), 'k': fold_key(ch['id']), 'source': source_alias(ch['source']),
+           'names': ch['names'], 'icon': logo_path(ch['icon'])}
+    region = parse_channel_name(ch['id']).region
+    if region:
+        out['region'] = region
+    return out
+
+
 def build_index(root, sources, rules, now=None):
     """El índice que se publica: las fuentes van con su alias y los logos por el Worker (source_alias.py)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    channels = [{**ch, 'source': source_alias(ch['source']), 'icon': logo_path(ch['icon'])} for ch in guide_channels(root)]
+    channels = [masked_channel(ch) for ch in guide_channels(root)]
     return {
         'version': INDEX_VERSION,
         'generated_at': now.strftime('%Y-%m-%dT%H:%M:%SZ'),

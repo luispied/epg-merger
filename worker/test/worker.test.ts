@@ -94,7 +94,8 @@ test('playlist: lista en vivo con ediciones, ocultos, orden y canales nuevos', a
   assert.equal(lines[0], `#EXTM3U url-tvg="${BASE}/g/${code}.xml.gz"`);
   // Orden: la categoría guardada primero; la nueva ("PPV / Eventos"), al final.
   assert.match(lines[1], /tvg-id="ESPN" .*group-title="Deportes AR",ESPN$/);
-  assert.match(lines[3], /tvg-id="Telefe.ar" tvg-name="Telefe" tvg-logo="https:\/\/g\/telefe.png" group-title="🇦🇷 Argentina",Telefe$/);
+  // El id de la guía sale enmascarado (core/src/alias.ts): lo guardado como "Telefe.ar" se traduce al servir.
+  assert.match(lines[3], /tvg-id="g196a8620ccb9db\.ar" tvg-name="Telefe" tvg-logo="https:\/\/g\/telefe.png" group-title="🇦🇷 Argentina",Telefe$/);
   // Canal nuevo: tal cual, sin EPG ni logo; '/' fuera del group-title.
   assert.match(lines[5], /tvg-id="Evento del día" tvg-name="Evento del día" tvg-logo="" group-title="PPV - Eventos"/);
   assert.equal(lines[6], `${BASE}/s/${code}/12.ts`);
@@ -159,7 +160,7 @@ test('M3U: la lista se baja al servir y los streams van tal cual', async () => {
   const links = await (await handle(req(`/api/cfg/${created.cfgId}/token`, { method: 'POST', key: created.editKey,
     body: JSON.stringify({ url: 'http://lista.example/es.m3u' }) }), t.env, t.ctx, t.cache)).json() as { playlistUrl: string };
   const text = await (await handle(new Request(links.playlistUrl), t.env, t.ctx, t.cache)).text();
-  assert.match(text, /tvg-id="Clan.es" .*group-title="Kids",Clan \(1080p\)\nhttp:\/\/cdn\/clan.m3u8/);
+  assert.match(text, /tvg-id="g05f2506a0ea831\.es" .*group-title="Kids",Clan \(1080p\)\nhttp:\/\/cdn\/clan.m3u8/);
 });
 
 test('lista del proveedor de paso, y guía/interfaz desde R2', async () => {

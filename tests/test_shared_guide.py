@@ -9,7 +9,7 @@ from lxml import etree
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import shared_guide  # noqa: E402
-from source_alias import logo_key, logo_path, scrub_element, scrub_text, source_alias  # noqa: E402
+from source_alias import channel_alias, fold_key, logo_key, logo_path, scrub_element, scrub_text, source_alias  # noqa: E402
 
 
 def test_alias_estable_y_opaco():
@@ -37,10 +37,13 @@ def test_indice_con_canales_fuentes_y_reglas(tmp_path):
     assert index['sources'] == {ar: {'country': 'ar', 'priority': 3}, us: {'country': None, 'priority': 0}}
     assert 'openepg' not in json.dumps(index) and 'acidjesuz' not in json.dumps(index)
     # En el orden de la guía (el desempate del matcher depende de él) y sin los canales sin id.
+    # Ids de canal con alias (misma fórmula que core/src/alias.ts), y la clave del id plegado.
     assert index['channels'] == [
-        {'id': 'Telefe.ar', 'source': ar, 'names': ['Telefe'], 'icon': logo_path('http://x/t.png')},
-        {'id': 'TBS.us', 'source': us, 'names': ['TBS', 'TBS HD'], 'icon': ''},
+        {'id': 'g196a8620ccb9db.ar', 'k': fold_key('Telefe.ar'), 'source': ar, 'names': ['Telefe'],
+         'icon': logo_path('http://x/t.png')},
+        {'id': channel_alias('TBS.us'), 'k': fold_key('TBS.us'), 'source': us, 'names': ['TBS', 'TBS HD'], 'icon': ''},
     ]
+    assert 'Telefe.ar' not in json.dumps(index)
 
     assert 'x/t.png' not in json.dumps(index)
 
@@ -81,3 +84,17 @@ def test_sin_rastros_de_la_fuente():
     assert f'src="https://grilla.grilla.workers.dev/img/{logo_key("http://y/p.jpg")}"' in xml
     # Dos veces da lo mismo (un programa va a varias guías).
     assert etree.tostring(scrub_element(prog, 'img', sites)).decode() == xml
+
+
+def test_alias_de_canal_igual_que_core():
+    assert channel_alias('Telefe.ar') == 'g196a8620ccb9db.ar'
+    assert channel_alias('I9.101373.schedulesdirect.org') == 'g0976bbfbbcab07'
+    assert channel_alias('Señal Colombia.co') == 'g0a9ac9245753ed.co'
+    assert channel_alias(channel_alias('Telefe.ar')) == 'g196a8620ccb9db.ar'
+    assert fold_key('Telefe .AR') == fold_key('telefe.ar') == '0607d78652cce4'
+
+
+def test_region_del_id_real():
+    root = etree.fromstring(b'<tv><channel id="AMC.(East).us"><display-name>AMC</display-name></channel></tv>')
+    index = shared_guide.build_index(root, [], {})
+    assert index['channels'][0]['region'] == 'east'

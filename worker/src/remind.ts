@@ -1,6 +1,7 @@
 // Recordatorios de programas: «Avisarme» en la programación de un canal. Se guardan por configuración en
 // remind/<cfgId>.json (sin credenciales: la guía del canal, su nombre, el título y la hora de inicio) y la
 // corrida programada de avisos (push.ts → notifyReminders) manda el push poco antes de que empiecen.
+import { channelAlias } from '../../core/src/alias.ts';
 import type { R2Bucket } from './env.ts';
 
 export interface Reminder {
@@ -48,10 +49,13 @@ export function parseReminder(raw: unknown, now?: number): Reminder | null {
   return { epg: v.epg, name: (typeof v.name === 'string' ? v.name : '').slice(0, 80), title: v.title.trim().slice(0, 120), start };
 }
 
+/** Los guardados antes con el id real de la guía y los nuevos con su alias son el mismo canal. */
+const sameChannel = (a: string, b: string) => channelAlias(a) === channelAlias(b);
+
 /** Agrega un recordatorio (o lo deja igual si ya estaba). Devuelve false si se llegó al tope. */
 export async function addReminder(bucket: R2Bucket, cfgId: string, item: Reminder, nowS: number): Promise<boolean> {
   const live = (await readReminders(bucket, cfgId)).filter((r) => r.start > nowS - REMIND_GRACE_S);
-  if (live.some((r) => r.epg === item.epg && r.start === item.start)) return true;
+  if (live.some((r) => sameChannel(r.epg, item.epg) && r.start === item.start)) return true;
   if (live.length >= MAX_REMINDERS) return false;
   await writeReminders(bucket, cfgId, [...live, item].sort((a, b) => a.start - b.start));
   return true;
@@ -59,5 +63,5 @@ export async function addReminder(bucket: R2Bucket, cfgId: string, item: Reminde
 
 export async function removeReminder(bucket: R2Bucket, cfgId: string, epg: string, start: number): Promise<void> {
   const items = await readReminders(bucket, cfgId);
-  await writeReminders(bucket, cfgId, items.filter((r) => !(r.epg === epg && r.start === start)));
+  await writeReminders(bucket, cfgId, items.filter((r) => !(sameChannel(r.epg, epg) && r.start === start)));
 }

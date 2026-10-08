@@ -383,7 +383,7 @@ piden al Worker (logos de canal en `/logo/<clave>`, guardados en R2 la primera v
 programa en `/img/<clave>`, de paso), los `<url>` de canales y programas se sacan, y los links a
 sitios de las fuentes (dominios de `epg_urls.json`) se borran de títulos y descripciones. El Worker
 resuelve cada clave con los mapas privados `logo/map/` e `img/map/` de R2 (`shared_guide.py`,
-`worker/src/logos.ts`). El XML usa el Worker de `GRILLA_WORKER` (por defecto
+`worker/src/logos.ts`). Los ids de canal salen con alias (`channel_alias` en `source_alias.py`, `core/src/alias.ts`; el matcher de la web resuelve el id de EPG de la lista con la clave `k` del id plegado), y las configuraciones guardadas con el id real se traducen al leerlas. El XML usa el Worker de `GRILLA_WORKER` (por defecto
 `https://grilla.grilla.workers.dev`).
 La subida la hace `tools/r2_upload.sh`. Si faltan los secretos, el paso no hace
 nada; si falla, la corrida sigue igual. El bucket es **privado**: ver

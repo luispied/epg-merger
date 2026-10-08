@@ -10,6 +10,7 @@ from lxml import etree
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import generate_playlist
+from source_alias import channel_alias  # noqa: E402
 
 
 MERGED = """<tv>
@@ -234,7 +235,12 @@ def test_schedule_snapshot_incluye_la_descripcion(tmp_path):
     assert len(entries[2]) == 3
     assert len(entries[3][3]) == generate_playlist.SCHEDULE_DESC_MAX and entries[3][3].endswith('…')
     with open(tmp_path / 'hour' / '2026010112.json', encoding='utf-8') as f:
-        assert all(len(e) == 3 for e in json.load(f)['c']['A.us'])
+        # Por el id enmascarado (el que tiene la web), igual que el nombre del archivo.
+        assert all(len(e) == 3 for e in json.load(f)['c'][channel_alias('A.us')])
+    assert sched['A.us'] == generate_playlist._schedule_filename(channel_alias('A.us'))
+
+
+A, B = channel_alias('A.us'), channel_alias('B.us')
 
 
 def test_schedule_snapshot_arma_indice_por_hora(tmp_path):
@@ -258,14 +264,14 @@ def test_schedule_snapshot_arma_indice_por_hora(tmp_path):
             data = json.load(f)
         return {cid: [data['t'][e[2]] for e in entries] for cid, entries in data['c'].items()}
 
-    assert hora('2026010111') == {'A.us': ['Noticias']}
+    assert hora('2026010111') == {A: ['Noticias']}
     with open(tmp_path / 'hour' / '2026010112.json', encoding='utf-8') as f:
         data = json.load(f)
     assert data['h'] == int(now.timestamp())
     # inicio/fin en minutos relativos a la hora del archivo
-    assert [e[:2] for e in data['c']['A.us']] == [[-30, 30], [30, 60]]
-    assert hora('2026010112') == {'A.us': ['Noticias', 'Friends'], 'B.us': ['Friends']}
-    assert hora('2026010113') == {'B.us': ['Friends']}
+    assert [e[:2] for e in data['c'][A]] == [[-30, 30], [30, 60]]
+    assert hora('2026010112') == {A: ['Noticias', 'Friends'], B: ['Friends']}
+    assert hora('2026010113') == {B: ['Friends']}
     assert hora('2026010114') == {}
 
 

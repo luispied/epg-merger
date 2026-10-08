@@ -1,5 +1,6 @@
 // Índice de canales de la guía y puntaje de coincidencia. Port de epg_index.py: solapamiento
 // de tokens pesado por IDF, ajustado por fuente preferida, país, idioma y región.
+import { foldId, foldKey } from './alias.ts';
 import { parseChannelName, type MatchingRules, type ParsedName } from './names.ts';
 
 export interface Candidate {
@@ -15,6 +16,10 @@ export interface GuideChannel {
   source?: string | null;
   names: string[];
   icon?: string | null;
+  /** Guía enmascarada (alias.ts): clave del id real plegado, para resolver el id de EPG de la lista. */
+  k?: string;
+  /** Región que da el id real cuando los nombres no la traen (con el id enmascarado no se puede sacar). */
+  region?: string | null;
   /** Posición en la guía (desempate estable). Si falta, la del array. */
   pos?: number;
 }
@@ -91,7 +96,6 @@ interface Meta {
   order: number;
 }
 
-const foldId = (id: string) => id.replace(/\s+/g, '').toLowerCase();
 const uniq = <T>(xs: Iterable<T>) => [...new Set(xs)];
 
 export class EpgIndex {
@@ -108,6 +112,8 @@ export class EpgIndex {
   private readonly order = new Map<string, number>();
   private readonly sourcePriority = new Map<string, number>();
   private byFoldedId: Map<string, string> | null = null;
+  /** Guía enmascarada: clave del id plegado → alias. */
+  private readonly byFoldKey = new Map<string, string>();
   private readonly meta = new Map<string, Meta>();
 
   constructor(channels: GuideChannel[], rules: MatchingRules, sources: Record<string, SourceInfo> = {}) {
@@ -139,7 +145,8 @@ export class EpgIndex {
       if (!country && sourceId) country = sources[sourceId]?.country ?? null;
       this.country.set(id, country);
 
-      this.region.set(id, parsedNames.find((p) => p.region)?.region ?? parseChannelName(id, rules).region);
+      this.region.set(id, parsedNames.find((p) => p.region)?.region ?? channel.region ?? parseChannelName(id, rules).region);
+      if (channel.k && !this.byFoldKey.has(channel.k)) this.byFoldKey.set(channel.k, id);
 
       for (const p of parsedNames) {
         for (const token of uniq(p.core)) {
@@ -162,6 +169,7 @@ export class EpgIndex {
   resolveId(rawId: string | null | undefined): string | null {
     if (!rawId) return null;
     if (this.parsed.has(rawId)) return rawId;
+    if (this.byFoldKey.size) return this.byFoldKey.get(foldKey(rawId.split('@')[0])) ?? null;
     if (!this.byFoldedId) {
       this.byFoldedId = new Map();
       for (const id of this.parsed.keys()) if (!this.byFoldedId.has(foldId(id))) this.byFoldedId.set(foldId(id), id);

@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools'))
 
 import config_epgs  # noqa: E402
+from source_alias import channel_alias  # noqa: E402
 
 MERGED = b"""<?xml version="1.0" encoding="UTF-8" ?>
 <tv generator-info-name="epg-merger">
@@ -26,7 +27,8 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path):
     cfgs = tmp_path / 'cfg'
     cfgs.mkdir()
     (cfgs / 'aaaaaaaaaaaaaaaaaaaaaa.json').write_text(json.dumps({'channels': {
-        'AR| Telefe': {'epg': 'Telefe.ar'}, 'ESPN': {'epg': 'ESPN.ar'}, 'Oculto': {'hidden': True},
+        # Una con el alias (la web nueva) y otra con el id real (guardada antes): las dos sirven.
+        'AR| Telefe': {'epg': channel_alias('Telefe.ar')}, 'ESPN': {'epg': 'ESPN.ar'}, 'Oculto': {'hidden': True},
         'Sin EPG': {'epg': None}, 'Colgado': {'epg': 'NoExiste.xx'}}}))
     (cfgs / 'bbbbbbbbbbbbbbbbbbbbbb.json').write_text(json.dumps({'channels': {}}))
     (cfgs / 'roto.json').write_text('{')
@@ -35,7 +37,10 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path):
     assert stats == {'aaaaaaaaaaaaaaaaaaaaaa': 2, 'bbbbbbbbbbbbbbbbbbbbbb': 0}
 
     xml = gzip.decompress((tmp_path / 'out' / 'aaaaaaaaaaaaaaaaaaaaaa.xml.gz').read_bytes()).decode()
-    assert 'id="Telefe.ar"' in xml and 'id="ESPN.ar"' in xml and 'TBS' not in xml
+    tel, espn = channel_alias('Telefe.ar'), channel_alias('ESPN.ar')
+    assert f'id="{tel}"' in xml and f'id="{espn}"' in xml and 'TBS' not in xml
+    # Los ids de canal, enmascarados también en los programas (igual que el tvg-id de la playlist).
+    assert 'Telefe.ar' not in xml and 'ESPN.ar' not in xml and f'channel="{espn}"' in xml
     assert 'Noticiero' in xml and 'SportsCenter' in xml and 'Friends' not in xml
     # La fuente sale enmascarada.
     assert 'openepg' not in xml and 'source="s' in xml

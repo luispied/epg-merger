@@ -1,6 +1,7 @@
 // La playlist de una configuración: la lista en vivo del proveedor con las ediciones guardadas.
 // Canales conocidos → su EPG, nombre, categoría y ocultos; canales nuevos (los eventos del
 // día) → tal cual, sin EPG; los que ya no están, no salen.
+import { channelAlias } from '../../core/src/alias.ts';
 import type { Config } from './config.ts';
 import { placeNewGroups } from './groups.ts';
 import type { Channel } from './provider.ts';
@@ -72,7 +73,8 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
     if (!passes(opts.filter, group, ch.name, fGroups, fChannels)) return;
     // Un separador del proveedor (el canal se llama como su categoría) toma el nombre nuevo.
     const name = edit.name || (ch.name === group && rename[group]) || ch.name;
-    const epg = edit.epg ?? null;
+    // El id de la guía sale enmascarado, igual que en el XML (lo guardado con el id real se traduce acá).
+    const epg = edit.epg ? channelAlias(edit.epg) : null;
     // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
     // que la persona haya puesto uno propio.
     const guideLogo = edit.logo && opts.logoUrl ? opts.logoUrl(edit.logo) : edit.logo;
