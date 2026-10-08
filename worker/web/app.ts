@@ -2949,7 +2949,7 @@ const accountRow = (a: AccountView, acc: Account | undefined, on: boolean, cfgId
     <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(a.name))}</span>
     <span class="menu-text"><span class="pr-title">${esc(a.name)}${on ? '<span class="pc-badge">En uso</span>' : ''}</span><small class="${l.tone}">${esc(l.text)}</small></span>${icon('chevron-right')}</button>`;
 };
-const profileRow = (p: ProfileView, cfgId?: string) => `<button type="button" class="menu-row profile-row sub-row" data-pid="${esc(p.id)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
+const profileRow = (p: ProfileView, cfgId?: string, nested = true) => `<button type="button" class="menu-row profile-row${nested ? ' sub-row' : ''}" data-pid="${esc(p.id)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
     <span class="avatar sm" aria-hidden="true">${esc(initialOf(p.name))}</span>
     <span class="menu-text">${esc(p.name)}<small>${esc(profileSub(p))}</small></span>${icon('chevron-right')}</button>`;
 
@@ -3016,7 +3016,7 @@ function renderAccountPage(body: HTMLElement, account: string, cfgId?: string): 
         <span class="menu-icon">${icon('triangle-alert')}</span><span class="menu-text">Canales caídos<small id="downSub">Calculando…</small></span>
         <button type="button" class="btn btn-tonal sm" id="runCheckBtn">Probar ahora</button></div></div>` : ''}
     <h3 class="sub-title">Perfiles</h3>
-    <div class="menu">${a.profiles.map((p) => profileRow(p, other?.cfgId)).join('')}
+    <div class="menu">${a.profiles.map((p) => profileRow(p, other?.cfgId, false)).join('')}
       ${other ? '' : menuRow('data-add-profile', 'plus', 'Agregar perfil', 'Otro nombre y otra selección de canales, con la misma cuenta', 'add-row', false)}</div>
     ${other ? '' : `<h3 class="sub-title">Cuenta</h3>
     <div class="menu">
