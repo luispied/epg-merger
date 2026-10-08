@@ -7,6 +7,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.0
+
+- Perfil se reordena en **cuentas > perfiles > links**. La cuenta es tu usuario y contraseña del proveedor (la tuya o la de un familiar): tiene la suscripción, las conexiones, los canales caídos y «Usar esta cuenta». Dentro de cada cuenta, los perfiles eligen **qué se ve** (por ejemplo «Chicos») y tienen sus links.
+- Un mismo link sirve para varios dispositivos: «Copiar o compartir» lo deja a mano para cargarlo en otra tele. Otro link solo hace falta si lo querés apagar o pasar de perfil por separado.
+- «Qué ve» es del perfil y vale para todos sus links. Un perfil se puede renombrar, pasar a otra cuenta o borrar (sus links pasan a otro perfil). Una cuenta se renombra, cambia sus datos o se borra (sus perfiles pasan a otra cuenta). Los links nunca cambian de dirección.
+- Los links de antes quedan solos en un perfil por cuenta y filtro.
+
 ## 1.23.1
 
 - Arreglo: al generar un link, un segundo toque mientras se guardaba mostraba el error «null is not an object (#lnkName)». Ahora el botón se bloquea hasta terminar (también en «Crear perfil»).

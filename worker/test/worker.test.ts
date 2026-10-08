@@ -1236,7 +1236,7 @@ test('mover un link: a otro perfil o a otro proveedor, con la misma dirección',
 test('cambiar el nombre de un perfil: los links no cambian', async () => {
   const t = await setup();
   const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
-  const rename = (body: Record<string, unknown>) => call('/profiles', { method: 'PUT', body: JSON.stringify(body) });
+  const rename = (body: Record<string, unknown>) => call('/account-name', { method: 'PUT', body: JSON.stringify(body) });
   const tv = (await (await call('/token', { method: 'POST', body: JSON.stringify({ username: 'mama', password: 'b', account: 'Mamá', name: 'TV de Mamá' }) })).json() as { code: string }).code;
   await call('/active', { method: 'PUT', body: JSON.stringify({ account: 'Mamá' }) });
   const before = JSON.parse(await (await t.env.BUCKET.get(`short/${tv}.json`))!.text()) as { token: string; key: string };
@@ -1245,7 +1245,7 @@ test('cambiar el nombre de un perfil: los links no cambian', async () => {
   assert.equal((await rename({ from: '', to: 'Luis' })).status, 200);
   assert.equal((await list()).mainName, 'Luis');
   const cfg = await (await call('')).json() as Record<string, unknown>;
-  const { mainName: _m, activeAccount: _a, ...rest } = cfg;
+  const { mainName: _m, activeAccount: _a, profiles: _p, ...rest } = cfg;
   assert.equal((await call('', { method: 'PUT', body: JSON.stringify(rest) })).status, 200);
   assert.equal((await list()).mainName, 'Luis');
   // Un perfil adicional: cambia su `account` (y el activo, si era ese), no el código, el token ni la huella.
@@ -1259,11 +1259,68 @@ test('cambiar el nombre de un perfil: los links no cambian', async () => {
   const l = await list();
   assert.equal(l.activeAccount, 'Mami');
   assert.equal(l.devices.find((d) => d.code === tv)!.account, 'Mami');
-  // No se puede repetir un nombre.
+  // No se puede repetir un nombre de cuenta.
   await call('/token', { method: 'POST', body: JSON.stringify({ username: 'pao', password: 'p', account: 'Paola', name: 'Celu' }) });
   assert.equal((await rename({ from: 'Mami', to: 'Paola' })).status, 400);
   // Un dispositivo nuevo de la principal sin volver a pedir sus datos: usa los de otro link suyo.
   assert.equal((await call('/token', { method: 'POST', body: JSON.stringify({ name: 'Tablet' }) })).status, 200);
+});
+
+test('perfiles: los links de antes pasan a uno, el filtro se cambia en un lugar y borrar mueve los links', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const body = (v: unknown) => JSON.stringify(v);
+  const rec = async (c: string) => JSON.parse(await (await t.env.BUCKET.get(`short/${c}.json`))!.text()) as { token: string; account?: string; profile?: string; filter?: unknown };
+  const main = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
+  const kids = { groups: ['Deportes'], channels: [], only: true };
+  // Un link con filtro y otro de otra cuenta, como antes (sin perfil).
+  const tv = (await (await call('/token', { method: 'POST', body: body({ name: 'TV chicos', filter: kids }) })).json() as { code: string }).code;
+  const mama = (await (await call('/token', { method: 'POST', body: body({ username: 'mama', password: 'b', account: 'Mamá', name: 'TV de Mamá' }) })).json() as { code: string }).code;
+  const before = await rec(main);
+  type List = { devices: { code: string; profile?: string }[]; profiles: { id: string; name: string; account?: string; filter?: unknown }[] };
+  const list = async () => await (await call('/devices')).json() as List;
+  let l = await list();
+  assert.equal(l.profiles.length, 3);
+  const pOf = (code: string) => l.profiles.find((p) => p.id === l.devices.find((d) => d.code === code)!.profile)!;
+  assert.equal(pOf(main).name, 'Todo');
+  assert.equal(pOf(tv).name, 'TV chicos');
+  assert.deepEqual(pOf(tv).filter, kids);
+  assert.equal(pOf(mama).account, 'Mamá');
+  // La migración no toca el token ni la dirección.
+  assert.equal((await rec(main)).token, before.token);
+  assert.equal((await list()).profiles.length, 3); // no se repite
+  // Guardar la config desde la web no pisa los perfiles.
+  const cfg = await (await call('')).json() as Record<string, unknown>;
+  await call('', { method: 'PUT', body: body({ ...cfg, profiles: [] }) });
+  assert.equal((await list()).profiles.length, 3);
+  // Un link nuevo en el perfil de los chicos toma su filtro; cambiar el filtro del perfil llega a todos sus links.
+  const chicos = pOf(tv).id;
+  const tab = (await (await call('/token', { method: 'POST', body: body({ name: 'Tablet', profile: chicos }) })).json() as { code: string }).code;
+  assert.deepEqual((await rec(tab)).filter, kids);
+  const newer = { groups: ['Argentina'], channels: [], only: true };
+  assert.equal((await call(`/profiles/${chicos}`, { method: 'PUT', body: body({ filter: newer, name: 'Chicos' }) })).status, 200);
+  assert.deepEqual((await rec(tv)).filter, newer);
+  assert.deepEqual((await rec(tab)).filter, newer);
+  // Un perfil nuevo y vacío de la cuenta principal; borrar «Chicos» pasa sus links ahí, con la misma dirección.
+  const created = await (await call('/profiles', { method: 'POST', body: body({ name: 'Papás' }) })).json() as { profile: { id: string } };
+  assert.equal((await call(`/profiles/${chicos}`, { method: 'DELETE', body: body({}) })).status, 400);
+  assert.equal((await call(`/profiles/${chicos}`, { method: 'DELETE', body: body({ to: created.profile.id }) })).status, 200);
+  assert.equal((await rec(tv)).profile, created.profile.id);
+  assert.equal((await rec(tv)).filter, undefined);
+  l = await list();
+  assert.ok(!l.profiles.some((p) => p.id === chicos));
+  assert.ok(l.devices.some((d) => d.code === tv) && l.devices.some((d) => d.code === tab));
+  // Pasar el perfil de Mamá a la cuenta principal: sus links toman el token de la principal.
+  const pm = pOf(mama).id;
+  assert.equal((await call(`/profiles/${pm}`, { method: 'PUT', body: body({ account: '' }) })).status, 200);
+  assert.equal((await rec(mama)).account, undefined);
+  assert.equal((await rec(mama)).token, before.token);
+  // Mover un link a un perfil (de la misma configuración) toma su cuenta y su filtro.
+  const filtered = await (await call('/profiles', { method: 'POST', body: body({ name: 'Solo AR', filter: newer }) })).json() as { profile: { id: string } };
+  assert.equal((await call(`/devices/${main}/move`, { method: 'POST', body: body({ profile: filtered.profile.id }) })).status, 200);
+  assert.equal((await rec(main)).profile, filtered.profile.id);
+  assert.deepEqual((await rec(main)).filter, newer);
+  assert.equal((await handle(req(`/l/${main}.m3u8`), t.env, t.ctx, t.cache)).status, 200);
 });
 
 test('hogar: guarda solo lo que cifra el navegador, con su clave', async () => {

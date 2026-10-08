@@ -19,6 +19,8 @@ export interface ShortRecord {
   account?: string;
   /** Huella de la cuenta del proveedor (ver account.ts): para mostrar su vencimiento. */
   key?: string;
+  /** Perfil al que pertenece (id en config.profiles); `filter` es la copia del filtro de ese perfil. */
+  profile?: string;
 }
 export interface Device {
   code: string;
@@ -29,6 +31,7 @@ export interface Device {
   filter?: DeviceFilter;
   account?: string;
   accountKey?: string;
+  profile?: string;
 }
 
 export const SHORT_RE = /^[A-Za-z0-9_-]{8,16}$/;
@@ -65,12 +68,12 @@ export async function readShort(bucket: R2Bucket, code: string): Promise<ShortRe
 }
 
 /** Crea el link corto de un dispositivo nuevo. Devuelve null si ya hay demasiados. */
-export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown, key?: string): Promise<boolean> {
+export async function addDevice(bucket: R2Bucket, cfgId: string, token: string, name: unknown, code: string, now = new Date(), filter?: unknown, account?: unknown, key?: string, profile?: string): Promise<boolean> {
   const codes = await codesOf(bucket, cfgId);
   if (codes.length >= MAX_DEVICES) return false;
   const f = parseFilter(filter);
   const acc = cleanAccount(account);
-  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}), ...(acc ? { account: acc } : {}), ...(key ? { key } : {}) };
+  const rec: ShortRecord = { cfgId, token, name: cleanName(name), created: now.toISOString(), ...(f ? { filter: f } : {}), ...(acc ? { account: acc } : {}), ...(key ? { key } : {}), ...(profile ? { profile } : {}) };
   await bucket.put(shortKey(code), JSON.stringify(rec), JSON_TYPE);
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: [...codes, code] }), JSON_TYPE);
   return true;
@@ -80,7 +83,7 @@ export async function listDevices(bucket: R2Bucket, cfgId: string): Promise<Devi
   const out: Device[] = [];
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
-    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}), ...(rec.key ? { accountKey: rec.key } : {}) });
+    if (rec && rec.cfgId === cfgId) out.push({ code, name: rec.name || 'Sin nombre', created: rec.created, lastUsed: rec.lastUsed, active: rec.active !== false, ...(rec.filter ? { filter: rec.filter } : {}), ...(rec.account ? { account: rec.account } : {}), ...(rec.key ? { accountKey: rec.key } : {}), ...(rec.profile ? { profile: rec.profile } : {}) });
   }
   return out;
 }
@@ -108,6 +111,21 @@ export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: 
     if (rec && rec.cfgId === cfgId && rec.account === account) return { token: rec.token, key: rec.key };
   }
   return null;
+}
+
+/** Reescribe los registros de la configuración que `change` devuelva cambiados (null = no tocar). Nunca cambia el código
+ *  ni borra un registro: los links siguen con la misma dirección. Devuelve cuántos cambió. */
+export async function updateRecords(bucket: R2Bucket, cfgId: string, change: (rec: ShortRecord, code: string) => ShortRecord | null): Promise<number> {
+  let n = 0;
+  for (const code of await codesOf(bucket, cfgId)) {
+    const rec = await readShort(bucket, code);
+    if (!rec || rec.cfgId !== cfgId) continue;
+    const next = change(rec, code);
+    if (!next) continue;
+    await bucket.put(shortKey(code), JSON.stringify({ ...next, cfgId: rec.cfgId }), JSON_TYPE);
+    n++;
+  }
+  return n;
 }
 
 /** Cambia el nombre de un perfil adicional (`account` de sus links): mismo token, misma huella, mismo código. */
@@ -181,13 +199,17 @@ export async function accountTokens(bucket: R2Bucket, cfgId: string, active?: st
 /** Pasa el link de un dispositivo a otro perfil (cuenta) de la misma configuración o a otra configuración (otro
  *  proveedor), con el token de su destino. El código no cambia: la dirección del link sigue siendo la misma y el
  *  reproductor no hay que tocarlo. Devuelve false si el link no es de `from` o si el destino ya tiene demasiados. */
-export async function moveDevice(bucket: R2Bucket, code: string, from: string, to: string, token: string, account?: string, key?: string): Promise<boolean> {
+export async function moveDevice(bucket: R2Bucket, code: string, from: string, to: string, token: string, account?: string, key?: string,
+  profile?: { id: string; filter?: DeviceFilter }): Promise<boolean> {
   const rec = await readShort(bucket, code);
   if (!rec || rec.cfgId !== from) return false;
   const target = from === to ? null : await codesOf(bucket, to);
   if (target && target.length >= MAX_DEVICES) return false;
-  const { account: _a, key: _k, ...rest } = rec;
-  const next: ShortRecord = { ...rest, cfgId: to, token, ...(account ? { account } : {}), ...(key ? { key } : {}) };
+  const { account: _a, key: _k, profile: _p, ...rest } = rec;
+  // Con perfil de destino, el link toma su filtro; sin perfil (otra configuración vieja) queda el suyo.
+  if (profile) delete rest.filter;
+  const next: ShortRecord = { ...rest, cfgId: to, token, ...(account ? { account } : {}), ...(key ? { key } : {}),
+    ...(profile ? { profile: profile.id, ...(profile.filter ? { filter: profile.filter } : {}) } : {}) };
   if (target) {
     await bucket.put(idxKey(to), JSON.stringify({ codes: [...target.filter((c) => c !== code), code] }), JSON_TYPE);
   }

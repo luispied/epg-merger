@@ -141,7 +141,7 @@
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
   <button type="button" class="tab" id="tabReview"><span class="tab-ico"><span data-icon="list-checks"></span><b class="tab-badge" id="tabReviewBadge" hidden></b></span><span>Revisar</span></button>
   <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
-  <button type="button" class="tab" id="tabLinks" aria-haspopup="dialog" title="Perfil (mantené apretado para cambiar de perfil)"><span class="tab-ico"><span class="avatar tab-avatar" id="tabAvatar" aria-hidden="true">T</span></span><span>Perfil</span></button>
+  <button type="button" class="tab" id="tabLinks" aria-haspopup="dialog" title="Perfil (mantené apretado para cambiar de cuenta)"><span class="tab-ico"><span class="avatar tab-avatar" id="tabAvatar" aria-hidden="true">T</span></span><span>Perfil</span></button>
 </nav>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -241,7 +241,7 @@
 <dialog class="sheet settings-sheet" id="profileSwitch" aria-labelledby="profileSwitchTitle">
   <div class="sheet-body">
     <div class="title-row">
-      <span class="title-left"><h2 id="profileSwitchTitle">Cambiar de perfil</h2></span>
+      <span class="title-left"><h2 id="profileSwitchTitle">Cambiar de cuenta</h2></span>
       <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
     </div>
     <p class="help">La lista y la prueba de canales caídos pasan a hacerse con la cuenta que elijas. Los links no cambian.</p>
@@ -333,7 +333,7 @@
 
     <details open>
       <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
-      <p>En la pestaña <b>Perfil</b> (barra de abajo) agregás un <b>dispositivo</b> (por ejemplo «TV del living») y se generan dos links: la <b>playlist</b> y la <b>guía</b>. Cada dispositivo tiene el suyo: podés ver cuándo se usó, cambiarle el nombre, <b>desactivarlo</b> (su playlist muestra un aviso, con un solo canal, y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. Desde ahí también podés mandártelos por WhatsApp o mail, o escanear el código QR desde la tele.</p>
+      <p>En la pestaña <b>Perfil</b> (barra de abajo), dentro de un perfil, agregás un <b>link</b> (por ejemplo «TV del living») y se generan dos direcciones: la <b>playlist</b> y la <b>guía</b>. Un mismo link sirve para varios dispositivos. De cada uno podés ver cuándo se usó, cambiarle el nombre, <b>desactivarlo</b> (su playlist muestra un aviso, con un solo canal, y lo reactivás cuando quieras) o quitarlo del todo, sin afectar a los demás. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con el primero y una guía <i>EPG</i> con el segundo. Desde ahí también podés mandártelos por WhatsApp o mail, o escanear el código QR desde la tele.</p>
     </details>
 
     <details>
@@ -446,30 +446,30 @@
       </details>
     </div>
     <div class="help-topic" data-topic="links" hidden>
-      <p>Cada <b>dispositivo</b> (la tele del living, el celular…) tiene su propio par de links: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, el filtro, el perfil o tus datos del proveedor.</p>
+      <p>Todo se ordena en <b>cuentas</b>, <b>perfiles</b> y <b>links</b>. Cada link es un par: la <b>playlist</b> y la <b>guía</b>. Los links <b>no cambian</b> aunque edites tus canales, lo que ve un perfil o tus datos del proveedor.</p>
       <details open>
-        <summary>Perfiles: una cuenta del proveedor cada uno<span data-icon="chevron-down"></span></summary>
-        <p>Cada <b>perfil</b> es una cuenta de tu proveedor (la tuya o la de un familiar), con su vencimiento, sus conexiones en uso y sus dispositivos. El perfil <b>en uso</b> (su inicial va en la pestaña <b>Perfil</b>) es el que baja la lista y prueba los canales caídos. Tocá un perfil para ver su página: ahí está «Usar este perfil», sus dispositivos, «Agregar dispositivo», cambiarle el nombre, sus datos y borrarlo. Manteniendo apretada la pestaña cambiás de perfil sin entrar.</p>
+        <summary>Cuentas: tu usuario y contraseña del proveedor<span data-icon="chevron-down"></span></summary>
+        <p>Cada <b>cuenta</b> (la tuya o la de un familiar) tiene su vencimiento y sus conexiones. La cuenta <b>en uso</b> (su inicial va en la pestaña <b>Perfil</b>) es la que baja la lista y prueba los canales caídos. En su página está «Usar esta cuenta», su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Manteniendo apretada la pestaña cambiás de cuenta sin entrar.</p>
       </details>
-      <details>
-        <summary>Cambiar el nombre o borrar un perfil<span data-icon="chevron-down"></span></summary>
-        <p>En la página del perfil, <b>Cambiar nombre</b> le pone otro nombre (también al tuyo, que sin nombre dice «Tu cuenta»). <b>Borrar perfil</b> pasa sus dispositivos a otro perfil y el perfil desaparece. En ningún caso cambian los links.</p>
+      <details open>
+        <summary>Perfiles: qué se ve, dentro de una cuenta<span data-icon="chevron-down"></span></summary>
+        <p>Cada <b>perfil</b> usa la cuenta de la que cuelga y elige qué categorías y canales se ven (por ejemplo «Chicos», sin contenido para adultos). En su página cambiás <b>Qué ve</b>, su cuenta, su nombre, le agregás links o lo borrás (sus links pasan a otro perfil). En ningún caso cambian los links.</p>
       </details>
-      <details>
-        <summary>Mover un dispositivo a otro perfil<span data-icon="chevron-down"></span></summary>
-        <p>Con <span class="inline-icon" data-icon="arrow-right-left"></span> pasás un dispositivo a otro perfil, también de otro proveedor: <b>su link no cambia</b> y el reproductor empieza a usar la otra cuenta la próxima vez que actualice la lista.</p>
+      <details open>
+        <summary>Un link, varios dispositivos<span data-icon="chevron-down"></span></summary>
+        <p>Un mismo link sirve para todos los dispositivos que quieras: con <b>Copiar o compartir</b> lo cargás en la tele, el celular o la casa de tus padres. Hacé otro link solo si querés apagarlo o pasarlo a otro perfil por separado. Con <span class="inline-icon" data-icon="arrow-right-left"></span> pasás un link a otro perfil, también de otra cuenta o de otro proveedor: <b>su dirección no cambia</b>.</p>
       </details>
       <details>
         <summary>Proveedores y hogar<span data-icon="chevron-down"></span></summary>
-        <p>Cada proveedor tiene su propia grilla. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Hogar</b> te da un código para abrir todos tus proveedores y perfiles en otro dispositivo.</p>
+        <p>Cada proveedor tiene su propia grilla. Con el engranaje de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista, elegís la hora de sus eventos (su zona horaria, para pasar a tu hora los eventos PPV) o lo quitás. <b>Hogar</b> te da un código para abrir todos tus proveedores, cuentas y perfiles en otro dispositivo.</p>
       </details>
       <details open>
-        <summary>Filtro: qué ve cada dispositivo<span data-icon="chevron-down"></span></summary>
-        <p>Con el botón <span class="inline-icon" data-icon="list-filter"></span> de un dispositivo elegís qué categorías y canales sueltos aparecen en <b>su</b> playlist. Es útil, por ejemplo, para que la tele de los chicos no muestre contenido para adultos. Sin filtro, el dispositivo ve todo lo de tu configuración.</p>
+        <summary>Qué ve un perfil<span data-icon="chevron-down"></span></summary>
+        <p>En la página del perfil, <b>Qué ve</b> elige qué categorías y canales sueltos aparecen en la playlist de <b>todos</b> sus links. Sin filtro, el perfil ve todo lo de tu configuración.</p>
       </details>
       <details open>
         <summary>Qué se ve y qué no<span data-icon="chevron-down"></span></summary>
-        <p>Cada fila tiene un interruptor: <b>encendido</b>, el dispositivo la ve; <b>apagado</b>, no. Al empezar todo está encendido. Las categorías nuevas que traiga el proveedor aparecen encendidas, así que revisalas de vez en cuando.</p>
+        <p>Cada fila tiene un interruptor: <b>encendido</b>, el perfil la ve; <b>apagado</b>, no. Al empezar todo está encendido. Las categorías nuevas que traiga el proveedor aparecen encendidas, así que revisalas de vez en cuando.</p>
       </details>
       <details>
         <summary>Secciones, canales sueltos y «Ocultar todo»<span data-icon="chevron-down"></span></summary>
@@ -481,19 +481,19 @@
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba, con la cuenta del perfil en uso, una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en la página del perfil en uso. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos», también una sola vez por día), Grilla prueba, con la cuenta en uso, una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en la página de esa cuenta. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
       </details>
       <details>
         <summary>Vencimiento de tu suscripción<span data-icon="chevron-down"></span></summary>
-        <p>La misma corrida diaria lee del proveedor cuándo vence tu suscripción y cuántas conexiones permite (nunca tu usuario ni tu contraseña) y lo muestra en cada perfil. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan la fecha.</p>
+        <p>La misma corrida diaria lee del proveedor cuándo vence tu suscripción y cuántas conexiones permite (nunca tu usuario ni tu contraseña) y lo muestra en cada cuenta. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan la fecha.</p>
       </details>
       <details>
         <summary>¿Cambió la dirección del servicio de IPTV?<span data-icon="chevron-down"></span></summary>
-        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en el engranaje del proveedor, <b>Dirección del servicio</b>, ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en la página del perfil, <b>URL de la lista</b>.</p>
+        <p>Si el servidor de tu proveedor cambia de dirección o deja de andar, en el engranaje del proveedor, <b>Dirección del servicio</b>, ponés la dirección nueva (una por línea: la primera es la principal y las demás, de respaldo). Los links de tus dispositivos no cambian. Si tu lista la baja el relay, se vuelve a bajar enseguida con la dirección nueva; no hace falta tocar nada más. Si tu lista es una URL M3U, esa dirección se cambia en la página de la cuenta, <b>URL de la lista</b>.</p>
       </details>
       <details>
         <summary>¿Cambiaron tus datos del proveedor?<span data-icon="chevron-down"></span></summary>
-        <p>En la página del perfil, <b>Usuario y contraseña</b>, ponés los nuevos (o la URL nueva) y se actualizan <b>todos</b> los dispositivos de ese perfil a la vez, sin cambiar sus direcciones: no hay que tocar nada en el reproductor.</p>
+        <p>En la página de la cuenta, <b>Usuario y contraseña</b>, ponés los nuevos (o la URL nueva) y se actualizan <b>todos</b> los links de esa cuenta a la vez, sin cambiar sus direcciones: no hay que tocar nada en el reproductor.</p>
       </details>
       <details>
         <summary>Recargar la lista del proveedor<span data-icon="chevron-down"></span></summary>

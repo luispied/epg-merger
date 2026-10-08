@@ -318,6 +318,7 @@ async function switchProvider(cfgId: string) {
   saveLocal(state.local);
   state.creds = null;
   profileDevices = [];
+  profileDefs = [];
   liveAccounts = {};
   streamHealth = null;
   await openSaved();
@@ -2633,7 +2634,7 @@ const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
 interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -2644,82 +2645,98 @@ const ago = (iso?: string) => {
   return `usado hace ${Math.round(min / 1440)} d`;
 };
 
-// ------------------------------------------------------------------ perfiles
-// Un perfil es una cuenta del proveedor (la principal o la de un familiar: `account` en sus links), con su vencimiento,
-// sus conexiones en uso y sus dispositivos. El activo (config.activeAccount) es el que baja la lista y prueba los canales
-// caídos; su inicial va en la pestaña «Perfil». Ver planes/perfiles.md.
-interface Profile { account: string; name: string; key?: string; devices: Device[] }
+// ------------------------------------------------------------------ cuentas y perfiles
+// Cuenta: el usuario y la contraseña del proveedor (la principal o la de un familiar: `account` en sus links), con su
+// vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
+// inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
+// Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter }
+interface ProfileView extends ProfileDef { devices: Device[] }
+interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];
+let profileDefs: ProfileDef[] = [];
 let liveAccounts: Record<string, Account> = {};
 const activeAccount = () => state.cfg?.activeAccount ?? '';
-const profileName = (account: string, main = state.cfg?.mainName) => account || main || 'Tu cuenta';
+const accountName = (account: string, main = state.cfg?.mainName) => account || main || 'Tu cuenta';
 const initialOf = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
 
-/** Los perfiles de la configuración, por sus dispositivos: la principal siempre, después las demás en orden de alta. */
-function profilesOf(devices: Device[], main?: string): Profile[] {
-  const out = new Map<string, Profile>([['', { account: '', name: profileName('', main), devices: [] }]]);
+/** Las cuentas de una configuración con sus perfiles y links: la principal siempre, después las demás en orden de alta. */
+function accountsOf(devices: Device[], profiles: ProfileDef[], main?: string): AccountView[] {
+  const out = new Map<string, AccountView>();
+  const get = (acc: string) => {
+    if (!out.has(acc)) out.set(acc, { account: acc, name: accountName(acc, main), profiles: [], devices: [] });
+    return out.get(acc)!;
+  };
+  get('');
+  for (const p of profiles) get(p.account ?? '').profiles.push({ ...p, devices: [] });
   for (const d of devices) {
-    const acc = d.account ?? '';
-    if (!out.has(acc)) out.set(acc, { account: acc, name: profileName(acc, main), devices: [] });
-    const p = out.get(acc)!;
-    p.devices.push(d);
-    p.key ??= d.accountKey;
+    const a = get(d.account ?? '');
+    a.devices.push(d);
+    a.key ??= d.accountKey;
+    a.profiles.find((x) => x.id === d.profile)?.devices.push(d);
   }
   return [...out.values()];
 }
+const myAccounts = () => accountsOf(profileDevices, profileDefs);
 
-/** Datos de la cuenta de un perfil: los de ahora (relay) o, si no, los de la última prueba. */
-const accountOfProfile = (p: Profile): Account | undefined =>
-  (p.key && (liveAccounts[p.key] ?? streamHealth?.accounts?.[p.key])) || (!p.account && !p.key ? streamHealth?.account : undefined);
+/** Datos de una cuenta: los de ahora (relay) o, si no, los de la última prueba. */
+const accountData = (a: AccountView): Account | undefined =>
+  (a.key && (liveAccounts[a.key] ?? streamHealth?.accounts?.[a.key])) || (!a.account && !a.key ? streamHealth?.account : undefined);
 const daysLeft = (acc?: Account) => (acc?.expires ? Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000) : null);
 
 function renderTabAvatar() {
   const el = document.querySelector<HTMLElement>('#tabAvatar');
   if (!el) return;
-  const name = profileName(activeAccount());
+  const name = accountName(activeAccount());
   el.textContent = initialOf(name);
-  $('#tabLinks').setAttribute('aria-label', `Perfil: ${name} (mantené apretado para cambiar)`);
+  $('#tabLinks').setAttribute('aria-label', `Perfil. Cuenta en uso: ${name} (mantené apretado para cambiar)`);
 }
 
-/** Aviso arriba de los canales, solo si el perfil activo necesita atención: vence pronto o tiene las conexiones llenas. */
+/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto o tiene las conexiones llenas. */
 function renderProfileNotice() {
   const box = document.querySelector<HTMLButtonElement>('#profileNotice');
   if (!box) return;
-  const p = profilesOf(profileDevices).find((x) => x.account === activeAccount());
-  const acc = p && accountOfProfile(p);
+  const a = myAccounts().find((x) => x.account === activeAccount());
+  const acc = a && accountData(a);
   const days = daysLeft(acc);
-  const who = p && (p.account || state.cfg?.mainName) ? `La cuenta de ${p.name}` : 'Tu cuenta';
+  const who = a && (a.account || state.cfg?.mainName) ? `La cuenta de ${a.name}` : 'Tu cuenta';
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
   else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${acc.activeConnections} de ${acc.maxConnections} en uso)`;
   box.hidden = !text;
   if (!text) return;
-  box.innerHTML = `${icon('clock')}<span class="pn-text"><strong>${esc(text)}</strong><small>Tocá para ver tus perfiles o cambiar de cuenta</small></span>${icon('chevron-right')}`;
+  box.innerHTML = `${icon('clock')}<span class="pn-text"><strong>${esc(text)}</strong><small>Tocá para ver la cuenta o cambiar de cuenta</small></span>${icon('chevron-right')}`;
 }
 
 /** Dispositivos y datos de las cuentas: para la pestaña, el aviso y la pantalla de Perfiles. */
 let liveAt = 0;
-/** Los demás proveedores del hogar: sus perfiles (por sus dispositivos) y los datos de sus cuentas. */
-interface OtherProvider { cfgId: string; editKey: string; name: string; devices: Device[]; accounts: Record<string, Account>; mainName?: string }
+/** Los demás proveedores del hogar: sus cuentas, perfiles y links, y los datos de sus cuentas. */
+interface OtherProvider { cfgId: string; editKey: string; name: string; devices: Device[]; profiles: ProfileDef[]; accounts: Record<string, Account>; mainName?: string }
 let otherProviders: OtherProvider[] = [];
+type DevicesResponse = { devices: Device[]; profiles?: ProfileDef[]; mainName?: string };
 async function loadOtherProviders(live: boolean) {
   const h = loadHome();
   otherProviders = await Promise.all(h.configs.filter((c) => c.cfgId !== state.local?.cfgId).map(async (c) => {
     const prev = otherProviders.find((o) => o.cfgId === c.cfgId);
-    const o: OtherProvider = { cfgId: c.cfgId, editKey: c.editKey, name: providerName(h, c.cfgId), devices: prev?.devices ?? [], accounts: prev?.accounts ?? {}, mainName: prev?.mainName };
+    const o: OtherProvider = { cfgId: c.cfgId, editKey: c.editKey, name: providerName(h, c.cfgId), devices: prev?.devices ?? [],
+      profiles: prev?.profiles ?? [], accounts: prev?.accounts ?? {}, mainName: prev?.mainName };
     try {
-      const r = await api<{ devices: Device[]; mainName?: string }>(`/api/cfg/${c.cfgId}/devices`, { key: c.editKey });
+      const r = await api<DevicesResponse>(`/api/cfg/${c.cfgId}/devices`, { key: c.editKey });
       o.devices = r.devices;
+      o.profiles = r.profiles ?? [];
       o.mainName = r.mainName || undefined;
       if (live) o.accounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${c.cfgId}/accounts`, { key: c.editKey })).accounts;
     } catch { /* sin conexión o configuración borrada: queda lo último */ }
     return o;
   }));
 }
+const otherAccounts = (o: OtherProvider) => accountsOf(o.devices, o.profiles, o.mainName);
 async function loadProfiles(live = true) {
   if (!state.local) return;
   try {
-    profileDevices = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices;
+    const r = await api<DevicesResponse>(`/api/cfg/${state.local.cfgId}/devices`);
+    profileDevices = r.devices;
+    profileDefs = r.profiles ?? [];
   } catch { /* sin conexión: queda lo último */ }
   await loadOtherProviders(live && Date.now() - liveAt > 60_000);
   renderTabAvatar();
@@ -2732,20 +2749,20 @@ async function loadProfiles(live = true) {
   renderProfileNotice();
 }
 
-/** Usar un perfil de otro proveedor: pasa a ser su perfil activo y se abre esa configuración (otra grilla). */
-async function useOtherProfile(cfgId: string, account: string) {
+/** Usar una cuenta de otro proveedor: pasa a ser su cuenta en uso y se abre esa configuración (otra grilla). */
+async function useOtherAccount(cfgId: string, account: string) {
   const o = otherProviders.find((x) => x.cfgId === cfgId);
   if (!o) return;
   try {
     await api(`/api/cfg/${cfgId}/active`, { method: 'PUT', key: o.editKey, body: { account } });
-    toast(`Perfil activo: ${profileName(account)} (${o.name}). Cargando su grilla…`, 'ok', 6000);
+    toast(`Cuenta en uso: ${accountName(account, o.mainName)} (${o.name}). Cargando su grilla…`, 'ok', 6000);
     await switchProvider(cfgId);
   } catch (e) {
     toast((e as Error).message, 'bad', 6000);
   }
 }
 
-async function setActiveProfile(account: string) {
+async function setActiveAccount(account: string) {
   if (account === activeAccount()) return;
   try {
     await api(`/api/cfg/${state.local!.cfgId}/active`, { method: 'PUT', body: { account } });
@@ -2755,36 +2772,36 @@ async function setActiveProfile(account: string) {
     }
     renderTabAvatar();
     renderProfileNotice();
-    toast(`Perfil activo: ${profileName(account)}. La prueba de canales caídos se hace con esta cuenta en un rato`, 'ok', 6000);
+    toast(`Cuenta en uso: ${accountName(account)}. La prueba de canales caídos se hace con esta cuenta en un rato`, 'ok', 6000);
     loadStreamHealth();
   } catch (e) {
     toast((e as Error).message, 'bad', 6000);
   }
 }
 
-/** Mantener apretada la pestaña (o clic derecho): lista corta de perfiles para cambiar de activo sin entrar. Con varios
- *  proveedores, agrupados por proveedor; elegir uno de otro proveedor abre su grilla. */
+/** Mantener apretada la pestaña (o clic derecho): lista corta de cuentas para cambiar la que está en uso sin entrar. Con
+ *  varios proveedores, agrupadas por proveedor; elegir una de otro proveedor abre su grilla. */
 function openProfileSwitch() {
   const list = $('#profileSwitchList');
   const h = loadHome();
   const multi = otherProviders.length > 0;
-  const opt = (p: Profile, acc: Account | undefined, on: boolean, cfgId?: string) => {
+  const opt = (a: AccountView, acc: Account | undefined, on: boolean, cfgId?: string) => {
     const days = daysLeft(acc);
-    return `<button type="button" class="profile-opt${on ? ' on' : ''}" data-account="${esc(p.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}${on ? ' aria-current="true"' : ''}>
-      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
-      <span class="po-text"><strong>${esc(p.name)}</strong><small>${esc([days === null ? '' : days < 0 ? 'vencida' : `${plural(days, 'día', 'días')}`, plural(p.devices.length, 'link', 'links')].filter(Boolean).join(' · '))}</small></span>
+    return `<button type="button" class="profile-opt${on ? ' on' : ''}" data-account="${esc(a.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}${on ? ' aria-current="true"' : ''}>
+      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(a.name))}</span>
+      <span class="po-text"><strong>${esc(a.name)}</strong><small>${esc([days === null ? '' : days < 0 ? 'vencida' : `${plural(days, 'día', 'días')}`, plural(a.profiles.length, 'perfil', 'perfiles')].filter(Boolean).join(' · '))}</small></span>
       ${on ? icon('check') : ''}</button>`;
   };
   list.innerHTML = (multi ? `<div class="provider-tag">${esc(providerName(h, state.local!.cfgId))}</div>` : '')
-    + profilesOf(profileDevices).map((p) => opt(p, accountOfProfile(p), p.account === activeAccount())).join('')
+    + myAccounts().map((a) => opt(a, accountData(a), a.account === activeAccount())).join('')
     + otherProviders.map((o) => `<div class="provider-tag">${esc(o.name)}</div>`
-      + profilesOf(o.devices, o.mainName).map((p) => opt(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')).join('');
+      + otherAccounts(o).map((a) => opt(a, a.key ? o.accounts[a.key] : undefined, false, o.cfgId)).join('')).join('');
   list.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-account]');
     if (!btn) return;
     ($('#profileSwitch') as HTMLDialogElement).close();
-    if (btn.dataset.cfg) await useOtherProfile(btn.dataset.cfg, btn.dataset.account ?? '');
-    else await setActiveProfile(btn.dataset.account ?? '');
+    if (btn.dataset.cfg) await useOtherAccount(btn.dataset.cfg, btn.dataset.account ?? '');
+    else await setActiveAccount(btn.dataset.account ?? '');
   };
   ($('#profileSwitch') as HTMLDialogElement).showModal();
 }
@@ -2792,86 +2809,84 @@ function openProfileSwitch() {
 const deviceRow = (d: Device) => `
       <div class="device${d.active ? '' : ' off'}" data-code="${esc(d.code)}">
         <div class="device-top">
-          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}${d.active ? ` · ${esc(filterSummary(d.filter))}` : ''}</small></div>
+          <div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado: la playlist muestra un aviso'}</small></div>
           <input type="checkbox" class="switch" role="switch" data-dev-active aria-label="Link activo: ${esc(d.name)}"${d.active ? ' checked' : ''}>
         </div>
-        <button class="btn btn-tonal" data-dev="show">${icon('copy')}Ver links</button>
-        <button class="icon-btn" data-dev="profile" aria-label="Filtro de ${esc(d.name)}: qué categorías y canales ve">${icon('list-filter')}</button>
-        <button class="icon-btn" data-dev="move" aria-label="Mover ${esc(d.name)} a otro perfil">${icon('arrow-right-left')}</button>
+        <button class="btn btn-tonal" data-dev="show">${icon('copy')}Copiar o compartir</button>
+        <button class="icon-btn" data-dev="move" aria-label="Pasar ${esc(d.name)} a otro perfil">${icon('arrow-right-left')}</button>
         <button class="icon-btn" data-dev="rename" aria-label="Cambiar nombre de ${esc(d.name)}">${icon('pencil')}</button>
         <button class="icon-btn" data-dev="remove" aria-label="Quitar ${esc(d.name)}">${icon('trash-2')}</button>
       </div>`;
 
-/** Pasar un dispositivo a otro perfil: el link sigue siendo el mismo, cambia la cuenta con la que reproduce. */
+/** Los campos de usuario y contraseña (o URL) de una cuenta. */
+const credsFields = (prefix: string) => (state.cfg!.provider.type === 'xtream' ? `
+        <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="${prefix}User" autocapitalize="off" spellcheck="false"></label>
+        <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="${prefix}Pass" type="password"></label>`
+  : `<label class="field"><span>URL de la lista</span><input class="input" id="${prefix}Url" type="url"></label>`);
+const readCreds = (prefix: string): Record<string, string> => (state.cfg!.provider.type === 'xtream'
+  ? { username: $<HTMLInputElement>(`#${prefix}User`).value.trim(), password: $<HTMLInputElement>(`#${prefix}Pass`).value }
+  : { url: $<HTMLInputElement>(`#${prefix}Url`).value.trim() });
+
+/** Pasar un link a otro perfil (de esta cuenta, de otra o de otro proveedor): la dirección sigue siendo la misma; cambian
+ *  lo que ve y, si es de otra cuenta, con qué cuenta reproduce. */
 function renderMoveDevice(dev: Device) {
   const body = subPage();
-  const p = state.cfg!.provider;
-  const others = profilesOf(profileDevices).filter((x) => x.account !== (dev.account ?? ''));
-  // Perfiles de los demás proveedores: el link pasa a esa configuración (otra grilla) y sigue con la misma dirección.
-  const remote = otherProviders.flatMap((o) => profilesOf(o.devices).map((x) => ({ ...x, cfg: o })));
   const h = loadHome();
+  const mine = myAccounts().flatMap((a) => a.profiles.filter((p) => p.id !== dev.profile).map((p) => ({ p, a, cfg: undefined as OtherProvider | undefined })));
+  const remote = otherProviders.flatMap((o) => otherAccounts(o).flatMap((a) => a.profiles.map((p) => ({ p, a, cfg: o as OtherProvider | undefined }))));
+  const all = [...mine, ...remote];
+  const curAcc = dev.account ?? '';
   body.innerHTML = `
-    <h3 class="sub-title">Mover «${esc(dev.name)}»</h3>
-    <p class="help">La dirección <b>no cambia</b>: el reproductor no hay que tocarlo. Con la próxima actualización de la lista empieza a usar la otra cuenta.</p>
+    <h3 class="sub-title">Pasar «${esc(dev.name)}» a otro perfil</h3>
+    <p class="help">La dirección <b>no cambia</b>: el reproductor no hay que tocarlo. Con la próxima actualización de la lista ve lo de ese perfil (y usa su cuenta).</p>
     <div class="url-box">${esc(dev.playlistUrl)}</div>
-    <form class="stack" id="moveForm" autocomplete="off">
-      <div class="profile-pick">
-        ${others.map((o, i) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${esc(o.account)}"${i === 0 ? ' checked' : ''}>
-          <span class="avatar" aria-hidden="true">${esc(initialOf(o.name))}</span>
-          <span class="po-text"><strong>${esc(o.name)}</strong><small>${remote.length ? `${esc(providerName(h, state.local!.cfgId))} · ` : ''}${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
-        ${remote.map((o) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${esc(o.account)}" data-cfg="${esc(o.cfg.cfgId)}">
-          <span class="avatar" aria-hidden="true">${esc(initialOf(o.name))}</span>
-          <span class="po-text"><strong>${esc(o.name)}</strong><small>${esc(o.cfg.name)} · otra grilla · ${o.devices.length ? plural(o.devices.length, 'link', 'links') : 'sin links: hacen falta sus datos'}</small></span></label>`).join('')}
-        ${p.type === 'xtream' ? `<label class="profile-opt"><input type="radio" name="moveTo" value="__new"${others.length ? '' : ' checked'}>
-          <span class="avatar" aria-hidden="true">+</span>
-          <span class="po-text"><strong>Otro perfil nuevo</strong><small>La cuenta de un familiar, por ejemplo</small></span></label>` : ''}
+    ${all.length ? `<form class="stack" id="moveForm" autocomplete="off">
+      <div class="profile-pick">${all.map((x, i) => `<label class="profile-opt"><input type="radio" name="moveTo" value="${i}"${i === 0 ? ' checked' : ''}>
+          <span class="avatar" aria-hidden="true">${esc(initialOf(x.p.name))}</span>
+          <span class="po-text"><strong>${esc(x.p.name)}</strong><small>${esc([
+            x.cfg ? `${x.cfg.name} · otra grilla` : remote.length ? providerName(h, state.local!.cfgId) : '',
+            x.cfg || x.a.account !== curAcc ? `cuenta ${x.a.name}` : 'misma cuenta',
+            filterSummary(x.p.filter)].filter(Boolean).join(' · '))}</small></span></label>`).join('')}
       </div>
       <div class="stack" id="moveCreds" hidden>
-        <label class="field" id="moveNameField"><span>Nombre del perfil</span><input class="input" id="moveName" maxlength="30" placeholder="Mamá"></label>
-        <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="moveUser" autocapitalize="off" spellcheck="false"></label>
-        <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="movePass" type="password"></label>
+        <p class="help">Esa cuenta todavía no tiene links: hacen falta sus datos.</p>
+        ${credsFields('move')}
       </div>
-      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('arrow-right-left')}Mover</button></div>
-    </form>`;
-  const picked = () => body.querySelector<HTMLInputElement>('input[name=moveTo]:checked');
-  const choice = () => picked()?.value ?? '';
-  const targetCfg = () => remote.find((o) => o.cfg.cfgId === picked()?.dataset.cfg)?.cfg;
-  const sync = () => {
-    const v = choice();
-    const cfg = targetCfg();
-    const target = cfg ? remote.find((o) => o.cfg === cfg && o.account === v) : others.find((o) => o.account === v);
-    // Un perfil sin links (la principal, si no tiene ninguno) también necesita usuario y contraseña.
-    $('#moveCreds').hidden = !(v === '__new' || (target && !target.devices.length));
-    $('#moveNameField').hidden = v !== '__new';
-  };
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('arrow-right-left')}Pasar</button></div>
+    </form>` : '<p class="help">No hay otro perfil. Creá uno desde la página de una cuenta, con «Agregar perfil».</p>'}`;
+  const form = document.querySelector<HTMLFormElement>('#moveForm');
+  if (!form) return;
+  const target = () => all[Number(body.querySelector<HTMLInputElement>('input[name=moveTo]:checked')?.value ?? 0)];
+  const sync = () => { $('#moveCreds').hidden = target().a.devices.length > 0; };
   body.onchange = sync;
   sync();
-  $('#moveForm').onsubmit = async (ev) => {
+  form.onsubmit = async (ev) => {
     ev.preventDefault();
-    const v = choice();
-    const needCreds = !$('#moveCreds').hidden;
-    const account = v === '__new' ? $<HTMLInputElement>('#moveName').value.trim() : v;
-    const creds = needCreds ? { username: $<HTMLInputElement>('#moveUser').value.trim(), password: $<HTMLInputElement>('#movePass').value } : {};
-    if ((v === '__new' && !account) || (needCreds && Object.values(creds).some((x) => !x))) {
-      toast(v === '__new' ? 'Completá el nombre, el usuario y la contraseña del perfil nuevo' : 'Completá el usuario y la contraseña de esa cuenta', 'bad');
-      return;
-    }
-    const cfg = targetCfg();
+    const t = target();
+    const needCreds = !t.a.devices.length;
+    const creds = needCreds ? readCreds('move') : {};
+    if (needCreds && Object.values(creds).some((x) => !x)) return void toast('Completá los datos de esa cuenta', 'bad');
+    const btn = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    if (btn.disabled) return;
+    btn.disabled = true;
     try {
       await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/move`, { method: 'POST',
-        body: { ...creds, ...(account ? { account } : {}), ...(cfg ? { to: cfg.cfgId, toKey: cfg.editKey } : {}) } });
-      toast(`«${dev.name}» ahora usa ${account ? `la cuenta de ${account}` : 'tu cuenta'}${cfg ? ` en ${cfg.name}` : ''}. Su link no cambió`, 'ok', 6000);
-      renderLinks();
+        body: { ...creds, profile: t.p.id, ...(t.cfg ? { to: t.cfg.cfgId, toKey: t.cfg.editKey } : {}) } });
+      toast(`«${dev.name}» ahora es de ${t.p.name}${t.cfg ? ` en ${t.cfg.name}` : ''}. Su link no cambió`, 'ok', 6000);
+      void renderLinks();
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
+    } finally {
+      btn.disabled = false;
     }
   };
 }
 
-// Perfiles (opción H): una lista corta (una fila por perfil, agrupadas por proveedor) y una página por perfil, por
-// proveedor y para el hogar. Lo de un dispositivo (links, filtro, mover) y los formularios son subpáginas: «‹» vuelve a
-// la página de donde salieron. Ningún paso cambia la dirección de un link.
-type LinksView = { v: 'list' } | { v: 'profile'; account: string; cfgId?: string } | { v: 'provider'; cfgId: string } | { v: 'hogar' };
+// Perfiles: una lista corta (por proveedor, cada cuenta con sus perfiles debajo) y una página por cuenta, por perfil, por
+// proveedor y para el hogar. Los formularios son subpáginas: «‹» vuelve a la página de donde salieron. Ningún paso cambia
+// la dirección de un link.
+type LinksView = { v: 'list' } | { v: 'account'; account: string; cfgId?: string } | { v: 'profile'; id: string; cfgId?: string }
+  | { v: 'provider'; cfgId: string } | { v: 'hogar' };
 let linksView: LinksView = { v: 'list' };
 let linksSub = false;
 const isCurrent = (cfgId?: string) => !cfgId || cfgId === state.local?.cfgId;
@@ -2887,22 +2902,24 @@ function subPage(): HTMLElement {
   $('#linksBack').hidden = false;
   body.onclick = null;
   body.onchange = null;
+  body.oninput = null;
   return body;
 }
 const menuRow = (attrs: string, ico: string, title: string, sub = '', cls = '', chevron = true) =>
   `<button type="button" class="menu-row${cls ? ` ${cls}` : ''}" ${attrs}><span class="menu-icon">${icon(ico)}</span>
     <span class="menu-text">${title}${sub ? `<small>${sub}</small>` : ''}</span>${chevron ? icon('chevron-right') : ''}</button>`;
 
-/** Una línea con lo importante de un perfil: días, conexiones en uso y links. */
-function profileLine(p: Profile, acc?: Account): { text: string; tone: string } {
+/** Una línea con lo importante de una cuenta: días, conexiones en uso y perfiles. */
+function accountLine(a: AccountView, acc?: Account): { text: string; tone: string } {
   const days = daysLeft(acc);
   const parts: string[] = [];
   if (days !== null) parts.push(days < 0 ? 'Vencida' : days === 0 ? 'Vence hoy' : days <= 7 ? `Vence en ${plural(days, 'día', 'días')}` : plural(days, 'día', 'días'));
   if (acc?.maxConnections) parts.push(acc.activeConnections === undefined ? `hasta ${acc.maxConnections} a la vez` : `${acc.activeConnections} de ${acc.maxConnections} en uso`);
-  parts.push(p.devices.length ? plural(p.devices.length, 'link', 'links') : 'sin links');
-  return { text: parts.join(' · '), tone: days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : '' };
+  if (!a.devices.length) parts.push('sin links');
+  return { text: parts.join(' · ') || 'Cuenta del proveedor', tone: days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : '' };
 }
-function profileStatsHtml(p: Profile, acc: Account | undefined, on: boolean): string {
+const profileSub = (p: ProfileView) => `${filterSummary(p.filter)} · ${p.devices.length ? plural(p.devices.length, 'link', 'links') : 'sin links'}`;
+function accountStatsHtml(acc: Account | undefined, on: boolean): string {
   const days = daysLeft(acc);
   const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
   const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
@@ -2914,28 +2931,34 @@ function profileStatsHtml(p: Profile, acc: Account | undefined, on: boolean): st
     on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
   ].join('');
 }
+const accountRow = (a: AccountView, acc: Account | undefined, on: boolean, cfgId?: string) => {
+  const l = accountLine(a, acc);
+  return `<button type="button" class="menu-row profile-row account-row" data-account="${esc(a.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
+    <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(a.name))}</span>
+    <span class="menu-text"><span class="pr-title">${esc(a.name)}${on ? '<span class="pc-badge">En uso</span>' : ''}</span><small class="${l.tone}">${esc(l.text)}</small></span>${icon('chevron-right')}</button>`;
+};
+const profileRow = (p: ProfileView, cfgId?: string) => `<button type="button" class="menu-row profile-row sub-row" data-pid="${esc(p.id)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
+    <span class="menu-icon">${icon(p.filter ? 'list-filter' : 'tv')}</span>
+    <span class="menu-text">${esc(p.name)}<small>${esc(profileSub(p))}</small></span>${icon('chevron-right')}</button>`;
 
-/** La lista: una fila por perfil, agrupadas por proveedor (el de la grilla abierta primero). */
+/** La lista: por proveedor (el de la grilla abierta primero), cada cuenta con sus perfiles debajo. */
 function renderProfileList(body: HTMLElement) {
   const h = loadHome();
   const cur = state.local!.cfgId;
   const xtream = state.cfg!.provider.type === 'xtream';
-  const row = (p: Profile, acc: Account | undefined, on: boolean, cfgId?: string) => {
-    const l = profileLine(p, acc);
-    return `<button type="button" class="menu-row profile-row" data-profile="${esc(p.account)}"${cfgId ? ` data-cfg="${esc(cfgId)}"` : ''}>
-      <span class="avatar${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
-      <span class="menu-text"><span class="pr-title">${esc(p.name)}${on ? '<span class="pc-badge">En uso</span>' : ''}</span><small class="${l.tone}">${esc(l.text)}</small></span>${icon('chevron-right')}</button>`;
-  };
   const head = (name: string, cfgId: string, inUse: boolean) => `<div class="provider-head"><span class="provider-tag">${esc(name)}${inUse ? ' · en uso' : ''}</span>
     <button type="button" class="icon-btn" data-provider="${esc(cfgId)}" aria-label="Ajustes de ${esc(name)}" title="Ajustes del proveedor">${icon('settings')}</button></div>`;
   const multi = otherProviders.length > 0;
   body.innerHTML = `
-    <p class="help">Cada perfil es una cuenta de tu proveedor, con sus dispositivos. El perfil <b>en uso</b> es el que baja la lista y prueba los canales caídos.</p>
+    <p class="help">Cada <b>cuenta</b> es un usuario y contraseña de tu proveedor, con su vencimiento y sus conexiones. Dentro, cada <b>perfil</b> elige qué se ve y tiene sus links. La cuenta <b>en uso</b> baja la lista y prueba los canales caídos.</p>
     ${head(providerName(h, cur), cur, multi)}
-    <div class="menu">${profilesOf(profileDevices).map((p) => row(p, accountOfProfile(p), p.account === activeAccount())).join('')}
-      ${xtream ? menuRow('data-add-profile', 'plus', 'Agregar perfil', 'La cuenta de un familiar u otra del mismo proveedor', 'add-row', false) : ''}</div>
+    ${myAccounts().map((a) => `<div class="menu">${accountRow(a, accountData(a), a.account === activeAccount())}
+      ${a.profiles.map((p) => profileRow(p)).join('')}
+      ${menuRow(`data-add-profile="${esc(a.account)}"`, 'plus', 'Agregar perfil', '', 'add-row sub-row', false)}</div>`).join('')}
+    ${xtream ? `<div class="menu">${menuRow('data-add-account', 'plus', 'Agregar cuenta', 'La de un familiar u otra del mismo proveedor', 'add-row', false)}</div>` : ''}
     ${otherProviders.map((o) => `${head(o.name, o.cfgId, false)}
-      <div class="menu">${profilesOf(o.devices, o.mainName).map((p) => row(p, p.key ? o.accounts[p.key] : undefined, false, o.cfgId)).join('')}</div>`).join('')}
+      ${otherAccounts(o).map((a) => `<div class="menu">${accountRow(a, a.key ? o.accounts[a.key] : undefined, false, o.cfgId)}
+        ${a.profiles.map((p) => profileRow(p, o.cfgId)).join('')}</div>`).join('')}`).join('')}
     <div class="menu">
       ${menuRow('data-add-provider', 'plus', 'Agregar proveedor', 'Otra lista de IPTV, con su propia grilla', 'add-row', false)}
       ${menuRow('data-hogar', 'house', 'Hogar', 'Abrir todos tus proveedores en otro dispositivo')}
@@ -2944,57 +2967,109 @@ function renderProfileList(body: HTMLElement) {
     const t = ev.target as HTMLElement;
     const prov = t.closest<HTMLElement>('[data-provider]');
     if (prov) return openLinksView({ v: 'provider', cfgId: prov.dataset.provider! });
-    const prof = t.closest<HTMLElement>('[data-profile]');
-    if (prof) return openLinksView({ v: 'profile', account: prof.dataset.profile ?? '', ...(prof.dataset.cfg ? { cfgId: prof.dataset.cfg } : {}) });
-    if (t.closest('[data-add-profile]')) return renderAddProfile();
+    const add = t.closest<HTMLElement>('[data-add-profile]');
+    if (add) return renderAddProfile(add.dataset.addProfile ?? '');
+    const prof = t.closest<HTMLElement>('[data-pid]');
+    if (prof) return openLinksView({ v: 'profile', id: prof.dataset.pid!, ...(prof.dataset.cfg ? { cfgId: prof.dataset.cfg } : {}) });
+    const acc = t.closest<HTMLElement>('[data-account]');
+    if (acc) return openLinksView({ v: 'account', account: acc.dataset.account ?? '', ...(acc.dataset.cfg ? { cfgId: acc.dataset.cfg } : {}) });
+    if (t.closest('[data-add-account]')) return renderAddAccount();
     if (t.closest('[data-add-provider]')) return void addProvider();
     if (t.closest('[data-hogar]')) return openLinksView({ v: 'hogar' });
   };
 }
 
-/** La página de un perfil: sus números, sus dispositivos y su cuenta. Uno de otro proveedor se ve sin editar: al usarlo
- *  se abre su grilla. */
-function renderProfilePage(body: HTMLElement, account: string, cfgId?: string): boolean {
+/** La página de una cuenta: su vencimiento y conexiones, usarla, los canales caídos (la en uso), sus perfiles y sus
+ *  datos. Una de otro proveedor se ve sin editar: al usarla se abre su grilla. */
+function renderAccountPage(body: HTMLElement, account: string, cfgId?: string): boolean {
   const other = otherOf(cfgId);
   if (cfgId && !isCurrent(cfgId) && !other) return false;
-  const p = (other ? profilesOf(other.devices, other.mainName) : profilesOf(profileDevices)).find((x) => x.account === account);
-  if (!p) return false;
+  const a = (other ? otherAccounts(other) : myAccounts()).find((x) => x.account === account);
+  if (!a) return false;
   const on = !other && account === activeAccount();
-  const acc = other ? (p.key ? other.accounts[p.key] : undefined) : accountOfProfile(p);
+  const acc = other ? (a.key ? other.accounts[a.key] : undefined) : accountData(a);
   const h = loadHome();
   const xtream = state.cfg!.provider.type === 'xtream';
-  $('#linksTitle').textContent = p.name;
+  $('#linksTitle').textContent = a.name;
   body.innerHTML = `
     <div class="profile-hero">
-      <span class="avatar big${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(p.name))}</span>
-      <strong>${esc(p.name)}</strong>
-      <small>${esc(other ? other.name : providerName(h, state.local!.cfgId))}${on ? ' · <span class="pc-badge">En uso</span>' : ''}</small>
+      <span class="avatar big${on ? ' on' : ''}" aria-hidden="true">${esc(initialOf(a.name))}</span>
+      <strong>${esc(a.name)}</strong>
+      <small>Cuenta de ${esc(other ? other.name : providerName(h, state.local!.cfgId))}${on ? ' · <span class="pc-badge">En uso</span>' : ''}</small>
     </div>
-    <div class="pc-stats">${profileStatsHtml(p, acc, on)}</div>
-    ${on ? '' : `<button type="button" class="btn btn-primary btn-block" data-use>Usar este perfil</button>`}
-    ${other ? '<p class="help">Es de otro proveedor: al usarlo se abre su grilla. Para cambiar sus dispositivos o su cuenta, usalo primero.</p>' : ''}
+    <div class="pc-stats">${accountStatsHtml(acc, on)}</div>
+    ${on ? '' : `<button type="button" class="btn btn-primary btn-block" data-use>Usar esta cuenta</button>`}
+    ${other ? '<p class="help">Es de otro proveedor: al usarla se abre su grilla. Para cambiar sus perfiles o sus datos, usala primero.</p>' : ''}
     ${on ? `<div class="menu"><div class="menu-row" id="downRow" role="button" tabindex="0" aria-label="Canales caídos: ver la lista">
         <span class="menu-icon">${icon('triangle-alert')}</span><span class="menu-text">Canales caídos<small id="downSub">Calculando…</small></span>
         <button type="button" class="btn btn-tonal sm" id="runCheckBtn">Probar ahora</button></div></div>` : ''}
-    <h3 class="sub-title">Dispositivos</h3>
-    ${p.devices.length ? `<section class="profile-card"><div class="device-list">${p.devices.map((d) => (other
-      ? `<div class="device${d.active ? '' : ' off'}"><div class="device-top"><div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado'}</small></div></div></div>`
-      : deviceRow(d))).join('')}</div></section>` : '<p class="help">Este perfil todavía no tiene dispositivos.</p>'}
-    ${other ? '' : `<button type="button" class="btn btn-tonal btn-block" data-add-device>${icon('plus')}Agregar dispositivo</button>
-    <h3 class="sub-title">Cuenta</h3>
+    <h3 class="sub-title">Perfiles</h3>
+    <div class="menu">${a.profiles.map((p) => profileRow(p, other?.cfgId)).join('')}
+      ${other ? '' : menuRow('data-add-profile', 'plus', 'Agregar perfil', 'Otro nombre y otra selección de canales, con la misma cuenta', 'add-row', false)}</div>
+    ${other ? '' : `<h3 class="sub-title">Cuenta</h3>
     <div class="menu">
-      ${menuRow('data-act="rename"', 'pencil', 'Cambiar nombre', 'Los links no cambian')}
+      ${menuRow('data-act="rename"', 'pencil', 'Nombre', esc(a.name))}
       ${menuRow('data-act="creds"', 'key-round', xtream ? 'Usuario y contraseña' : 'URL de la lista', 'Si cambiaron en tu proveedor: los links quedan iguales')}
-      ${p.account ? menuRow('data-act="delete"', 'trash-2', 'Borrar perfil', 'Sus dispositivos pasan a otro perfil, con los mismos links', 'danger') : ''}
+      ${a.account ? menuRow('data-act="delete"', 'trash-2', 'Borrar cuenta', 'Sus perfiles pasan a otra cuenta, con los mismos links', 'danger') : ''}
     </div>`}`;
   if (on) {
     wireDownRow();
     renderDownRow();
     void loadStreamHealth().then(renderDownRow);
   }
+  body.onclick = async (ev) => {
+    const t = ev.target as HTMLElement;
+    if (t.closest('[data-use]')) {
+      if (other) return void useOtherAccount(other.cfgId, a.account);
+      await setActiveAccount(a.account);
+      return void renderLinks();
+    }
+    const prof = t.closest<HTMLElement>('[data-pid]');
+    if (prof) return openLinksView({ v: 'profile', id: prof.dataset.pid!, ...(other ? { cfgId: other.cfgId } : {}) });
+    if (t.closest('[data-add-profile]')) return renderAddProfile(a.account);
+    const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'rename') return void renameAccount(a);
+    if (act === 'creds') return renderCreds(a);
+    if (act === 'delete') return renderDeleteAccount(a);
+  };
+  return true;
+}
+
+/** La página de un perfil: qué ve, su cuenta y sus links (cada uno sirve para varios dispositivos). */
+function renderProfilePage(body: HTMLElement, id: string, cfgId?: string): boolean {
+  const other = otherOf(cfgId);
+  if (cfgId && !isCurrent(cfgId) && !other) return false;
+  const accounts = other ? otherAccounts(other) : myAccounts();
+  const a = accounts.find((x) => x.profiles.some((p) => p.id === id));
+  const p = a?.profiles.find((x) => x.id === id);
+  if (!a || !p) return false;
+  const h = loadHome();
+  // A otra cuenta solo se puede pasar si tiene links (de ahí sale con qué reproducir).
+  const canChangeAccount = accounts.some((x) => x.account !== a.account && x.devices.length);
+  $('#linksTitle').textContent = p.name;
+  body.innerHTML = `
+    <div class="profile-hero">
+      <span class="avatar big" aria-hidden="true">${esc(initialOf(p.name))}</span>
+      <strong>${esc(p.name)}</strong>
+      <small>Perfil de ${esc(a.name)}${other || otherProviders.length ? ` · ${esc(other ? other.name : providerName(h, state.local!.cfgId))}` : ''}</small>
+    </div>
+    <div class="menu">
+      ${menuRow(other ? '' : 'data-act="filter"', 'list-filter', 'Qué ve', esc(filterSummary(p.filter)), other ? 'static' : '', !other)}
+      ${menuRow(other || !canChangeAccount ? '' : 'data-act="account"', 'key-round', 'Cuenta', esc(a.name), other || !canChangeAccount ? 'static' : '', !other && canChangeAccount)}
+    </div>
+    <h3 class="sub-title">Links</h3>
+    ${p.devices.length ? `<section class="profile-card"><div class="device-list">${p.devices.map((d) => (other
+      ? `<div class="device${d.active ? '' : ' off'}"><div class="device-top"><div class="device-info"><strong>${esc(d.name)}</strong><small>${d.active ? esc(ago(d.lastUsed)) : 'Desactivado'}</small></div></div></div>`
+      : deviceRow(d))).join('')}</div></section>` : '<p class="help">Este perfil todavía no tiene links.</p>'}
+    ${other ? '' : `<p class="help">Un mismo link sirve para varios dispositivos: copialo y cargalo en cada uno. Hacé otro solo si querés apagarlo o pasarlo a otro perfil por separado.</p>
+    <button type="button" class="btn btn-tonal btn-block" data-add-device>${icon('plus')}${p.devices.length ? 'Agregar otro link' : 'Agregar link'}</button>
+    <div class="menu">
+      ${menuRow('data-act="rename"', 'pencil', 'Cambiar nombre', 'Los links no cambian')}
+      ${menuRow('data-act="delete"', 'trash-2', 'Borrar perfil', p.devices.length ? 'Sus links pasan a otro perfil, sin cambiar' : '', 'danger')}
+    </div>`}`;
   body.onchange = async (ev) => {
     const sw = (ev.target as HTMLElement).closest<HTMLInputElement>('[data-dev-active]');
-    if (!sw) return;
+    if (!sw || other) return;
     const dev = p.devices.find((d) => d.code === sw.closest<HTMLElement>('.device')!.dataset.code)!;
     try {
       await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { active: sw.checked } });
@@ -3005,25 +3080,21 @@ function renderProfilePage(body: HTMLElement, account: string, cfgId?: string): 
     void renderLinks();
   };
   body.onclick = async (ev) => {
+    if (other) return;
     const t = ev.target as HTMLElement;
-    if (t.closest('[data-use]')) {
-      if (other) return void useOtherProfile(other.cfgId, p.account);
-      await setActiveProfile(p.account);
-      return void renderLinks();
-    }
-    if (t.closest('[data-add-device]')) return renderAddDevice(p);
+    if (t.closest('[data-add-device]')) return renderAddDevice(p, a);
     const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+    if (act === 'filter') return renderProfileFilter(p);
+    if (act === 'account') return renderProfileAccount(p, a);
     if (act === 'rename') return void renameProfile(p);
-    if (act === 'creds') return renderCreds(p);
     if (act === 'delete') return renderDeleteProfile(p);
     const btn = t.closest<HTMLElement>('[data-dev]');
-    if (!btn || other) return;
+    if (!btn) return;
     const dev = p.devices.find((d) => d.code === btn.closest<HTMLElement>('.device')!.dataset.code)!;
     if (btn.dataset.dev === 'show') renderLinkResult(dev);
-    else if (btn.dataset.dev === 'profile') renderDeviceProfile(dev);
     else if (btn.dataset.dev === 'move') renderMoveDevice(dev);
     else if (btn.dataset.dev === 'rename') {
-      const name = await promptDialog({ title: 'Nombre del dispositivo', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
+      const name = await promptDialog({ title: 'Nombre del link', ok: 'Guardar', input: { label: 'Nombre', value: dev.name } });
       if (name === null || !name.trim()) return;
       try {
         await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { name } });
@@ -3033,7 +3104,7 @@ function renderProfilePage(body: HTMLElement, account: string, cfgId?: string): 
       }
     } else if (btn.dataset.dev === 'remove') {
       if (!(await confirmDialog({
-        title: `¿Quitar “${dev.name}”?`, text: 'Su link deja de funcionar al instante. Los demás dispositivos no se tocan.', ok: 'Quitar', danger: true,
+        title: `¿Quitar “${dev.name}”?`, text: 'Deja de funcionar al instante en todos los dispositivos donde esté cargado. Los demás links no se tocan.', ok: 'Quitar', danger: true,
       }))) return;
       try {
         await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'DELETE' });
@@ -3047,24 +3118,28 @@ function renderProfilePage(body: HTMLElement, account: string, cfgId?: string): 
   return true;
 }
 
-/** Cambiar el nombre de un perfil. El de la cuenta principal se guarda en la configuración; vacío vuelve a «Tu cuenta». */
-async function renameProfile(p: Profile) {
-  const name = await promptDialog({ title: 'Nombre del perfil', ok: 'Guardar',
-    input: { label: 'Nombre', value: p.account || state.cfg?.mainName || '', placeholder: p.account ? 'Mamá' : 'Tu cuenta' } });
+const profileApi = (id: string, method: 'PUT' | 'DELETE', body: Record<string, unknown>) =>
+  api<{ moved?: number }>(`/api/cfg/${state.local!.cfgId}/profiles/${id}`, { method, body });
+
+/** Cambiar el nombre de una cuenta. El de la principal se guarda en la configuración; vacío vuelve a «Tu cuenta». */
+async function renameAccount(a: AccountView) {
+  const name = await promptDialog({ title: 'Nombre de la cuenta', ok: 'Guardar',
+    input: { label: 'Nombre', value: a.account || state.cfg?.mainName || '', placeholder: a.account ? 'Mamá' : 'Tu cuenta' } });
   if (name === null) return;
   const to = name.trim().replace(/\s+/g, ' ').slice(0, 30);
-  if (p.account && !to) return void toast('Poné un nombre para el perfil', 'bad');
-  if (to === (p.account || state.cfg?.mainName || '')) return;
+  if (a.account && !to) return void toast('Poné un nombre para la cuenta', 'bad');
+  if (to === (a.account || state.cfg?.mainName || '')) return;
+  if (a.account && myAccounts().some((x) => x.account === to)) return void toast(`Ya hay una cuenta «${to}»`, 'bad');
   try {
-    await api(`/api/cfg/${state.local!.cfgId}/profiles`, { method: 'PUT', body: { from: p.account, to } });
+    await api(`/api/cfg/${state.local!.cfgId}/account-name`, { method: 'PUT', body: { from: a.account, to } });
     if (state.cfg) {
-      if (!p.account) {
+      if (!a.account) {
         if (to) state.cfg.mainName = to;
         else delete state.cfg.mainName;
-      } else if (state.cfg.activeAccount === p.account) state.cfg.activeAccount = to;
+      } else if (state.cfg.activeAccount === a.account) state.cfg.activeAccount = to;
     }
-    if (p.account) linksView = { v: 'profile', account: to };
-    toast(`Listo: el perfil se llama «${profileName(p.account ? to : '')}». Los links no cambiaron`, 'ok', 5000);
+    if (a.account) linksView = { v: 'account', account: to };
+    toast(`Listo: la cuenta se llama «${accountName(a.account ? to : '')}». Los links no cambiaron`, 'ok', 5000);
     renderTabAvatar();
     void renderLinks();
   } catch (e) {
@@ -3072,31 +3147,40 @@ async function renameProfile(p: Profile) {
   }
 }
 
-/** Agregar un dispositivo a un perfil: un link nuevo con la cuenta de ese perfil. */
-function renderAddDevice(p: Profile) {
+async function renameProfile(p: ProfileView) {
+  const name = await promptDialog({ title: 'Nombre del perfil', ok: 'Guardar', input: { label: 'Nombre', value: p.name, placeholder: 'Chicos' } });
+  if (name === null) return;
+  const to = name.trim().replace(/\s+/g, ' ').slice(0, 30);
+  if (!to || to === p.name) return;
+  try {
+    await profileApi(p.id, 'PUT', { name: to });
+    toast(`Listo: el perfil se llama «${to}». Los links no cambiaron`, 'ok', 5000);
+    void renderLinks();
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  }
+}
+
+/** Agregar un link a un perfil: ve lo de ese perfil y reproduce con su cuenta. */
+function renderAddDevice(p: ProfileView, a: AccountView) {
   const body = subPage();
-  const prov = state.cfg!.provider;
-  // La principal sin links ni datos en este navegador necesita sus datos; las demás usan los de sus otros links.
-  const needsCreds = !p.account && !p.devices.length && !state.creds;
+  // Una cuenta sin links necesita sus datos (la principal, si no están en este navegador); las demás usan los de sus links.
+  const needsCreds = !a.devices.length && !(!a.account && state.creds);
   body.innerHTML = `
-    <h3 class="sub-title">Agregar dispositivo a ${esc(p.name)}</h3>
+    <h3 class="sub-title">Link nuevo para ${esc(p.name)}</h3>
+    <p class="help">Ponele el nombre del dispositivo (o de la casa) donde lo vas a usar. Si ya tenés un link de este perfil, también podés cargar ese mismo en el otro dispositivo.</p>
     <form class="stack" id="linksForm" autocomplete="off">
       <label class="field"><span>Nombre</span><input class="input" id="lnkName" maxlength="40" placeholder="TV del living" required></label>
-      ${needsCreds && prov.type === 'xtream' ? `
-        <label class="field"><span>Usuario</span><input class="input" id="lnkUser" autocapitalize="off" spellcheck="false" required></label>
-        <label class="field"><span>Contraseña</span><input class="input" id="lnkPass" type="password" required></label>` : ''}
-      ${needsCreds && prov.type === 'm3u' ? '<label class="field"><span>URL de la lista</span><input class="input" id="lnkUrl" type="url" required></label>' : ''}
-      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar links</button></div>
+      ${needsCreds ? credsFields('lnk') : ''}
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block" id="makeLinks">${icon('tv')}Generar link</button></div>
     </form>`;
   $('#linksForm').onsubmit = async (ev) => {
     ev.preventDefault();
     let creds: Record<string, string> = {};
     if (needsCreds) {
-      creds = prov.type === 'xtream'
-        ? { username: $<HTMLInputElement>('#lnkUser').value.trim(), password: $<HTMLInputElement>('#lnkPass').value }
-        : { url: $<HTMLInputElement>('#lnkUrl').value.trim() };
+      creds = readCreds('lnk');
       if (Object.values(creds).some((v) => !v)) return void toast('Completá los datos del proveedor', 'bad');
-    } else if (!p.account && state.creds) creds = state.creds as Record<string, string>;
+    } else if (!a.account && !a.devices.length && state.creds) creds = state.creds as Record<string, string>;
     // Se lee todo antes de esperar a la red: un segundo toque (o Enter) mientras guarda ya no encuentra el formulario.
     const form = ev.currentTarget as HTMLFormElement;
     const name = $<HTMLInputElement>('#lnkName').value.trim();
@@ -3105,8 +3189,8 @@ function renderAddDevice(p: Profile) {
     btn.disabled = true;
     try {
       await saveNow();
-      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, ...(p.account ? { account: p.account } : {}), name } });
-      if (needsCreds) state.creds = creds as typeof state.creds;
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, profile: p.id, name } });
+      if (needsCreds && !a.account) state.creds = creds as typeof state.creds;
       if (form.isConnected) renderLinkResult({ ...r, name });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
@@ -3116,35 +3200,26 @@ function renderAddDevice(p: Profile) {
   };
 }
 
-/** Un perfil nuevo: la cuenta de un familiar (u otra del mismo proveedor), con su primer dispositivo. */
-function renderAddProfile() {
+/** Un perfil nuevo dentro de una cuenta: empieza viendo todo; después se elige qué ve y se le agregan links. */
+function renderAddProfile(account: string) {
   const body = subPage();
   body.innerHTML = `
-    <h3 class="sub-title">Perfil nuevo</h3>
-    <p class="help">Otra cuenta del mismo proveedor, por ejemplo la de un familiar. Tiene su vencimiento, sus conexiones y sus links.</p>
+    <h3 class="sub-title">Perfil nuevo en ${esc(accountName(account))}</h3>
+    <p class="help">Usa la misma cuenta (su vencimiento y sus conexiones), con su propia selección de canales y sus links. Por ejemplo, «Chicos» sin contenido para adultos.</p>
     <form class="stack" id="profileForm" autocomplete="off">
-      <label class="field"><span>Nombre del perfil</span><input class="input" id="npName" maxlength="30" placeholder="Mamá" required></label>
-      <label class="field"><span>Usuario de esa cuenta</span><input class="input" id="npUser" autocapitalize="off" spellcheck="false" required></label>
-      <label class="field"><span>Contraseña de esa cuenta</span><input class="input" id="npPass" type="password" required></label>
-      <label class="field"><span>Su primer dispositivo</span><input class="input" id="npDevice" maxlength="40" placeholder="TV de Mamá" required></label>
+      <label class="field"><span>Nombre del perfil</span><input class="input" id="npName" maxlength="30" placeholder="Chicos" required></label>
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('plus')}Crear perfil</button></div>
     </form>`;
   $('#profileForm').onsubmit = async (ev) => {
     ev.preventDefault();
-    const account = $<HTMLInputElement>('#npName').value.trim().replace(/\s+/g, ' ');
-    if (profilesOf(profileDevices).some((x) => x.account === account || x.name === account)) return void toast(`Ya hay un perfil «${account}»`, 'bad');
-    const name = $<HTMLInputElement>('#npDevice').value.trim();
-    const creds = { username: $<HTMLInputElement>('#npUser').value.trim(), password: $<HTMLInputElement>('#npPass').value };
+    const name = $<HTMLInputElement>('#npName').value.trim().replace(/\s+/g, ' ');
     const btn = $<HTMLButtonElement>('#profileForm button[type=submit]');
-    if (btn.disabled) return;
+    if (!name || btn.disabled) return;
     btn.disabled = true;
     try {
-      await saveNow();
-      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, account, name } });
-      linksView = { v: 'profile', account };
-      $('#linksTitle').textContent = account;
-      toast(`Perfil «${account}» creado`, 'ok');
-      renderLinkResult({ ...r, name });
+      const r = await api<{ profile: ProfileDef }>(`/api/cfg/${state.local!.cfgId}/profiles`, { method: 'POST', body: { name, ...(account ? { account } : {}) } });
+      toast(`Perfil «${name}» creado: elegí qué ve y agregale un link`, 'ok', 5000);
+      openLinksView({ v: 'profile', id: r.profile.id });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     } finally {
@@ -3153,29 +3228,65 @@ function renderAddProfile() {
   };
 }
 
-/** Cambiaron el usuario y la contraseña (o la URL) de un perfil: sus links quedan iguales y usan los datos nuevos. */
-function renderCreds(p: Profile) {
+/** Una cuenta nueva (la de un familiar u otra del mismo proveedor): con un perfil que ve todo y su primer link. */
+function renderAddAccount() {
+  const body = subPage();
+  body.innerHTML = `
+    <h3 class="sub-title">Cuenta nueva</h3>
+    <p class="help">Otro usuario y contraseña del mismo proveedor, por ejemplo el de un familiar. Tiene su vencimiento, sus conexiones y sus perfiles.</p>
+    <form class="stack" id="accountForm" autocomplete="off">
+      <label class="field"><span>Nombre de la cuenta</span><input class="input" id="naName" maxlength="30" placeholder="Mamá" required></label>
+      ${credsFields('na')}
+      <label class="field"><span>Su primer link</span><input class="input" id="naDevice" maxlength="40" placeholder="TV de Mamá" required></label>
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">${icon('plus')}Crear cuenta</button></div>
+    </form>`;
+  $('#accountForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const account = $<HTMLInputElement>('#naName').value.trim().replace(/\s+/g, ' ');
+    if (myAccounts().some((x) => x.account === account || x.name === account)) return void toast(`Ya hay una cuenta «${account}»`, 'bad');
+    const name = $<HTMLInputElement>('#naDevice').value.trim();
+    const creds = readCreds('na');
+    if (!account || !name || Object.values(creds).some((x) => !x)) return void toast('Completá el nombre, los datos y el link', 'bad');
+    const btn = $<HTMLButtonElement>('#accountForm button[type=submit]');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    let pid = '';
+    try {
+      await saveNow();
+      pid = (await api<{ profile: ProfileDef }>(`/api/cfg/${state.local!.cfgId}/profiles`, { method: 'POST', body: { name: account, account } })).profile.id;
+      const r = await api<LinkResult>(`/api/cfg/${state.local!.cfgId}/token`, { method: 'POST', body: { ...creds, profile: pid, name } });
+      linksView = { v: 'profile', id: pid };
+      $('#linksTitle').textContent = account;
+      toast(`Cuenta «${account}» creada`, 'ok');
+      renderLinkResult({ ...r, name });
+    } catch (e) {
+      // Sin link, el perfil vacío no sirve: se quita.
+      if (pid) await profileApi(pid, 'DELETE', {}).catch(() => {});
+      toast((e as Error).message, 'bad', 6000);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
+
+/** Cambiaron el usuario y la contraseña (o la URL) de una cuenta: sus links quedan iguales y usan los datos nuevos. */
+function renderCreds(a: AccountView) {
   const body = subPage();
   const prov = state.cfg!.provider;
   body.innerHTML = `
-    <h3 class="sub-title">${prov.type === 'xtream' ? 'Usuario y contraseña' : 'URL de la lista'} de ${esc(p.name)}</h3>
-    <p class="help">Si cambiaron en tu proveedor. Los links de sus dispositivos <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
+    <h3 class="sub-title">${prov.type === 'xtream' ? 'Usuario y contraseña' : 'URL de la lista'} de ${esc(a.name)}</h3>
+    <p class="help">Si cambiaron en tu proveedor. Los links de todos sus perfiles <b>quedan exactamente iguales</b>: solo pasan a usar los datos nuevos, sin tocar nada en el reproductor.</p>
     <form class="stack" id="credsForm" autocomplete="off">
-      ${prov.type === 'xtream' ? `
-        <label class="field"><span>Usuario</span><input class="input" id="chgUser" autocapitalize="off" spellcheck="false" required></label>
-        <label class="field"><span>Contraseña</span><input class="input" id="chgPass" type="password" required></label>`
-        : '<label class="field"><span>URL de la lista</span><input class="input" id="chgUrl" type="url" required></label>'}
+      ${credsFields('chg')}
       <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">Actualizar sus links</button></div>
     </form>`;
   $('#credsForm').onsubmit = async (ev) => {
     ev.preventDefault();
-    const creds = prov.type === 'xtream'
-      ? { username: $<HTMLInputElement>('#chgUser').value.trim(), password: $<HTMLInputElement>('#chgPass').value }
-      : { url: $<HTMLInputElement>('#chgUrl').value.trim() };
+    const creds = readCreds('chg');
     if (Object.values(creds).some((v) => !v)) return void toast('Completá los datos nuevos', 'bad');
     try {
-      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: { ...creds, ...(p.account ? { account: p.account } : {}) } });
-      if (!p.account) state.creds = creds;
+      const r = await api<{ updated: number }>(`/api/cfg/${state.local!.cfgId}/credentials`, { method: 'PUT', body: { ...creds, ...(a.account ? { account: a.account } : {}) } });
+      if (!a.account) state.creds = creds as typeof state.creds;
       toast(`Listo: ${r.updated} ${r.updated === 1 ? 'link' : 'links'} con los datos nuevos, sin cambiar de dirección`, 'ok', 6000);
       void renderLinks();
     } catch (e) {
@@ -3184,21 +3295,82 @@ function renderCreds(p: Profile) {
   };
 }
 
-/** Borrar un perfil: sus dispositivos pasan a otro perfil (con la misma dirección) y el perfil desaparece. Nunca se borra un link. */
-function renderDeleteProfile(p: Profile) {
+/** Pasar un perfil (con sus links) a otra cuenta: sus links reproducen con esa cuenta; la dirección no cambia. */
+function renderProfileAccount(p: ProfileView, a: AccountView) {
   const body = subPage();
-  // Solo perfiles con links: de ellos sale la cuenta para los dispositivos que llegan.
-  const targets = profilesOf(profileDevices).filter((x) => x.account !== p.account && x.devices.length);
+  const targets = myAccounts().filter((x) => x.account !== a.account && x.devices.length);
+  body.innerHTML = `
+    <h3 class="sub-title">Cuenta de «${esc(p.name)}»</h3>
+    <p class="help">Sus links pasan a reproducir con la cuenta que elijas: usan su vencimiento y sus conexiones. Las direcciones <b>no cambian</b>.</p>
+    <form class="stack" id="paForm">
+      <div class="profile-pick">${targets.map((x, i) => `<label class="profile-opt"><input type="radio" name="paTo" value="${esc(x.account)}"${i === 0 ? ' checked' : ''}>
+        <span class="avatar" aria-hidden="true">${esc(initialOf(x.name))}</span>
+        <span class="po-text"><strong>${esc(x.name)}</strong><small>${esc(plural(x.profiles.length, 'perfil', 'perfiles'))}</small></span></label>`).join('')}</div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary btn-block">Cambiar de cuenta</button></div>
+    </form>`;
+  $('#paForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const to = body.querySelector<HTMLInputElement>('input[name=paTo]:checked')?.value ?? '';
+    try {
+      await profileApi(p.id, 'PUT', { account: to });
+      toast(`«${p.name}» ahora usa la cuenta ${accountName(to)}. Sus links no cambiaron`, 'ok', 6000);
+      void renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+  };
+}
+
+/** Borrar un perfil: sus links pasan a otro perfil (con la misma dirección). Nunca se borra un link. */
+function renderDeleteProfile(p: ProfileView) {
+  const body = subPage();
+  const accounts = myAccounts();
+  const own = accounts.find((x) => x.profiles.some((y) => y.id === p.id));
+  // A otro perfil de la misma cuenta, o de una cuenta con links (de ahí sale con qué reproducir).
+  const targets = accounts.flatMap((x) => x.profiles.filter((y) => y.id !== p.id && (x.account === own?.account || x.devices.length)).map((y) => ({ p: y, a: x })));
   body.innerHTML = `
     <h3 class="sub-title">Borrar «${esc(p.name)}»</h3>
-    ${!p.devices.length ? '<p class="help">No tiene dispositivos: desaparece solo.</p>'
-      : !targets.length ? '<p class="help">Para borrarlo, sus dispositivos tienen que pasar a otro perfil con links. Agregá primero un dispositivo a otro perfil, o movelos uno por uno con ⇄.</p>'
-      : `<p class="help">${p.devices.length === 1 ? 'Su dispositivo pasa' : `Sus ${p.devices.length} dispositivos pasan`} al perfil que elijas. Los links <b>no cambian</b>: el reproductor no hay que tocarlo.</p>
+    ${!p.devices.length ? `<p class="help">No tiene links: desaparece y listo.</p>
+    <form class="stack" id="deleteForm"><div class="form-actions"><button type="submit" class="btn btn-danger btn-block">${icon('trash-2')}Borrar perfil</button></div></form>`
+      : !targets.length ? '<p class="help">Para borrarlo, sus links tienen que pasar a otro perfil. Creá otro perfil primero.</p>'
+      : `<p class="help">${p.devices.length === 1 ? 'Su link pasa' : `Sus ${p.devices.length} links pasan`} al perfil que elijas y ven lo de ese perfil. Las direcciones <b>no cambian</b>: el reproductor no hay que tocarlo.</p>
+    <form class="stack" id="deleteForm">
+      <div class="profile-pick">${targets.map((x, i) => `<label class="profile-opt"><input type="radio" name="delTo" value="${esc(x.p.id)}"${i === 0 ? ' checked' : ''}>
+        <span class="avatar" aria-hidden="true">${esc(initialOf(x.p.name))}</span>
+        <span class="po-text"><strong>${esc(x.p.name)}</strong><small>${esc(`cuenta ${x.a.name} · ${filterSummary(x.p.filter)}`)}</small></span></label>`).join('')}</div>
+      <div class="form-actions"><button type="submit" class="btn btn-danger btn-block">${icon('trash-2')}Borrar perfil</button></div>
+    </form>`}`;
+  const form = document.querySelector<HTMLFormElement>('#deleteForm');
+  if (!form) return;
+  form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const to = body.querySelector<HTMLInputElement>('input[name=delTo]:checked')?.value;
+    try {
+      await profileApi(p.id, 'DELETE', to ? { to } : {});
+      const target = targets.find((x) => x.p.id === to);
+      toast(target ? `«${p.name}» borrado: sus links pasaron a ${target.p.name}, sin cambiar` : `«${p.name}» borrado`, 'ok', 6000);
+      linksView = own ? { v: 'account', account: own.account } : { v: 'list' };
+      void renderLinks();
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+      void renderLinks();
+    }
+  };
+}
+
+/** Borrar una cuenta: sus perfiles (con sus links) pasan a otra cuenta con links. Nunca se borra un link. */
+function renderDeleteAccount(a: AccountView) {
+  const body = subPage();
+  const targets = myAccounts().filter((x) => x.account !== a.account && x.devices.length);
+  body.innerHTML = `
+    <h3 class="sub-title">Borrar la cuenta «${esc(a.name)}»</h3>
+    ${!targets.length ? '<p class="help">Para borrarla, sus perfiles tienen que pasar a otra cuenta con links. Agregá primero un link a otra cuenta.</p>'
+      : `<p class="help">${a.profiles.length === 1 ? 'Su perfil pasa' : `Sus ${a.profiles.length} perfiles pasan`} a la cuenta que elijas, con sus links. Las direcciones <b>no cambian</b>: el reproductor no hay que tocarlo.</p>
     <form class="stack" id="deleteForm">
       <div class="profile-pick">${targets.map((x, i) => `<label class="profile-opt"><input type="radio" name="delTo" value="${esc(x.account)}"${i === 0 ? ' checked' : ''}>
         <span class="avatar" aria-hidden="true">${esc(initialOf(x.name))}</span>
-        <span class="po-text"><strong>${esc(x.name)}</strong><small>${plural(x.devices.length, 'link', 'links')}</small></span></label>`).join('')}</div>
-      <div class="form-actions"><button type="submit" class="btn btn-danger btn-block">${icon('trash-2')}Borrar perfil</button></div>
+        <span class="po-text"><strong>${esc(x.name)}</strong><small>${esc(plural(x.profiles.length, 'perfil', 'perfiles'))}</small></span></label>`).join('')}</div>
+      <div class="form-actions"><button type="submit" class="btn btn-danger btn-block">${icon('trash-2')}Borrar cuenta</button></div>
     </form>`}`;
   const form = document.querySelector<HTMLFormElement>('#deleteForm');
   if (!form) return;
@@ -3207,12 +3379,10 @@ function renderDeleteProfile(p: Profile) {
     const to = body.querySelector<HTMLInputElement>('input[name=delTo]:checked')?.value ?? '';
     const target = targets.find((x) => x.account === to)!;
     try {
-      for (const d of p.devices) {
-        await api(`/api/cfg/${state.local!.cfgId}/devices/${d.code}/move`, { method: 'POST', body: to ? { account: to } : {} });
-      }
-      if (activeAccount() === p.account) await setActiveProfile(to);
-      toast(`«${p.name}» borrado: sus dispositivos pasaron a ${target.name} con los mismos links`, 'ok', 6000);
-      linksView = { v: 'list' };
+      for (const p of a.profiles) await profileApi(p.id, 'PUT', { account: to });
+      if (activeAccount() === a.account) await setActiveAccount(to);
+      toast(`Cuenta «${a.name}» borrada: sus perfiles pasaron a ${target.name} con los mismos links`, 'ok', 6000);
+      linksView = { v: 'account', account: to };
       void renderLinks();
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
@@ -3332,10 +3502,12 @@ async function renderLinks(result?: LinkResult) {
   linksSub = false;
   body.onclick = null;
   body.onchange = null;
+  body.oninput = null;
   if (!body.firstElementChild) body.innerHTML = '<p class="help">Cargando…</p>';
   await loadProfiles(false);
   const v = linksView;
-  const ok = v.v === 'profile' ? renderProfilePage(body, v.account, v.cfgId)
+  const ok = v.v === 'account' ? renderAccountPage(body, v.account, v.cfgId)
+    : v.v === 'profile' ? renderProfilePage(body, v.id, v.cfgId)
     : v.v === 'provider' ? renderProviderPage(body, v.cfgId)
     : v.v === 'hogar' ? (renderHogarPage(body), true)
     : false;
@@ -3361,9 +3533,9 @@ const filterSummary = (f?: DeviceFilter) => {
   return f.only ? `solo ${parts}` : `sin ${parts}`;
 };
 
-/** Filtro de un dispositivo: qué categorías y canales se ven en su playlist (un interruptor por fila:
- *  encendido = se ve). La dirección no cambia. Mismo patrón que Categorías. */
-function renderDeviceProfile(dev: Device) {
+/** Qué ve un perfil: qué categorías y canales salen en la playlist de sus links (un interruptor por fila: encendido = se
+ *  ve). Vale para todos sus links; las direcciones no cambian. Mismo patrón que Categorías. */
+function renderProfileFilter(dev: ProfileView) {
   const body = subPage();
   const hiddenG = new Set(state.cfg!.groups.hidden ?? []);
   const headers = sectionHeaders();
@@ -3394,7 +3566,7 @@ function renderDeviceProfile(dev: Device) {
   const row = (attrs: string, title: string, sub: string, on: boolean, head = false) => `
     <label class="menu-row static pf-row${head ? ' pf-head' : ''}${on ? '' : ' is-off'}">
       <span class="menu-text">${esc(title)}<small>${esc(sub)}</small></span>
-      <input type="checkbox" class="switch" ${attrs}${on ? ' checked' : ''} aria-label="${esc(title)}: se ve en este dispositivo">
+      <input type="checkbox" class="switch" ${attrs}${on ? ' checked' : ''} aria-label="${esc(title)}: se ve en este perfil">
     </label>`;
   const draw = () => {
     const qn = query();
@@ -3412,11 +3584,11 @@ function renderDeviceProfile(dev: Device) {
       ${qn ? `<h3 class="sec-title">Canales</h3>${chans.length ? `<div class="menu">${chans.map((ch) =>
         row(`data-c="${esc(ch.name)}"`, state.cfg!.channels[ch.name]?.name || ch.name, groupLabel(groupOf(ch)), !offC.has(ch.name))).join('')}</div>`
         : '<p class="help">Ningún canal coincide.</p>'}` : ''}`;
-    body.querySelector('#pfSum')!.textContent = offG.size || offC.size ? `Este dispositivo: ${filterSummary(current())}` : 'Este dispositivo ve todo (sin filtro).';
+    body.querySelector('#pfSum')!.textContent = offG.size || offC.size ? `Este perfil: ${filterSummary(current())}` : 'Este perfil ve todo (sin filtro).';
   };
   body.innerHTML = `
     <h3 class="sub-title">${esc(dev.name)}</h3>
-    <p class="help">Apagá lo que no querés que vea este dispositivo. El link no cambia: la lista se actualiza sola la próxima vez que el reproductor la baje.</p>
+    <p class="help">Apagá lo que no querés que vea este perfil. Vale para ${dev.devices.length ? `sus ${plural(dev.devices.length, 'link', 'links')}` : 'sus links'}, que no cambian: la lista se actualiza sola la próxima vez que el reproductor la baje.</p>
     <label class="search-field cat-filter">
       ${icon('search')}
       <input type="search" id="pfQ" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal">
@@ -3462,7 +3634,7 @@ function renderDeviceProfile(dev: Device) {
   };
   const save = async (filter: DeviceFilter | null, msg: string) => {
     try {
-      await api(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}`, { method: 'PATCH', body: { filter } });
+      await profileApi(dev.id, 'PUT', { filter });
       toast(msg, 'ok');
       renderLinks();
     } catch (e) {
@@ -4359,7 +4531,7 @@ function setupEditor() {
     if (pressed) { pressed = false; return; }
     openProfiles();
   };
-  $('#profileNotice').onclick = () => openProfiles({ v: 'profile', account: activeAccount() });
+  $('#profileNotice').onclick = () => openProfiles({ v: 'account', account: activeAccount() });
   $('#linksBack').onclick = () => {
     if (!linksSub) linksView = { v: 'list' };
     void renderLinks();
