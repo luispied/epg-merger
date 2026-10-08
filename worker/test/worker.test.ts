@@ -1337,3 +1337,16 @@ test('hogar: guarda solo lo que cifra el navegador, con su clave', async () => {
   assert.equal((await call(`/api/home/${created.homeId}`, { method: 'DELETE', key: created.homeKey })).status, 200);
   assert.equal((await call(`/api/home/${created.homeId}`, { key: created.homeKey })).status, 404);
 });
+
+test('links de antes sin huella de cuenta: la reciben al listar, sin cambiar código ni token', async () => {
+  const t = await setup();
+  const code = new URL(t.playlistUrl).pathname.split('/').pop()!.replace(/\.m3u8$/, '');
+  const before = JSON.parse(await (await t.env.BUCKET.get(`short/${code}.json`))!.text());
+  const { key: _k, ...old } = before;
+  await t.env.BUCKET.put(`short/${code}.json`, JSON.stringify(old));
+  const r = await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as { devices: { code: string; accountKey?: string }[] };
+  assert.equal(r.devices[0].accountKey, await accountKey('user', 'pa ss'));
+  const after = JSON.parse(await (await t.env.BUCKET.get(`short/${code}.json`))!.text());
+  assert.equal(after.token, before.token);
+  assert.equal(after.key, await accountKey('user', 'pa ss'));
+});

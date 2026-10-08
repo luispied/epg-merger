@@ -115,12 +115,12 @@ export async function tokenOfAccount(bucket: R2Bucket, cfgId: string, account?: 
 
 /** Reescribe los registros de la configuración que `change` devuelva cambiados (null = no tocar). Nunca cambia el código
  *  ni borra un registro: los links siguen con la misma dirección. Devuelve cuántos cambió. */
-export async function updateRecords(bucket: R2Bucket, cfgId: string, change: (rec: ShortRecord, code: string) => ShortRecord | null): Promise<number> {
+export async function updateRecords(bucket: R2Bucket, cfgId: string, change: (rec: ShortRecord, code: string) => ShortRecord | null | Promise<ShortRecord | null>): Promise<number> {
   let n = 0;
   for (const code of await codesOf(bucket, cfgId)) {
     const rec = await readShort(bucket, code);
     if (!rec || rec.cfgId !== cfgId) continue;
-    const next = change(rec, code);
+    const next = await change(rec, code);
     if (!next) continue;
     await bucket.put(shortKey(code), JSON.stringify({ ...next, cfgId: rec.cfgId }), JSON_TYPE);
     n++;

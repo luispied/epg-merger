@@ -27,7 +27,7 @@
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config, type ProfileDef } from './config.ts';
-import { ensureProfiles, findProfile, newProfileId } from './profiles.ts';
+import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
 import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
@@ -423,6 +423,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (!code && method === 'GET') {
         // Los links de antes (sin perfil) pasan a uno, según su cuenta y su filtro.
         const config = await ensureProfiles(env.BUCKET, cfgId, stored.config, stored.keyHash);
+        // Y los que no tenían la huella de su cuenta la reciben (para ver su vencimiento y sus conexiones).
+        await ensureAccountKeys(env.BUCKET, env.TOKEN_KEY, cfgId, config);
         const devices = (await listDevices(env.BUCKET, cfgId)).map((d) => ({
           ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
