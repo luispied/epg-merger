@@ -7,6 +7,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.4
+
+- Tirar hacia abajo estando arriba de la grilla la vuelve a cargar (configuración, lista y guía), como en las apps del celular.
+- La grilla falla menos al abrir: si un pedido se corta (pasa con datos móviles) se reintenta solo dos veces antes de rendirse, y una guía que responde con error ya no deja la carga colgada.
+- Si igual no carga, el aviso trae un botón **Reintentar**.
+- La barra inferior baja 4 px más.
+
 ## 1.24.3
 
 - En la página de una cuenta, los perfiles quedan alineados con el resto de la lista (tenían la sangría de la lista general).
