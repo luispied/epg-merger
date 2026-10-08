@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import generate_playlist as gp  # noqa: E402
+from source_alias import channel_alias, is_channel_alias  # noqa: E402
 
 
 def chosen_ids(config):
@@ -43,11 +44,23 @@ def build(configs, merged_path, out_dir):
         return {}
     os.makedirs(out_dir, exist_ok=True)
     channels_root = gp.load_epg_channels(merged_path)
-    known = {c.get('id') for c in channels_root.findall('channel')}
+    # Las configuraciones guardan el alias del id de canal (la guía de la web va enmascarada) o, las
+    # viejas, el id real: los dos llevan al id real de la guía (y de ahí a sus programas).
+    real = {}
+    for c in channels_root.findall('channel'):
+        if c.get('id'):
+            real.setdefault(c.get('id'), c.get('id'))
+            real.setdefault(channel_alias(c.get('id')), c.get('id'))
     guides = {}
     for cfg_id, config in configs.items():
-        ids = chosen_ids(config) & known
-        guides[cfg_id] = gp.ProfileEpg(os.path.join(out_dir, f'{cfg_id}.xml.gz'), channels_root, ids, {}, {})
+        # Cada canal sale con el id que guardó la configuración (el tvg-id de su playlist): el alias, o el
+        # real si todavía no se abrió en la web con la guía enmascarada. El alias gana si están los dos.
+        out_ids = {}
+        for i in sorted(chosen_ids(config), key=is_channel_alias):
+            if i in real:
+                out_ids[real[i]] = i
+        guides[cfg_id] = gp.ProfileEpg(os.path.join(out_dir, f'{cfg_id}.xml.gz'), channels_root, set(out_ids), {}, {},
+                                       out_ids=out_ids)
     with contextlib.ExitStack() as stack:
         for guide in guides.values():
             guide.open(stack)

@@ -105,3 +105,10 @@ permite su FAQ.
 **epgshare01:** el tema de las listas IPTV es justo el que pide no tocar, así que no se le
 escribe. Si Grilla se abre al público, epgshare01 sale del catálogo del servicio (ver arriba
 cuánto se pierde) y quien quiera lo agrega como fuente propia.
+
+## Decisión (08/10/2026)
+
+Luis: open-epg y epgshare01 son esenciales para que la app funcione; **no se pide permiso ni se
+saca epgshare01 del catálogo**. En su lugar, la app no deja rastro de las fuentes: alias opacos
+en la guía y en el XML, logos servidos por el Worker, sin catálogo ni reporte de fuentes en la
+web (PR #223). Esto reemplaza los puntos 3 y 5 de la conclusión.

@@ -14,10 +14,11 @@
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
-//   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
+//   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
+//   GET    /logo/<clave> · /img/<clave>       logo de canal o imagen de programa, sin mostrar el sitio (logos.ts)
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
@@ -28,6 +29,7 @@ import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
+import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, type DeviceFilter } from './playlist.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
@@ -175,8 +177,11 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   if (cfg.provider.type === 'xtream' && 'u' in creds && cfg.directUrls) {
     direct = await healthyServer(cfg.provider.servers.map(normalizeServer), creds.u, creds.p, cache, (p) => ctx.waitUntil(p));
   }
+  const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
+  const logoUrl = await logoResolver(env, url.origin, logos);
   const text = buildPlaylist(list.channels, cfg, {
     filter,
+    logoUrl,
     separatorUrl: `${url.origin}/sep`,
     epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {
@@ -452,8 +457,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return serveR2(env, 'guide/index.json', 'application/json', 3600);
   }
   if (section === 'ui' && method === 'GET') {
+    // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    if (!/^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*\.json$/.test(path)) return fail(404, 'no encontrado');
+    if (!/^schedule(\/[A-Za-z0-9_-]+)+\.json$/.test(path)) return fail(404, 'no encontrado');
     return serveR2(env, `ui/${path}`, 'application/json', 900);
   }
   return fail(404, 'no encontrado');
@@ -480,6 +486,9 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
         return await serveR2(env, `epg/${parts[1]}.xml.gz`, 'application/gzip', 3600);
       }
       if (parts.length === 4 && parts[3] === 'playlist.m3u8') return await servePlaylist(parts[1], parts[2], url, env, ctx, cache);
+    }
+    if (request.method === 'GET' && (parts[0] === 'logo' || parts[0] === 'img') && parts.length === 2) {
+      return await serveMedia(env, parts[0], parts[1]);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 4 && isId(parts[1])) {
       return await serveStream(parts[1], parts[2], parts[3], env, ctx, cache);

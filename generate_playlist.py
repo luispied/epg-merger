@@ -27,6 +27,7 @@ from epg_index import MIN_SCORE, PLAUSIBLE_MIN, EpgIndex, joined_variant
 from merge_epgs import load_sources
 from profiles import OUTPUT_DIR, load_profiles
 from providers import M3UProvider, ProviderError, XtreamProvider
+from source_alias import channel_alias, scrub_element, scrub_text, source_alias
 from xtream_client import get_live_categories, get_live_streams
 
 MERGED_EPG_PATH = 'merged.xml.gz'
@@ -721,7 +722,10 @@ class ProfileEpg:
     """Guía acotada de un perfil: sus canales (el elegido y las alternativas de cada canal de
     la playlist) y sus programas, escrita de forma incremental mientras se recorre la guía."""
 
-    def __init__(self, path, channels_root, matched_ids, labels, stats):
+    def __init__(self, path, channels_root, matched_ids, labels, stats, out_ids=None):
+        # out_ids: {id real: id con el que sale}. Grilla web: el que guardó la configuración (el alias de
+        # source_alias.channel_alias, o el id real si es vieja), que es el tvg-id de su playlist.
+        self.out_ids = out_ids or {}
         self.path = path
         self.channels_root = channels_root
         self.matched_ids = matched_ids
@@ -742,6 +746,17 @@ class ProfileEpg:
                 continue
             # Copia: la anotación del display-name de un perfil no se filtra al de otro.
             channel = copy.deepcopy(channel)
+            # La fuente sale enmascarada: el reproductor no necesita saber de qué proveedor viene.
+            if channel.get('source'):
+                channel.set('source', source_alias(channel.get('source')))
+            # Logo por el Worker, sin <url> ni links de la fuente (source_alias.py).
+            scrub_element(channel, 'logo')
+            if self.out_ids.get(channel_id, channel_id) != channel_id:
+                channel.set('id', self.out_ids[channel_id])
+                for dn in channel.findall('display-name'):
+                    # "Telefe.ar" → "Telefe": el sufijo de país de algunas guías delata de cuál viene.
+                    if dn.text:
+                        dn.text = re.sub(r'\.[a-z]{2}$', '', dn.text, flags=re.I)
             label = self.labels.get(channel_id)
             if label:
                 # La etiqueta va al PRINCIPIO del display-name para que no quede cortada si el
@@ -753,8 +768,17 @@ class ProfileEpg:
             self._xf.write(channel, pretty_print=True)
 
     def write_programme(self, programme):
-        if programme.get('channel') in self.matched_ids:
-            self._xf.write(programme, pretty_print=True)
+        channel_id = programme.get('channel')
+        if channel_id in self.matched_ids:
+            scrub_element(programme, 'img')
+            out_id = self.out_ids.get(channel_id, channel_id)
+            if out_id != channel_id:
+                # El mismo programa va a varias guías: el alias solo mientras se escribe esta.
+                programme.set('channel', out_id)
+                self._xf.write(programme, pretty_print=True)
+                programme.set('channel', channel_id)
+            else:
+                self._xf.write(programme, pretty_print=True)
 
 
 def load_epg_channels(path=MERGED_EPG_PATH):
@@ -803,7 +827,7 @@ def _programme_desc(programme):
     """Descripción del programa para mostrar en la interfaz: <desc>, o si no hay, el
     <sub-title> (nombre del episodio). Espacios normalizados y recortada a SCHEDULE_DESC_MAX."""
     for tag in ('desc', 'sub-title'):
-        text = ' '.join((programme.findtext(tag) or '').split())
+        text = ' '.join((scrub_text(programme.findtext(tag)) or '').split())
         if text:
             return text if len(text) <= SCHEDULE_DESC_MAX else text[:SCHEDULE_DESC_MAX - 1].rstrip() + '…'
     return ''
@@ -841,7 +865,7 @@ class ScheduleCollector:
             return
         channel_id = programme.get('channel')
         title_elem = programme.find('title')
-        title = (title_elem.text or '').strip() if title_elem is not None else ''
+        title = (scrub_text(title_elem.text) or '').strip() if title_elem is not None else ''
         if not channel_id or not title:
             return
         self.by_channel.setdefault(channel_id, []).append(
@@ -855,7 +879,8 @@ class ScheduleCollector:
         sched_by_channel = {}
         for channel_id, entries in self.by_channel.items():
             entries.sort()
-            filename = _schedule_filename(channel_id)
+            # La web pide la programación por el id enmascarado de la guía (sha1 del alias).
+            filename = _schedule_filename(channel_alias(channel_id))
             with open(os.path.join(out_dir, f'{filename}.json'), 'w', encoding='utf-8') as f:
                 json.dump([[start, stop, title, desc] if desc else [start, stop, title]
                            for start, stop, title, desc in entries[:SCHEDULE_MAX_ENTRIES]],
@@ -863,7 +888,7 @@ class ScheduleCollector:
             sched_by_channel[channel_id] = filename
 
         write_hourly_index(
-            {cid: entries[:SCHEDULE_MAX_ENTRIES] for cid, entries in self.by_channel.items()},
+            {channel_alias(cid): entries[:SCHEDULE_MAX_ENTRIES] for cid, entries in self.by_channel.items()},
             os.path.join(out_dir, SCHEDULE_HOUR_SUBDIR), self.window_start, self.window_end)
 
         print(f"📺 {out_dir}: programación de {len(sched_by_channel)} canales "

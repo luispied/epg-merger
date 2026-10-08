@@ -7,10 +7,14 @@
 #
 # Estructura en el bucket:
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
-#   ui/epg_catalog.json        catálogo para la interfaz
-#   ui/epg_icons.json          logos
-#   ui/sources_report.json     uso de fuentes y sugerencias
 #   ui/schedule/…              programación por canal y por hora
+#   logo/map/<x>.json         {clave: url} de los logos de canal (privado; el Worker los sirve por /logo/<clave>
+#                              y guarda cada uno en logo/img/<clave> la primera vez)
+#   img/map/<xx>.json          lo mismo para las imágenes de programa (/img/<clave>, sin guardarlas)
+#
+# El catálogo, los logos y el uso de fuentes (epg_catalog.json, epg_icons.json,
+# sources_report.json) ya no se suben: la web no los usa y nombran las fuentes. Quedan en el
+# artifact de la corrida.
 #   epg/<cfgId>.xml.gz         guía de cada configuración de Grilla web (tools/config_epgs.py,
 #                              a partir de las configuraciones cfg/<cfgId>.json que guarda el Worker)
 set -euo pipefail
@@ -30,9 +34,12 @@ s3() { aws s3 --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 json=(--content-type application/json)
 s3 cp out/shared/guide/index.json "$BUCKET/guide/index.json" "${json[@]}"
-for f in epg_catalog.json epg_icons.json sources_report.json; do
-  [ -f "out/$f" ] && s3 cp "out/$f" "$BUCKET/ui/$f" "${json[@]}"
+# Privados (el Worker no los sirve): con esto resuelve /logo/<clave> e /img/<clave> (source_alias.py).
+for kind in logo img; do
+  [ -d "out/shared/$kind/map" ] && s3 sync "out/shared/$kind/map" "$BUCKET/$kind/map" --delete "${json[@]}"
 done
+# Las copias viejas de lo que ya no se publica.
+for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/ui/$f"; done
 # --delete: los canales que ya no tienen programación dejan de estar.
 [ -d out/schedule ] && s3 sync out/schedule "$BUCKET/ui/schedule" --delete "${json[@]}"
 echo "✅ Subido a R2 ($BUCKET)"

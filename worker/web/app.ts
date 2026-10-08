@@ -3,9 +3,10 @@
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
 import {
-  EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
+  channelAlias, EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
+import { sourceAlias } from '../src/crypto.ts';
 import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
@@ -374,6 +375,20 @@ async function loadGuide(onStatus: (t: string) => void) {
   state.index = new EpgIndex(guide.channels, state.rules, guide.sources);
 }
 
+/** Con la guía enmascarada (ids con alias), lo guardado con el id real pasa a su alias; al guardarse, la
+ *  playlist y la guía del reproductor cambian juntas. Con una guía vieja (sin alias) no toca nada. */
+function maskStoredIds(): boolean {
+  if (!state.index?.masked) return false;
+  let changed = false;
+  for (const e of Object.values(state.cfg!.channels)) {
+    if (typeof e.epg === 'string' && channelAlias(e.epg) !== e.epg) {
+      e.epg = channelAlias(e.epg);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Cruza todos los canales con la guía (en tandas, para no congelar la página). Los EPG
  *  elegidos a mano no se tocan. Devuelve si cambió algo de la configuración. */
 async function rematch(onStatus: (t: string) => void): Promise<boolean> {
@@ -384,6 +399,11 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   // Con las preferencias importadas de GitHub se elige igual que allá (su umbral, su señal
   // horaria y las fuentes/país de cada categoría); sin ellas, lo dudoso queda como sugerencia.
   const prefs = cfg.matching ?? {};
+  // La guía trae las fuentes enmascaradas: las preferidas de cada categoría se traducen al mismo alias.
+  const categories: Record<string, { country?: string | null; prefer_sources?: string[] }> = {};
+  for (const [cat, c] of Object.entries(prefs.categories ?? {})) {
+    categories[cat] = { ...c, ...(c.prefer_sources ? { prefer_sources: await Promise.all(c.prefer_sources.map(sourceAlias)) } : {}) };
+  }
   const baseScore = prefs.minScore ?? 0.7;
   const minAssignScore = baseScore;
   if ('feed' in prefs) index.preferredFeed = prefs.feed ?? null;
@@ -406,7 +426,7 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
       setEdit(ch.name, edit);
       continue;
     }
-    const m = matchStream(ch.name, ch.epgId, index, {}, prefs.categories?.[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
+    const m = matchStream(ch.name, ch.epgId, index, {}, categories[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
     state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     const edit = cfg.channels[ch.name] ?? {};
     // Lo que trajo la importación de GitHub entra marcado "a mano" para no recalcularlo, pero si
@@ -722,7 +742,7 @@ function visibleChannels(): number[] {
       if (!matchesFilter(ch, state.filter)) return false;
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
-      const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? edit.epg : '';
+      const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? '' : '';
       return fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
     })
     .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0)
@@ -875,23 +895,30 @@ function monoHtml(label: string): string {
 
 function logoHtml(id: string | null, cls = '', custom?: string, label?: string): string {
   const url = !logosOn() ? '' : custom || (id ? state.index?.icon.get(id) : '');
-  return `<span class="logo ${cls}">${monoHtml(label ?? (id ? state.index?.displayName.get(id) ?? '' : ''))}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
+  return `<span class="logo ${cls}">${monoHtml(label ?? (id ? guideLabel(id) : ''))}${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
 }
 
-/** Un canal de la guía, siempre igual: nombre, país, fuente y lo que está dando ahora.
+/** Nombre de un canal de la guía, sin el ".us" que algunas guías pegan al final (el país va aparte). Nunca el id:
+ *  va enmascarado y no le dice nada a nadie. */
+const cleanGuideName = (name: string) => name.replace(/\.[a-z]{2}$/i, '');
+const guideLabel = (id: string) => {
+  const name = state.index?.displayName.get(id);
+  return name ? cleanGuideName(name) : 'Guía que ya no está';
+};
+
+/** Un canal de la guía, siempre igual: nombre, país y lo que está dando ahora.
  *  `cur` = lo que da ahora si ya se sabe (búsqueda); si no, se completa con fillEpgRows. */
 function epgRowHtml(id: string, extra = '', opts: { logo?: boolean; cur?: NowPlaying | null; note?: string } = {}): string {
   const idx = state.index;
-  const name = idx?.displayName.get(id) ?? id;
+  const name = guideLabel(id);
   const country = idx?.country.get(id);
-  const source = idx?.source.get(id);
   const logo = opts.logo ?? true;
   const known = opts.cur !== undefined;
   const now = known
     ? `<div class="epg-now${opts.cur ? ' on-air' : ''}">${nowHtml(opts.cur!, id, opts.note)}</div>`
     : `<div class="epg-now" data-now-for="${esc(id)}"${opts.note ? ` data-note="${esc(opts.note)}"` : ''}><span>Cargando programación…</span></div>`;
   return `<div class="epg-row${logo ? ' with-logo' : ''}">${logo ? logoHtml(id) : ''}<div class="epg-body">`
-    + `<div class="epg-head"><span class="epg-name" title="${esc(id)}${source ? ` · ${esc(source)}` : ''}">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
+    + `<div class="epg-head"><span class="epg-name">${esc(name)}${country ? ` [${esc(country.toUpperCase())}]` : ''}</span>${extra}</div>`
     + `${now}</div></div>`;
 }
 
@@ -924,7 +951,7 @@ async function renderGuideSearch(term: string, results: HTMLElement) {
   if (seq !== searchSeq) return;
   const hits: { id: string; cur: NowPlaying | null; byProgram: boolean }[] = [];
   for (const [id, name] of state.index!.displayName) {
-    const byName = fold(name).includes(q) || fold(id).includes(q);
+    const byName = fold(name).includes(q);
     const cur = idx ? nowFromHour(idx, id) : null;
     const byProgram = !!cur && fold(cur.title).includes(q);
     if (byName || byProgram) hits.push({ id, cur, byProgram });
@@ -1007,7 +1034,7 @@ function cardHtml(i: number): string {
         <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
     </article>`;
   }
-  const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
+  const guideName = epg ? guideLabel(epg) : '';
   const cc = epg ? state.index?.country.get(epg) : undefined;
   const sug = !epg && !edit.manual && suggestion;
   const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden ? 'oculto' : '']
@@ -1016,7 +1043,7 @@ function cardHtml(i: number): string {
   const where = state.search.trim() ? `<span class="where">${esc(groupLabel(groupOf(ch)))}</span>` : '';
   let guide: string;
   if (sug) {
-    const shownSug = esc(state.index?.displayName.get(suggestion!.channelId) ?? suggestion!.channelId);
+    const shownSug = esc(guideLabel(suggestion!.channelId));
     guide = `<span class="guide sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownSug}</b></span>`;
   } else if (epg) {
     guide = `<span class="guide">${icon('arrow-right', 'sm')}<span class="guide-name">${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</span>`;
@@ -1160,7 +1187,7 @@ function renderNow() {
 // ------------------------------------------------------------------ canal: diálogo
 // Opción elegible (con círculo, como una lista de selección): un solo toque elige esa guía.
 function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | null; note?: string; home?: string | null } = {}) {
-  const name = state.index?.displayName.get(id) ?? id;
+  const name = guideLabel(id);
   const cc = state.index?.country.get(id);
   const pct = score === undefined ? '' : `<span class="pct ${score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(score, 1) * 100)} %</span>`;
   const note = opts.note ? ` <span class="note">${esc(opts.note)}</span>` : '';
@@ -1168,7 +1195,7 @@ function candidateButton(id: string, score?: number, opts: { cur?: NowPlaying | 
     ? `<div class="opt-now${opts.cur ? ' on-air' : ''}">${opts.cur ? `Ahora: ${esc(opts.cur.title)} · hasta ${hhmm(opts.cur.stop)}` : 'Sin programación en este horario'}${note}</div>`
     : `<div class="opt-now epg-now" data-now-for="${esc(id)}" data-compact="1"></div>`;
   return `<div class="pick-row opt" role="button" tabindex="0" data-pick="${esc(id)}"><span class="radio" aria-hidden="true"></span>`
-    + `<div class="opt-body"><div class="opt-top"><span class="opt-name" title="${esc(id)}">${esc(name)}</span>${cc ? `<span class="cc${opts.home && cc.toLowerCase() === opts.home ? ' home' : ''}"${opts.home && cc.toLowerCase() === opts.home ? ' title="Del país de la categoría"' : ''}>${esc(cc.toUpperCase())}</span>` : ''}${pct}</div>${now}</div></div>`;
+    + `<div class="opt-body"><div class="opt-top"><span class="opt-name">${esc(name)}</span>${cc ? `<span class="cc${opts.home && cc.toLowerCase() === opts.home ? ' home' : ''}"${opts.home && cc.toLowerCase() === opts.home ? ' title="Del país de la categoría"' : ''}>${esc(cc.toUpperCase())}</span>` : ''}${pct}</div>${now}</div></div>`;
 }
 
 /** Clicks dentro de listas de canales de la guía: la línea "Ahora" despliega la descripción;
@@ -1275,7 +1302,7 @@ async function loadReminders(): Promise<RemindState> {
     await api('/api/push/key', { auth: false });
     st.configured = true;
     const r = await api<{ items: { epg: string; start: number }[] }>(`/api/cfg/${state.local!.cfgId}/remind`);
-    for (const it of r.items) st.keys.add(remindKey(it.epg, it.start));
+    for (const it of r.items) st.keys.add(remindKey(channelAlias(it.epg), it.start));
   } catch (e) {
     // 404 = el Worker no tiene las claves VAPID; otro error (sin conexión): se vuelve a probar la próxima vez.
     if (!/no activados/i.test((e as Error).message)) known = false;
@@ -1477,7 +1504,7 @@ function openChannel(i: number) {
     $('#channelProgress').hidden = true;
     body.innerHTML = `${meta}<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>${more}`;
   } else {
-    const guideName = epg ? (state.index?.displayName.get(epg) ?? epg) : '';
+    const guideName = epg ? guideLabel(epg) : '';
     const cc = epg ? state.index?.country.get(epg) : undefined;
     // Estado de la guía asignada: un chip arriba a la derecha (la tarjeta es neutra; el color va solo en el chip).
     const score = !edit.manual && auto?.cid === edit.epg && auto ? Math.round(Math.min(auto.score, 1) * 100) : 0;
@@ -1495,7 +1522,7 @@ function openChannel(i: number) {
         const l = eventLabel(evSheet.start);
         return `<div class="gc-event ${l.cls}">${icon('clock', 'sm')}<span>${esc(l.text)}</span><small>hora de tu dispositivo</small></div>`;
       })() : ''}${suggestion
-        ? `<div class="gc-sug">Sugerencia: <b>${esc(state.index?.displayName.get(suggestion.channelId) ?? suggestion.channelId)}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
+        ? `<div class="gc-sug">Sugerencia: <b>${esc(guideLabel(suggestion.channelId))}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
            <button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button></div>` : ''}`;
     const rp = sheetReview ? reviewProgress() : null;
     // El progreso va en el encabezado fijo de la hoja (no se tapa al desplazar).
@@ -3249,8 +3276,9 @@ async function openSaved() {
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
     await loadGuide(say);
+    const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
-    if ((await rematch(say)) || pending) await saveNow(false);
+    if ((await rematch(say)) || pending || masked) await saveNow(false);
     status(st, null);
     detectNew();
     placeNewCategories();

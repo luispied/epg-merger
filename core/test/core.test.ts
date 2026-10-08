@@ -2,9 +2,10 @@
 // canal). La paridad completa con Python está en parity.ts.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import {
-  ChannelDb, EpgIndex, MatchingRules, MIN_SCORE, calibratedScore, flagToCountryCode, matchStream,
+  channelAlias, ChannelDb, EpgIndex, foldKey, isChannelAlias, MatchingRules, MIN_SCORE, calibratedScore, flagToCountryCode, matchStream,
   parseChannelName, pickDisplayName, stripDisplayPrefix, tvgIdCountry, variantKey, type GuideChannel, type SourceInfo,
 } from '../src/index.ts';
 
@@ -91,4 +92,32 @@ test('variantes: la calidad no cambia la clave; el país, la región y el idioma
   assert.notEqual(k('TBS -EN'), k('TBS'));
   assert.notEqual(k('ESPN 2 HD'), k('ESPN HD'));
   assert.equal(variantKey('', rules), null);
+});
+
+test('guía enmascarada: con alias, clave del id plegado y región, el matching elige lo mismo', () => {
+  assert.equal(channelAlias('Telefe.ar'), 'g196a8620ccb9db.ar', 'misma fórmula que channel_alias en source_alias.py');
+  assert.equal(channelAlias('I9.101373.schedulesdirect.org'), 'g0976bbfbbcab07');
+  assert.equal(channelAlias(channelAlias('Telefe.ar')), channelAlias('Telefe.ar'));
+  assert.ok(isChannelAlias('g196a8620ccb9db.ar') && !isChannelAlias('Telefe.ar'));
+  assert.equal(foldKey('Telefe .AR'), foldKey('telefe.ar'));
+
+  const data = JSON.parse(gunzipSync(readFileSync(new URL('./fixtures/parity.json.gz', import.meta.url))).toString('utf-8'));
+  const r = new MatchingRules(data.matching_rules);
+  const real = new EpgIndex(data.channels, r, data.sources);
+  const masked = new EpgIndex((data.channels as GuideChannel[]).map((ch) => ({
+    ...ch, id: channelAlias(ch.id), k: foldKey(ch.id), region: parseChannelName(ch.id, r).region,
+  })), r, data.sources);
+  let total = 0;
+  for (const suite of data.suites) {
+    real.preferredFeed = masked.preferredFeed = suite.preferred_feed;
+    for (const c of suite.cases) {
+      const opts = { trustListIds: suite.trust_list_ids, minAssignScore: suite.min_assign_score };
+      const a = matchStream(c.name, c.tvg_id, real, {}, c.epg_config, c.category_country, opts);
+      const b = matchStream(c.name, c.tvg_id, masked, {}, c.epg_config, c.category_country, opts);
+      assert.equal(b.channelId, a.channelId && channelAlias(a.channelId), c.name);
+      assert.equal(b.score, a.score, c.name);
+      total++;
+    }
+  }
+  assert.ok(total > 1000);
 });

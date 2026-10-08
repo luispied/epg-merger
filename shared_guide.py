@@ -3,13 +3,16 @@
 corrida diaria, en `out/shared/`, para subirlo a Cloudflare R2 (ver `tools/r2_upload.sh`).
 
 - `guide/index.json`: los canales de la guía (id, fuente, nombres, logo), las fuentes (país,
-  prioridad) y `matching_rules.json`. Es exactamente lo que `@grilla/core` (core/) necesita
+  prioridad) y `matching_rules.json`. Sin rastro de las fuentes: alias opacos y logos por el
+  Worker (`source_alias.py`). Es exactamente lo que `@grilla/core` (core/) necesita
   para hacer el matching en el navegador: `new EpgIndex(channels, new MatchingRules(rules),
   sources)`.
 
-La programación por canal y el catálogo para la interfaz (`out/schedule/`, `epg_catalog.json`,
-`epg_icons.json`, `sources_report.json`) ya los escribe `generate_playlist.py`; el script de
-subida los manda tal cual.
+- `logo/map/*.json`, `img/map/*.json`: {clave: url} de los logos de canal y las imágenes de
+  programa, privados, para que el Worker las sirva sin mostrar el sitio.
+
+La programación por canal (`out/schedule/`) ya la escribe `generate_playlist.py`; el script de
+subida la manda tal cual.
 
 Uso: `python shared_guide.py [--merged merged.xml.gz] [--out out/shared]`.
 """
@@ -22,9 +25,10 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
-from channel_names import RULES_PATH  # noqa: E402
-from generate_playlist import MERGED_EPG_PATH, load_epg_channels  # noqa: E402
+from channel_names import RULES_PATH, parse_channel_name  # noqa: E402
+from generate_playlist import MERGED_EPG_PATH, iter_programmes, load_epg_channels  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
+from source_alias import channel_alias, fold_key, logo_key, logo_path, media_urls, shard, source_alias  # noqa: E402
 
 SHARED_DIR = os.path.join('out', 'shared')
 INDEX_VERSION = 1
@@ -49,16 +53,58 @@ def source_info(sources):
     return {s['id']: {'country': s.get('country'), 'priority': s.get('priority', 0)} for s in sources}
 
 
+def masked_channel(ch):
+    """Un canal del índice sin rastros de la fuente: id con alias (más la clave del id plegado, para
+    resolver el id de EPG de la lista, y la región que daba el id real), fuente con alias y logo por el Worker."""
+    out = {'id': channel_alias(ch['id']), 'k': fold_key(ch['id']), 'source': source_alias(ch['source']),
+           'names': ch['names'], 'icon': logo_path(ch['icon'])}
+    region = parse_channel_name(ch['id']).region
+    if region:
+        out['region'] = region
+    return out
+
+
 def build_index(root, sources, rules, now=None):
+    """El índice que se publica: las fuentes van con su alias y los logos por el Worker (source_alias.py)."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    channels = guide_channels(root)
+    channels = [masked_channel(ch) for ch in guide_channels(root)]
     return {
         'version': INDEX_VERSION,
         'generated_at': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'matching_rules': rules,
-        'sources': source_info(sources),
+        'sources': {source_alias(k): v for k, v in source_info(sources).items()},
         'channels': channels,
     }
+
+
+def media_maps(root, programmes=()):
+    """{'logo': {clave: url}, 'img': {clave: url}}: los logos de canal y las imágenes de programa
+    de la guía. Con esto el Worker resuelve /logo/<clave> e /img/<clave> (source_alias.py)."""
+    maps = {'logo': {}, 'img': {}}
+    for channel in root.findall('channel'):
+        for url in media_urls(channel):
+            maps['logo'][logo_key(url)] = url
+    for programme in programmes:
+        for url in media_urls(programme):
+            maps['img'][logo_key(url)] = url
+    return maps
+
+
+def write_media_maps(maps, out_dir=SHARED_DIR):
+    """Un archivo por prefijo de la clave (`logo/map/<x>.json`, `img/map/<xx>.json`): el Worker
+    lee solo el que necesita. Devuelve las carpetas escritas."""
+    dirs = []
+    for kind, entries in maps.items():
+        shards = {}
+        for key, url in entries.items():
+            shards.setdefault(shard(key, kind), {})[key] = url
+        d = os.path.join(out_dir, kind, 'map')
+        os.makedirs(d, exist_ok=True)
+        for prefix, part in shards.items():
+            with open(os.path.join(d, f'{prefix}.json'), 'w', encoding='utf-8') as f:
+                json.dump(part, f, ensure_ascii=False, separators=(',', ':'))
+        dirs.append(d)
+    return dirs
 
 
 def write_index(index, out_dir=SHARED_DIR):
@@ -77,8 +123,12 @@ def main(argv=None):
 
     with open(RULES_PATH, encoding='utf-8') as f:
         rules = json.load(f)
-    index = build_index(load_epg_channels(args.merged), load_sources(), rules)
+    root = load_epg_channels(args.merged)
+    index = build_index(root, load_sources(), rules)
     path = write_index(index, args.out)
+    maps = media_maps(root, iter_programmes(args.merged))
+    write_media_maps(maps, args.out)
+    print(f"🖼️  Imágenes por el Worker: {len(maps['logo'])} logos de canal, {len(maps['img'])} de programas")
     print(f"🌐 {path}: {len(index['channels'])} canales, {len(index['sources'])} fuentes "
           f"({os.path.getsize(path) / 1024 / 1024:.1f} MB)")
     return 0

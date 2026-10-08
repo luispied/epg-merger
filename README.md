@@ -82,7 +82,7 @@ que cambiaban para peor también quedaron fijados con un override.
 ### Uso de cada fuente y sugerencias (`tools/source_coverage.py`)
 
 Después de generar las playlists, el workflow corre `tools/source_coverage.py`, que deja en
-`out/sources_report.json` (y en la branch `data`, para la interfaz):
+`out/sources_report.json` (también en el artifact `match-reports` de la corrida; no se publica en R2):
 
 - **uso por fuente:** cuántos canales visibles (sin ocultos, categorías ocultas ni separadores)
   toman su guía de cada fuente y cuántas veces aparece como alternativa; las activas que no usa
@@ -365,7 +365,7 @@ de proveedor no toca el matching.
 |---|---|---|
 | `merged.xml.gz` | release `latest` | no |
 | `epg_catalog.json` | release `latest` | no |
-| guía, catálogo y programación de la interfaz | R2 (`guide/`, `ui/`) | no |
+| guía (fuentes enmascaradas), mapas de imágenes y programación de la interfaz | R2 (`guide/`, `logo/`, `img/`, `ui/schedule/`) | no |
 | `playlist.m3u8` | la entrega el Worker (`/p/<código>`) | sí, cifradas en el token |
 
 Las playlists ya no se publican en gists: el Worker las arma al pedirlas y las credenciales
@@ -375,8 +375,17 @@ viajan solo dentro del token cifrado.
 ## Cloudflare R2 (Grilla web, Etapa 1)
 
 La corrida diaria sube a un bucket de R2 lo que Grilla web va a leer: el índice de la guía
-para `@grilla/core` (`shared_guide.py` → `guide/index.json`) y los datos de la interfaz
-(`ui/`). La subida la hace `tools/r2_upload.sh`. Si faltan los secretos, el paso no hace
+para `@grilla/core` (`shared_guide.py` → `guide/index.json`) y la programación de la interfaz
+(`ui/schedule/`). Las fuentes de EPG no se nombran en nada de lo que sale del repo: en la guía y en
+el XML de cada configuración van con un alias opaco (`source_alias.py`, `worker/src/crypto.ts`).
+Es una regla genérica (`scrub_element` en `source_alias.py`), para cualquier fuente: las imágenes se
+piden al Worker (logos de canal en `/logo/<clave>`, guardados en R2 la primera vez; imágenes de
+programa en `/img/<clave>`, de paso), los `<url>` de canales y programas se sacan, y los links a
+sitios de las fuentes (dominios de `epg_urls.json`) se borran de títulos y descripciones. El Worker
+resuelve cada clave con los mapas privados `logo/map/` e `img/map/` de R2 (`shared_guide.py`,
+`worker/src/logos.ts`). Los ids de canal salen con alias (`channel_alias` en `source_alias.py`, `core/src/alias.ts`; el matcher de la web resuelve el id de EPG de la lista con la clave `k` del id plegado), y una configuración guardada con el id real pasa al alias al abrirse en la web; la guía de cada configuración sale con el id que tiene guardado, que es el `tvg-id` de su playlist. El XML usa el Worker de `GRILLA_WORKER` (por defecto
+`https://grilla.grilla.workers.dev`).
+La subida la hace `tools/r2_upload.sh`. Si faltan los secretos, el paso no hace
 nada; si falla, la corrida sigue igual. El bucket es **privado**: ver
 `planes/licencias-fuentes-epg.md`.
 

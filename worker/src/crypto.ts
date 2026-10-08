@@ -28,6 +28,10 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Alias opaco de una fuente de EPG, igual que source_alias.py: la guía publicada trae las fuentes enmascaradas, así
+ *  que los `prefer_sources` de una configuración (ids reales) se traducen con la misma fórmula. */
+export const sourceAlias = async (sourceId: string) => 's' + (await sha256Hex(`grilla-fuente\n${sourceId}`)).slice(0, 8);
+
 const keys = new Map<string, Promise<CryptoKey>>();
 
 function importKey(secret: string): Promise<CryptoKey> {

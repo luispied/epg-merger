@@ -129,5 +129,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: match-reports
-        path: out/*/match_report.json
+        path: |
+          out/*/match_report.json
+          out/sources_report.json
         if-no-files-found: ignore
