@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.5
+
+- El botón «Cancelar» del alta de proveedor ya no queda pegado al texto de arriba («¿Ya usás Grilla en otro dispositivo?…»): tiene su aire.
+
 ## 1.25.3
 
 - Arreglo: la hora de los eventos (PPV) ahora sigue la zona horaria del proveedor. Si la cambiás en el panel del proveedor, la grilla se acomoda sola (con la próxima consulta de la cuenta: al abrir Perfil o en la prueba diaria). En la página del proveedor, «Hora de eventos» arranca en «Automática»; elegir una zona a mano la deja fija.
