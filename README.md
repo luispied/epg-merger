@@ -301,7 +301,7 @@ las descarta. Con `RELAY_URL` y `RELAY_SECRET` cargados en el Worker:
 Sin esas variables, la lista la sube la persona (desde el navegador o con `tools/grilla_home.py`) y no hay prueba de
 canales caídos. `XTREAM_PROFILES` queda solo para la corrida diaria (`merge-epgs.yml`: catálogo y reporte de cruce).
 
-Las claves `known/` y `links/` que quedaron en R2 del camino viejo ya no se usan: se pueden borrar a mano.
+Las claves `known/` y `links/` que quedaron en R2 del camino viejo ya no se usan; se dejan como están (no son los links de reproducción, que viven en `short/` y `devices/`).
 
 ## Varias personas con el mismo proveedor
 

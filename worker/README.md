@@ -56,7 +56,6 @@ compilación sola antes de publicar (`[build]`).
   sube sin URLs y la configuración queda en modo `list: "upload"`.
 - La clave de edición queda en el navegador (`localStorage`) y se puede exportar como respaldo.
   Usuario y contraseña no se guardan: se piden para generar los links.
-- La interfaz de GitHub (`docs/`) no cambia: sigue siendo el respaldo.
 
 ## Puesta en marcha (una vez)
 
