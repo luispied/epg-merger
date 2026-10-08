@@ -1181,6 +1181,22 @@ test('logos: /logo/<clave> baja la imagen una vez, la guarda en R2 y no muestra 
   assert.equal((await handle(req('/img/0000000000000000'), t.env, t.ctx, t.cache)).status, 404);
 });
 
+test('logos: un mapa que todavía no subió se vuelve a buscar al minuto, no a la hora', async () => {
+  resetMediaMaps();
+  const t = makeEnv();
+  const original = { fetch: globalThis.fetch, now: Date.now };
+  let now = original.now();
+  Date.now = () => now;
+  globalThis.fetch = (async () => new Response('PNG', { headers: { 'Content-Type': 'image/png' } })) as typeof fetch;
+  restore = () => { globalThis.fetch = original.fetch; Date.now = original.now; };
+  const get = () => handle(req('/logo/b4009f79b7b3189c'), t.env, t.ctx, t.cache);
+  assert.equal((await get()).status, 404, 'sin mapa en R2');
+  await t.env.BUCKET.put('logo/map/b.json', JSON.stringify({ b4009f79b7b3189c: 'http://x/t.png' }));
+  assert.equal((await get()).status, 404, 'el faltante queda guardado un rato');
+  now += 61 * 1000;
+  assert.equal((await get()).status, 200, 'pasado el minuto encuentra el mapa nuevo');
+});
+
 test('playlist: los logos de la guía salen por el Worker; los propios, tal cual', async () => {
   resetMediaMaps();
   const t = await setup({ channels: {

@@ -11,6 +11,9 @@ export const MEDIA_RE = /^[0-9a-f]{16}$/;
 const SHARD: Record<MediaKind, number> = { logo: 1, img: 2 };
 const MAX_BYTES: Record<MediaKind, number> = { logo: 512 * 1024, img: 2 * 1024 * 1024 };
 const MAP_TTL_MS = 3600 * 1000;
+// Un mapa que todavía no está en R2 se vuelve a buscar enseguida: si no, un logo pedido antes de que
+// suba quedaba en 404 una hora entera.
+const MISSING_TTL_MS = 60 * 1000;
 const TIMEOUT_MS = 8000;
 const CACHE = 'public, max-age=2592000, immutable';
 // Un SVG abierto directo no puede correr scripts en el dominio del Worker.
@@ -22,17 +25,21 @@ const imageHeaders = (type: string) => ({
 /** La misma clave que logo_key en source_alias.py. */
 export const mediaKey = async (url: string) => (await sha256Hex(`grilla-logo\n${url}`)).slice(0, 16);
 
-const shards = new Map<string, { at: number; map: Promise<Record<string, string>> }>();
+const shards = new Map<string, { at: number; ttl: number; map: Promise<Record<string, string>> }>();
 
 /** {clave: url} del archivo del mapa de esa clave, guardado una hora por instancia del Worker. */
 function mapFor(env: Env, kind: MediaKind, key: string, now = Date.now()): Promise<Record<string, string>> {
   const name = `${kind}/map/${key.slice(0, SHARD[kind])}.json`;
   let hit = shards.get(name);
-  if (!hit || now - hit.at > MAP_TTL_MS) {
-    const map = env.BUCKET.get(name)
-      .then(async (o) => (o ? JSON.parse(await o.text()) as Record<string, string> : {}))
-      .catch(() => ({}));
-    hit = { at: now, map };
+  if (!hit || now - hit.at > hit.ttl) {
+    const entry = { at: now, ttl: MAP_TTL_MS, map: Promise.resolve({}) as Promise<Record<string, string>> };
+    entry.map = env.BUCKET.get(name)
+      .then(async (o) => {
+        if (!o) entry.ttl = MISSING_TTL_MS;
+        return o ? JSON.parse(await o.text()) as Record<string, string> : {};
+      })
+      .catch(() => { entry.ttl = MISSING_TTL_MS; return {}; });
+    hit = entry;
     shards.set(name, hit);
   }
   return hit.map;

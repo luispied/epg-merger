@@ -7,6 +7,12 @@ creada o editada después quedaba sin guía, o con la vieja, hasta el día sigui
 solo las que lo necesitan (su guía no existe o es más vieja que la configuración) con la guía
 ya fusionada de la última corrida (`merged.xml.gz` del release): no vuelve a bajar las
 fuentes, así no se les pide más de una vez por día.
+
+Esas guías apuntan los logos e imágenes al Worker (`/logo/<clave>`, `/img/<clave>`), que los
+encuentra en los mapas `logo/map/` e `img/map/` de R2. Antes de subir una guía se suben también
+los mapas de ese mismo `merged.xml.gz`: si no, una guía armada entre corridas diarias podía
+apuntar a claves que el Worker todavía no conoce (pasó al estrenar los logos por el Worker y
+TiviMate se quedó sin logos). Si faltan los mapas en R2, se suben aunque no haya guías para armar.
 """
 import os
 import sys
@@ -17,6 +23,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config_epgs  # noqa: E402
+import shared_guide  # noqa: E402
 
 MERGED_URL = 'https://github.com/{repo}/releases/download/latest/merged.xml.gz'
 API_RELEASE = 'https://api.github.com/repos/{repo}/releases/tags/latest'
@@ -54,6 +61,21 @@ def download_merged(repo, dest, token=None):
                 f.write(chunk)
 
 
+def upload_media_maps(client, bucket, merged, tmp):
+    """Sube los mapas {clave: url} de `merged` (los mismos que arma shared_guide.py en la corrida diaria)."""
+    maps = shared_guide.media_maps(shared_guide.load_epg_channels(merged), shared_guide.iter_programmes(merged))
+    out = os.path.join(tmp, 'shared')
+    count = 0
+    for d in shared_guide.write_media_maps(maps, out):
+        prefix = os.path.relpath(d, out).replace(os.sep, '/')
+        for name in sorted(os.listdir(d)):
+            client.upload_file(os.path.join(d, name), bucket, f'{prefix}/{name}',
+                               ExtraArgs={'ContentType': 'application/json'})
+            count += 1
+    print(f"🖼️  Mapas de imágenes: {len(maps['logo'])} logos, {len(maps['img'])} de programas ({count} archivos)")
+    return count
+
+
 def stale(configs, epgs):
     """Configuraciones sin guía o con una guía más vieja que la configuración."""
     return sorted(c for c, modified in configs.items() if c not in epgs or epgs[c] < modified)
@@ -71,13 +93,18 @@ def main():
         region_name='auto')
     bucket = os.environ.get('R2_BUCKET') or 'grilla'
     todo = stale(listing(client, bucket, 'cfg/'), listing(client, bucket, 'epg/'))
-    if not todo:
+    maps_missing = not listing(client, bucket, 'logo/map/')
+    if not todo and not maps_missing:
         print('ℹ️  Todas las configuraciones tienen su guía al día')
         return 0
     repo = os.environ.get('GITHUB_REPOSITORY', 'luispied/epg-merger')
     with tempfile.TemporaryDirectory() as tmp:
         merged = os.path.join(tmp, 'merged.xml.gz')
         download_merged(repo, merged, os.environ.get('GITHUB_TOKEN'))
+        # Primero los mapas: una guía nueva no puede apuntar a un logo que el Worker no encuentra.
+        upload_media_maps(client, bucket, merged, tmp)
+        if not todo:
+            return 0
         cfg_dir = os.path.join(tmp, 'cfg')
         os.makedirs(cfg_dir)
         for cfg_id in todo:

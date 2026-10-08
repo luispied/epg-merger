@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.6
+
+- Arreglo: los logos de los canales volvieron a verse en TiviMate y demás reproductores. Desde que los logos pasan por el Worker, las guías armadas entre corridas diarias apuntaban a logos que el Worker todavía no sabía de dónde bajar. Ahora esas guías suben junto con lo necesario para encontrarlos, y un logo que no se encontró se vuelve a buscar al minuto en vez de a la hora.
+
 ## 1.24.5
 
 - En la revisión de un canal, **Sin guía** pasa al pie junto a **Usar sugerencia** y **Saltar**, y la tarjeta de la sugerencia ya no repite el botón **Usar**. Elegir **Sin guía** ahí pasa al canal siguiente.
