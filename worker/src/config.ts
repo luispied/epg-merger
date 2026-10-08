@@ -2,6 +2,7 @@
 // credenciales ni URLs de stream. Se guarda en R2 (cfg/<cfgId>.json) con el hash de la clave
 // de edición; quien tiene la clave la lee y la cambia, los links de reproducción no la llevan.
 import { randomId, sha256Hex } from './crypto.ts';
+import { parseFilter, type DeviceFilter } from './playlist.ts';
 import type { R2Bucket } from './env.ts';
 
 /** Lo que la persona decidió para un canal, por su nombre crudo en el proveedor. */
@@ -39,6 +40,33 @@ export interface Config {
   activeAccount?: string;
   /** Nombre del perfil de la cuenta principal (sin dato: «Tu cuenta»). Los demás perfiles se llaman como su `account`. */
   mainName?: string;
+  /** Perfiles (ver planes/perfiles.md): dentro de una cuenta, un nombre y qué ve. Sus links llevan el id en `profile`
+   *  y una copia del filtro. Los maneja el Worker (rutas …/profiles): lo que mande la web al guardar se ignora. */
+  profiles?: ProfileDef[];
+}
+
+export interface ProfileDef {
+  id: string;
+  name: string;
+  /** Cuenta del proveedor (el `account` de sus links); sin dato = la principal. */
+  account?: string;
+  filter?: DeviceFilter;
+}
+export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
+const MAX_PROFILES = 50;
+export function parseProfiles(v: unknown): ProfileDef[] {
+  if (!Array.isArray(v)) return [];
+  const out: ProfileDef[] = [];
+  for (const raw of v.slice(0, MAX_PROFILES)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    if (typeof r.id !== 'string' || !PROFILE_ID_RE.test(r.id) || out.some((p) => p.id === r.id)) continue;
+    const name = typeof r.name === 'string' ? r.name.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
+    const account = typeof r.account === 'string' ? r.account.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
+    const filter = parseFilter(r.filter);
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}) });
+  }
+  return out;
 }
 
 export interface Matching {
@@ -164,6 +192,7 @@ export function parseConfig(raw: unknown): Config {
   }
   const custom = strList(g.custom, 2000);
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
+  const profiles = parseProfiles(r.profiles);
   const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const separators = strList(g.separators, 2000);
   return {
@@ -173,6 +202,7 @@ export function parseConfig(raw: unknown): Config {
     ...(matching ? { matching } : {}),
     ...(activeAccount ? { activeAccount } : {}),
     ...(mainName ? { mainName } : {}),
+    ...(profiles.length ? { profiles } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),

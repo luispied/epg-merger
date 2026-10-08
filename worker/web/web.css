@@ -989,6 +989,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
   font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: text; }
 .profile-card .device { background: transparent; border-radius: 0; padding: 10px 0 2px; gap: 4px; border-top: 1px solid var(--hairline); }
 .profile-card .device-list { gap: 0; }
+.profile-card .device:first-child { border-top: 0; padding-top: 0; }
 .profile-card .device [data-dev=show] { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .profile-card .device .icon-btn { width: 40px; height: 40px; }
 .provider-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 -4px; }
@@ -1003,6 +1004,10 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .profile-row .menu-text small.warn { color: var(--orange); }
 .profile-row .menu-text small.bad { color: var(--red); }
 .pr-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Cuentas > perfiles: los perfiles van debajo de su cuenta, con sangría. */
+.menu-row.sub-row { padding-left: 32px; min-height: 52px; }
+.menu-row.sub-row .menu-icon { width: 32px; height: 32px; }
+.menu-row.sub-row .menu-text small { display: block; color: var(--muted); }
 .profile-row .pc-badge { padding: 2px 8px; font-size: 11px; }
 .add-row, .add-row .menu-icon { color: var(--accent); }
 .add-row .menu-text { font-weight: 600; }

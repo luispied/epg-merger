@@ -15,6 +15,21 @@ las listas y las pruebas pasaban por el secret de GitHub (una cuenta por persona
 - **Hogar**: una clave que junta todas las configuraciones de una persona, para abrir Grilla en otro dispositivo y ver
   todos los proveedores sin importar un respaldo por cada uno. El Worker guarda solo un blob cifrado en el navegador.
 
+## Cuentas > perfiles > links (decidido 08/10/2026, 1.24.0)
+Luis: «quería que los perfiles sean de la misma cuenta (usuario contraseña) … cuentas > perfiles > dispositivos/links».
+Reemplaza «perfil = cuenta» de arriba:
+- **Cuenta** = usuario y contraseña del proveedor (`account` en los links; vacío = la principal, nombre en `mainName`).
+  Tiene vencimiento, conexiones y canales caídos. La **cuenta en uso** es `activeAccount`.
+- **Perfil** = dentro de una cuenta, un nombre y **qué ve** (filtro). Vive en `config.profiles` (`{id, name, account?,
+  filter?}`), lo maneja el Worker (`/api/cfg/<id>/profiles`; el PUT de la config no lo pisa). Cada link guarda `profile`
+  y una copia del filtro, así la playlist se sirve igual que siempre; cambiar el filtro del perfil reescribe sus links.
+- **Link** = un par playlist/guía. Un mismo link sirve para varios dispositivos («Copiar o compartir»); otro link solo
+  hace falta para apagarlo o pasarlo de perfil por separado.
+- Migración: al pedir los dispositivos, los links sin perfil pasan a uno por cuenta y filtro (sin filtro se llama como la
+  cuenta o «Todo»; con filtro, como su primer dispositivo). Solo se agrega `profile` a los registros.
+- Borrar un perfil pasa sus links a otro; pasar un perfil a otra cuenta cambia el token de sus links; borrar una cuenta
+  pasa sus perfiles a otra. Ningún código cambia.
+
 ## Links: nunca cambian de dirección
 La dirección corta (`/l/<código>.m3u8`, `/g/<código>.xml.gz`, `/s/<código>/…`) es la identidad del link. Mover un link
 a otro perfil o a otro proveedor cambia a qué configuración y cuenta apunta su registro, nunca el código. El reproductor

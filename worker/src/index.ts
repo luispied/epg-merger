@@ -26,15 +26,16 @@
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
-  type Config } from './config.ts';
-import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+  type Config, type ProfileDef } from './config.ts';
+import { ensureProfiles, findProfile, newProfileId } from './profiles.ts';
+import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
-import { buildPlaylist, type DeviceFilter } from './playlist.ts';
+import { buildPlaylist, parseFilter, type DeviceFilter } from './playlist.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
 import { checkAllHealth, liveAccounts } from './streamcheck.ts';
@@ -43,6 +44,8 @@ import { addReminder, parseReminder, readReminders, removeReminder } from './rem
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
+/** Misma cuenta del proveedor (vacío o sin dato = la principal). */
+const sameAcc = (a: unknown, b: unknown) => (typeof a === 'string' ? a.trim() : '') === (typeof b === 'string' ? b.trim() : '');
 const LIST_TTL_S = 3 * 3600;
 const RATE_LIMIT = 20; // pedidos por minuto y por IP a lo que baja listas o crea configuraciones
 const CORS = {
@@ -307,7 +310,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       // El perfil activo se cambia con PUT …/active; una web que no lo conoce no lo borra.
       // El perfil activo y el nombre del principal se cambian con sus propias rutas: si la web no los manda, se conservan.
       const keep = Object.fromEntries((['activeAccount', 'mainName'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
-      const config = parseConfig({ ...raw, ...keep });
+      // Los perfiles los maneja el Worker (rutas …/profiles): siempre quedan los guardados.
+      const config = parseConfig({ ...raw, ...keep, profiles: stored.config.profiles });
       await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
       // La guía de esta configuración se vuelve a armar con los cambios.
       ctx.waitUntil(dispatchRefresh(env, cache));
@@ -417,10 +421,12 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const origin = new URL(request.url).origin;
       const code = parts[4];
       if (!code && method === 'GET') {
+        // Los links de antes (sin perfil) pasan a uno, según su cuenta y su filtro.
+        const config = await ensureProfiles(env.BUCKET, cfgId, stored.config, stored.keyHash);
         const devices = (await listDevices(env.BUCKET, cfgId)).map((d) => ({
           ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
-        return json({ devices, activeAccount: stored.config.activeAccount ?? '', mainName: stored.config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
+        return json({ devices, profiles: config.profiles ?? [], activeAccount: config.activeAccount ?? '', mainName: config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
       }
       if (code && SHORT_RE.test(code) && method === 'PATCH') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
@@ -441,7 +447,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           if (typeof raw.toKey !== 'string' || (await sha256Hex(raw.toKey)) !== other.keyHash) return fail(401, 'clave de edición del destino inválida');
           target = other;
         }
-        const account = cleanAccount(raw.account);
+        // Con `profile` (un perfil del destino), la cuenta y el filtro salen de ese perfil.
+        const prof = 'profile' in raw ? findProfile(target.config, raw.profile) : undefined;
+        if ('profile' in raw && !prof) return fail(404, 'el perfil de destino no existe');
+        const account = prof ? prof.account : cleanAccount(raw.account);
         const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
         // El token está atado a su configuración: el de un link del perfil de destino o, si no tiene, las credenciales.
         let found = hasCreds ? null : await tokenOfAccount(env.BUCKET, to, account);
@@ -450,7 +459,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           const creds = credentialsFrom(raw, target.config);
           found = { token: await encryptToken(env.TOKEN_KEY, to, creds), ...('u' in creds ? { key: await accountKey(creds.u, creds.p) } : {}) };
         }
-        return (await moveDevice(env.BUCKET, code, cfgId, to, found.token, account, found.key))
+        return (await moveDevice(env.BUCKET, code, cfgId, to, found.token, account, found.key, prof ? { id: prof.id, filter: prof.filter } : undefined))
           ? json({ ok: true }) : fail(400, 'no se pudo mover: el link no es de esta configuración o el destino ya tiene demasiados dispositivos');
       }
     }
@@ -475,9 +484,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       return json({ ok: true, activeAccount: account ?? '' });
     }
-    if (action === 'profiles' && method === 'PUT') {
-      // Cambiar el nombre de un perfil. `from` vacío = la cuenta principal (se guarda en la configuración); otro = el
-      // `account` de sus links, que se reescribe en cada registro sin tocar el código ni el token: los links no cambian.
+    if (action === 'account-name' && method === 'PUT') {
+      // Cambiar el nombre de una cuenta. `from` vacío = la principal (se guarda en la configuración); otro = el
+      // `account` de sus links y perfiles, que se reescribe sin tocar el código ni el token: los links no cambian.
       const raw = await readJson(request, 4 * 1024) as Record<string, unknown>;
       const from = cleanAccount(raw.from);
       const to = cleanAccount(raw.to);
@@ -488,10 +497,84 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         return json({ ok: true, renamed: 0 });
       }
       if (!to) return fail(400, 'falta el nombre nuevo');
+      const inProfiles = (stored.config.profiles ?? []).some((p) => p.account === from);
       const renamed = await renameAccount(env.BUCKET, cfgId, from, to);
-      if (!renamed) return fail(404, `no hay un perfil «${from}»`);
-      if (stored.config.activeAccount === from) await saveConfig(env.BUCKET, cfgId, { ...stored.config, activeAccount: to }, stored.keyHash);
+      if (!renamed && !inProfiles) return fail(404, `no hay una cuenta «${from}»`);
+      const profiles = stored.config.profiles?.map((p) => (p.account === from ? { ...p, account: to } : p));
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, ...(profiles ? { profiles } : {}), ...(stored.config.activeAccount === from ? { activeAccount: to } : {}) }, stored.keyHash);
       return json({ ok: true, renamed });
+    }
+    if (action === 'profiles') {
+      // Perfiles: dentro de una cuenta, un nombre y qué ve. Sus links llevan una copia del filtro, que se reescribe al
+      // cambiarlo. Borrar un perfil pasa sus links a otro: nunca se borra un link.
+      const config = await ensureProfiles(env.BUCKET, cfgId, stored.config, stored.keyHash);
+      const profiles = [...(config.profiles ?? [])];
+      const save = (list: ProfileDef[]) => saveConfig(env.BUCKET, cfgId, { ...config, profiles: list }, stored.keyHash);
+      const raw = method === 'GET' ? {} : await readJson(request, 64 * 1024) as Record<string, unknown>;
+      const pid = parts[4];
+      const cleanProfileName = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 30) : '');
+      if (!pid && method === 'POST') {
+        const name = cleanProfileName(raw.name);
+        if (!name) return fail(400, 'falta el nombre del perfil');
+        if (profiles.length >= 50) return fail(400, 'ya hay demasiados perfiles');
+        const account = cleanAccount(raw.account);
+        const filter = parseFilter(raw.filter);
+        const p: ProfileDef = { id: newProfileId(), name, ...(account ? { account } : {}), ...(filter ? { filter } : {}) };
+        await save([...profiles, p]);
+        return json({ ok: true, profile: p });
+      }
+      const p = findProfile(config, pid);
+      if (!p) return fail(404, 'perfil inexistente');
+      if (method === 'PUT') {
+        const next: ProfileDef = { ...p };
+        if ('name' in raw) next.name = cleanProfileName(raw.name) || p.name;
+        if ('filter' in raw) {
+          const f = parseFilter(raw.filter);
+          if (f) next.filter = f;
+          else delete next.filter;
+        }
+        let moved = 0;
+        if ('account' in raw && !sameAcc(raw.account, p.account)) {
+          // Pasar el perfil (y sus links) a otra cuenta: los links toman el token de esa cuenta; su dirección no cambia.
+          const account = cleanAccount(raw.account);
+          const found = await tokenOfAccount(env.BUCKET, cfgId, account);
+          if (!found) return fail(400, `${account ? `la cuenta «${account}»` : 'la cuenta principal'} no tiene links: no hay con qué reproducir`);
+          if (account) next.account = account;
+          else delete next.account;
+          moved = await updateRecords(env.BUCKET, cfgId, (rec) => {
+            if (rec.profile !== p.id) return null;
+            const { account: _a, key: _k, ...rest } = rec;
+            return { ...rest, token: found.token, ...(account ? { account } : {}), ...(found.key ? { key: found.key } : {}) };
+          });
+        }
+        if ('filter' in raw) {
+          await updateRecords(env.BUCKET, cfgId, (rec) => {
+            if (rec.profile !== p.id) return null;
+            const { filter: _f, ...rest } = rec;
+            return { ...rest, ...(next.filter ? { filter: next.filter } : {}) };
+          });
+        }
+        await save(profiles.map((x) => (x.id === p.id ? next : x)));
+        return json({ ok: true, profile: next, moved });
+      }
+      if (method === 'DELETE') {
+        // Sus links pasan a `to` (otro perfil; si es de otra cuenta, con el token de esa cuenta).
+        const dest = findProfile(config, raw.to);
+        const links = (await listDevices(env.BUCKET, cfgId)).filter((d) => d.profile === p.id);
+        if (links.length) {
+          if (!dest || dest.id === p.id) return fail(400, 'elegí a qué perfil pasan sus links');
+          const found = sameAcc(dest.account, p.account) ? null : await tokenOfAccount(env.BUCKET, cfgId, dest.account);
+          if (!sameAcc(dest.account, p.account) && !found) return fail(400, 'la cuenta de ese perfil no tiene links: no hay con qué reproducir');
+          await updateRecords(env.BUCKET, cfgId, (rec) => {
+            if (rec.profile !== p.id) return null;
+            const { filter: _f, profile: _p, ...rest } = rec;
+            const base = found ? (({ account: _a, key: _k, ...r }) => ({ ...r, token: found.token, ...(dest.account ? { account: dest.account } : {}), ...(found.key ? { key: found.key } : {}) }))(rest) : rest;
+            return { ...base, profile: dest.id, ...(dest.filter ? { filter: dest.filter } : {}) };
+          });
+        }
+        await save(profiles.filter((x) => x.id !== p.id));
+        return json({ ok: true, moved: links.length });
+      }
     }
     if (action === 'servers' && method === 'PUT') {
       // Cambió la dirección del servicio de IPTV (o falló): los links no cambian; los streams y la lista pasan a usar la nueva.
@@ -521,7 +604,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const raw = await readJson(request, 16 * 1024) as Record<string, unknown>;
       // `account`: cuenta adicional (por ejemplo, la de un familiar). Sin datos del proveedor se reutiliza
       // la de un dispositivo que ya la tiene, así no hay que pedir usuario y contraseña de nuevo.
-      const account = cleanAccount(raw.account);
+      // `profile`: el link nuevo va a ese perfil (su cuenta y su filtro).
+      const prof = 'profile' in raw ? findProfile(stored.config, raw.profile) : undefined;
+      if ('profile' in raw && !prof) return fail(404, 'perfil inexistente');
+      const account = prof ? prof.account : cleanAccount(raw.account);
       const hasCreds = raw.username !== undefined || raw.password !== undefined || raw.url !== undefined;
       let token: string;
       let key: string | undefined;
@@ -537,7 +623,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       const origin = new URL(request.url).origin;
       const code = randomId(8);
-      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), raw.filter, account, key))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
+      if (!(await addDevice(env.BUCKET, cfgId, token, raw.name, code, new Date(), prof ? prof.filter : raw.filter, account, key, prof?.id))) return fail(400, 'ya hay demasiados dispositivos: quitá alguno');
       return json({
         token,
         code,
