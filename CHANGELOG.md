@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.19.1
+
+- Las fuentes de EPG van enmascaradas: en la guía de la web y en el XML que baja el reproductor cada fuente tiene un alias opaco en vez de su nombre, y el texto del alta ya no nombra proveedores. La web ya no puede pedir el catálogo ni el uso de fuentes (no los usaba). El matching no cambia.
+
 ## 1.19.0
 
 - La lista del proveedor y la prueba de canales caídos ya no pasan por GitHub: las hace solo el relay. Se retiran la corrida que bajaba listas con `XTREAM_PROFILES` (`tools/push_lists.py`), la prueba diaria de GitHub (`check-streams.yml`) y el vínculo por huella (`known/`, `links/`). Los links ya creados siguen andando igual. Sin relay, la lista se sube desde el navegador o con `tools/grilla_home.py`, y «Probar ahora» avisa que falta el relay.

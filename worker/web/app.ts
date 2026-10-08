@@ -6,6 +6,7 @@ import {
   EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
+import { sourceAlias } from '../src/crypto.ts';
 import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
@@ -384,6 +385,11 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   // Con las preferencias importadas de GitHub se elige igual que allá (su umbral, su señal
   // horaria y las fuentes/país de cada categoría); sin ellas, lo dudoso queda como sugerencia.
   const prefs = cfg.matching ?? {};
+  // La guía trae las fuentes enmascaradas: las preferidas de cada categoría se traducen al mismo alias.
+  const categories: Record<string, { country?: string | null; prefer_sources?: string[] }> = {};
+  for (const [cat, c] of Object.entries(prefs.categories ?? {})) {
+    categories[cat] = { ...c, ...(c.prefer_sources ? { prefer_sources: await Promise.all(c.prefer_sources.map(sourceAlias)) } : {}) };
+  }
   const baseScore = prefs.minScore ?? 0.7;
   const minAssignScore = baseScore;
   if ('feed' in prefs) index.preferredFeed = prefs.feed ?? null;
@@ -406,7 +412,7 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
       setEdit(ch.name, edit);
       continue;
     }
-    const m = matchStream(ch.name, ch.epgId, index, {}, prefs.categories?.[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
+    const m = matchStream(ch.name, ch.epgId, index, {}, categories[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
     state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     const edit = cfg.channels[ch.name] ?? {};
     // Lo que trajo la importación de GitHub entra marcado "a mano" para no recalcularlo, pero si

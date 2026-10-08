@@ -3,13 +3,12 @@
 corrida diaria, en `out/shared/`, para subirlo a Cloudflare R2 (ver `tools/r2_upload.sh`).
 
 - `guide/index.json`: los canales de la guía (id, fuente, nombres, logo), las fuentes (país,
-  prioridad) y `matching_rules.json`. Es exactamente lo que `@grilla/core` (core/) necesita
+  prioridad) y `matching_rules.json`. Las fuentes van enmascaradas (`source_alias.py`). Es exactamente lo que `@grilla/core` (core/) necesita
   para hacer el matching en el navegador: `new EpgIndex(channels, new MatchingRules(rules),
   sources)`.
 
-La programación por canal y el catálogo para la interfaz (`out/schedule/`, `epg_catalog.json`,
-`epg_icons.json`, `sources_report.json`) ya los escribe `generate_playlist.py`; el script de
-subida los manda tal cual.
+La programación por canal (`out/schedule/`) ya la escribe `generate_playlist.py`; el script de
+subida la manda tal cual.
 
 Uso: `python shared_guide.py [--merged merged.xml.gz] [--out out/shared]`.
 """
@@ -25,6 +24,7 @@ sys.path.insert(0, ROOT)
 from channel_names import RULES_PATH  # noqa: E402
 from generate_playlist import MERGED_EPG_PATH, load_epg_channels  # noqa: E402
 from merge_epgs import load_sources  # noqa: E402
+from source_alias import source_alias  # noqa: E402
 
 SHARED_DIR = os.path.join('out', 'shared')
 INDEX_VERSION = 1
@@ -50,13 +50,14 @@ def source_info(sources):
 
 
 def build_index(root, sources, rules, now=None):
+    """El índice que se publica: las fuentes van con su alias (source_alias.py), no con su id."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    channels = guide_channels(root)
+    channels = [{**ch, 'source': source_alias(ch['source'])} for ch in guide_channels(root)]
     return {
         'version': INDEX_VERSION,
         'generated_at': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'matching_rules': rules,
-        'sources': source_info(sources),
+        'sources': {source_alias(k): v for k, v in source_info(sources).items()},
         'channels': channels,
     }
 

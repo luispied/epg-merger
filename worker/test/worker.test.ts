@@ -4,7 +4,7 @@ import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
-import { b64urlDecode, b64urlEncode, decryptToken, encryptToken } from '../src/crypto.ts';
+import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
@@ -179,6 +179,9 @@ test('lista del proveedor de paso, y guía/interfaz desde R2', async () => {
   assert.equal(await guide.text(), '{"channels":[]}');
   assert.equal((await handle(req('/api/ui/schedule/abc.json'), t.env, t.ctx, t.cache)).status, 200);
   assert.equal((await handle(req('/api/ui/../cfg/x.json'), t.env, t.ctx, t.cache)).status, 404);
+  // Lo viejo de ui/ que nombra las fuentes ya no se sirve.
+  await t.env.BUCKET.put('ui/sources_report.json', '{}');
+  assert.equal((await handle(req('/api/ui/sources_report.json'), t.env, t.ctx, t.cache)).status, 404);
 });
 
 test('guía de la configuración: la que dejó la corrida diaria en R2', async () => {
@@ -1104,4 +1107,9 @@ test('servidores: se cambian sin tocar los links, se validan y sin relay no se l
   const created = await (await handle(req('/api/cfg', { method: 'POST', headers: { 'CF-Connecting-IP': 'm3u-1' }, body: JSON.stringify({ ...CONFIG, provider: { type: 'm3u' } }) }), m3u.env, m3u.ctx, m3u.cache)).json() as { cfgId: string; editKey: string };
   const res = await handle(req(`/api/cfg/${created.cfgId}/servers`, { method: 'PUT', key: created.editKey, body: JSON.stringify({ servers: ['http://x.example'] }) }), m3u.env, m3u.ctx, m3u.cache);
   assert.equal(res.status, 400);
+});
+
+test('alias de fuente: el mismo que source_alias.py', async () => {
+  assert.equal(await sourceAlias('epgshare-us2'), 's4b1fdd7b');
+  assert.equal(await sourceAlias('programadorx-cl'), 's04f30b9c');
 });

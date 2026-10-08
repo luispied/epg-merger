@@ -9,6 +9,13 @@ from lxml import etree
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import shared_guide  # noqa: E402
+from source_alias import source_alias  # noqa: E402
+
+
+def test_alias_estable_y_opaco():
+    assert source_alias('epgshare-us2') == 's4b1fdd7b'
+    assert source_alias('epgshare-us2') != source_alias('epgshare-us1')
+    assert source_alias(None) is None
 
 GUIDE = b"""<tv>
   <channel id="Telefe.ar" source="openepg-ar"><display-name>Telefe</display-name><icon src="http://x/t.png"/></channel>
@@ -25,13 +32,14 @@ def test_indice_con_canales_fuentes_y_reglas(tmp_path):
 
     assert index['generated_at'] == '2026-09-29T12:00:00Z'
     assert index['matching_rules'] == {'quality_tokens': ['hd']}
-    # Sin URLs de las fuentes: solo lo que usa el matcher.
-    assert index['sources'] == {'openepg-ar': {'country': 'ar', 'priority': 3},
-                                'acidjesuz-us': {'country': None, 'priority': 0}}
+    # Sin URLs de las fuentes y con su alias en vez del id: solo lo que usa el matcher.
+    ar, us = source_alias('openepg-ar'), source_alias('acidjesuz-us')
+    assert index['sources'] == {ar: {'country': 'ar', 'priority': 3}, us: {'country': None, 'priority': 0}}
+    assert 'openepg' not in json.dumps(index) and 'acidjesuz' not in json.dumps(index)
     # En el orden de la guía (el desempate del matcher depende de él) y sin los canales sin id.
     assert index['channels'] == [
-        {'id': 'Telefe.ar', 'source': 'openepg-ar', 'names': ['Telefe'], 'icon': 'http://x/t.png'},
-        {'id': 'TBS.us', 'source': 'acidjesuz-us', 'names': ['TBS', 'TBS HD'], 'icon': ''},
+        {'id': 'Telefe.ar', 'source': ar, 'names': ['Telefe'], 'icon': 'http://x/t.png'},
+        {'id': 'TBS.us', 'source': us, 'names': ['TBS', 'TBS HD'], 'icon': ''},
     ]
 
     path = shared_guide.write_index(index, str(tmp_path))

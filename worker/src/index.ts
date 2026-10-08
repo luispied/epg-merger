@@ -14,7 +14,7 @@
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
-//   GET    /api/ui/<archivo>             catálogo, logos y programación para la interfaz (R2)
+//   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
@@ -452,8 +452,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return serveR2(env, 'guide/index.json', 'application/json', 3600);
   }
   if (section === 'ui' && method === 'GET') {
+    // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    if (!/^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*\.json$/.test(path)) return fail(404, 'no encontrado');
+    if (!/^schedule(\/[A-Za-z0-9_-]+)+\.json$/.test(path)) return fail(404, 'no encontrado');
     return serveR2(env, `ui/${path}`, 'application/json', 900);
   }
   return fail(404, 'no encontrado');
