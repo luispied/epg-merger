@@ -722,9 +722,10 @@ class ProfileEpg:
     """Guía acotada de un perfil: sus canales (el elegido y las alternativas de cada canal de
     la playlist) y sus programas, escrita de forma incremental mientras se recorre la guía."""
 
-    def __init__(self, path, channels_root, matched_ids, labels, stats, mask_ids=False):
-        # mask_ids: los ids de canal salen con alias (Grilla web; la playlist del Worker usa el mismo alias).
-        self.mask_ids = mask_ids
+    def __init__(self, path, channels_root, matched_ids, labels, stats, out_ids=None):
+        # out_ids: {id real: id con el que sale}. Grilla web: el que guardó la configuración (el alias de
+        # source_alias.channel_alias, o el id real si es vieja), que es el tvg-id de su playlist.
+        self.out_ids = out_ids or {}
         self.path = path
         self.channels_root = channels_root
         self.matched_ids = matched_ids
@@ -750,8 +751,8 @@ class ProfileEpg:
                 channel.set('source', source_alias(channel.get('source')))
             # Logo por el Worker, sin <url> ni links de la fuente (source_alias.py).
             scrub_element(channel, 'logo')
-            if self.mask_ids:
-                channel.set('id', channel_alias(channel_id))
+            if self.out_ids.get(channel_id, channel_id) != channel_id:
+                channel.set('id', self.out_ids[channel_id])
                 for dn in channel.findall('display-name'):
                     # "Telefe.ar" → "Telefe": el sufijo de país de algunas guías delata de cuál viene.
                     if dn.text:
@@ -770,9 +771,10 @@ class ProfileEpg:
         channel_id = programme.get('channel')
         if channel_id in self.matched_ids:
             scrub_element(programme, 'img')
-            if self.mask_ids:
+            out_id = self.out_ids.get(channel_id, channel_id)
+            if out_id != channel_id:
                 # El mismo programa va a varias guías: el alias solo mientras se escribe esta.
-                programme.set('channel', channel_alias(channel_id))
+                programme.set('channel', out_id)
                 self._xf.write(programme, pretty_print=True)
                 programme.set('channel', channel_id)
             else:

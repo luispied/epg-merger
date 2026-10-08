@@ -375,6 +375,20 @@ async function loadGuide(onStatus: (t: string) => void) {
   state.index = new EpgIndex(guide.channels, state.rules, guide.sources);
 }
 
+/** Con la guía enmascarada (ids con alias), lo guardado con el id real pasa a su alias; al guardarse, la
+ *  playlist y la guía del reproductor cambian juntas. Con una guía vieja (sin alias) no toca nada. */
+function maskStoredIds(): boolean {
+  if (!state.index?.masked) return false;
+  let changed = false;
+  for (const e of Object.values(state.cfg!.channels)) {
+    if (typeof e.epg === 'string' && channelAlias(e.epg) !== e.epg) {
+      e.epg = channelAlias(e.epg);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Cruza todos los canales con la guía (en tandas, para no congelar la página). Los EPG
  *  elegidos a mano no se tocan. Devuelve si cambió algo de la configuración. */
 async function rematch(onStatus: (t: string) => void): Promise<boolean> {
@@ -3250,8 +3264,6 @@ async function openSaved() {
         pending = true;
       }
     } catch { /* sin storage */ }
-    // La guía trae los ids de canal enmascarados: lo guardado con el id real pasa a su alias.
-    for (const e of Object.values(cfg.channels ?? {})) if (typeof e.epg === 'string') e.epg = channelAlias(e.epg);
     cfg.groups = { ...cfg.groups, order: cfg.groups?.order ?? [], hidden: cfg.groups?.hidden ?? [], noEpg: cfg.groups?.noEpg ?? [], channels: cfg.groups?.channels ?? {} };
     state.cfg = cfg;
     state.channels = await loadStoredList();
@@ -3264,8 +3276,9 @@ async function openSaved() {
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
     await loadGuide(say);
+    const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
-    if ((await rematch(say)) || pending) await saveNow(false);
+    if ((await rematch(say)) || pending || masked) await saveNow(false);
     status(st, null);
     detectNew();
     placeNewCategories();

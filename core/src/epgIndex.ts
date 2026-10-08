@@ -161,6 +161,11 @@ export class EpgIndex {
     for (const [token, ids] of this.postings) this.idfs.set(token, Math.log(1 + total / ids.length));
   }
 
+  /** Guía enmascarada (ids con alias, ver alias.ts). */
+  get masked(): boolean {
+    return this.byFoldKey.size > 0;
+  }
+
   has(channelId: string): boolean {
     return this.parsed.has(channelId);
   }

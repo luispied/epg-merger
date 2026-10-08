@@ -37,10 +37,11 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path):
     assert stats == {'aaaaaaaaaaaaaaaaaaaaaa': 2, 'bbbbbbbbbbbbbbbbbbbbbb': 0}
 
     xml = gzip.decompress((tmp_path / 'out' / 'aaaaaaaaaaaaaaaaaaaaaa.xml.gz').read_bytes()).decode()
-    tel, espn = channel_alias('Telefe.ar'), channel_alias('ESPN.ar')
-    assert f'id="{tel}"' in xml and f'id="{espn}"' in xml and 'TBS' not in xml
-    # Los ids de canal, enmascarados también en los programas (igual que el tvg-id de la playlist).
-    assert 'Telefe.ar' not in xml and 'ESPN.ar' not in xml and f'channel="{espn}"' in xml
+    # Cada canal sale con el id que guardó la configuración (el tvg-id de su playlist): el alias, también
+    # en sus programas; el id real de una configuración que todavía no pasó por la web enmascarada.
+    tel = channel_alias('Telefe.ar')
+    assert f'id="{tel}"' in xml and f'channel="{tel}"' in xml and 'Telefe.ar' not in xml
+    assert 'id="ESPN.ar"' in xml and 'channel="ESPN.ar"' in xml and 'TBS' not in xml
     assert 'Noticiero' in xml and 'SportsCenter' in xml and 'Friends' not in xml
     # La fuente sale enmascarada.
     assert 'openepg' not in xml and 'source="s' in xml
