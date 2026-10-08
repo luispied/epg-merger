@@ -900,7 +900,9 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 
 /* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
 :root { --tab-h: 56px; }
-.tabbar { left: 12px; right: 12px; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto;
+/* En iPhone el área segura de abajo (la rayita de inicio) mide ~34px: sumarla entera dejaba la cápsula a ~38px
+   del borde. Se mete 16px dentro de esa zona, sin tapar la rayita (~18px del borde en iPhone, 4px sin área segura). */
+.tabbar { left: 12px; right: 12px; bottom: max(4px, calc(env(safe-area-inset-bottom, 0px) - 16px)); max-width: 520px; margin: 0 auto;
   padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
   background: color-mix(in srgb, var(--surface) 62%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }

@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.9
+
+- La barra inferior baja más en iPhone: queda a ~18px del borde (antes ~38px, porque sumaba entera la zona de la rayita de inicio). Sin esa zona, sigue a 4px.
+
 ## 1.24.8
 
 - Perfiles: sin el párrafo explicativo de arriba; ya está en la ayuda (?) y la lista arranca directo con el proveedor.
