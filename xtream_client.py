@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Cliente mínimo de la API Xtream Codes con failover entre varios servidores."""
 import datetime
+import re
 
 import requests
 
@@ -88,6 +89,9 @@ def worker_channels(streams, categories):
     } for s in streams if str(s.get('stream_id') or '').strip()]
 
 
+_TZ_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_+-]*(?:/[A-Za-z0-9_+-]+){0,2}$')
+
+
 def account_info(data):
     """Datos de la cuenta que se publican (lista blanca: la respuesta trae también usuario y contraseña)."""
     info = (data or {}).get('user_info') if isinstance(data, dict) else None
@@ -110,6 +114,11 @@ def account_info(data):
         out['activeConnections'] = int(str(info.get('active_cons')))
     except (TypeError, ValueError):
         pass
+    # La zona horaria del panel (la que se elige en el proveedor): es la de las horas que van en el nombre de los eventos.
+    server = data.get('server_info')
+    tz = server.get('timezone') if isinstance(server, dict) else None
+    if isinstance(tz, str) and len(tz) <= 64 and _TZ_RE.match(tz.strip()):
+        out['timezone'] = tz.strip()
     return out
 
 

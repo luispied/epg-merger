@@ -163,3 +163,10 @@ def test_datos_de_la_cuenta_solo_con_lista_blanca():
     assert xtream_client.account_info({'user_info': {'exp_date': None}})['expires'] is None
     assert xtream_client.account_info({'user_info': {'exp_date': '0'}})['expires'] is None
     assert xtream_client.account_info({'algo': 1}) is None and xtream_client.account_info(None) is None
+
+
+def test_datos_de_la_cuenta_traen_la_zona_horaria_del_panel():
+    info = xtream_client.account_info({'user_info': {}, 'server_info': {'timezone': 'America/Bogota', 'url': 'x'}})
+    assert info['timezone'] == 'America/Bogota'
+    for raro in ('', '<script>', 'a' * 70, 123, '../../etc'):
+        assert 'timezone' not in xtream_client.account_info({'user_info': {}, 'server_info': {'timezone': raro}})

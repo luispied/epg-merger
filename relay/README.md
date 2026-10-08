@@ -8,7 +8,7 @@ cada persona (cifradas en sus links) y se las manda al relay en cada pedido; el 
 | Pedido | Respuesta |
 |---|---|
 | `POST /v1/list` `{servers, username, password}` | `{server, channels}` (la lista, sin URLs) |
-| `POST /v1/account` `{servers, username, password}` | `{server, account}` (vencimiento, conexiones) |
+| `POST /v1/account` `{servers, username, password}` | `{server, account}` (vencimiento, conexiones, zona horaria del panel) |
 | `POST /v1/probe` `{servers, username, password, channels:[{id, ext}]}` | `{server, account, results, aborted}` (hasta 60 canales) |
 | `GET /health` | `{ok: true}` |
 

@@ -871,7 +871,7 @@ function computeInfo(ch: Channel) {
 // ------------------------------------------------------------------ canales caídos
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
-interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number }
+interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
 interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
@@ -1237,9 +1237,32 @@ const VIEW_BTN: Record<ViewMode, [string, string]> = {
   compact: ['chevrons-up-down', 'Ver detallado'], detail: ['layout-grid', 'Ver logos'], grid: ['chevrons-down-up', 'Ver condensado'],
 };
 
+const validTz = (tz: string | undefined): tz is string => {
+  if (!tz) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+/** La zona que tiene elegida el panel del proveedor (la trae la cuenta en uso por el relay), o null si no se sabe. */
+function providerTz(): string | null {
+  const a = myAccounts().find((x) => x.account === activeAccount());
+  const tz = (a && accountData(a)?.timezone) || streamHealth?.account?.timezone;
+  return validTz(tz) ? tz : null;
+}
+/** «auto» (lo de siempre) o una zona elegida a mano en la página del proveedor. */
+const EVENT_TZ_KEY = () => `grilla_event_tz_mode_${state.local?.cfgId ?? ''}`;
+const DEFAULT_EVENT_TZ = 'America/Mexico_City';
+/** Zona horaria de los eventos (PPV) del proveedor abierto: la elegida a mano o, en automático, la del panel del
+ *  proveedor; así, si se cambia allá, la grilla se acomoda sola. Sin dato del panel, la que se usaba antes. */
+const eventTz = () => {
+  const manual = pref(EVENT_TZ_KEY(), 'auto');
+  if (manual !== 'auto' && validTz(manual)) return manual;
+  return providerTz() ?? pref(`grilla_event_tz_${state.local?.cfgId ?? ''}`, pref('grilla_event_tz', DEFAULT_EVENT_TZ));
+};
 /** Comienzo de un evento (PPV) que figura en el nombre del canal, pasado a la hora de este dispositivo. */
-/** Zona horaria de los eventos: la del proveedor abierto (antes era una sola para todos). */
-const eventTz = () => pref(`grilla_event_tz_${state.local?.cfgId ?? ''}`, pref('grilla_event_tz', 'America/Mexico_City'));
 const eventOf = (ch: Channel) => parseEvent(ch.name, eventTz(), Date.now());
 const EVENT_LIVE_MS = 3 * 3600000;
 function eventLabel(start: number): { text: string; cls: string } {
@@ -2807,8 +2830,10 @@ async function loadProfiles(live = true) {
   renderProfileNotice();
   if (!live) return;
   try {
+    const tz = eventTz();
     liveAccounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${state.local.cfgId}/accounts`)).accounts;
     liveAt = Date.now();
+    if (eventTz() !== tz) render(); // cambió la zona en el panel del proveedor: las horas de los eventos se corren
   } catch { /* sin relay o sin conexión: los de la última prueba */ }
   renderProfileNotice();
 }
@@ -3460,6 +3485,19 @@ const EVENT_TZS: [string, string][] = [
   ['America/Los_Angeles', 'EE. UU. Oeste'], ['Europe/Madrid', 'España'], ['UTC', 'UTC'],
 ];
 
+const tzLabel = (tz: string) => EVENT_TZS.find(([v]) => v === tz)?.[1] ?? tz.replace(/^.*\//, '').replace(/_/g, ' ');
+/** Automática primero, después las zonas fijas. */
+function eventTzOptions(): string {
+  const manual = pref(EVENT_TZ_KEY(), 'auto');
+  const opts: [string, string][] = [['auto', 'Automática'], ...EVENT_TZS];
+  // Una zona elegida a mano que no está en la lista (no debería pasar) se muestra igual.
+  if (manual !== 'auto' && !opts.some(([v]) => v === manual)) opts.push([manual, tzLabel(manual)]);
+  return opts.map(([v, l]) => `<option value="${esc(v)}"${v === manual ? ' selected' : ''}>${esc(l)}</option>`).join('');
+}
+/** Automática: la del panel del proveedor (si la cambiás allá, se acomoda sola). */
+const tzHint = () => (pref(EVENT_TZ_KEY(), 'auto') !== 'auto' ? 'Elegida a mano'
+  : providerTz() ? tzLabel(providerTz()!) : `Por ahora: ${tzLabel(eventTz())}`);
+
 /** La página de un proveedor: su nombre, la dirección del servicio, recargar la lista, la hora de eventos y quitarlo.
  *  Uno de otro proveedor solo se renombra o se abre. */
 function renderProviderPage(body: HTMLElement, cfgId: string): boolean {
@@ -3479,14 +3517,16 @@ function renderProviderPage(body: HTMLElement, cfgId: string): boolean {
       ${prov.type === 'xtream' ? menuRow('data-act="servers"', 'server', 'Dirección del servicio', esc(plural(prov.servers.length, 'servidor', 'servidores'))) : ''}
       ${menuRow('data-act="reload"', 'refresh-cw', 'Recargar la lista', 'Trae los canales nuevos del proveedor')}
       <label class="menu-row static"><span class="menu-icon">${icon('clock')}</span>
-        <span class="menu-text">Hora de eventos<small>Zona del proveedor</small></span>
-        <select class="select compact" id="eventTzSelect">${EVENT_TZS.map(([v, l]) => `<option value="${v}"${v === eventTz() ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        <span class="menu-text">Hora de eventos<small>${tzHint()}</small></span>
+        <select class="select compact" id="eventTzSelect">${eventTzOptions()}</select></label>
     </div>
     <div class="menu danger-zone">${menuRow('data-act="forget"', 'trash-2', 'Quitar proveedor', 'Sus links dejan de funcionar. No se puede deshacer', 'danger', false)}</div>`;
   body.onchange = (ev) => {
     const sel = (ev.target as HTMLElement).closest<HTMLSelectElement>('#eventTzSelect');
     if (!sel) return;
-    setPref(`grilla_event_tz_${state.local!.cfgId}`, sel.value);
+    setPref(EVENT_TZ_KEY(), sel.value);
+    const hint = body.querySelector('#eventTzSelect')?.closest('.menu-row')?.querySelector('small');
+    if (hint) hint.textContent = tzHint();
     render();
   };
   body.onclick = async (ev) => {
