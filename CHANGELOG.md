@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.24.2
+
+- Perfil abre al instante: se dibuja con lo que ya se bajó al abrir la app y se actualiza por detrás (antes esperaba al servidor y a cada proveedor, más de un segundo). El Worker además lee los links en paralelo y una sola vez por pedido.
+- Los perfiles llevan todos el mismo ícono: un círculo con su inicial (antes una tele o un filtro según tuvieran filtro).
+
 ## 1.24.1
 
 - Arreglo: las cuentas con links de antes mostraban «Hasta 3» en vez de las conexiones en uso. Esos links no guardaban la huella de su cuenta y la web no encontraba sus datos; ahora la reciben solos al abrir Perfil, sin cambiar de dirección.

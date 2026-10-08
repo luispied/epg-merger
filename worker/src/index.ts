@@ -422,10 +422,13 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const code = parts[4];
       if (!code && method === 'GET') {
         // Los links de antes (sin perfil) pasan a uno, según su cuenta y su filtro.
-        const config = await ensureProfiles(env.BUCKET, cfgId, stored.config, stored.keyHash);
+        // Una sola lectura de los links; se vuelve a leer solo si alguno de los dos pasos los cambió.
+        let list = await listDevices(env.BUCKET, cfgId);
+        const config = await ensureProfiles(env.BUCKET, cfgId, stored.config, stored.keyHash, list);
         // Y los que no tenían la huella de su cuenta la reciben (para ver su vencimiento y sus conexiones).
-        await ensureAccountKeys(env.BUCKET, env.TOKEN_KEY, cfgId, config);
-        const devices = (await listDevices(env.BUCKET, cfgId)).map((d) => ({
+        const keyed = await ensureAccountKeys(env.BUCKET, env.TOKEN_KEY, cfgId, config, list);
+        if (keyed || config !== stored.config) list = await listDevices(env.BUCKET, cfgId);
+        const devices = list.map((d) => ({
           ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
         return json({ devices, profiles: config.profiles ?? [], activeAccount: config.activeAccount ?? '', mainName: config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
