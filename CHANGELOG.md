@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.5
+
+- El botón «Cancelar» del alta de proveedor ya no queda pegado al texto de arriba («¿Ya usás Grilla en otro dispositivo?…»): tiene su aire.
+
 ## 1.25.4
 
 - «Hora de eventos» ya no se muestra cuando el proveedor informa su zona horaria: se usa siempre esa, sola. La fila aparece solo si el proveedor no la informa, para elegirla a mano.
