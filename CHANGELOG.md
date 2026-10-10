@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.6
+
+- La web empieza a pasar a Preact, de a una pantalla (plan en `planes/react.md`). La primera pieza es el aviso de abajo («Listo…», «No se pudo…»): se ve y se comporta igual que antes.
+- Tests de humo de la web con Playwright (`npm run e2e` en `worker/`), que también corren en cada PR.
+
 ## 1.25.5
 
 - El botón «Cancelar» del alta de proveedor ya no queda pegado al texto de arriba («¿Ya usás Grilla en otro dispositivo?…»): tiene su aire.

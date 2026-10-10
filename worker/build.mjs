@@ -19,6 +19,9 @@ await build({
   bundle: true,
   format: 'esm',
   target: 'es2022',
+  // Componentes en TSX con Preact (web/ui/).
+  jsx: 'automatic',
+  jsxImportSource: 'preact',
   minify: true,
   sourcemap: false,
   outfile: here('./public/app.js').pathname,

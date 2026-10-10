@@ -10,6 +10,7 @@ import { sourceAlias } from '../src/crypto.ts';
 import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
+import { toast } from './ui/toast.tsx';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
@@ -120,36 +121,6 @@ HTMLDialogElement.prototype.show = function (this: HTMLDialogElement) {
   nativeShow.call(this);
   settleFocus(this);
 };
-
-/** `undo`: agrega "Deshacer" (el aviso dura más). */
-function toast(text: string, kind: 'ok' | 'bad' | 'info' = 'info', ms = 3500, undo?: () => void) {
-  ms = Math.max(ms, Math.min(12000, 2500 + text.length * 45)); // los largos se leen enteros
-  const el = document.createElement('div');
-  el.className = `toast ${kind}`;
-  el.innerHTML = `${icon(kind === 'ok' ? 'circle-check' : kind === 'bad' ? 'circle-x' : 'info')}<span class="msg">${esc(text)}</span>`
-    + (undo ? '<button type="button" class="btn btn-plain" data-undo>Deshacer</button>' : '')
-    + `<button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso" title="Cerrar">${icon('x')}</button>`;
-  $('.toast-close', el).onclick = () => el.remove();
-  if (undo) {
-    ms = Math.max(ms, 7000);
-    $('[data-undo]', el).onclick = () => {
-      el.remove();
-      undo();
-    };
-  }
-  // Dentro del diálogo abierto, si hay uno: si no, queda tapado por el fondo del diálogo.
-  const host = $$('dialog[open]').pop() ?? document.body;
-  let box = $('.toasts', host);
-  if (!box) {
-    box = document.createElement('div');
-    box.className = 'toasts';
-    host.appendChild(box);
-  }
-  // Un solo aviso a la vez: el nuevo reemplaza al anterior (no se apilan sobre la lista).
-  for (const old of $$('.toast', box)) old.remove();
-  box.appendChild(el);
-  setTimeout(() => el.remove(), ms);
-}
 
 // Confirmar y pedir un texto con el estilo de la página (en vez de confirm/prompt del
 // navegador). Van en un <dialog> propio, que queda arriba de cualquier otro abierto.
