@@ -136,10 +136,14 @@
   </main>
 </section>
 
+<!-- La Guía: grilla de canales × hora (componente Preact, ui/guide.tsx). -->
+<section id="guide" aria-label="Guía" hidden></section>
+
 <div class="net-pill" id="netPill" role="status" hidden></div>
 
 <nav class="tabbar" id="tabbar" aria-label="Secciones">
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
+  <button type="button" class="tab" id="tabGuide"><span data-icon="layout-grid"></span><span>Guía</span></button>
   <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
   <button type="button" class="tab" id="tabLinks" aria-haspopup="dialog" title="Perfil (mantené apretado para cambiar de cuenta)"><span class="tab-ico"><span class="avatar tab-avatar" id="tabAvatar" aria-hidden="true">T</span></span><span>Perfil</span></button>
 </nav>
@@ -324,7 +328,7 @@
       <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
 <div class="help-topic" data-topic="main">
-    <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo tenés tres pestañas: <b>Canales</b> (la grilla), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links).</p>
+    <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links).</p>
 
     <details open>
       <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
@@ -337,6 +341,12 @@
       <p>Cada fila muestra el canal del proveedor y, debajo, la <b>guía que tiene asignada</b> con su país. A la derecha, una <b>tilde</b> si la coincidencia es buena, un <b>número naranja</b> si es dudosa y <b>«Sin EPG»</b> si no tiene guía. Las categorías van con su encabezado fijo.</p>
       <p><b>Tocá una fila</b> para editar el canal. <b>Deslizala</b> hacia la izquierda para ocultarla (o mostrarla) y hacia la derecha para dejarla sin guía. <b>Mantenela apretada</b> para elegir varios. Con mouse también podés arrastrarla o usar el botón <b>…</b> que aparece al pasar por encima. El botón de la derecha de «N canales» alterna entre la vista <b>condensada</b> y la <b>detallada</b>, que suma lo que está dando ahora la guía de cada canal.</p>
       <p><b>Tirá hacia abajo</b> estando arriba de todo para volver a cargar la grilla (tus cambios, la lista y la guía), como en las apps del celular.</p>
+    </details>
+
+    <details>
+      <summary>¿Qué muestra la Guía?<span data-icon="chevron-down"></span></summary>
+      <p>La pestaña <b>Guía</b> muestra qué dan tus canales hora por hora, como la grilla del reproductor. Deslizá de costado para ver más tarde y para abajo para ver más canales; <b>Ahora</b> te devuelve a la hora actual. Tocá un programa para ver de qué se trata, lo que sigue y pedir un aviso.</p>
+      <p>Las franjas <b>rayadas</b> son huecos: el canal no tiene guía o no hay programación para ese horario. Tocalas para elegir otra guía para el canal.</p>
     </details>
 
     <details>
