@@ -1356,20 +1356,57 @@ const guideHost: GuideHost = {
   },
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
 };
+// ------------------------------------------------------------------ pestañas de abajo
+// Canales es la página de la lista; Guía, Categorías y Perfil son páginas enteras que la tapan, con la barra de abajo
+// siempre a mano. Categorías y Perfil son <dialog> no modales (show()): lo que se abre desde ellas sigue siendo una hoja
+// modal encima.
+type Tab = 'home' | 'guide' | 'categories' | 'profile';
+const TAB_BTN: Record<Tab, string> = { home: '#tabHome', guide: '#tabGuide', categories: '#categoriesBtn', profile: '#tabLinks' };
+const PAGES = { categories: '#categoriesDialog', profile: '#linksDialog' } as const;
+type PageTab = keyof typeof PAGES;
+const pageDialog = (t: PageTab) => $(PAGES[t]) as HTMLDialogElement;
+
+function markTab(t: Tab) {
+  for (const [k, sel] of Object.entries(TAB_BTN)) {
+    $(sel).classList.toggle('active', k === t);
+    if (k === t) $(sel).setAttribute('aria-current', 'page');
+    else $(sel).removeAttribute('aria-current');
+  }
+}
+/** La pestaña que se ve: una página abierta o, si no hay, la Guía o la lista. */
+function currentTab(): Tab {
+  for (const t of Object.keys(PAGES) as PageTab[]) if (pageDialog(t).open) return t;
+  return $('#guide').hidden ? 'home' : 'guide';
+}
+function closePages(except?: PageTab) {
+  for (const t of Object.keys(PAGES) as PageTab[]) if (t !== except && pageDialog(t).open) pageDialog(t).close();
+}
+/** Abre Categorías o Perfil como página entera (si ya está abierta, la deja como está). */
+function openPage(t: PageTab) {
+  closePages(t);
+  if (!$('#guide').hidden) setGuide(false);
+  const d = pageDialog(t);
+  if (!d.open) {
+    d.show();
+    $('.sheet-body', d).scrollTop = 0;
+  }
+  markTab(t);
+}
+/** Abre Perfil (en la vista pedida) desde la pestaña o desde cualquier otro lado. */
+function openProfiles(v: LinksView = { v: 'list' }) {
+  openLinksView(v);
+  openPage('profile');
+}
+
 function setGuide(on: boolean) {
   const el = $('#guide');
+  if (on) closePages();
   el.hidden = !on;
   document.body.classList.toggle('guide-open', on);
-  $('#tabHome').classList.toggle('active', !on);
-  $('#tabGuide').classList.toggle('active', on);
+  markTab(on ? 'guide' : 'home');
   if (on) {
-    $('#tabGuide').setAttribute('aria-current', 'page');
-    $('#tabHome').removeAttribute('aria-current');
     infoMemo = new Map();
     try { showGuide(el, guideHost); } finally { infoMemo = null; }
-  } else {
-    $('#tabHome').setAttribute('aria-current', 'page');
-    $('#tabGuide').removeAttribute('aria-current');
   }
 }
 
@@ -1622,8 +1659,8 @@ function renderReviewCard() {
 
 // La hoja de un canal (y el modo «Revisar») está en ui/canal.tsx.
 const DOCK_MQ = matchMedia('(min-width: 1100px) and (hover: hover)');
-const DOCKABLE = ['#channelDialog', '#categoriesDialog', '#settingsDialog'];
-/** En escritorio ancho, canal, categorías y configuración quedan fijos a la derecha (sin velo) y la
+const DOCKABLE = ['#channelDialog', '#settingsDialog'];
+/** En escritorio ancho, canal y configuración quedan fijos a la derecha (sin velo) y la
  *  lista sigue usable (maestro-detalle); si no, son hojas modales. Solo hay un panel fijo a la vez. */
 function openDock(dlg: HTMLDialogElement) {
   if (!DOCK_MQ.matches) {
@@ -1653,6 +1690,8 @@ document.addEventListener('keydown', (e) => {
     const d = $(sel) as HTMLDialogElement;
     if (d.open && d.classList.contains('docked')) { d.close(); return; }
   }
+  // En una página (Categorías, Perfil), Esc vuelve a la lista como la pestaña Canales.
+  if (currentTab() === 'categories' || currentTab() === 'profile') closePages();
 });
 
 /** Menú «…» de una fila (con mouse no hay gestos obvios): ocultar o mostrar, sin guía, seleccionar. */
@@ -2094,7 +2133,8 @@ function wireNested(child: string, back: string, close: string) {
   $(close).onclick = () => {
     const from = dlg.dataset.from;
     dlg.close();
-    if (from) ($(from) as HTMLDialogElement).close();
+    // Una página (Categorías, Perfil) queda abierta: es la pestaña en la que se está.
+    if (from && !$(from).classList.contains('page')) ($(from) as HTMLDialogElement).close();
   };
 }
 
@@ -2651,15 +2691,19 @@ function showEditor() {
   loadProfiles();
 }
 
-async function openSaved() {
+async function openSaved(soft = false) {
   const st = $('#status');
   $('#onboarding').hidden = true;
   $('#editor').hidden = false;
-  window.scrollTo(0, 0);
-  const say = (t: string) => status(st, t);
+  // Al refrescar (soft) la lista queda donde está mientras se vuelve a bajar todo: sin esqueleto ni salto arriba. En el
+  // iPhone, mover la página o achicarla en medio del rebote del gesto dejaba los toques trabados.
+  if (!soft) window.scrollTo(0, 0);
+  const say = (t: string) => { if (!soft) status(st, t); };
   const main = $('#editor main');
-  main.classList.add('loading');
-  renderSkeleton();
+  if (!soft) {
+    main.classList.add('loading');
+    renderSkeleton();
+  }
   try {
     say('Abriendo tu configuración…');
     let cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
@@ -2724,8 +2768,9 @@ async function refreshGrid() {
   refreshing = true;
   document.body.classList.add('refreshing');
   try {
-    if (state.cfg && !$('#editor main').classList.contains('loading')) await saveNow(false);
-    await openSaved();
+    const loaded = state.cfg && !$('#editor main').classList.contains('loading');
+    if (loaded) await saveNow(false);
+    await openSaved(!!loaded);
   } finally {
     refreshing = false;
     document.body.classList.remove('refreshing');
@@ -2744,7 +2789,8 @@ function wirePullToRefresh() {
     ind.classList.remove('ready', 'pulling');
   };
   window.addEventListener('touchstart', (ev) => {
-    const editorOpen = !$('#editor').hidden && !document.querySelector('dialog[open]') && !document.body.classList.contains('selecting');
+    // Solo en la lista de Canales: la Guía y las páginas (Categorías, Perfil) se desplazan por dentro.
+    const editorOpen = !$('#editor').hidden && $('#guide').hidden && !document.querySelector('dialog[open]') && !document.body.classList.contains('selecting');
     y0 = editorOpen && window.scrollY <= 0 && !refreshing ? ev.touches[0].clientY : -1;
   }, { passive: true });
   window.addEventListener('touchmove', (ev) => {
@@ -3048,20 +3094,23 @@ function setupEditor() {
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
   });
-  $('#categoriesBtn').onclick = openCategories;
+  $('#categoriesBtn').onclick = () => {
+    if (!pageDialog('categories').open) openCategories();
+  };
+  // Al cerrarse una página (por ejemplo, para ir a los canales caídos) la barra vuelve a marcar lo que se ve.
+  for (const t of Object.keys(PAGES) as PageTab[]) pageDialog(t).addEventListener('close', () => markTab(currentTab()));
   wirePullToRefresh();
   // Barra inferior: Canales (volver arriba), Guía, Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
   $('#helpTopBtn').onclick = () => openHelp('main');
   $('#tabHome').onclick = () => {
-    if (!$('#guide').hidden) return setGuide(false);
+    if (currentTab() !== 'home') {
+      closePages();
+      return setGuide(false);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   $('#tabGuide').onclick = () => setGuide(true);
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
-  const openProfiles = (v: LinksView = { v: 'list' }) => {
-    openLinksView(v);
-    ($('#linksDialog') as HTMLDialogElement).showModal();
-  };
   let pressTimer = 0;
   let pressed = false;
   const tabProfile = $('#tabLinks');
@@ -3078,7 +3127,7 @@ function setupEditor() {
   };
   tabProfile.onclick = () => {
     if (pressed) { pressed = false; return; }
-    openProfiles();
+    openProfiles(); // ya en Perfil: vuelve a la lista
   };
   $('#profileNotice').onclick = () => openProfiles({ v: 'account', account: activeAccount() });
   $('#linksBack').onclick = linksBack;
@@ -3187,7 +3236,7 @@ export {
   editChannels, epgClick, esc, EVENT_TZ_KEY, eventLabel, eventOf, eventTz, exportBackup, fillEpgRows, fold,
   forgetConfig, GOOD, groupChannels, groupLabel, groupOf, groups, guideHealth, guideLabel, guideTime, HEALTH_AHEAD_H,
   icon, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth, logoHtml,
-  logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, openDock, openHelp, otherAccounts,
+  logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, openDock, openHelp, openPage, openProfiles, otherAccounts,
   otherProviders, PAGE, plural, pref, profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz,
   render, renderDownRow, renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow,
   sectionHeaders, sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,

@@ -9,7 +9,7 @@ import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import { parseEvent } from '../../src/events.ts';
 import {
   applyRename, collapsedSections, createGroup, deleteGroup, eventTz, fold, groupChannels, groupLabel, groupOf, groups,
-  isLoneHeader, moveGroup, openDock, openHelp, plural, saveCollapsed, sectionHeaders, sectionTitle, setChannelOrder, setupDrag,
+  isLoneHeader, moveGroup, openHelp, openPage, plural, saveCollapsed, sectionHeaders, sectionTitle, setChannelOrder, setupDrag,
   state, toggleGroupHidden, toggleGroupNoEpg, unrenameGroup, wireSwipe,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
@@ -20,11 +20,11 @@ const bodyOf = (id: string) => dlg(id).querySelector<HTMLElement>('.sheet-body')
 // ------------------------------------------------------------------ la lista
 let query = ''; // el buscador de la hoja (vacío al abrirla)
 
-/** Abre Categorías desde la barra de abajo, sin filtro. */
+/** Abre la página de Categorías desde la barra de abajo, sin filtro. */
 export function openCategories() {
   query = '';
   renderCategories();
-  openDock(dlg('categoriesDialog'));
+  openPage('categories');
 }
 
 /** Vuelve a dibujar la hoja (al cambiar algo de las categorías). Es sincrónico: el foco del teclado se puede mover
