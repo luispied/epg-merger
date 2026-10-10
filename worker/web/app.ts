@@ -15,6 +15,7 @@ import {
 } from './ui/perfiles.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
+import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { toast } from './ui/toast.tsx';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
@@ -742,6 +743,15 @@ async function refreshGuideStatus() {
     if (guideAnnounce) toast(`La playlist ya tiene tus cambios; la guía se actualiza en ${st.autoRefresh ? 'un par de minutos' : 'unos 10 minutos'}`, 'info', 4500);
   }
   guideTimer = window.setTimeout(refreshGuideStatus, 30000);
+}
+
+/** «Actualizar la guía ahora» (Configuración): el Worker arranca la corrida y se vuelve a mirar en 20 s. */
+async function startGuideRefresh(): Promise<boolean> {
+  const r = await api<{ started: boolean }>(`/api/cfg/${state.local!.cfgId}/refresh`, { method: 'POST' });
+  guidePending = true;
+  clearTimeout(guideTimer);
+  guideTimer = window.setTimeout(refreshGuideStatus, 20000);
+  return r.started;
 }
 
 async function storeList() {
@@ -1590,7 +1600,6 @@ async function ensurePush(): Promise<boolean> {
     toast(iosNotInstalled() ? 'En iPhone: instalá la app (Compartir → Agregar a inicio) para recibir avisos' : 'Este navegador no admite avisos', 'bad', 6000);
     return false;
   }
-  await refreshPushRow();
   const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription().catch(() => null);
   if (sub && Notification.permission === 'granted') return true;
   await setPush(true);
@@ -2870,66 +2879,6 @@ const connectionsInUse = (acc?: Account) => acc?.activeConnections === undefined
   : acc.maxConnections ? Math.min(acc.activeConnections, acc.maxConnections) : acc.activeConnections;
 // Las páginas de la hoja «Perfiles», la lista para cambiar de cuenta y el aviso de arriba están en ui/perfiles.tsx.
 
-// ------------------------------------------------------------------ avisos push
-// El Worker manda una notificación (Web Push) cuando aparecen canales nuevos. Funciona en el navegador y en
-// la app instalada; en iPhone solo con la app instalada (Safari común no tiene push). Sin las claves VAPID en
-// el Worker, el interruptor no aparece.
-const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-const iosNotInstalled = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator as Navigator & { standalone?: boolean }).standalone;
-const b64urlBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
-
-async function refreshPushRow() {
-  const row = $('#pushRow');
-  const toggle = $<HTMLInputElement>('#pushToggle');
-  const hint = $('#pushHint');
-  let key = '';
-  try {
-    key = (await api<{ key: string }>('/api/push/key', { auth: false })).key;
-  } catch { /* avisos no activados en el Worker */ }
-  row.hidden = !key;
-  if (!key) return;
-  row.dataset.key = key;
-  toggle.disabled = false;
-  hint.textContent = 'Canales nuevos, vencimientos y recordatorios';
-  if (!pushSupported()) {
-    toggle.checked = false;
-    toggle.disabled = true;
-    hint.textContent = iosNotInstalled() ? 'En iPhone: instalá la app (Compartir → Agregar a inicio)' : 'Este navegador no admite avisos';
-    return;
-  }
-  if (Notification.permission === 'denied') {
-    toggle.checked = false;
-    toggle.disabled = true;
-    hint.textContent = 'Bloqueados: activalos en los ajustes del sitio del navegador';
-    return;
-  }
-  const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription().catch(() => null);
-  toggle.checked = !!sub && Notification.permission === 'granted';
-}
-
-async function setPush(on: boolean) {
-  const reg = await navigator.serviceWorker.ready;
-  try {
-    if (on) {
-      if ((await Notification.requestPermission()) !== 'granted') throw new Error('No diste permiso para los avisos');
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlBytes($('#pushRow').dataset.key!) });
-      await api(`/api/cfg/${state.local!.cfgId}/push`, { method: 'POST', body: sub.toJSON() });
-      await api(`/api/cfg/${state.local!.cfgId}/push/test`, { method: 'POST', body: {} });
-      toast('Avisos activados', 'ok');
-    } else {
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await api(`/api/cfg/${state.local!.cfgId}/push`, { method: 'DELETE', body: { endpoint: sub.endpoint } }).catch(() => {});
-        await sub.unsubscribe();
-      }
-      toast('Avisos desactivados', 'ok');
-    }
-  } catch (e) {
-    toast((e as Error).message, 'bad', 6000);
-  }
-  await refreshPushRow();
-}
-
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -3481,23 +3430,6 @@ function wireDownRow() {
   };
 }
 
-function refreshHealthRow() {
-  const sub = $('#healthSub');
-  sub.textContent = 'Calculando…';
-  loadHealth().then(() => {
-    const h = guideHealth();
-    if (!h.known) {
-      sub.textContent = 'Todavía no hay datos de programación';
-      return;
-    }
-    const pct = h.withGuide ? Math.round((100 * h.ok) / h.withGuide) : 0;
-    const parts = [`${pct} % con programación ahora`];
-    if (h.dead) parts.push(`${plural(h.dead, 'canal', 'canales')} sin programación en las próximas ${HEALTH_AHEAD_H} h`);
-    if (h.none) parts.push(`${h.none} sin guía`);
-    sub.textContent = parts.join(' · ');
-  });
-}
-
 function setupEditor() {
   $('#filterTabs').onclick = (ev) => {
     const f = (ev.target as HTMLElement).closest<HTMLElement>('[data-filter]')?.dataset.filter;
@@ -3744,86 +3676,11 @@ function setupEditor() {
       box.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
-  $('#helpBtn').onclick = () => openHelp('settings', '#settingsDialog');
-  $('#healthRow').onclick = () => {
-    const h = guideHealth();
-    if (!h.known) {
-      toast('Todavía no hay datos de programación para comparar', 'info');
-      return;
-    }
-    if (!h.dead) {
-      toast('Todos los canales con guía tienen programación en las próximas horas', 'ok');
-      return;
-    }
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    state.filter = 'sin-prog';
-    state.shown = PAGE;
-    render();
-    window.scrollTo(0, 0);
-  };
-  $('#settingsBtn').onclick = () => {
-    refreshHealthRow();
-    $('#settingsSummary').textContent = $('#statusLine').textContent ?? '';
-    const apply = $('#applyGuideBtn');
-    apply.hidden = true;
-    if (state.local) {
-      api<GuideStatus>(`/api/cfg/${state.local.cfgId}/status`).then((st) => {
-        if (!st.autoRefresh) return;
-        apply.hidden = false;
-        $('#applyGuideSub').textContent = st.guideUpToDate ? `Al día${st.guide ? ` · última actualización ${guideTime(st.guide)}` : ''}` : 'Se está actualizando';
-      }).catch(() => {});
-    }
-    $<HTMLInputElement>('#logosToggle').checked = logosOn();
-    $<HTMLSelectElement>('#startFilterSelect').value = pref('grilla_start_filter', 'last');
-    void refreshPushRow();
-    openDock($('#settingsDialog') as HTMLDialogElement);
-  };
-  $('#applyGuideBtn').onclick = async () => {
-    try {
-      const r = await api<{ started: boolean }>(`/api/cfg/${state.local!.cfgId}/refresh`, { method: 'POST' });
-      toast(r.started ? 'Actualizando la guía: queda lista en un par de minutos' : 'Ya se está actualizando', 'ok');
-      guidePending = true;
-      clearTimeout(guideTimer);
-      guideTimer = window.setTimeout(refreshGuideStatus, 20000);
-      ($('#settingsDialog') as HTMLDialogElement).close();
-    } catch (e) {
-      toast((e as Error).message, 'bad');
-    }
-  };
   document.body.classList.toggle('no-logos', !logosOn());
-  $<HTMLInputElement>('#logosToggle').onchange = (ev) => {
-    const on = (ev.target as HTMLInputElement).checked;
-    setPref('grilla_logos', on ? '1' : '0');
-    document.body.classList.toggle('no-logos', !on);
-    render();
-  };
-  $<HTMLSelectElement>('#startFilterSelect').onchange = (ev) => setPref('grilla_start_filter', (ev.target as HTMLSelectElement).value);
-  $<HTMLInputElement>('#pushToggle').onchange = (ev) => setPush((ev.target as HTMLInputElement).checked);
-  $('#otherDeviceBtn').onclick = () => {
-    ($('#settingsDialog') as HTMLDialogElement).close();
-    openProfiles({ v: 'hogar' });
-  };
+  $('#settingsBtn').onclick = openSettings;
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (f) importBackup(f);
-  };
-  const theme = (() => {
-    try {
-      return localStorage.getItem('grilla_theme') || 'dark';
-    } catch {
-      return 'auto';
-    }
-  })();
-  for (const b of $$('#themeSeg button')) b.setAttribute('aria-checked', String(b.dataset.value === theme));
-  $('#themeSeg').onclick = (ev) => {
-    const v = (ev.target as HTMLElement).closest<HTMLElement>('[data-value]')?.dataset.value;
-    if (!v) return;
-    for (const b of $$('#themeSeg button')) b.setAttribute('aria-checked', String(b.dataset.value === v));
-    if (v === 'auto') delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = v;
-    try {
-      localStorage.setItem('grilla_theme', v);
-    } catch { /* sin storage */ }
   };
 }
 
@@ -3901,11 +3758,13 @@ else showOnboarding();
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa
 // se muda a su propio módulo y sale de esta lista.
 export {
-  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
-  eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups, initialOf, liveAt, loadHome, loadProfiles,
-  loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
-  pref, promptDialog, providerName, providerTz, render, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders, sectionTitle,
-  setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode, useOtherAccount,
+  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse,
+  copyText, daysLeft, EVENT_TZ_KEY, eventTz, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups,
+  guideHealth, guideTime, HEALTH_AHEAD_H, initialOf, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth,
+  logosOn, matchesFilter, myAccounts, openDock, openHelp, otherAccounts, otherProviders, PAGE, plural, pref,
+  profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, render, renderDownRow,
+  renderTabAvatar, saveHome, saveNow, sectionHeaders, sectionTitle, setActiveAccount, setPref, shareText,
+  showHomeCode, showOnboarding, showQr, startGuideRefresh, state, switchProvider, useHomeCode, useOtherAccount,
   wireDownRow,
 };
-export type { Account, AccountView, Device, DeviceFilter, LinkResult, OtherProvider, ProfileDef, ProfileView };
+export type { Account, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };

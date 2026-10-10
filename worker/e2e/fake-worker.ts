@@ -53,6 +53,9 @@ export async function fakeWorker(page: Page): Promise<Fake> {
     if (path === '/api/cfg/c1/accounts') {
       return json({ accounts: { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });
     }
+    if (path === '/api/cfg/c1/status') return json({ guideUpToDate: true, guide: '2026-10-10T12:00:00Z', autoRefresh: true });
+    if (path === '/api/cfg/c1/refresh') return json({ started: true });
+    if (path === '/api/push/key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
     if (path === '/api/cfg/c1/profiles' && method === 'POST') {
       const body = req.postDataJSON() as { name: string; account?: string };
       const profile = { id: `p${fake.profiles.length + 1}`, ...body };
