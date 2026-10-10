@@ -1,5 +1,5 @@
 {
-  // La web (web/app.ts): navegador (lib DOM), importa @grilla/core de ../../core.
+  // La web (web/app.ts y los componentes Preact de web/ui/): navegador (lib DOM), importa @grilla/core de ../../core.
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
@@ -11,7 +11,9 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
   },
-  "include": ["app.ts"]
+  "include": ["app.ts", "ui/**/*.tsx"]
 }
