@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.27.6
+
+- La hoja de un canal pasa a Preact, en `worker/web/ui/canal.tsx`, con el modo «Revisar». Se ve y se comporta igual. La guía asignada y las opciones siguen usando las piezas de la lista de canales hasta que la lista pase a Preact.
+- Tests de humo de la hoja del canal: la guía que encontró sola, ‹ ›, renombrar, sin guía y automática, buscar y elegir otra guía, mover de categoría y ocultar. El Worker de prueba suma una guía con tres canales.
+
 ## 1.27.5
 
 - Categorías pasa a Preact, en `worker/web/ui/categorias.tsx`: la lista con sus secciones, el buscador, arrastrar y deslizar, la hoja de una categoría y la de ordenar sus canales. Se ve y se comporta igual.

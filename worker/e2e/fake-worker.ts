@@ -18,6 +18,13 @@ const channels = [
   ['Disney Channel', 'Infantiles'], ['Cartoon Network', 'Infantiles'],
 ].map(([name, category], i) => ({ name, category, id: String(i + 1), ext: 'ts', icon: '', epgId: null }));
 
+// La guía: dos canales que la lista encuentra sola (ESPN y CNN) y uno para buscar a mano.
+const guide = [
+  { id: 'g00000000000001.ar', k: 'k1', source: 's1', names: ['ESPN'], icon: '' },
+  { id: 'g00000000000002.ar', k: 'k2', source: 's1', names: ['CNN'], icon: '' },
+  { id: 'g00000000000003.ar', k: 'k3', source: 's1', names: ['Canal Rural'], icon: '' },
+];
+
 /** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. */
 export async function fakeWorker(page: Page): Promise<Fake> {
   const fake: Fake = {
@@ -46,7 +53,7 @@ export async function fakeWorker(page: Page): Promise<Fake> {
     const path = new URL(req.url()).pathname;
     const method = req.method();
     if (method !== 'GET') fake.writes.push({ method, path, body: req.postDataJSON() });
-    if (path === '/api/guide/index.json') return json({ matching_rules: rules, sources: {}, channels: [] });
+    if (path === '/api/guide/index.json') return json({ matching_rules: rules, sources: { s1: { country: 'ar', priority: 0 } }, channels: guide });
     if (path === '/api/cfg/c1') return method === 'GET' ? json(cfg) : json({});
     if (path === '/api/cfg/c1/list') return json({ channels });
     if (path === '/api/cfg/c1/devices') return json({ devices, profiles: fake.profiles, mainName: 'Luis' });
