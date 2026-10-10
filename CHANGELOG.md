@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.9
+
+- Perfil (cuentas, perfiles y links) pasa a Preact: la lista, las páginas de cuenta, perfil, proveedor y «Usar en otro dispositivo», sus formularios, la lista para cambiar de cuenta y el aviso de arriba de los canales. Se ve y se comporta igual que antes; ahora vive en `worker/web/ui/perfiles.tsx` en vez de `app.ts`.
+- Tests de humo de Perfil con un Worker de prueba (`worker/e2e/fake-worker.ts`): la lista, la cuenta, copiar un link, crear un perfil y cambiar qué ve. Pasan igual con la versión anterior.
+
 ## 1.25.8
 
 - La barra de abajo pierde la pestaña **Revisar**, que casi siempre decía que no había nada. Los canales dudosos se siguen revisando de a uno desde la tarjeta de arriba de la grilla (aparece sola cuando hay alguno) o con el filtro «A revisar». La ayuda lo explica así.
