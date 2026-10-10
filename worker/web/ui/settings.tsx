@@ -189,7 +189,7 @@ function Settings({ summary }: { summary: string }) {
           <span class="menu-text">Tema</span>
           <div class="seg" role="radiogroup" aria-label="Tema" id="themeSeg">
             {THEMES.map((t) => (
-              <button key={t.v} type="button" role="radio" aria-checked={String(theme === t.v)} aria-label={t.label} title={t.label}
+              <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} aria-label={t.label} title={t.label}
                 onClick={() => pickTheme(t.v)}><Icon name={t.icon} /></button>
             ))}
           </div>
