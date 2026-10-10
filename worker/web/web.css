@@ -1134,3 +1134,42 @@ body.guide-open { overflow: hidden; }
 .gd-again .where .logo.sm { width: 22px; height: 22px; border-radius: 5px; }
 .gd-again .also { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
 .gd-again .also b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
+.gd-modes { display: flex; margin-top: 12px; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; max-width: 480px; }
+.gd-modes button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.gd-modes button + button { box-shadow: inset 1px 0 0 var(--faint); }
+.gd-modes button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.gd-modes button[aria-checked="true"] { background: var(--accent-soft); color: var(--on-accent-soft); }
+.gd-modes .icon.sm { width: 18px; height: 18px; }
+.gd-time-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+.chip-btn.gd-time-chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.gd-time-chip .icon.sm { width: 16px; height: 16px; }
+
+/* Guía · Próximos */
+.gd-up { flex: 1; overflow-y: auto; padding: 4px max(var(--gutter), calc((100% - 728px) / 2)) calc(var(--tab-h, 64px) + 40px + env(safe-area-inset-bottom, 0px)); }
+.gd-up h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px; }
+.gd-up-list { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.gd-up-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.gd-up-row + .gd-up-row { box-shadow: inset 0 1px 0 var(--hairline); }
+.gd-up-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.gd-up-row.dim { opacity: .45; }
+.gd-up-time { flex: none; width: 52px; font-size: 17px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.gd-up-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gd-up-main .tt { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+.gd-up-main .sub .logo.sm { width: 20px; height: 20px; flex: none; border-radius: 5px; }
+.gd-up-main .sub .logo.sm .mono { font-size: 8px; }
+.gd-up-main .sub .nm { flex: none; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub .meta::before { content: "· "; }
+.gd-up-main .ok { color: var(--green); font-weight: 600; }
+.gd-up-pill { flex: none; font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 8px; white-space: nowrap; }
+.gd-up-pill.now { background: var(--green); color: color-mix(in srgb, var(--green) 20%, #000); }
+.gd-up-pill.again { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.gd-up-empty { color: var(--muted); padding: 12px 2px; margin: 0; }
+.gd-budget { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; margin-top: 4px; }
+.gd-budget .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
+.gd-budget .lbl span { color: var(--muted); }
+.gd-budget input[type="range"] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent); height: 24px; }
+@media (min-width: 900px) { .gd-up { padding-left: 24px; padding-right: 24px; } .gd-up > * { max-width: 860px; } }

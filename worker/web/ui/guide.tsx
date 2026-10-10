@@ -31,6 +31,7 @@ export interface GuideHost {
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
 interface Prog { s: number; e: number; t: string; gap?: boolean }
 
+type Mode = 'grid' | 'next';
 const HOUR = 3600;
 const SLOT = 1800;
 const SPAN_H = 30; // la guía publicada llega ~30 h adelante
@@ -43,6 +44,10 @@ const hourKey = (t: number) => new Date(t * 1000).toISOString().slice(0, 13).rep
 const left = (s: number) => {
   const m = Math.max(1, Math.round(s / 60));
   return m >= 60 ? `quedan ${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `quedan ${m} min`;
+};
+const dur = (sec: number) => {
+  const m = Math.max(1, Math.round(sec / 60));
+  return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60}` : ''}` : `${m} min`;
 };
 const startsIn = (s: number) => {
   const m = Math.max(1, Math.round(s / 60));
@@ -81,6 +86,24 @@ function loadAgain(epgs: string[]): Promise<AgainMap> {
   return data;
 }
 
+/** Baja (una vez) los índices de las horas que tocan [from, to) y avisa con `done` al llegar cada uno. */
+function loadHours(from: number, to: number, done: () => void) {
+  for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
+    if (hours.has(h)) continue;
+    hours.set(h, 'loading');
+    fetch(`/api/ui/schedule/hour/${hourKey(h)}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((idx: HourIndex | null) => { hours.set(h, idx); done(); });
+  }
+}
+
+// Preferencias de la Guía en este navegador (modo y rato libre); sin almacenamiento, los valores por defecto.
+const pref = {
+  get(k: string) { try { return localStorage.getItem(`grilla_guide_${k}`); } catch { return null; } },
+  set(k: string, v: string) { try { localStorage.setItem(`grilla_guide_${k}`, v); } catch { /* sin almacenamiento */ } },
+};
+
 function useNow() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
@@ -113,6 +136,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const x = (t: number) => ((t - t0) / 60) * PX;
 
   const [cat, setCat] = useState('');
+  const [mode, setModeState] = useState<Mode>(() => (pref.get('mode') === 'next' ? 'next' : 'grid'));
+  const setMode = (m: Mode) => { setModeState(m); pref.set('mode', m); };
+  const [budgetOn, setBudgetOn] = useState(false);
+  const [budget, setBudget] = useState(() => Math.min(360, Math.max(20, Number(pref.get('budget')) || 75)));
   const [view, setView] = useState({ x: 0, y: 0, w: 390, h: 700 });
   const [ver, setVer] = useState(0);
   const [open, setOpen] = useState<{ ch: GuideChannel; p: Prog } | null>(null);
@@ -143,7 +170,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const goNow = (smooth = false) => {
     box.current?.scrollTo({ left: x(Math.floor(Date.now() / 1000 / SLOT) * SLOT) - 4, behavior: smooth ? 'smooth' : 'auto' });
   };
-  useLayoutEffect(() => { goNow(); sync(); }, []);
+  useLayoutEffect(() => { if (mode === 'grid') { goNow(); sync(); } }, [mode]);
   useEffect(() => {
     const on = () => sync();
     addEventListener('resize', on);
@@ -156,15 +183,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
 
   // Bajar las horas que se ven (y una de margen).
   useEffect(() => {
-    for (let h = Math.max(Math.floor(t0 / HOUR) * HOUR, Math.floor(visFrom / HOUR) * HOUR - HOUR); h < Math.min(t1, visTo + HOUR); h += HOUR) {
-      if (hours.has(h)) continue;
-      hours.set(h, 'loading');
-      fetch(`/api/ui/schedule/hour/${hourKey(h)}.json`)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)
-        .then((idx: HourIndex | null) => { hours.set(h, idx); setVer((v) => v + 1); });
-    }
-  }, [Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
+    if (mode !== 'grid') return;
+    loadHours(Math.max(t0, visFrom - HOUR), Math.min(t1, visTo + HOUR), () => setVer((v) => v + 1));
+  }, [mode, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
 
   // Programas de un canal en el rango, desde las horas ya bajadas; los huecos de 10 min o más
   // dentro de horas bajadas se marcan («Sin programación»): así se ven las guías flojas.
@@ -248,17 +269,33 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       <header class="app-header gd-head">
         <div class="title-row">
           <h1>Guía</h1>
-          <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>
+          {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
+        </div>
+        <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
+          {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
+            <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>
+              {mode === m && <Icon name="check" class="sm" />}{label}
+            </button>
+          ))}
         </div>
       </header>
       <nav class="gd-chips" aria-label="Categorías">
+        {mode === 'next' && (
+          <button type="button" class="chip-btn gd-time-chip" aria-pressed={budgetOn} onClick={() => setBudgetOn(!budgetOn)}>
+            <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
+          </button>
+        )}
         {['', ...cats].map((c) => (
           <button type="button" key={c} class="chip-btn" aria-pressed={c === cat}
             onClick={() => { setCat(c); box.current?.scrollTo({ top: 0 }); }}>{c || 'Todas'}</button>
         ))}
       </nav>
       {!channels.length && <div class="empty">No hay canales para mostrar.</div>}
-      <div class="gd" ref={box} onScroll={() => requestAnimationFrame(sync)}
+      {mode === 'next' && channels.length > 0 && (
+        <Upcoming channels={shown} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
+          budget={budgetOn ? budget : null} setBudget={(m) => { setBudget(m); pref.set('budget', String(m)); }} />
+      )}
+      <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
         <div class="gd-inner" style={{ width: `${CHW + W}px`, height: `${RULER + rows.height}px` }}>
           <div class="gd-ruler">
@@ -297,6 +334,115 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       </div>
       {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} channels={channels}
         again={open.p.s <= now && now < open.p.e ? again.get(`${open.ch.epg}|${open.p.s}`) ?? [] : []} close={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+// Próximos: lo que empieza en las próximas horas en todos los canales, ordenado por hora, y arriba lo
+// que empezó hace poco («todavía llegás»). Con «Tengo tiempo», solo cuenta lo que entra entero.
+const NEXT_H = 3;            // cuánto adelante mira
+const RECENT = 15 * 60;      // «recién empezado»
+const SOON = 5 * 60;         // «empieza ya»
+const MIN_UP = 10 * 60;      // fuera las franjas cortitas (cortes, avances)
+const MAX_ROWS = 80;
+
+interface UpItem { p: Prog; chs: GuideChannel[] }
+
+function Upcoming({ channels, now, again, open, budget, setBudget }: {
+  channels: GuideChannel[]; now: number; again: AgainMap; open: (ch: GuideChannel, p: Prog) => void;
+  budget: number | null; setBudget: (m: number) => void;
+}) {
+  const [ver, setVer] = useState(0);
+  const from = now - HOUR;
+  const to = now + (NEXT_H + 1) * HOUR;
+  useEffect(() => { loadHours(from, to, () => setVer((v) => v + 1)); }, [Math.floor(now / HOUR)]);
+  const ready = [...Array(NEXT_H + 1).keys()].every((k) => {
+    const v = hours.get(Math.floor(now / HOUR) * HOUR + k * HOUR);
+    return v !== undefined && v !== 'loading';
+  });
+  const end = budget ? now + budget * 60 : Infinity;
+
+  const { recent, next } = useMemo(() => {
+    // Mismo programa a la misma hora en varios canales (HD, otra señal): una sola fila.
+    const items = new Map<string, UpItem>();
+    for (const ch of channels) {
+      if (!ch.epg) continue;
+      for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
+        const idx = hours.get(h);
+        if (!idx || idx === 'loading') continue;
+        for (const [s, e, t] of idx.c[ch.epg] ?? []) {
+          const p = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t] };
+          if (p.e - p.s < MIN_UP) continue;
+          const isRecent = p.s <= now && now < p.e && now - p.s <= RECENT;
+          if (!isRecent && !(p.s > now && p.s <= now + NEXT_H * HOUR)) continue;
+          const key = `${p.t}|${p.s}`;
+          const it = items.get(key);
+          if (!it) items.set(key, { p, chs: [ch] });
+          else if (!it.chs.includes(ch)) it.chs.push(ch);
+        }
+      }
+    }
+    const all = [...items.values()].sort((a, b) => a.p.s - b.p.s);
+    return { recent: all.filter((x) => x.p.s <= now).reverse(), next: all.filter((x) => x.p.s > now) };
+  }, [channels, ver, Math.floor(now / 60)]);
+
+  const fits = (p: Prog) => p.e <= end + 120;
+  const nextShown = (budget ? next.filter((x) => x.p.s < end) : next).slice(0, MAX_ROWS);
+
+  const row = ({ p, chs }: UpItem) => {
+    const d = p.s - now;
+    const ch = chs[0];
+    const re = d <= 0 ? again.get(`${ch.epg}|${p.s}`)?.[0] : undefined;
+    const fit = budget ? fits(p) : true;
+    const when = d <= 0 ? `Empezó hace ${dur(-d)}` : d <= SOON ? '' : `Empieza en ${dur(d)}`;
+    return (
+      <button type="button" key={`${p.t}|${p.s}`} class={`gd-up-row${fit ? '' : ' dim'}`} onClick={() => open(ch, p)}
+        aria-label={`${p.t}, ${ch.name}, ${hm(p.s)} a ${hm(p.e)}`}>
+        <span class="gd-up-time">{hm(p.s)}</span>
+        <span class="gd-up-main">
+          <span class="tt">{p.t}</span>
+          <span class="sub">
+            <Logo ch={ch} cls="sm" />
+            <span class="nm">{ch.name}{chs.length > 1 ? ` y ${chs.length - 1} más` : ''}</span>
+            <span class="meta">
+              {when}
+              {when && (budget || d > 0) && ' · '}
+              {budget ? (fit ? <b class="ok">Entra</b> : `Se pasa ${dur(p.e - end)}`) : d > 0 && dur(p.e - p.s)}
+            </span>
+          </span>
+        </span>
+        {d > 0 && d <= SOON && <span class="gd-up-pill now">Empieza ya</span>}
+        {re && <span class="gd-up-pill again">↻ {hm(re.s)}</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div class="gd-up">
+      {budget && (
+        <div class="gd-budget">
+          <div class="lbl"><b>Hasta las {hm(end)}</b><span>{dur(budget * 60)}</span></div>
+          <input type="range" min={20} max={360} step={5} value={budget} aria-label="Cuánto tiempo tenés"
+            aria-valuetext={`${dur(budget * 60)}, hasta las ${hm(end)}`}
+            onInput={(e) => setBudget(Number((e.currentTarget as HTMLInputElement).value))} />
+        </div>
+      )}
+      {!ready && !recent.length && !next.length ? <p class="gd-up-empty">Cargando…</p> : (
+        <>
+          {recent.length > 0 && (
+            <section>
+              <h3>Recién empezados, todavía llegás</h3>
+              <div class="gd-up-list">{recent.map(row)}</div>
+            </section>
+          )}
+          <section>
+            <h3>Lo que viene</h3>
+            {nextShown.length
+              ? <div class="gd-up-list">{nextShown.map(row)}</div>
+              : <p class="gd-up-empty">{budget ? `Nada empieza antes de las ${hm(end)}. Probá con más tiempo.` : `Nada empieza en las próximas ${NEXT_H} horas.`}</p>}
+          </section>
+        </>
+      )}
     </div>
   );
 }

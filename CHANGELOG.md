@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.29.0
+
+- Guía: arriba se elige cómo verla, **Grilla · Próximos**. Próximos es una lista de lo que empieza en las próximas 3 horas en todos los canales, ordenada por hora: «Recién empezados, todavía llegás» (los que empezaron hace 15 minutos o menos) y «Lo que viene», con «Empieza ya», «Empieza en 14 min» o «Empezó hace 7 min» y el ↻ cuando vuelve a empezar. El mismo programa a la misma hora en varios canales va en una sola fila («y 2 más»). Tocar una fila abre la hoja del programa.
+- «Tengo tiempo»: en Próximos, un control para decir cuánto rato tenés (de 20 minutos a 6 horas); lo que no entra entero se ve apagado con «Se pasa 33 min». El modo y el rato se recuerdan en el navegador.
+
 ## 1.28.0
 
 - Guía: «Llegás desde el principio». Si un programa ya empezó y lo vuelven a dar más tarde, en el mismo canal o en otro de la lista, la celda muestra «↻» con la hora en que vuelve a empezar, y la hoja del programa dice dónde y cuándo, con un botón para el aviso y las otras horas en que lo dan.
