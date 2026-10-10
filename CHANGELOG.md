@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.28.0
+
+- Guía: «Llegás desde el principio». Si un programa ya empezó y lo vuelven a dar más tarde, en el mismo canal o en otro de la lista, la celda muestra «↻» con la hora en que vuelve a empezar, y la hoja del programa dice dónde y cuándo, con un botón para el aviso y las otras horas en que lo dan.
+- Worker: `POST /api/ui/again` (`src/again.ts`) recibe los ids de guía de la lista y devuelve las repeticiones, leyendo la programación por canal de R2. Compara título, duración y sinopsis para no confundir capítulos distintos ni programas de liga con repeticiones; la respuesta se guarda 15 minutos.
+
 ## 1.27.7
 
 - La lista de Canales pasa a Preact, en `worker/web/ui/canales.tsx`: las filas (compacta, detallada y logos), los encabezados de categoría, la búsqueda, el vacío con «Ver todos los canales», el esqueleto mientras carga y el modo selección. Se ve y se comporta igual. Con esto todas las pantallas están en Preact; los gestos y menús de la lista siguen en `app.ts`.
