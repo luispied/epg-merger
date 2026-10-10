@@ -28,7 +28,7 @@
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config, type ProfileDef } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
-import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, updateDevice } from './devices.ts';
+import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -428,8 +428,9 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         // Y los que no tenían la huella de su cuenta la reciben (para ver su vencimiento y sus conexiones).
         const keyed = await ensureAccountKeys(env.BUCKET, env.TOKEN_KEY, cfgId, config, list);
         if (keyed || config !== stored.config) list = await listDevices(env.BUCKET, cfgId);
-        const devices = list.map((d) => ({
-          ...d, playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
+        const plays = await Promise.all(list.map((d) => readPlay(env.BUCKET, d.code).catch(() => null)));
+        const devices = list.map((d, i) => ({
+          ...d, ...(plays[i] ? { lastPlay: plays[i] } : {}), playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
         return json({ devices, profiles: config.profiles ?? [], activeAccount: config.activeAccount ?? '', mainName: config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
       }
@@ -692,7 +693,10 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const short = await resolveShort(env, ctx, parts[1]);
       if (!short) return new Response('No encontrado', { status: 404 });
       if (short.off) return new Response('Link desactivado', { status: 403 });
-      return await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
+      const res = await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
+      const ch = /^([A-Za-z0-9_-]{1,64})\./.exec(parts[2])?.[1];
+      if (res.status === 302 && ch) ctx.waitUntil(notePlay(env.BUCKET, parts[1], ch).catch(() => {}));
+      return res;
     }
     return fail(404, 'no encontrado');
   } catch (e) {

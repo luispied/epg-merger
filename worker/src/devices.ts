@@ -40,6 +40,7 @@ const TOUCH_EVERY_MS = 60 * 60 * 1000;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 const idxKey = (cfgId: string) => `devices/${cfgId}.json`;
 const shortKey = (code: string) => `short/${code}.json`;
+const playKey = (code: string) => `play/${code}.json`;
 
 export const cleanName = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 40) : '') || 'Sin nombre';
 
@@ -158,13 +159,17 @@ export async function removeDevice(bucket: R2Bucket, cfgId: string, code: string
   const rec = await readShort(bucket, code);
   if (!rec || rec.cfgId !== cfgId) return false;
   await bucket.delete(shortKey(code));
+  await bucket.delete(playKey(code));
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: (await codesOf(bucket, cfgId)).filter((c) => c !== code) }), JSON_TYPE);
   return true;
 }
 
 export async function removeAllDevices(bucket: R2Bucket, cfgId: string): Promise<void> {
   for (const [code, rec] of await recordsOf(bucket, cfgId)) {
-    if (rec && rec.cfgId === cfgId) await bucket.delete(shortKey(code));
+    if (rec && rec.cfgId === cfgId) {
+      await bucket.delete(shortKey(code));
+      await bucket.delete(playKey(code));
+    }
   }
   await bucket.delete(idxKey(cfgId));
 }
@@ -173,6 +178,30 @@ export async function removeAllDevices(bucket: R2Bucket, cfgId: string): Promise
 export async function touchDevice(bucket: R2Bucket, code: string, rec: ShortRecord, now = new Date()): Promise<void> {
   if (rec.lastUsed && now.getTime() - Date.parse(rec.lastUsed) < TOUCH_EVERY_MS) return;
   await bucket.put(shortKey(code), JSON.stringify({ ...rec, lastUsed: now.toISOString() }), JSON_TYPE);
+}
+
+/** Último canal que abrió un link (sus streams pasan por el Worker: /s/<código>/…). El proveedor dice cuántas
+ *  conexiones hay, no cuáles: con esto la web muestra qué links están mirando algo. Va aparte del link (play/), así
+ *  cambiar de canal no reescribe short/. */
+export interface LastPlay { t: string; ch: string }
+const PLAY_EVERY_MS = 5 * 60 * 1000;
+
+export async function readPlay(bucket: R2Bucket, code: string): Promise<LastPlay | null> {
+  const obj = await bucket.get(playKey(code));
+  if (!obj) return null;
+  try {
+    const v = JSON.parse(await obj.text()) as LastPlay;
+    return typeof v?.t === 'string' && typeof v.ch === 'string' ? { t: v.t, ch: v.ch } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Anota el canal que abrió un link; el mismo canal, como mucho cada 5 minutos (hay reproductores que lo vuelven a pedir). */
+export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date()): Promise<void> {
+  const prev = await readPlay(bucket, code);
+  if (prev && prev.ch === ch && now.getTime() - Date.parse(prev.t) < PLAY_EVERY_MS) return;
+  await bucket.put(playKey(code), JSON.stringify({ t: now.toISOString(), ch }), JSON_TYPE);
 }
 
 /** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta): del
