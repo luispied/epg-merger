@@ -996,13 +996,15 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 
 /* Tirar hacia abajo para recargar la grilla: un círculo que baja con el dedo y gira; listo para soltar, se pinta. */
 html { overscroll-behavior-y: contain; }
-.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 40px); left: 50%; z-index: 9; width: 40px; height: 40px; border-radius: 50%;
+.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 56px); left: 50%; z-index: 9; width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; background: var(--surface); color: var(--muted); box-shadow: var(--shadow-lg);
-  transform: translate(-50%, 0); transition: transform .2s ease, background .15s ease, color .15s ease; pointer-events: none; }
+  transform: translate(-50%, 0); transition: transform .2s ease, background .15s ease, color .15s ease, opacity .15s ease; pointer-events: none;
+  opacity: 0; /* escondido del todo hasta que se tira: antes asomaba debajo de la barra de estado del iPhone */ }
+.ptr.pulling, body.refreshing .ptr { opacity: 1; }
 .ptr .icon { width: 20px; height: 20px; }
 .ptr.pulling { transition: background .15s ease, color .15s ease; }
 .ptr.ready { background: var(--accent); color: var(--on-accent); }
-body.refreshing .ptr { transform: translate(-50%, 64px); }
+body.refreshing .ptr { transform: translate(-50%, 80px); }
 body.refreshing .ptr .icon { animation: spin 0.8s linear infinite; }
 
 /* ---- Guía: grilla de canales × hora (ui/guide.tsx) ---- */
@@ -1136,12 +1138,29 @@ dialog.sheet.page > .sheet-body {
   padding: env(safe-area-inset-top, 0px) var(--gutter) calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px));
 }
 dialog.sheet.page > .sheet-body::before { display: none; }
-dialog.sheet.page .sheet-body > .title-row { background: var(--bg); padding-top: 16px; }
-dialog.sheet.page .sheet-body > .title-row::after { background: linear-gradient(var(--bg), transparent); }
+/* El encabezado fijo cubre todo el ancho y la zona de la barra de estado, con fondo sólido: lo que se desplaza pasa por
+   debajo sin verse (antes asomaba por el degradé y por arriba del título). */
+dialog.sheet.page > .sheet-body { padding-top: 0; }
+dialog.sheet.page .sheet-body > .title-row {
+  background: var(--bg); margin: 0 calc(-1 * var(--gutter)); padding: calc(16px + env(safe-area-inset-top, 0px)) var(--gutter) 8px;
+}
+dialog.sheet.page .sheet-body > .title-row::after { display: none; }
 dialog.sheet.page .sheet-body > .title-row h2 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
 /* Sin cruz: se sale con la barra de abajo. */
 dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: none; }
-@media (min-width: 900px) { dialog.sheet.page > .sheet-body { padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 900px) {
+  dialog.sheet.page > .sheet-body { padding-left: 24px; padding-right: 24px; }
+  dialog.sheet.page .sheet-body > .title-row { margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
+}
+/* Con algo desplazado debajo, una línea fina separa el encabezado (donde el navegador sabe atar una animación al
+   desplazamiento; si no, queda sin línea, como antes). */
+@supports (animation-timeline: scroll()) {
+  dialog.sheet.page .sheet-body > .title-row, .settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row {
+    animation: head-line linear both; animation-timeline: scroll(nearest block); animation-range: 0 24px;
+  }
+  .settings-sheet .sheet-body > .title-row::after, .help-sheet .sheet-body > .title-row::after { display: none; }
+}
+@keyframes head-line { from { box-shadow: 0 1px 0 transparent; } to { box-shadow: 0 1px 0 var(--hairline); } }
 /* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
 .gd-modes { display: flex; margin-top: 12px; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; max-width: 480px; }
 .gd-modes button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
