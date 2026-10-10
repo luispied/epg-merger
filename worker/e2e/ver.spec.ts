@@ -125,6 +125,7 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await expect(page.locator('#guide')).toContainText('Pronóstico del tiempo');
   await page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ }).click();
   await expect(page.locator('#guide .remind-btn, #guide .gd-remind')).toHaveCount(0);
+  await expect(page.locator('.gd-plan-lead')).not.toContainText('campana');
 });
 
 test('un link quitado o sin código dice qué hacer', async ({ page }, info) => {

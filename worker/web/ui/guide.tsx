@@ -563,7 +563,7 @@ function Plan({ channels, now, host, open }: {
 
   return (
     <div class="gd-up gd-plan">
-      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de tus canales, sin que nada se pise. Tocá la campana y te aviso en cada cambio.</p>
+      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de tus canales, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
       {!loaded ? <p class="gd-up-empty">Armando tu {part.name}…</p> : !plan.length
         ? <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
         : (
