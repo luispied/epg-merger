@@ -3,17 +3,16 @@
 // asignada y las otras opciones; al final, «Más opciones». Todo se guarda solo. En modo «Revisar» recorre los canales
 // dudosos de a uno, con «Está bien» como acción principal.
 //
-// La guía asignada y las opciones usan las mismas piezas que la lista de canales (logo, fila de guía, buscador,
-// programación del día), que siguen siendo HTML de app.ts: van como islas hasta que la lista pase a Preact.
+// La guía asignada y las opciones usan las piezas de ui/epg.tsx (logo, lo que está dando, opción elegible, buscador
+// y programación del día), las mismas que la lista de canales y la hoja de la selección.
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { render } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
 import { flagToCountryCode, stripDisplayPrefix } from '../../../core/src/index.ts';
 import {
-  autoEpg, candidateButton, chooseEpg, editChannels, epgClick, esc, eventLabel, eventOf, fillEpgRows, GOOD, groupLabel, groupOf, groups,
-  guideLabel, icon, info, logoHtml, matchesFilter, newCategoryName, noEpg, openDock, reviewList, reviewProgress, sectionHeaders,
-  sectionTitle, state, toggleDay, visibleChannels, wireGuideSearch, type ChannelEdit,
+  autoEpg, chooseEpg, editChannels, eventLabel, eventOf, GOOD, groupLabel, groupOf, groups, guideLabel, info, matchesFilter,
+  newCategoryName, noEpg, openDock, reviewList, reviewProgress, sectionHeaders, sectionTitle, state, visibleChannels, type ChannelEdit,
 } from '../app.ts';
+import { Candidate, DayProgram, GuideSearch, Logo, NowLine } from './epg.tsx';
 import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 
@@ -103,19 +102,12 @@ function ChannelSheet({ i, seq: key }: { i: number; seq: number }) {
 }
 
 function ChannelBody({ i, pos }: { i: number; pos: number }) {
-  const ref = useRef<HTMLDivElement>(null);
   const ch = state.channels[i];
   const { edit, auto, epg, hidden, divider, suggestion } = info(ch);
   const categoryLabel = groupLabel(groupOf(ch));
   const catHidden = hidden && !edit.hidden;
   const needsReview = !divider && matchesFilter(ch, 'revisar');
   const headers = sectionHeaders();
-
-  useEffect(() => {
-    const body = ref.current!;
-    if (!divider) wireGuideSearch(body);
-    fillEpgRows(body);
-  }, []);
 
   const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
   const again = () => openChannel(i);
@@ -147,13 +139,6 @@ function ChannelBody({ i, pos }: { i: number; pos: number }) {
       afterReview();
       return;
     }
-    const picked = epgClick(ev);
-    if (picked) {
-      chooseEpg(ch, picked, 'Guía elegida');
-      if (sheetReview) afterReview();
-      else again();
-      return;
-    }
     const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'auto') {
       update((e) => autoEpg(e, ch), 'Volvió a la guía automática');
@@ -161,13 +146,12 @@ function ChannelBody({ i, pos }: { i: number; pos: number }) {
     } else if (act === 'no-epg') {
       update(noEpg, 'Quedó sin guía');
       again();
-    } else if (act === 'day') {
-      void toggleDay(ref.current!, edit.epg!);
     }
   };
-  const onKeyDown = (ev: KeyboardEvent) => {
-    const el = ev.target as HTMLElement;
-    if (ev.key === 'Enter' && el.matches('[data-pick]')) el.click();
+  const pick = (id: string) => {
+    chooseEpg(ch, id, 'Guía elegida');
+    if (sheetReview) afterReview();
+    else again();
   };
 
   // De qué proveedor es y su categoría (se cambia desde el chip).
@@ -221,7 +205,7 @@ function ChannelBody({ i, pos }: { i: number; pos: number }) {
 
   if (divider) {
     return (
-      <div id="channelBody" ref={ref} onClick={onClick} onKeyDown={onKeyDown}>
+      <div id="channelBody" onClick={onClick}>
         {meta}<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>{more}
       </div>
     );
@@ -242,20 +226,20 @@ function ChannelBody({ i, pos }: { i: number; pos: number }) {
   const okLabel = useSuggestion ? 'Usar sugerencia' : needsReview || epg ? 'Está bien' : 'Siguiente';
 
   return (
-    <div id="channelBody" ref={ref} onClick={onClick} onKeyDown={onKeyDown}>
+    <div id="channelBody" onClick={onClick}>
       {meta}
       <h3 class="sec-title">Guía asignada</h3>
-      <div class={`ch-current${epg ? '' : ' none'}`} dangerouslySetInnerHTML={{ __html: currentHtml(ch, hasActions) }} />
+      <div class={`ch-current${epg ? '' : ' none'}`}><Current i={i} hasActions={hasActions} onPick={pick} /></div>
       <h3 class="sec-title">Otras opciones</h3>
-      <label class="search-field"><Icon name="search" /><input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía" /></label>
-      <div class="ch-chips">
-        <button type="button" class="chip-btn" data-act="auto" disabled={!edit.manual}><Icon name="undo-2" class="sm" />Automática</button>
-        {!footerNoEpg && <button type="button" class="chip-btn" data-act="no-epg" disabled={!epg && !!edit.manual}><Icon name="ban" class="sm" />Sin guía</button>}
-      </div>
-      <div class="list search-results" hidden />
-      {ranked.length > 0 && <div class="list opts" dangerouslySetInnerHTML={{
-        __html: ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score, { home: mixedCountries ? home : null })).join(''),
-      }} />}
+      <GuideSearch placeholder="Buscar otra guía: canal o programa" label="Buscar otra guía" onPick={pick}>
+        <div class="ch-chips">
+          <button type="button" class="chip-btn" data-act="auto" disabled={!edit.manual}><Icon name="undo-2" class="sm" />Automática</button>
+          {!footerNoEpg && <button type="button" class="chip-btn" data-act="no-epg" disabled={!epg && !!edit.manual}><Icon name="ban" class="sm" />Sin guía</button>}
+        </div>
+      </GuideSearch>
+      {ranked.length > 0 && <div class="list opts">
+        {ranked.slice(0, 5).map((c) => <Candidate key={c.channelId} id={c.channelId} score={c.score} home={mixedCountries ? home : null} onPick={pick} />)}
+      </div>}
       {more}
       {hasActions && (
         <div class="rv-actions">
@@ -268,9 +252,9 @@ function ChannelBody({ i, pos }: { i: number; pos: number }) {
   );
 }
 
-/** La guía asignada (o la nota de que no tiene, con la sugerencia): HTML, porque usa el logo y la fila «ahora» de la
- *  lista, y «Ver programación de hoy» la despliega toggleDay. */
-function currentHtml(ch: (typeof state.channels)[number], hasActions: boolean): string {
+/** La guía asignada (o la nota de que no tiene, con la sugerencia), con lo que está dando y la programación del día. */
+function Current({ i, hasActions, onPick }: { i: number; hasActions: boolean; onPick: (id: string) => void }) {
+  const ch = state.channels[i];
   const { edit, auto, epg, suggestion } = info(ch);
   const evSheet = eventOf(ch);
   if (epg) {
@@ -279,21 +263,27 @@ function currentHtml(ch: (typeof state.channels)[number], hasActions: boolean): 
     // Estado de la guía asignada: un chip arriba a la derecha (la tarjeta es neutra; el color va solo en el chip).
     const score = !edit.manual && auto?.cid === edit.epg && auto ? Math.round(Math.min(auto.score, 1) * 100) : 0;
     const stateChip = edit.manual
-      ? `<span class="gc-chip">${icon('user-check', 'sm')}Elegida por vos</span>`
+      ? <span class="gc-chip"><Icon name="user-check" class="sm" />Elegida por vos</span>
       : score ? (auto!.score >= GOOD
-        ? `<span class="gc-chip ok" title="Coincidencia buena">${icon('check', 'sm')}${score} %</span>`
-        : `<span class="gc-chip warn" title="Coincidencia dudosa: conviene revisarla">${score} % · dudosa</span>`) : '';
-    return `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div></div>${stateChip}</div>
-         <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
-         <button type="button" class="link-btn day-btn" data-act="day" aria-expanded="false">Ver programación de hoy${icon('chevron-right', 'sm')}</button>
-         <div class="day-list" hidden></div>`;
+        ? <span class="gc-chip ok" title="Coincidencia buena"><Icon name="check" class="sm" />{score} %</span>
+        : <span class="gc-chip warn" title="Coincidencia dudosa: conviene revisarla">{score} % · dudosa</span>) : null;
+    return (
+      <>
+        <div class="gc-top"><Logo id={epg} label={guideName} /><div class="gc-main"><div class="gc-name"><span>{guideName}</span>{cc && <span class="cc">{cc.toUpperCase()}</span>}</div></div>{stateChip}</div>
+        <NowLine id={epg} cls="gc-now" />
+        <DayProgram id={epg} />
+      </>
+    );
   }
-  const event = evSheet && !edit.manual ? (() => {
-    const l = eventLabel(evSheet.start);
-    return `<div class="gc-event ${l.cls}">${icon('clock', 'sm')}<span>${esc(l.text)}</span><small>hora de tu dispositivo</small></div>`;
-  })() : '';
-  const sug = suggestion
-    ? `<div class="gc-sug">Sugerencia: <b>${esc(guideLabel(suggestion.channelId))}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>${hasActions ? ''
-      : `<button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button>`}</div>` : '';
-  return `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${event}${sug}`;
+  const l = evSheet && !edit.manual ? eventLabel(evSheet.start) : null;
+  return (
+    <>
+      <div class="card-note">{edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>
+      {l && <div class={`gc-event ${l.cls}`}><Icon name="clock" class="sm" /><span>{l.text}</span><small>hora de tu dispositivo</small></div>}
+      {suggestion && (
+        <div class="gc-sug">Sugerencia: <b>{guideLabel(suggestion.channelId)}</b> <span class={`pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}`}>{Math.round(Math.min(suggestion.score, 1) * 100)} %</span>
+          {!hasActions && <button type="button" class="btn btn-gray sm" data-pick={suggestion.channelId} onClick={() => onPick(suggestion.channelId)}>Usar</button>}</div>
+      )}
+    </>
+  );
 }

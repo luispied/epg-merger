@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.32.1
+
+- Limpieza de la migración a Preact: las piezas de la guía que seguían siendo HTML pasan a componentes en `worker/web/ui/epg.tsx` (el logo, lo que está dando ahora, la opción elegible, el buscador de guías y «Ver programación de hoy»). Las usan la lista de Canales, la hoja del canal y la hoja de la selección, que también pasa a Preact (`worker/web/ui/seleccion.tsx`). Se ve y se comporta igual.
+- Se borra código que ya no usaba nadie (la fila de guía vieja y su «Ahora» desplegable).
+- Tests de humo de la hoja de la selección (elegir una guía para varios, mover y ocultar) y de la programación del día.
+
 ## 1.32.0
 
 - Modo «solo ver»: en la página de un perfil, **Compartir para ver** crea un **código para ver** (`ver.<código>`). Se pega al entrar a Grilla, donde va el código de otro dispositivo, y ese dispositivo queda en modo ver: la grilla y la Guía de ese perfil, sin poder cambiar nada (pensado para alguien a quien le cuesta usar apps). Al abrir Grilla otra vez vuelve al modo ver, hasta tocar **Salir del modo ver**. El código también se puede copiar, compartir por WhatsApp o mail con el link directo (`/ver#código`), escanear con QR, cambiar por uno nuevo o quitar. Los links de reproducción no cambian.
