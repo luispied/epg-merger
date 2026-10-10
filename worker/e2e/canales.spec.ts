@@ -57,6 +57,25 @@ test('buscar, el vacío y ver todos', async ({ page }) => {
   await expect(cards(page).locator('.card')).toHaveCount(7);
 });
 
+test('buscar por el programa en el aire: todas las palabras y también la descripción', async ({ page }) => {
+  // Lo que está dando ESPN ahora, en el índice de la hora y su descripción en el archivo aparte.
+  await page.route(/\/api\/ui\/schedule\/hour\/\d{10}(-d)?\.json$/, (r) => {
+    const h = Math.floor(Date.now() / 3_600_000) * 3600;
+    return r.fulfill({ json: r.request().url().endsWith('-d.json')
+      ? { d: ['Inter enfrenta a Parma. Desde el Stadio Giuseppe Meazza.'], c: { 'g00000000000001.ar': [[-30, 0]] } }
+      : { h, t: ['Live: Fútbol Serie A · Inter de Milán vs. Parma'], c: { 'g00000000000001.ar': [[-30, 90, 0]] } } });
+  });
+  await page.reload(); // la hora ya se pidió al abrir (y quedó sin datos)
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+  const search = page.locator('#searchBox');
+  await search.fill('inter parma');
+  await expect(cards(page).locator('.card-name')).toHaveText(['ESPN']);
+  await search.fill('meazza');
+  await expect(cards(page).locator('.card-name')).toHaveText(['ESPN']);
+  await search.fill('juventus');
+  await expect(cards(page).locator('.empty')).toBeVisible();
+});
+
 test('vista detallada: lo que está dando ahora', async ({ page }) => {
   await expect(cards(page).locator('.row-now')).toHaveCount(0);
   await page.locator('#viewBtn').click();

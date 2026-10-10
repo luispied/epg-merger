@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.29.1
+
+- Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.
+- Buscar también mira la descripción de lo que está dando cada canal, y encuentra aunque las palabras estén en otro orden («inter parma»). Las descripciones van en un archivo aparte por hora (`ui/schedule/hour/<hora>-d.json`) que se baja recién al buscar.
+- En la vista detallada de Canales, el programa en el aire ocupa hasta dos líneas antes de cortarse.
+
 ## 1.29.0
 
 - Guía: arriba se elige cómo verla, **Grilla · Próximos**. Próximos es una lista de lo que empieza en las próximas 3 horas en todos los canales, ordenada por hora: «Recién empezados, todavía llegás» (los que empezaron hace 15 minutos o menos) y «Lo que viene», con «Empieza ya», «Empieza en 14 min» o «Empezó hace 7 min» y el ↻ cuando vuelve a empezar. El mismo programa a la misma hora en varios canales va en una sola fila («y 2 más»). Tocar una fila abre la hoja del programa.

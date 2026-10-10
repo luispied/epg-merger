@@ -93,6 +93,9 @@ const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = docu
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)] as T[];
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fold = (s: string) => s.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerCase();
+/** Si el texto (ya plegado) tiene todas las palabras de la búsqueda (ya plegada), en cualquier
+ *  orden: "inter parma" encuentra "Inter de Milán vs. Parma". */
+const hasWords = (text: string, q: string) => q.split(/\s+/).every((w) => text.includes(w));
 
 function icon(name: string, cls = ''): string {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"`
@@ -931,8 +934,9 @@ function matchesFilter(ch: Channel, filter: string) {
 
 // Lo que está dando ahora cada canal (índice de la hora actual), para buscar por programa en
 // la lista principal. Se carga al abrir el editor y al buscar; mientras no llega, se busca solo
-// por nombre y categoría.
+// por nombre y categoría. Las descripciones (archivo aparte, más pesado) se bajan recién al buscar.
 let hourNow: HourIndex | null = null;
+let hourNowDesc: HourDesc | null = null;
 function loadHourNow() {
   hourIndex().then((idx) => {
     if (!idx || idx === hourNow) return;
@@ -940,12 +944,19 @@ function loadHourNow() {
     if (state.search.trim()) render();
   });
 }
-/** El programa en el aire del EPG del canal, si coincide con la búsqueda. */
+function loadHourNowDesc() {
+  hourDescIndex().then((d) => {
+    if (!d || d === hourNowDesc) return;
+    hourNowDesc = d;
+    if (state.search.trim()) render();
+  });
+}
+/** El programa en el aire del EPG del canal, si coincide con la búsqueda por título o descripción. */
 function programMatch(ch: Channel, q: string): NowPlaying | null {
   const epg = state.cfg!.channels[ch.name]?.epg;
   if (!q || !hourNow || !epg) return null;
   const cur = nowFromHour(hourNow, epg);
-  return cur && fold(cur.title).includes(q) ? cur : null;
+  return cur && hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q) ? cur : null;
 }
 
 /** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
@@ -966,7 +977,7 @@ function visibleChannels(): number[] {
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? '' : '';
-      return fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
+      return hasWords(fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`), q) || !!programMatch(ch, q);
     })
     .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0)
       || withinPos(a) - withinPos(b));
@@ -989,6 +1000,8 @@ function bandTag(band: Band, score?: number): string {
 // La corrida diaria sube a R2 (ui/schedule/) un índice por hora UTC con lo que da toda la guía
 // y un archivo por canal con títulos y descripciones (nombre: sha1 del id, 16 caracteres).
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
+/** Descripciones de la misma hora (<hora>-d.json): por canal, [inicio en minutos, i_descripción]. */
+interface HourDesc { d: string[]; c: Record<string, [number, number][]> }
 type ScheduleEntry = [number, number, string, string?];
 interface NowPlaying { title: string; start: number; stop: number }
 
@@ -999,6 +1012,21 @@ function hourIndex(offsetHours = 0): Promise<HourIndex | null> {
     hourCache.set(key, fetch(`/api/ui/schedule/hour/${key}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   }
   return hourCache.get(key)!;
+}
+
+const hourDescCache = new Map<string, Promise<HourDesc | null>>();
+function hourDescIndex(): Promise<HourDesc | null> {
+  const key = new Date().toISOString().slice(0, 13).replace(/\D/g, '');
+  if (!hourDescCache.has(key)) {
+    hourDescCache.set(key, fetch(`/api/ui/schedule/hour/${key}-d.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  }
+  return hourDescCache.get(key)!;
+}
+/** La descripción del programa `cur` (sacado de `idx`), si la guía la trae. */
+function descFromHour(d: HourDesc, idx: HourIndex, id: string, cur: NowPlaying): string {
+  const start = (cur.start - idx.h) / 60;
+  const hit = d.c[id]?.find(([s]) => s === start);
+  return hit ? d.d[hit[1]] : '';
 }
 
 const scheduleCache = new Map<string, Promise<ScheduleEntry[] | null>>();
@@ -1170,13 +1198,13 @@ async function renderGuideSearch(term: string, results: HTMLElement) {
     return;
   }
   const seq = ++searchSeq;
-  const idx = await hourIndex();
+  const [idx, descs] = await Promise.all([hourIndex(), hourDescIndex()]);
   if (seq !== searchSeq) return;
   const hits: { id: string; cur: NowPlaying | null; byProgram: boolean }[] = [];
   for (const [id, name] of state.index!.displayName) {
-    const byName = fold(name).includes(q);
+    const byName = hasWords(fold(name), q);
     const cur = idx ? nowFromHour(idx, id) : null;
-    const byProgram = !!cur && fold(cur.title).includes(q);
+    const byProgram = !!cur && hasWords(fold(`${cur.title} ${descs ? descFromHour(descs, idx!, id, cur) : ''}`), q);
     if (byName || byProgram) hits.push({ id, cur, byProgram });
   }
   if (idx) hits.sort((a, b) => Number(!a.cur) - Number(!b.cur));
@@ -2872,6 +2900,7 @@ function setupEditor() {
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);
     loadHourNow(); // por si cambió la hora desde que se abrió
+    loadHourNowDesc();
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;

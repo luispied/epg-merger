@@ -766,8 +766,9 @@ body.selecting #editor main { padding-bottom: 96px; }
 .logo .mono, :root:not([data-theme="dark"]) .logo .mono, :root[data-theme="dark"] .logo .mono { background: var(--fill); color: var(--muted); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo .mono { background: var(--fill); color: var(--muted); } }
 /* Vista detallada: una línea y barra fina del programa */
-.row-now .np-line { display: flex; gap: 8px; min-width: 0; }
-.row-now .np-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-now .np-line { display: flex; gap: 8px; min-width: 0; align-items: baseline; }
+/* Hasta dos líneas: los títulos con el partido o el episodio pegado son largos y cortados no se entienden. */
+.row-now .np-title { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .row-now .np-until { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row-now .np-bar { display: block; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--fill); overflow: hidden; }
 .row-now .np-bar > i { display: block; height: 100%; background: var(--accent); }

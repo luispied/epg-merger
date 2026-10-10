@@ -211,8 +211,8 @@ def test_schedule_snapshot_solo_incluye_la_ventana_de_ahora(tmp_path):
 
 def test_schedule_snapshot_incluye_la_descripcion(tmp_path):
     """La interfaz muestra la sinopsis del programa en el aire: va como cuarto elemento solo
-    cuando la guía la trae (si no, el nombre del episodio), con espacios normalizados y recortada
-    si es muy larga. El índice por hora no la lleva: es el que se baja entero."""
+    cuando la guía trae <desc>, con espacios normalizados y recortada si es muy larga. El índice
+    por hora no la lleva (es el que se baja entero): va aparte, en <hora>-d.json."""
     now = generate_playlist.datetime.datetime(
         2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
     larga = 'x' * (generate_playlist.SCHEDULE_DESC_MAX + 50)
@@ -231,13 +231,40 @@ def test_schedule_snapshot_incluye_la_descripcion(tmp_path):
     with open(tmp_path / f"{sched['A.us']}.json", encoding='utf-8') as f:
         entries = json.load(f)
     assert entries[0][3] == 'Resumen del dia'
-    assert entries[1][3] == 'The One with the Thumb'
+    assert entries[1][2:] == ['Friends · The One with the Thumb']
     assert len(entries[2]) == 3
     assert len(entries[3][3]) == generate_playlist.SCHEDULE_DESC_MAX and entries[3][3].endswith('…')
     with open(tmp_path / 'hour' / '2026010112.json', encoding='utf-8') as f:
         # Por el id enmascarado (el que tiene la web), igual que el nombre del archivo.
         assert all(len(e) == 3 for e in json.load(f)['c'][channel_alias('A.us')])
+    with open(tmp_path / 'hour' / '2026010112-d.json', encoding='utf-8') as f:
+        descs = json.load(f)
+    # Solo los que traen descripción, por el mismo inicio (en minutos) que el índice.
+    assert [[s, descs['d'][i]] for s, i in descs['c'][channel_alias('A.us')]] == [[-30, 'Resumen del dia']]
     assert sched['A.us'] == generate_playlist._schedule_filename(channel_alias('A.us'))
+
+
+def test_schedule_snapshot_pega_el_subtitulo_al_titulo(tmp_path):
+    """Hay guías que dejan el título genérico y ponen el partido solo en <sub-title> (ESPN MX:
+    "Live: Fútbol Serie A" + "Inter de Milán vs. Parma"). Va pegado al título para que se vea
+    y se encuentre al buscar, salvo que el título ya lo diga."""
+    now = generate_playlist.datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=generate_playlist.datetime.timezone.utc)
+    root = etree.fromstring("""<tv>
+      <programme channel="A.us" start="20260101113000 +0000" stop="20260101123000 +0000">
+        <title>Live: Fútbol Serie A</title><sub-title>Inter de Milán vs. Parma</sub-title>
+        <desc>Inter enfrenta a Parma.</desc></programme>
+      <programme channel="A.us" start="20260101123000 +0000" stop="20260101130000 +0000">
+        <title>Serie A: Napoli vs Frosinone</title><sub-title>napoli vs frosinone</sub-title></programme>
+      <programme channel="A.us" start="20260101130000 +0000" stop="20260101140000 +0000">
+        <title></title><sub-title>Solo subtítulo</sub-title></programme>
+    </tv>""")
+    sched = generate_playlist.write_schedule_snapshot(root, out_dir=str(tmp_path), now=now)
+    with open(tmp_path / f"{sched['A.us']}.json", encoding='utf-8') as f:
+        entries = json.load(f)
+    assert [e[2] for e in entries] == [
+        'Live: Fútbol Serie A · Inter de Milán vs. Parma', 'Serie A: Napoli vs Frosinone', 'Solo subtítulo']
+    assert entries[0][3] == 'Inter enfrenta a Parma.'
 
 
 A, B = channel_alias('A.us'), channel_alias('B.us')
