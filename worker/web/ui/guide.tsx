@@ -41,6 +41,10 @@ const left = (s: number) => {
   const m = Math.max(1, Math.round(s / 60));
   return m >= 60 ? `quedan ${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `quedan ${m} min`;
 };
+const startsIn = (s: number) => {
+  const m = Math.max(1, Math.round(s / 60));
+  return m >= 60 ? `dentro de ${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `dentro de ${m} min`;
+};
 const dayLabel = (t: number, now: number) => {
   const d = new Date(t * 1000);
   const days = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date(now * 1000).setHours(0, 0, 0, 0)) / 86_400_000);
@@ -49,6 +53,30 @@ const dayLabel = (t: number, now: number) => {
 
 // Índices por hora, compartidos entre aperturas de la Guía (cada uno pesa ~350 KB comprimido).
 const hours = new Map<number, HourIndex | null | 'loading'>();
+
+// «Llegás desde el principio»: el Worker dice qué vuelve a empezar más tarde, en el mismo canal o en
+// otro de la lista (POST /api/ui/again). Clave `${guía}|${inicio}` → las próximas emisiones.
+interface Airing { epg: string; s: number }
+type AgainMap = Map<string, Airing[]>;
+let againMemo: { key: string; at: number; data: Promise<AgainMap> } | null = null;
+const AGAIN_TTL = 15 * 60_000;
+const AGAIN_AFTER = 10 * 60; // el ↻ aparece cuando ya te perdiste un rato
+
+function loadAgain(epgs: string[]): Promise<AgainMap> {
+  const ids = [...new Set(epgs)].sort().slice(0, 400);
+  const key = ids.join(',');
+  if (againMemo && againMemo.key === key && Date.now() - againMemo.at < AGAIN_TTL) return againMemo.data;
+  const data = !ids.length ? Promise.resolve(new Map()) : fetch('/api/ui/again', { method: 'POST', body: JSON.stringify({ ids }) })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((res: { ids: string[]; r: [number, number, [number, number][]][] } | null) => {
+      const map: AgainMap = new Map();
+      for (const [i, s, later] of res?.r ?? []) map.set(`${res!.ids[i]}|${s}`, later.map(([j, s2]) => ({ epg: res!.ids[j], s: s2 })));
+      return map;
+    })
+    .catch(() => new Map());
+  againMemo = { key, at: Date.now(), data };
+  return data;
+}
 
 function useNow() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -85,7 +113,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const [view, setView] = useState({ x: 0, y: 0, w: 390, h: 700 });
   const [ver, setVer] = useState(0);
   const [open, setOpen] = useState<{ ch: GuideChannel; p: Prog } | null>(null);
+  const [again, setAgain] = useState<AgainMap>(() => new Map());
   const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { loadAgain(channels.flatMap((c) => (c.epg ? [c.epg] : []))).then(setAgain); }, [channels]);
 
   const cats = useMemo(() => [...new Set(channels.map((c) => c.cat))], [channels]);
   const shown = cat ? channels.filter((c) => c.cat === cat) : channels;
@@ -195,14 +225,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const past = !p.gap && p.e <= now;
     const shift = Math.max(0, Math.min(lx - l, r - l - 56)); // el título queda pegado al borde visible
     const cls = `gd-cell${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
-    const label = p.gap ? `${ch.name}: sin programación de ${hm(p.s)} a ${hm(p.e)}` : `${ch.name}: ${p.t}, de ${hm(p.s)} a ${hm(p.e)}`;
+    const re = live && now - p.s >= AGAIN_AFTER ? again.get(`${ch.epg}|${p.s}`)?.[0] : undefined;
+    const label = p.gap ? `${ch.name}: sin programación de ${hm(p.s)} a ${hm(p.e)}`
+      : `${ch.name}: ${p.t}, de ${hm(p.s)} a ${hm(p.e)}${re ? `; vuelve a empezar a las ${hm(re.s)}` : ''}`;
     return (
       <button type="button" key={p.s} class={cls} aria-label={label}
         style={{ left: `${l + 2}px`, width: `${Math.max(r - l - 4, 4)}px`, ...(live ? { '--p': `${Math.round(((now - p.s) / (p.e - p.s)) * 100)}%` } : {}) }}
         onClick={() => (p.gap ? host.openChannel(ch.i) : setOpen({ ch, p }))}>
         <span class="gd-in" style={shift ? { paddingLeft: `${shift}px` } : undefined}>
           <span class="tt">{p.gap ? 'Sin programación' : p.t}</span>
-          <span class="hh">{hm(p.s)} – {hm(p.e)}</span>
+          <span class="hh">{re && <span class="rp">↻ {hm(re.s)} · </span>}{hm(p.s)} – {hm(p.e)}</span>
         </span>
       </button>
     );
@@ -259,12 +291,15 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {now >= t0 && now < t1 && <div class="gd-nowline" style={{ left: `${CHW + x(now)}px`, top: `${RULER}px`, height: `${rows.height}px` }} />}
         </div>
       </div>
-      {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} close={() => setOpen(null)} />}
+      {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} channels={channels}
+        again={open.p.s <= now && now < open.p.e ? again.get(`${open.ch.epg}|${open.p.s}`) ?? [] : []} close={() => setOpen(null)} />}
     </div>
   );
 }
 
-function ProgramSheet({ ch, p, now, host, close }: { ch: GuideChannel; p: Prog; now: number; host: GuideHost; close: () => void }) {
+function ProgramSheet({ ch, p, now, host, channels, again, close }: {
+  ch: GuideChannel; p: Prog; now: number; host: GuideHost; channels: GuideChannel[]; again: Airing[]; close: () => void;
+}) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [entries, setEntries] = useState<Entry[] | null | undefined>(undefined);
   const [marks, setMarks] = useState<Set<string> | null>(null);
@@ -279,17 +314,21 @@ function ProgramSheet({ ch, p, now, host, close }: { ch: GuideChannel; p: Prog; 
   const mine = entries?.find(([s]) => s === p.s);
   const next = (entries ?? []).filter(([s]) => s >= p.e).slice(0, 4);
   const live = p.s <= now && now < p.e;
-  const bell = (s: number, t: string, primary = false) => {
-    const on = marks?.has(`${ch.epg}|${s}`) ?? false;
+  const bell = (s: number, t: string, primary: boolean | string = false, on_ = ch) => {
+    const on = marks?.has(`${on_.epg}|${s}`) ?? false;
     return (
       <button type="button" class={primary ? `btn btn-tonal gd-remind${on ? ' on' : ''}` : `remind-btn${on ? ' on' : ''}`}
-        data-epg={ch.epg!} data-start={s} data-title={t} aria-pressed={on}
+        data-epg={on_.epg!} data-start={s} data-title={t} aria-pressed={on}
         aria-label={primary ? undefined : `Avisarme: ${t}`} title="Avisarme antes de que empiece"
-        onClick={(ev) => host.toggleReminder(ev.currentTarget as HTMLElement, ch.name)}>
-        <Icon name="bell" />{primary && 'Avisarme'}
+        onClick={(ev) => host.toggleReminder(ev.currentTarget as HTMLElement, on_.name)}>
+        <Icon name="bell" />{primary && (typeof primary === 'string' ? primary : 'Avisarme')}
       </button>
     );
   };
+  // La repetición se muestra en el canal de la lista que tiene esa guía (el primero, si hay varios).
+  const byEpg = (epg: string) => (epg === ch.epg ? ch : channels.find((c) => c.epg === epg));
+  const reruns = again.flatMap((a) => { const c = byEpg(a.epg); return c ? [{ c, s: a.s }] : []; });
+  const first = reruns[0];
   return (
     <dialog class="sheet settings-sheet gd-sheet" ref={dlg} onClose={close} aria-label={p.t}>
       <div class="sheet-body">
@@ -303,6 +342,17 @@ function ProgramSheet({ ch, p, now, host, close }: { ch: GuideChannel; p: Prog; 
         </p>
         {live && <div class="np-bar gd-sh-bar"><i style={{ width: `${Math.round(((now - p.s) / (p.e - p.s)) * 100)}%` }} /></div>}
         {entries === undefined ? <p class="gd-sh-desc muted">Cargando…</p> : mine?.[3] && <p class="gd-sh-desc">{mine[3]}</p>}
+        {first && (
+          <section class="gd-again" aria-label="Llegás desde el principio">
+            <p class="k"><Icon name="refresh-cw" class="sm" />Llegás desde el principio</p>
+            <p class="big">Vuelve a empezar {dayLabel(first.s, now) === 'Hoy' ? '' : `${dayLabel(first.s, now).toLowerCase()} `}a las {hm(first.s)}</p>
+            <p class="where"><Logo ch={first.c} cls="sm" />{first.c === ch ? 'En este canal' : `En ${first.c.name}`} · {startsIn(first.s - now)}</p>
+            {bell(first.s, p.t, 'Avisarme', first.c)}
+            {reruns.slice(1).map((r) => (
+              <p key={`${r.c.i}:${r.s}`} class="also">También {dayLabel(r.s, now) === 'Hoy' ? '' : `${dayLabel(r.s, now).toLowerCase()} `}a las <b>{hm(r.s)}</b>{r.c === ch ? '' : ` en ${r.c.name}`}</p>
+            ))}
+          </section>
+        )}
         {!live && p.s > now && ch.epg && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
         {next.length > 0 && (
           <div class="gd-sh-next">

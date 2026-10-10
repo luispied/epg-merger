@@ -19,6 +19,7 @@
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
+//   POST   /api/ui/again                 {ids} → cuándo vuelve a empezar lo que está en el aire (again.ts)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
@@ -40,6 +41,7 @@ import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
 import { checkAllHealth, liveAccounts } from './streamcheck.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
+import { againFor, validAgainIds } from './again.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -643,6 +645,20 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
 
   if (section === 'guide' && cfgId === 'index.json' && method === 'GET') {
     return serveR2(env, 'guide/index.json', 'application/json', 3600);
+  }
+  if (section === 'ui' && cfgId === 'again' && method === 'POST') {
+    const body = await readJson(request, 32 * 1024) as Record<string, unknown>;
+    if (!validAgainIds(body?.ids)) return fail(400, 'ids inválidos');
+    const ids = [...new Set(body.ids)].sort();
+    const now = Math.floor(Date.now() / 1000);
+    // Cambia poco: la misma lista de canales comparte la respuesta por 15 minutos.
+    const key = `https://grilla.internal/again/${await sha256Hex(ids.join(','))}/${Math.floor(now / 900)}`;
+    const hit = await cache.match(key);
+    if (hit) return json({ ids, r: JSON.parse(await hit.text()) });
+    if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
+    const r = await againFor(env.BUCKET, ids, now);
+    ctx.waitUntil(cache.put(key, new Response(JSON.stringify(r), { headers: { 'Cache-Control': 'max-age=900' } })));
+    return json({ ids, r });
   }
   if (section === 'ui' && method === 'GET') {
     // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.

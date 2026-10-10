@@ -1118,3 +1118,14 @@ body.guide-open { overflow: hidden; }
 .gd-sh-row b { flex: none; width: 44px; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
 .gd-sh-row span { flex: 1; min-width: 0; }
 .gd-sh-fix { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; background: none; border: 0; padding: 0; font: inherit; font-size: 13.5px; cursor: pointer; text-align: left; }
+
+/* Guía · «Llegás desde el principio»: lo que ya empezó y vuelve a empezar más tarde. */
+.gd-cell .hh .rp { color: var(--green); font-weight: 600; }
+.gd-again { margin-top: 16px; border-radius: var(--radius); padding: 14px; background: color-mix(in srgb, var(--green) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
+.gd-again p { margin: 0; }
+.gd-again .k { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--green); }
+.gd-again .big { font-size: 19px; font-weight: 600; margin: 6px 0 2px; color: var(--text); }
+.gd-again .where { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+.gd-again .where .logo.sm { width: 22px; height: 22px; border-radius: 5px; }
+.gd-again .also { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+.gd-again .also b { color: var(--text); font-variant-numeric: tabular-nums; }

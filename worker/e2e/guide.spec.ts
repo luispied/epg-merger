@@ -20,8 +20,8 @@ const guide = {
   version: 1, matching_rules: rules, sources: { s1: { country: 'uy', priority: 0 } },
   channels: [{ id: 'g0123456789abcd.uy', k: 'k1', source: 's1', names: ['Canal Uno'], icon: '' }],
 };
-// Un programa en el aire toda la hora, otro la hora siguiente.
-const hour = (h: number) => ({ h, t: [h === H ? 'Noticiero central' : 'Película de la noche'], c: { 'g0123456789abcd.uy': [[0, 60, 0]] } });
+// Un programa en el aire desde hace una hora hasta el final de esta, otro la hora siguiente.
+const hour = (h: number) => ({ h, t: [h === H ? 'Noticiero central' : 'Película de la noche'], c: { 'g0123456789abcd.uy': [h === H ? [-60, 60, 0] : [0, 60, 0]] } });
 
 let errors: string[] = [];
 
@@ -42,8 +42,10 @@ test.beforeEach(async ({ page }) => {
       return r.fulfill({ status: 404, json: {} });
     }
     if (path.startsWith('/api/ui/schedule/')) {
-      return r.fulfill({ json: [[H, H + 3600, 'Noticiero central', 'Las noticias del día.'], [H + 3600, H + 7200, 'Película de la noche']] });
+      return r.fulfill({ json: [[H - 3600, H + 3600, 'Noticiero central', 'Las noticias del día.'], [H + 3600, H + 7200, 'Película de la noche']] });
     }
+    // El noticiero vuelve a empezar después de la película.
+    if (path === '/api/ui/again') return r.fulfill({ json: { ids: ['g0123456789abcd.uy'], r: [[0, H - 3600, [[0, H + 7200]]]] } });
     if (r.request().method() !== 'GET') return r.fulfill({ json: {} });
     return r.fulfill({ status: 404, json: { error: 'sin red en el test' } });
   });
@@ -62,6 +64,7 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   const live = page.locator('.gd-cell.live');
   await expect(live).toHaveCount(1);
   await expect(live).toContainText('Noticiero central');
+  await expect(live.locator('.rp')).toContainText('↻');
   await expect(page.locator('.gd-nowline')).toHaveCount(1);
   // El canal sin guía se ve como hueco para corregir.
   await expect(page.locator('.gd-cell.gap.quiet')).toContainText('Sin guía');
@@ -70,6 +73,8 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('En el aire');
   await expect(sheet).toContainText('Las noticias del día.');
+  await expect(sheet.locator('.gd-again')).toContainText('Vuelve a empezar');
+  await expect(sheet.locator('.gd-again')).toContainText('En este canal');
   await expect(sheet).toContainText('Película de la noche');
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
