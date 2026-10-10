@@ -183,7 +183,22 @@
     "Sala 24/7 HD": null,
     "AMC": "AMC HD.mx",
     "AMC HD": "AMC HD.mx",
-    "AMC FHD": "Amc.ar"
+    "AMC FHD": "Amc.ar",
+    "CL| Canal 13 Señal Nacional": "Canal.13.de.Chile.cl",
+    "CL| Chilevision Señal Nacional": "Canal.Chilevisión.(CHV).cl",
+    "CL| Mega Nacional ᴸᴵᵀᴱ": "Canal.Mega.(Chile).cl",
+    "Y| TNU": "[TVNUR].Televisión.Nacional.Uruguaya.uy",
+    "Baby Firts (eng)": "BabyFirst.TV.us2",
+    "Stingray Clasica": "Stingray Classica",
+    "Cine Romantico": "plex.tv.Cine.Romántico.plex",
+    "S| PokerGO": "plex.tv.PokerGO.plex",
+    "Revry -EN": "plex.tv.Revry.plex",
+    "D| Benfica TV (pt)": "BenficaTV.pt",
+    "S| TVj Sports Jamaica": "TVJ.Sports.jm",
+    "Tigo Sports (p.y) 8 SD": "TigoSports.py",
+    "DAZN 06 |": "DAZN6.ca",
+    "S| Fubo Sports Network": "fuboSportsNetwork.ca",
+    "S| GLORY Kickboxing": null
   },
   "hidden": {
     "AAA": true,
