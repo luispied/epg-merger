@@ -100,11 +100,30 @@ function loadHours(from: number, to: number, done: () => void) {
   }
 }
 
-// Preferencias de la Guía en este navegador (modo y rato libre); sin almacenamiento, los valores por defecto.
+const fold = (t: string) => t.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerCase();
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** «Deportes», «Deportes y Películas», «Deportes, Cine y Series»; más de tres, «4 categorías». */
+export function catsLabel(cats: string[]): string {
+  if (cats.length > 3) return `${cats.length} categorías`;
+  return cats.length > 1 ? `${cats.slice(0, -1).join(', ')} y ${cats.at(-1)}` : cats[0] ?? '';
+}
+// Con pocas categorías van todas en la fila; con más, las elegidas, las que más canales con guía tienen y «Más».
+const MANY_CATS = 8;
+const QUICK_CATS = 5;
+
+// Preferencias de la Guía en este navegador (modo, rato libre y categorías); sin almacenamiento, los valores por defecto.
 const pref = {
   get(k: string) { try { return localStorage.getItem(`grilla_guide_${k}`); } catch { return null; } },
   set(k: string, v: string) { try { localStorage.setItem(`grilla_guide_${k}`, v); } catch { /* sin almacenamiento */ } },
 };
+function savedCats(): string[] {
+  try {
+    const v = JSON.parse(pref.get('cats') || '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 function useNow() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -137,7 +156,6 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const W = ((t1 - t0) / 60) * PX;
   const x = (t: number) => ((t - t0) / 60) * PX;
 
-  const [cat, setCat] = useState('');
   const [mode, setModeState] = useState<Mode>(() => {
     const m = pref.get('mode');
     return m === 'next' || m === 'plan' ? m : 'grid';
@@ -153,20 +171,41 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   useEffect(() => { loadAgain(channels.flatMap((c) => (c.epg ? [c.epg] : []))).then(setAgain); }, [channels]);
 
   const cats = useMemo(() => [...new Set(channels.map((c) => c.cat))], [channels]);
-  const shown = cat ? channels.filter((c) => c.cat === cat) : channels;
+  // Canales con guía por categoría: ordena las rápidas de la fila y se ve en la hoja.
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of channels) if (c.epg && !c.quiet) m.set(c.cat, (m.get(c.cat) ?? 0) + 1);
+    return m;
+  }, [channels]);
+  // Varias categorías a la vez, las mismas en Grilla, Próximos y Tu noche; se recuerdan en este navegador. Las que
+  // ya no están en la lista no cuentan.
+  const [selRaw, setSelRaw] = useState<string[]>(savedCats);
+  const sel = useMemo(() => selRaw.filter((c) => cats.includes(c)), [selRaw, cats]);
+  const setSel = (next: string[]) => {
+    setSelRaw(next);
+    pref.set('cats', JSON.stringify(next));
+    box.current?.scrollTo({ top: 0 });
+  };
+  const toggleCat = (c: string) => setSel(sel.includes(c) ? sel.filter((x) => x !== c) : [...sel, c]);
+  const byCount = (a: string, b: string) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
+  const many = cats.length > MANY_CATS;
+  const quick = many ? cats.filter((c) => !sel.includes(c)).sort(byCount).slice(0, QUICK_CATS) : [];
+  const [picking, setPicking] = useState(false);
+  // Memo: una lista nueva en cada render volvería a disparar la carga de Tu noche.
+  const shown = useMemo(() => (sel.length ? channels.filter((c) => sel.includes(c.cat)) : channels), [channels, sel]);
 
-  // Filas: un encabezado por categoría (en «Todas») y una fila por canal.
+  // Filas: un encabezado por categoría (salvo con una sola elegida) y una fila por canal.
   const rows = useMemo(() => {
     const out: ({ top: number; cat: string } | { top: number; ch: GuideChannel })[] = [];
     let top = 0;
     let last = '';
     for (const ch of shown) {
-      if (!cat && ch.cat !== last) { out.push({ top, cat: ch.cat }); top += CAT_H; last = ch.cat; }
+      if (sel.length !== 1 && ch.cat !== last) { out.push({ top, cat: ch.cat }); top += CAT_H; last = ch.cat; }
       out.push({ top, ch });
       top += ROWH;
     }
     return { out, height: top };
-  }, [shown, cat, ROWH]);
+  }, [shown, sel, ROWH]);
 
   const sync = () => {
     const el = box.current;
@@ -290,18 +329,32 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
             <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
           </button>
         )}
-        {['', ...cats].map((c) => (
-          <button type="button" key={c} class="chip-btn" aria-pressed={c === cat}
-            onClick={() => { setCat(c); box.current?.scrollTo({ top: 0 }); }}>{c || 'Todas'}</button>
+        <button type="button" class="chip-btn" aria-pressed={!sel.length} onClick={() => setSel([])}>Todas</button>
+        {(many ? sel : cats).map((c) => (
+          <button type="button" key={c} class="chip-btn" aria-pressed={sel.includes(c)} onClick={() => toggleCat(c)}>
+            {sel.includes(c) && <Icon name="check" class="sm" />}{c}
+          </button>
         ))}
+        {many && sel.length > 0 && <span class="gd-chips-sep" aria-hidden="true" />}
+        {quick.map((c) => (
+          <button type="button" key={c} class="chip-btn" aria-pressed="false" onClick={() => toggleCat(c)}>{c}</button>
+        ))}
+        {many && (
+          <button type="button" class="chip-btn gd-more-chip" onClick={() => setPicking(true)} aria-haspopup="dialog">
+            <Icon name="plus" class="sm" />Más · {cats.length}
+          </button>
+        )}
       </nav>
+      {picking && <CatSheet cats={cats} counts={counts} sel={sel} toggle={toggleCat} clear={() => setSel([])} close={() => setPicking(false)} />}
       {!channels.length && <div class="empty">No hay canales para mostrar.</div>}
       {mode === 'next' && channels.length > 0 && (
         <Upcoming channels={shown} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
           budget={budgetOn ? budget : null} setBudget={(m) => { setBudget(m); pref.set('budget', String(m)); }} />
       )}
       {mode === 'plan' && channels.length > 0 && (
-        <Plan channels={shown} now={now} host={host} open={(ch, p) => setOpen({ ch, p })} />
+        <Plan channels={shown} now={now} host={host} open={(ch, p) => setOpen({ ch, p })} filter={sel}
+          suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort(byCount)[0]}
+          add={(c) => setSel([...sel, c])} pick={() => setPicking(true)} />
       )}
       <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
@@ -521,8 +574,10 @@ export function buildPlan(cands: { ch: GuideChannel; p: Prog }[], now: number, e
 
 const MAX_PLAN_CHANNELS = 150;
 
-function Plan({ channels, now, host, open }: {
+function Plan({ channels, now, host, open, filter, suggest, add, pick }: {
   channels: GuideChannel[]; now: number; host: GuideHost; open: (ch: GuideChannel, p: Prog) => void;
+  /** Las categorías elegidas (vacío = todas), la que conviene sumar si no alcanza, sumarla y abrir la hoja. */
+  filter: string[]; suggest?: string; add: (c: string) => void; pick: () => void;
 }) {
   const part = partOfDay(now);
   const [scheds, setScheds] = useState<Map<string, Entry[] | null>>(() => new Map());
@@ -548,6 +603,9 @@ function Plan({ channels, now, host, open }: {
     }
     return buildPlan(cands, now, part.end, forced);
   }, [scheds, forced, Math.floor(now / 300), part.end]);
+  // Con categorías elegidas, si el plan termina más de media hora antes del final del rato, se dice y se ofrece sumar.
+  const lastEnd = plan.reduce((m, sl) => Math.max(m, sl.p.e), now);
+  const short = filter.length > 0 && loaded && part.end - lastEnd > 30 * 60;
 
   const bell = (ch: GuideChannel, p: Prog) => {
     if (host.viewer) return null;
@@ -563,9 +621,9 @@ function Plan({ channels, now, host, open }: {
 
   return (
     <div class="gd-up gd-plan">
-      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de tus canales, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
+      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de {filter.length ? <b>{catsLabel(filter)}</b> : 'tus canales'}, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
       {!loaded ? <p class="gd-up-empty">Armando tu {part.name}…</p> : !plan.length
-        ? <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
+        ? !filter.length && <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
         : (
           <ol class="gd-plan-list">
             {plan.map((sl, i) => {
@@ -597,7 +655,68 @@ function Plan({ channels, now, host, open }: {
             })}
           </ol>
         )}
+      {short && (
+        <div class="gd-plan-gap">
+          <p class="t">De las {hm(Math.max(now, lastEnd))} a las {hm(part.end)} no encontré nada</p>
+          <p class="d">Con {catsLabel(filter)} {plan.length ? `solo hay ${plural(plan.length, 'programa', 'programas')}` : 'no hay programas'} para
+            tu {part.name}. Sumá otra categoría para completar el plan.</p>
+          <div class="acts">
+            {suggest && <button type="button" class="btn btn-tonal sm" onClick={() => add(suggest)}><Icon name="plus" class="sm" />Sumar {suggest}</button>}
+            <button type="button" class="btn btn-gray sm" onClick={pick}>Elegir otras</button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** La hoja para elegir categorías de la Guía: buscador, las elegidas arriba y todas con sus canales con guía. */
+function CatSheet({ cats, counts, sel, toggle, clear, close }: {
+  cats: string[]; counts: Map<string, number>; sel: string[]; toggle: (c: string) => void; clear: () => void; close: () => void;
+}) {
+  const dlg = useRef<HTMLDialogElement>(null);
+  const [q, setQ] = useState('');
+  useLayoutEffect(() => {
+    dlg.current?.showModal();
+    return () => dlg.current?.close();
+  }, []);
+  const f = fold(q.trim());
+  const match = (c: string) => !f || fold(c).includes(f);
+  const chosen = sel.filter(match);
+  const rest = cats.filter((c) => !sel.includes(c) && match(c));
+  const row = (c: string) => (
+    <label class="gc-row" key={c}>
+      <input type="checkbox" checked={sel.includes(c)} onChange={() => toggle(c)} />
+      <span class="gc-name">{c}</span>
+      <span class="gc-count">{counts.get(c) ? plural(counts.get(c)!, 'canal', 'canales') : 'sin guía'}</span>
+    </label>
+  );
+  return (
+    <dialog class="sheet settings-sheet gc-sheet" ref={dlg} onClose={close} aria-labelledby="gcTitle">
+      <div class="sheet-body">
+        <div class="title-row">
+          <h2 id="gcTitle">Categorías</h2>
+          <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
+        </div>
+        <label class="search-field">
+          <Icon name="search" />
+          <input type="search" placeholder="Buscar categoría" aria-label="Buscar categoría" enterkeyhint="search"
+            value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
+        </label>
+        {chosen.length > 0 && (
+          <>
+            <h3 class="sec-title">Elegidas · {sel.length}</h3>
+            <div class="gc-list">{chosen.map(row)}</div>
+          </>
+        )}
+        <h3 class="sec-title">{f ? 'Resultados' : `Todas · ${cats.length}`}</h3>
+        {rest.length ? <div class="gc-list">{rest.map(row)}</div> : <p class="help">{f ? `Ninguna otra categoría coincide con «${q}».` : 'Ya elegiste todas.'}</p>}
+        <div class="gc-foot">
+          <button type="button" class="btn btn-gray" onClick={clear} disabled={!sel.length}>Todas</button>
+          <button type="button" class="btn btn-primary" onClick={() => dlg.current?.close()}>{sel.length ? `Listo · ${plural(sel.length, 'elegida', 'elegidas')}` : 'Listo'}</button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 
