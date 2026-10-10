@@ -857,20 +857,30 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch) };
+  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
 }
 
 // ------------------------------------------------------------------ canales caídos
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 const isDown = (ch: Channel) => {
   const h = streamHealth?.channels[ch.id];
   return !!h && !h.ok && h.fails >= DOWN_AFTER;
 };
+/** La resolución real del canal (la mide el relay una vez por semana, junto con la prueba de caídos): la etiqueta
+ *  corta (SD, HD, FHD, 4K) y el detalle. Sin medir todavía, null. */
+export interface Quality { label: 'SD' | 'HD' | 'FHD' | '4K'; w: number; h: number; t: string }
+function qualityOf(ch: Channel): Quality | null {
+  const r = streamHealth?.res?.[ch.id];
+  if (!r?.w || !r.h) return null;
+  const label = r.h >= 1800 ? '4K' : r.h >= 1000 ? 'FHD' : r.h >= 700 ? 'HD' : 'SD';
+  return { label, w: r.w, h: r.h, t: r.t };
+}
+export const qualityTitle = (q: Quality) => `Resolución: ${q.w} × ${q.h}`;
 async function loadStreamHealth() {
   if (!state.local) return;
   try {
@@ -1363,7 +1373,7 @@ const guideHost: GuideHost = {
       .map(({ ch, i, inf }) => {
         const name = inf.edit.name || eventOf(ch)?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
         const logo = !logosOn() ? '' : inf.edit.customLogo || (inf.epg ? state.index?.icon.get(inf.epg) ?? '' : '');
-        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose' };
+        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose', q: inf.q?.label ?? null, qTitle: inf.q ? qualityTitle(inf.q) : '' };
       });
   },
   openChannel: (i) => openChannel(i),

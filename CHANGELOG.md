@@ -7,11 +7,17 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.30.2
+## 1.31.1
 
 - Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.
 - Buscar también mira la descripción de lo que está dando cada canal, y encuentra aunque las palabras estén en otro orden («inter parma»). Las descripciones van en un archivo aparte por hora (`ui/schedule/hour/<hora>-d.json`) que se baja recién al buscar.
 - En la vista detallada de Canales, el programa en el aire ocupa hasta dos líneas antes de cortarse.
+
+## 1.31.0
+
+- Resolución real de cada canal: una etiqueta SD, HD, FHD o 4K en la lista de Canales y en la Guía (con el mouse encima se ve el ancho × alto). No sale del nombre del canal: se mide el video que manda el proveedor.
+- La mide el relay junto con la prueba diaria de canales caídos: cada canal una vez por semana, solo los que andan y como mucho 8 por tanda (unos 32 por día), para no comerse el tiempo de la prueba. Lee el comienzo del stream (MPEG-TS, o el primer segmento si es HLS; con un playlist maestro alcanza su RESOLUTION) y saca las medidas del SPS del video, H.264 o HEVC, en Python puro y sin ffprobe (`video_res.py`). Cuesta unos KB por canal: entra de sobra en lo gratis.
+- Worker: queda en `res` de `health/<cfgId>.json` (`src/streamcheck.ts`). Con un relay viejo no se mide nada y la app sigue igual, sin etiquetas: hay que volver a desplegar el relay en Fly.
 
 ## 1.30.1
 
