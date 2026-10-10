@@ -2779,7 +2779,7 @@ function renderProfileNotice() {
   const who = a && (a.account || state.cfg?.mainName) ? `La cuenta de ${a.name}` : 'Tu cuenta';
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
-  else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${acc.activeConnections} de ${acc.maxConnections} en uso)`;
+  else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${connectionsInUse(acc)} de ${acc.maxConnections} en uso)`;
   box.hidden = !text;
   if (!text) return;
   box.innerHTML = `${icon('clock')}<span class="pn-text"><strong>${esc(text)}</strong><small>Tocá para ver la cuenta o cambiar de cuenta</small></span>${icon('chevron-right')}`;
@@ -2997,12 +2997,16 @@ const menuRow = (attrs: string, ico: string, title: string, sub = '', cls = '', 
   `<button type="button" class="menu-row${cls ? ` ${cls}` : ''}" ${attrs}><span class="menu-icon">${icon(ico)}</span>
     <span class="menu-text">${title}${sub ? `<small>${sub}</small>` : ''}</span>${chevron ? icon('chevron-right') : ''}</button>`;
 
+/** Conexiones en uso, sin pasar del máximo: el proveedor sigue contando por un rato la conexión de un canal que se
+ *  dejó (al cambiar de canal o abrir un link nuevo) y a veces informa más de las que permite («4 de 3»). */
+const connectionsInUse = (acc?: Account) => acc?.activeConnections === undefined ? undefined
+  : acc.maxConnections ? Math.min(acc.activeConnections, acc.maxConnections) : acc.activeConnections;
 /** Una línea con lo importante de una cuenta: días, conexiones en uso y perfiles. */
 function accountLine(a: AccountView, acc?: Account): { text: string; tone: string } {
   const days = daysLeft(acc);
   const parts: string[] = [];
   if (days !== null) parts.push(days < 0 ? 'Vencida' : days === 0 ? 'Vence hoy' : days <= 7 ? `Vence en ${plural(days, 'día', 'días')}` : plural(days, 'día', 'días'));
-  if (acc?.maxConnections) parts.push(acc.activeConnections === undefined ? `hasta ${acc.maxConnections} a la vez` : `${acc.activeConnections} de ${acc.maxConnections} en uso`);
+  if (acc?.maxConnections) parts.push(acc.activeConnections === undefined ? `hasta ${acc.maxConnections} a la vez` : `${connectionsInUse(acc)} de ${acc.maxConnections} en uso`);
   if (!a.devices.length) parts.push('sin links');
   return { text: parts.join(' · ') || 'Cuenta del proveedor', tone: days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : '' };
 }
@@ -3013,7 +3017,7 @@ function accountStatsHtml(acc: Account | undefined, on: boolean): string {
   const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
   return [
     stat(days === null ? '—' : days < 0 ? 'Vencida' : plural(days, 'día', 'días'), 'Suscripción', days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : 'ok'),
-    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${acc.activeConnections} de ${acc.maxConnections}`,
+    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${connectionsInUse(acc)} de ${acc.maxConnections}`,
       acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
       acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''),
     on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
