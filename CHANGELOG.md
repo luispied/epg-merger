@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.27.7
+
+- La lista de Canales pasa a Preact, en `worker/web/ui/canales.tsx`: las filas (compacta, detallada y logos), los encabezados de categoría, la búsqueda, el vacío con «Ver todos los canales», el esqueleto mientras carga y el modo selección. Se ve y se comporta igual. Con esto todas las pantallas están en Preact; los gestos y menús de la lista siguen en `app.ts`.
+- Tests de humo de la lista: filas y categorías, buscar, el vacío, la vista detallada, ocultar desde «…» y elegir varios.
+
 ## 1.27.6
 
 - La hoja de un canal pasa a Preact, en `worker/web/ui/canal.tsx`, con el modo «Revisar». Se ve y se comporta igual. La guía asignada y las opciones siguen usando las piezas de la lista de canales hasta que la lista pase a Preact.

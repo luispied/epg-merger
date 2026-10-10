@@ -14,6 +14,7 @@ import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
+import { refreshCards, renderCards, renderSkeleton } from './ui/canales.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
@@ -1265,87 +1266,6 @@ function eventLabel(start: number): { text: string; cls: string } {
   return { text: `Terminó · ${day} ${time}`, cls: 'done' };
 }
 
-function cardHtml(i: number): string {
-  const ch = state.channels[i];
-  const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
-  const ev = eventOf(ch);
-  const shown = edit.name || ev?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
-  const sel = selection.active;
-  const picked = selection.items.has(i);
-  const selBox = sel ? `<span class="sel-box" aria-hidden="true">${icon(picked ? 'square-check' : 'square')}</span>` : '';
-  if (divider) {
-    return `<article class="card section-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="Separador ${esc(sectionTitle(groupLabel(groupOf(ch))))}">
-      ${selBox}
-      <div class="card-title"><div class="section-name">${esc(sectionTitle(groupLabel(groupOf(ch))))}</div>
-        <div class="card-sub"><span>Separador de sección${shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${esc(shown)}` : ''}</span>${hidden ? `<span class="pill muted">${icon('eye-off', 'sm')}Oculto</span>` : ''}</div></div>
-    </article>`;
-  }
-  const guideName = epg ? guideLabel(epg) : '';
-  const cc = epg ? state.index?.country.get(epg) : undefined;
-  const sug = !epg && !edit.manual && suggestion;
-  const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden ? 'oculto' : '']
-    .filter(Boolean).map((m) => `<span class="mark">${m}</span>`).join('');
-  // Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es.
-  const where = state.search.trim() ? `<span class="where">${esc(groupLabel(groupOf(ch)))}</span>` : '';
-  let guide: string;
-  if (sug) {
-    const shownSug = esc(guideLabel(suggestion!.channelId));
-    guide = `<span class="guide sug"><span class="pct ${suggestion!.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion!.score, 1) * 100)} %</span> <b>${shownSug}</b></span>`;
-  } else if (epg) {
-    guide = `<span class="guide">${icon('arrow-right', 'sm')}<span class="guide-name">${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</span>`;
-  } else if (ev && !edit.manual) {
-    const l = eventLabel(ev.start);
-    guide = `<span class="guide event ${l.cls}" title="Hora de tu dispositivo (según la zona del proveedor)">${icon('clock', 'sm')}${esc(l.text)}</span>`;
-  } else {
-    guide = `<span class="guide none">${edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>`;
-  }
-  const status = sug ? `<button type="button" class="btn btn-gray sm" data-use="${i}">Usar</button>` : statusMark(band, auto?.score);
-  const label = `${shown}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
-  return `<article class="card row-card${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(label)}">
-    <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r">${icon('ban')}Sin guía</span><span class="sw sw-l">${icon(hidden ? 'eye' : 'eye-off')}${hidden ? 'Mostrar' : 'Ocultar'}</span></span>
-    <div class="row-in">
-      ${selBox}
-      ${logoHtml(epg, '', edit.customLogo, shown)}
-      <div class="card-title"><div class="card-name">${esc(shown)}</div><div class="row-sub">${guide}${marks}${where}</div>${
-  viewMode() === 'detail' && epg ? `<div class="row-now"><span class="epg-now" data-now-for="${esc(epg)}" data-compact="row"></span></div>` : ''}</div>
-      ${status}
-      <button type="button" class="icon-btn sm row-more" data-more="${i}" aria-label="Más acciones: ${esc(shown)}" aria-haspopup="menu">${icon('ellipsis')}</button>
-    </div>
-  </article>`;
-}
-
-/** Estado a la derecha de la fila: solo lo que pide atención. Lo que está bien lleva una tilde. */
-function statusMark(band: Band, score?: number): string {
-  const pct = score && score > 0 ? Math.round(Math.min(score, 1) * 100) : 0;
-  switch (band) {
-    case 'ok': return `<span class="ok-mark" title="Coincidencia buena${pct ? `: ${pct} %` : ''}">${icon('check', 'sm')}</span>`;
-    case 'warn': return `<span class="pct warn" title="Coincidencia dudosa: conviene revisarla">${pct ? `${pct} %` : 'Dudoso'}</span>`;
-    case 'none': return '<span class="tag bad">Sin EPG</span>';
-    default: return ''; // a mano o sin guía a propósito: se ve al abrir el canal
-  }
-}
-
-/** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la
- *  lista es plana. */
-function rowsHtml(list: number[], from: number, to: number): string {
-  const headers = !state.search.trim();
-  const counts = new Map<string, number>();
-  if (headers) for (const i of list) if (!info(state.channels[i]).divider) counts.set(groupOf(state.channels[i]), (counts.get(groupOf(state.channels[i])) ?? 0) + 1);
-  let out = '';
-  for (let k = from; k < Math.min(to, list.length); k++) {
-    const ch = state.channels[list[k]];
-    if (headers && !info(ch).divider) {
-      const g = groupOf(ch);
-      const prev = k > 0 ? state.channels[list[k - 1]] : null;
-      if (!prev || info(prev).divider || groupOf(prev) !== g) {
-        out += `<div class="cat-head" role="heading" aria-level="3"><span>${esc(groupLabel(g))}</span><small>${counts.get(g) ?? 0}</small></div>`;
-      }
-    }
-    out += cardHtml(list[k]);
-  }
-  return out;
-}
-
 /** Píldora arriba: sin conexión (los cambios se guardan en el dispositivo) o guardando. */
 function updateNet() {
   const pill = $('#netPill');
@@ -1368,26 +1288,6 @@ function renderStatusLine() {
 }
 
 let recheckGrid: () => void = () => {};
-/** Vacío con el motivo y, si hay algo para quitar, el botón que lo quita. */
-function emptyHtml(): string {
-  if (!state.channels.length) {
-    return `<div class="empty">${icon('inbox', 'lg')}<strong>No hay canales</strong>Volvé a cargar la lista del proveedor (Configuración).</div>`;
-  }
-  const f = state.filter;
-  const why = state.search.trim() ? `Nada coincide con “${esc(state.search.trim())}”.`
-    : f === 'ocultos' ? 'No ocultaste ningún canal.'
-    : f === 'manual' ? 'Todavía no elegiste ninguna guía a mano.'
-    : f === 'editados' ? 'Todavía no editaste ningún canal.'
-    : f === 'sin-epg' ? '¡Todos los canales tienen guía!'
-    : f === 'sin-prog' ? '¡Todos los canales tienen programación!'
-    : f === 'caidos' ? 'No hay canales caídos entre los que ya se probaron.'
-    : f === 'revisar' ? '¡No queda nada por revisar!'
-    : f === 'nuevos' ? 'No hay canales nuevos.'
-    : 'Ningún canal coincide con el filtro.';
-  const clear = state.search.trim() || f !== 'todos' ? `<button type="button" class="btn btn-tonal" data-clear-filters>Ver todos los canales</button>` : '';
-  return `<div class="empty">${icon('inbox', 'lg')}<strong>Nada por acá</strong>${why}${clear}</div>`;
-}
-
 function render() {
   if (!state.cfg) return;
   infoMemo = new Map();
@@ -1416,14 +1316,7 @@ function renderNow() {
   viewBtn.title = viewBtn.ariaLabel = VIEW_BTN[mode][1];
   cards.classList.toggle('detail', mode === 'detail');
   cards.classList.toggle('grid', mode === 'grid');
-  cards.innerHTML = list.length ? rowsHtml(list, 0, state.shown) : emptyHtml();
-  $('[data-clear-filters]', cards)?.addEventListener('click', () => {
-    state.search = '';
-    $<HTMLInputElement>('#searchBox').value = '';
-    state.filter = 'todos';
-    state.shown = PAGE;
-    render();
-  });
+  renderCards(list);
   fillEpgRows(cards);
   $('#loadMoreSentinel').hidden = list.length <= state.shown;
   recheckGrid();
@@ -1812,13 +1705,7 @@ function updateBulkBar() {
 function toggleSelected(i: number) {
   if (selection.items.has(i)) selection.items.delete(i);
   else selection.items.add(i);
-  const card = $(`.card[data-i="${i}"]`);
-  if (card) {
-    const on = selection.items.has(i);
-    card.classList.toggle('selected', on);
-    const box = $('.sel-box', card);
-    if (box) box.innerHTML = icon(on ? 'square-check' : 'square');
-  }
+  refreshCards();
   updateBulkBar();
 }
 
@@ -2762,7 +2649,7 @@ async function openSaved() {
   const say = (t: string) => status(st, t);
   const main = $('#editor main');
   main.classList.add('loading');
-  $('#cards').innerHTML = '<div class="skeleton"><div class="bar w60"></div><div class="bar w40"></div><div class="bar block"></div></div>'.repeat(4);
+  renderSkeleton();
   try {
     say('Abriendo tu configuración…');
     let cfg = await api<Config>(`/api/cfg/${state.local!.cfgId}`);
@@ -3145,9 +3032,8 @@ function setupEditor() {
   recheckGrid = infiniteScroll($('#loadMoreSentinel'), () => {
     const list = visibleChannels();
     if (list.length <= state.shown) return false;
-    const from = state.shown;
     state.shown += PAGE;
-    $('#cards').insertAdjacentHTML('beforeend', rowsHtml(list, from, state.shown));
+    refreshCards();
     fillEpgRows($('#cards'));
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
@@ -3294,8 +3180,8 @@ export {
   logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, openDock, openHelp, otherAccounts,
   otherProviders, PAGE, plural, pref, profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz,
   render, renderDownRow, renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow,
-  sectionHeaders, sectionTitle, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
+  sectionHeaders, sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
   showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleDay, toggleGroupHidden, toggleGroupNoEpg,
-  unrenameGroup, useHomeCode, useOtherAccount, visibleChannels, wireDownRow, wireGuideSearch, wireSwipe,
+  unrenameGroup, useHomeCode, useOtherAccount, viewMode, visibleChannels, wireDownRow, wireGuideSearch, wireSwipe,
 };
-export type { Account, ChannelEdit, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };
+export type { Account, Band, ChannelEdit, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };
