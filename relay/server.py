@@ -9,7 +9,8 @@ pedido, los usa y los descarta. Nunca los escribe en el log.
 Se autentica con un secret compartido con el Worker (RELAY_SECRET, mínimo 32 caracteres):
   POST /v1/list     {servers, username, password}            -> {server, channels}
   POST /v1/account  {servers, username, password}            -> {server, account}
-  POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, aborted}
+  POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, res, aborted}
+                    (los canales con "res": true que anden también se miden: res[id] = [ancho, alto] o null)
   GET  /health                                              -> {ok: true}   (sin autenticar)
 
 Cuidados:
@@ -34,6 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests  # noqa: E402
 
+import video_res  # noqa: E402
 import xtream_client  # noqa: E402
 from xtream_client import (REJECTS_TO_ABORT, XtreamError, build_stream_url, get_live_categories, get_live_streams,  # noqa: E402
                            pick_server, probe, worker_channels)
@@ -46,6 +48,8 @@ MAX_BODY = 64 * 1024
 MAX_SERVERS = 20
 MAX_PROBE_CHANNELS = 60
 PROBE_BUDGET_S = 45
+# Medir la resolución lleva unos segundos por canal: no se empieza una medición con menos de esto por delante.
+MEASURE_RESERVE_S = 10
 MAX_CONCURRENT = 4
 
 _slots = threading.BoundedSemaphore(MAX_CONCURRENT)
@@ -117,7 +121,8 @@ def do_account(servers, user, password, pick=None):
     return {'server': server, 'account': account}
 
 
-def do_probe(servers, user, password, channels, pick=None, prober=None, clock=time.monotonic, budget_s=PROBE_BUDGET_S):
+def do_probe(servers, user, password, channels, pick=None, prober=None, measurer=None, clock=time.monotonic,
+             budget_s=PROBE_BUDGET_S):
     if not isinstance(channels, list) or not channels or len(channels) > MAX_PROBE_CHANNELS:
         raise BadRequest('canales inválidos')
     items = []
@@ -126,16 +131,18 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, clock=ti
         ext = str(ch.get('ext') or 'm3u8') if isinstance(ch, dict) else ''
         if not cid or len(cid) > 40 or not ext.isalnum() or len(ext) > 8:
             raise BadRequest('canales inválidos')
-        items.append((cid, ext))
+        items.append((cid, ext, isinstance(ch, dict) and ch.get('res') is True))
     info = do_account(servers, user, password, pick)
     session = requests.Session()
     prober = prober or (lambda url: probe(session, url))
-    results, rejects, started = {}, 0, clock()
+    measurer = measurer or (lambda url: video_res.measure(session, url))
+    results, res, rejects, started = {}, {}, 0, clock()
     aborted = False
-    for cid, ext in items:
+    for cid, ext, want_res in items:
         if clock() - started > budget_s:
             break
-        result = prober(build_stream_url(info['server'], user, password, cid, ext))
+        url = build_stream_url(info['server'], user, password, cid, ext)
+        result = prober(url)
         if result == 'rejected':
             rejects += 1
             if rejects >= REJECTS_TO_ABORT:
@@ -145,7 +152,10 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, clock=ti
             continue
         rejects = 0
         results[cid] = result
-    return {**info, 'results': results, 'aborted': aborted}
+        if want_res and result == 'up' and budget_s - (clock() - started) > MEASURE_RESERVE_S:
+            wh = measurer(url)
+            res[cid] = list(wh) if wh else None
+    return {**info, 'results': results, 'res': {} if aborted else res, 'aborted': aborted}
 
 
 def authorized(header, secret):
