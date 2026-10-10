@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.29.1
+
+- Categorías y Perfil pasan a ser páginas enteras, como la Guía: la barra de abajo queda siempre a mano para ir de una a otra (marca dónde estás) y ya no hay cruz para cerrarlas. Lo que se abre desde ellas (una categoría, la ayuda, cambiar de cuenta) sigue siendo una hoja encima. En el escritorio, Esc vuelve a Canales.
+- Tirar para refrescar anda solo en la lista de Canales: en la Guía y en las páginas ya no se dispara al desplazarse hacia arriba.
+- Refrescar ya no vacía la lista ni la lleva arriba de todo mientras vuelve a bajar los datos: queda como está con el ícono girando. En el iPhone, ese salto en medio del gesto podía dejar la app sin responder a los toques ni a la barra de abajo.
+
 ## 1.29.0
 
 - Guía: arriba se elige cómo verla, **Grilla · Próximos**. Próximos es una lista de lo que empieza en las próximas 3 horas en todos los canales, ordenada por hora: «Recién empezados, todavía llegás» (los que empezaron hace 15 minutos o menos) y «Lo que viene», con «Empieza ya», «Empieza en 14 min» o «Empezó hace 7 min» y el ↻ cuando vuelve a empezar. El mismo programa a la misma hora en varios canales va en una sola fila («y 2 más»). Tocar una fila abre la hoja del programa.
