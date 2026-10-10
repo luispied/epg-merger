@@ -1247,15 +1247,18 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-plan-alt:hover b { color: var(--accent); text-decoration: underline; }
 .vw-foot { margin: 28px 4px 0; text-align: center; color: var(--muted); font-size: 14px; }
 .vw-foot .link-btn { display: block; margin: 6px auto 0; font-size: 14px; }
-.vw-conn { margin: 4px 0 6px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
-.vw-conn-head { display: flex; align-items: center; gap: 14px; }
-.vw-conn-n { flex: none; min-width: 56px; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
-.vw-conn-n small { font-size: 17px; font-weight: 600; color: var(--muted); }
+.vw-conn { margin: 4px 0 6px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.vw-conn-head { width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+@media (hover: hover) { .vw-conn-head:hover { background: var(--surface-2); } }
+.vw-conn-n { flex: none; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
 .vw-conn-n.warn { color: var(--red); }
-.vw-conn-t { display: flex; flex-direction: column; gap: 2px; font-size: 17px; }
-.vw-conn-t small { font-size: 15px; color: var(--muted); }
-.vw-conn-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
-.vw-conn-row .conn-dot { margin: 0 22px 0 6px; }
+.vw-conn-t { flex: 1; font-size: 17px; color: var(--muted); }
+.vw-conn-chev { align-self: center; color: var(--muted); }
+.vw-conn.open .vw-conn-chev { transform: rotate(180deg); }
+.vw-conn-list { padding: 0 16px 6px; }
+.vw-conn-note { margin: 0; padding: 12px 0; border-top: 1px solid var(--hairline); font-size: 16px; color: var(--muted); }
+.vw-conn-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.vw-conn-row .conn-dot { margin: 0 4px; }
 .vw-conn-who { display: flex; flex-direction: column; gap: 2px; font-size: 17px; min-width: 0; }
 .vw-conn-who small { font-size: 15px; color: var(--muted); }
 .vw-report { margin-top: 20px; }
@@ -1266,3 +1269,36 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .rp-text { display: flex; flex-direction: column; gap: 2px; }
 .rp-text small { color: var(--muted); font-size: 13.5px; }
 .rp-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* «Tu código»: el de editar y los de modo ver, cada uno con su botón de copiar */
+.cd-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.cd-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cd-text small { color: var(--muted); font-size: 13.5px; }
+.cd-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
+.cd-text code.muted { color: var(--muted); font-family: inherit; }
+.cd-row .btn { flex: none; }
+
+/* Guía: varias categorías (la raya entre las elegidas y las rápidas, «Más» y su hoja) y el aviso de Tu noche */
+.gd-chips-sep { flex: none; width: 1px; height: 22px; align-self: center; background: var(--hairline); }
+.gd-more-chip { color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.gc-sheet .search-field { margin: 4px 0 8px; }
+.gc-list { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; }
+.gc-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-top: 1px solid var(--hairline); cursor: pointer; }
+.gc-row:first-child { border-top: 0; }
+.gc-row input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+.gc-name { flex: 1; min-width: 0; font-size: 16px; }
+.gc-count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.gc-foot { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; margin-top: 12px; background: linear-gradient(to top, var(--surface) 78%, transparent); }
+.gc-foot .btn { min-height: 48px; }
+.gc-foot .btn-primary { flex: 1; }
+.gd-plan-gap { margin: 12px 0 0 62px; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 0 0 1.5px var(--hairline); display: flex; flex-direction: column; gap: 8px; }
+.gd-plan-gap .t { margin: 0; font-weight: 600; }
+.gd-plan-gap .d { margin: 0; color: var(--muted); font-size: 14px; }
+.gd-plan-gap .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* Botones del encabezado de las hojas (cerrar, volver, anterior, siguiente): con fondo propio, para que se vean como
+   botones también en el celular, donde no hay :hover. Ver planes/botones-de-las-hojas.md. */
+dialog .title-row .icon-btn { background: var(--fill); color: var(--text); }
+dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); }
+dialog .title-row .icon-btn:active { background: color-mix(in srgb, var(--fill) 70%, var(--text)); transform: scale(.94); }
+dialog .title-row .icon-btn:disabled { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 1; cursor: default; transform: none; }
