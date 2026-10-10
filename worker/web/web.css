@@ -528,6 +528,9 @@ body { overflow-anchor: none; }
 .cards.rows .row-sub .guide-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cards.rows .row-sub .cc { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px; }
 .cards.rows .row-sub .guide.none { color: var(--muted); }
+/* Resolución real del canal (la mide el relay): SD, HD, FHD, 4K */
+.qtag { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; line-height: 16px; color: var(--text); background: color-mix(in srgb, var(--text) 12%, var(--surface)); border-radius: 4px; padding: 0 5px; font-variant-numeric: tabular-nums; }
+.qtag.k4 { background: var(--accent-soft); color: var(--on-accent-soft); }
 .cards.rows .row-sub .guide.sug { flex: 1; }
 .cards.rows .row-sub .guide.sug b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
 .cards.rows .row-sub .mark, .cards.rows .row-sub .where { flex: none; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
@@ -1076,6 +1079,7 @@ body.guide-open { overflow: hidden; }
 .gd-ch { position: sticky; left: 0; z-index: 3; flex: none; width: var(--chw); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; background: var(--surface); border: 0; border-right: 1px solid var(--hairline); color: inherit; font: inherit; cursor: pointer; }
 .gd-ch .logo { width: 36px; height: 30px; border-radius: 8px; flex: none; }
 .gd-ch .nm { font-size: 10.5px; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-ch .qtag { position: absolute; top: 3px; right: 3px; font-size: 9px; line-height: 13px; padding: 0 3px; }
 .gd-track { position: relative; flex: none; }
 .gd-cell { position: absolute; top: 3px; bottom: 3px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline); padding: 6px 8px; overflow: hidden; display: flex; align-items: center; text-align: left; color: inherit; font: inherit; cursor: pointer; }
 .gd-cell:hover { background: var(--surface-2); }
@@ -1098,6 +1102,7 @@ body.guide-open { overflow: hidden; }
   .gd-ch { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 12px; }
   .gd-ch .logo { width: 44px; height: 34px; }
   .gd-ch .nm { font-size: 13px; color: var(--text); font-weight: 500; }
+  .gd-ch .qtag { position: static; margin-left: auto; font-size: 10.5px; line-height: 16px; padding: 0 4px; }
 }
 /* Hoja del programa */
 .gd-sh-ch { display: flex; align-items: center; gap: 12px; min-width: 0; }

@@ -36,6 +36,8 @@ test.beforeEach(async ({ page }) => {
     const path = new URL(r.request().url()).pathname;
     if (path === '/api/cfg/demo' && r.request().method() === 'GET') return r.fulfill({ json: cfg });
     if (path === '/api/guide/index.json') return r.fulfill({ json: guide });
+    // La resolución medida por el relay: el Canal Uno en 1080; el Dos todavía sin medir.
+    if (path === '/api/cfg/demo/health') return r.fulfill({ json: { channels: {}, res: { 1: { t: '2026-10-10T04:00:00Z', w: 1920, h: 1080 } } } });
     const m = path.match(/^\/api\/ui\/schedule\/hour\/(\d{10})\.json$/);
     if (m) {
       for (const h of [H, H + 3600]) if (hourKey(h) === m[1]) return r.fulfill({ json: hour(h) });
@@ -51,6 +53,16 @@ test.beforeEach(async ({ page }) => {
   });
   await page.goto('/');
   await expect(page.locator('#cards .card')).toHaveCount(2);
+});
+
+test('la resolución medida sale como etiqueta en Canales y en la Guía', async ({ page }) => {
+  await expect(page.locator('#cards .card').first().locator('.qtag')).toHaveText('FHD');
+  await expect(page.locator('#cards .qtag')).toHaveCount(1);
+  await page.locator('#tabGuide').click();
+  const tag = page.locator('.gd-ch .qtag');
+  await expect(tag).toHaveCount(1);
+  await expect(tag).toHaveText('FHD');
+  await expect(tag).toHaveAttribute('title', 'Resolución: 1920 × 1080');
 });
 
 test.afterEach(() => {
