@@ -108,3 +108,15 @@ test('Próximos: lo que viene y «Tengo tiempo»', async ({ page }) => {
   await page.getByRole('radio', { name: 'Grilla' }).click();
   await expect(page.locator('.gd-cell.live')).toHaveCount(1);
 });
+
+test('Tu mañana/tarde/noche: arma el plan con la programación de los canales', async ({ page }) => {
+  await page.locator('#tabGuide').click();
+  const tab = page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-checked', 'true');
+  const slot = page.locator('.gd-plan-slot', { hasText: 'Película de la noche' });
+  await expect(slot).toBeVisible();
+  await expect(slot.locator('.remind-btn')).toBeVisible();
+  await slot.locator('.gd-plan-card').click();
+  await expect(page.locator('dialog.gd-sheet')).toContainText('Película de la noche');
+});
