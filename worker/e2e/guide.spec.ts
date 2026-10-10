@@ -82,3 +82,29 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   await page.locator('#tabHome').click();
   await expect(page.locator('#guide')).toBeHidden();
 });
+
+test('Próximos: lo que viene y «Tengo tiempo»', async ({ page }) => {
+  await page.locator('#tabGuide').click();
+  await page.getByRole('radio', { name: 'Próximos' }).click();
+  await expect(page.getByRole('radio', { name: 'Próximos' })).toHaveAttribute('aria-checked', 'true');
+  const row = page.locator('.gd-up-row', { hasText: 'Película de la noche' });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('Canal Uno');
+  const budget = async (m: number) => page.locator('.gd-budget input').evaluate((el, v) => {
+    (el as HTMLInputElement).value = String(v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, m);
+  await page.locator('.gd-time-chip').click();
+  await budget(20);
+  await expect(page.locator('.gd-up-row:not(.dim)')).toHaveCount(0); // la película no entra en 20 min
+  await budget(360);
+  await expect(row).toContainText('Entra');
+  await expect(page.locator('.gd-time-chip')).toContainText('Tengo 6 h');
+  // La fila abre la hoja del programa.
+  await row.click();
+  await expect(page.locator('dialog.gd-sheet')).toContainText('Película de la noche');
+  await page.keyboard.press('Escape');
+  // Vuelve a la grilla y la elección queda guardada.
+  await page.getByRole('radio', { name: 'Grilla' }).click();
+  await expect(page.locator('.gd-cell.live')).toHaveCount(1);
+});
