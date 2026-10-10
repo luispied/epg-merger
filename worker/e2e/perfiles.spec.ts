@@ -106,7 +106,7 @@ test('compartir para ver: crear el link, copiarlo y quitar el acceso', async ({ 
   await openPerfiles(page);
   await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Chicos' }).click();
   await expect(page.locator('#linksBody .sub-title')).toContainText(['Para mirar']);
-  await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).scrollIntoViewIfNeeded();
+  await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).evaluate((b) => b.scrollIntoView({ block: 'center' }));
   await page.screenshot({ path: `test-results/ver-${info.project.name}-perfil.png` });
   await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).click();
   await expect(page.locator('#linksBody')).toContainText('No puede cambiar nada');
