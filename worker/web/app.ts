@@ -2679,7 +2679,7 @@ const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
 interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; lastPlay?: { t: string; ch: string }; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {
@@ -2942,7 +2942,7 @@ function renderMoveDevice(dev: Device) {
 // proveedor y para el hogar. Los formularios son subpáginas: «‹» vuelve a la página de donde salieron. Ningún paso cambia
 // la dirección de un link.
 type LinksView = { v: 'list' } | { v: 'account'; account: string; cfgId?: string } | { v: 'profile'; id: string; cfgId?: string }
-  | { v: 'provider'; cfgId: string } | { v: 'hogar' };
+  | { v: 'provider'; cfgId: string } | { v: 'hogar' } | { v: 'connections'; account: string };
 let linksView: LinksView = { v: 'list' };
 let linksSub = false;
 const isCurrent = (cfgId?: string) => !cfgId || cfgId === state.local?.cfgId;
@@ -2979,15 +2979,18 @@ function accountLine(a: AccountView, acc?: Account): { text: string; tone: strin
   return { text: parts.join(' · ') || 'Cuenta del proveedor', tone: days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : '' };
 }
 const profileSub = (p: ProfileView) => `${filterSummary(p.filter)} · ${p.devices.length ? plural(p.devices.length, 'link', 'links') : 'sin links'}`;
-function accountStatsHtml(acc: Account | undefined, on: boolean): string {
+/** `links`: la de conexiones se toca para ver qué links están conectados. */
+function accountStatsHtml(acc: Account | undefined, on: boolean, links = false): string {
   const days = daysLeft(acc);
   const down = on ? state.channels.filter((c) => matchesFilter(c, 'caidos')).length : null;
   const stat = (value: string, label: string, cls = '') => `<div class="pc-stat"><b class="${cls}">${esc(value)}</b><small>${esc(label)}</small></div>`;
+  const conns = stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${connectionsInUse(acc)} de ${acc.maxConnections}`,
+    acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
+    acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : '');
   return [
     stat(days === null ? '—' : days < 0 ? 'Vencida' : plural(days, 'día', 'días'), 'Suscripción', days === null ? '' : days <= 3 ? 'bad' : days <= 7 ? 'warn' : 'ok'),
-    stat(!acc?.maxConnections ? '—' : acc.activeConnections === undefined ? `Hasta ${acc.maxConnections}` : `${connectionsInUse(acc)} de ${acc.maxConnections}`,
-      acc?.activeConnections === undefined ? 'Conexiones' : 'Conexiones en uso',
-      acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''),
+    links ? conns.replace('<div class="pc-stat">', '<button type="button" class="pc-stat pc-link" data-connections aria-label="Conexiones en uso: ver qué links están conectados">')
+      .replace(/<\/small><\/div>$/, `</small>${icon('chevron-right', 'sm')}</button>`) : conns,
     on ? stat(String(down), 'Caídos', down ? 'bad' : '') : '',
   ].join('');
 }
@@ -3056,7 +3059,7 @@ function renderAccountPage(body: HTMLElement, account: string, cfgId?: string): 
       <strong>${esc(a.name)}</strong>
       <small>Cuenta de ${esc(other ? other.name : providerName(h, state.local!.cfgId))}${on ? ' · <span class="pc-badge">En uso</span>' : ''}</small>
     </div>
-    <div class="pc-stats">${accountStatsHtml(acc, on)}</div>
+    <div class="pc-stats">${accountStatsHtml(acc, on, !other && a.devices.length > 0)}</div>
     ${on ? '' : `<button type="button" class="btn btn-primary btn-block" data-use>Usar esta cuenta</button>`}
     ${other ? '<p class="help">Es de otro proveedor: al usarla se abre su grilla. Para cambiar sus perfiles o sus datos, usala primero.</p>' : ''}
     ${on ? `<div class="menu"><div class="menu-row" id="downRow" role="button" tabindex="0" aria-label="Canales caídos: ver la lista">
@@ -3083,6 +3086,7 @@ function renderAccountPage(body: HTMLElement, account: string, cfgId?: string): 
       await setActiveAccount(a.account);
       return void renderLinks();
     }
+    if (t.closest('[data-connections]')) return openLinksView({ v: 'connections', account: a.account });
     const prof = t.closest<HTMLElement>('[data-pid]');
     if (prof) return openLinksView({ v: 'profile', id: prof.dataset.pid!, ...(other ? { cfgId: other.cfgId } : {}) });
     if (t.closest('[data-add-profile]')) return renderAddProfile(a.account);
@@ -3091,6 +3095,49 @@ function renderAccountPage(body: HTMLElement, account: string, cfgId?: string): 
     if (act === 'creds') return renderCreds(a);
     if (act === 'delete') return renderDeleteAccount(a);
   };
+  return true;
+}
+
+/** Un link «está mirando» si abrió un canal hace menos de esto. El Worker solo ve cuándo empieza cada canal, no cuándo
+ *  se deja, así que es una estimación. */
+const RECENT_PLAY_MS = 3 * 3600 * 1000;
+const sinceText = (iso: string) => {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : min < 1440 ? `hace ${Math.round(min / 60)} h` : `hace ${Math.round(min / 1440)} d`;
+};
+
+/** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; Grilla ve cuándo cada
+ *  link abre un canal (sus streams pasan por el Worker) y pone arriba los que abrieron uno hace poco. */
+function renderConnectionsPage(body: HTMLElement, account: string): boolean {
+  const a = myAccounts().find((x) => x.account === account);
+  if (!a) return false;
+  const acc = accountData(a);
+  const inUse = connectionsInUse(acc);
+  const chName = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
+  const recent = (d: Device) => d.active && !!d.lastPlay && Date.now() - Date.parse(d.lastPlay.t) < RECENT_PLAY_MS;
+  const byPlay = (x: Device, y: Device) => (y.lastPlay?.t ?? '').localeCompare(x.lastPlay?.t ?? '');
+  const watching = a.devices.filter(recent).sort(byPlay);
+  const rest = a.devices.filter((d) => !recent(d)).sort(byPlay);
+  const row = (d: Device) => {
+    const prof = a.profiles.find((p) => p.id === d.profile)?.name;
+    const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Todavía no abrió ningún canal';
+    const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
+    return `<div class="device conn-row${d.active ? '' : ' off'}"><span class="conn-dot${recent(d) ? ' on' : ''}" aria-hidden="true"></span>
+      <div class="device-info"><strong>${esc(d.name)}${prof && a.profiles.length > 1 ? ` <span class="conn-prof">· ${esc(prof)}</span>` : ''}</strong><small>${esc(sub)}</small></div></div>`;
+  };
+  const list = (ds: Device[]) => `<section class="profile-card"><div class="device-list">${ds.map(row).join('')}</div></section>`;
+  const unseen = inUse === undefined ? 0 : inUse - watching.length;
+  $('#linksTitle').textContent = 'Conexiones';
+  body.innerHTML = `
+    <div class="pc-stats">
+      <div class="pc-stat"><b class="${acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections ? 'warn' : ''}">${inUse === undefined ? '—' : esc(`${inUse}${acc?.maxConnections ? ` de ${acc.maxConnections}` : ''}`)}</b><small>En uso, según el proveedor</small></div>
+      <div class="pc-stat"><b class="${watching.length ? 'ok' : ''}">${watching.length}</b><small>${watching.length === 1 ? 'Link mirando' : 'Links mirando'}</small></div>
+    </div>
+    <h3 class="sub-title">Mirando ahora</h3>
+    ${watching.length ? list(watching) : '<p class="help">Ningún link de esta cuenta abrió un canal en las últimas 3 horas.</p>'}
+    ${unseen > 0 ? `<p class="help">${unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, o un canal que dejaron hace un momento y el proveedor todavía cuenta.</p>` : ''}
+    ${rest.length ? `<h3 class="sub-title">Los demás links</h3>${list(rest)}` : ''}
+    <p class="help">El proveedor dice cuántas conexiones hay, no cuáles. Grilla ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 3 horas después del último canal que abrió.${state.cfg?.directUrls ? ' Con los streams directos al proveedor, Grilla no ve los canales que se abren.' : ''}</p>`;
   return true;
 }
 
@@ -3608,6 +3655,7 @@ function drawLinksView(body: HTMLElement, strict = true): boolean {
     : v.v === 'profile' ? renderProfilePage(body, v.id, v.cfgId)
     : v.v === 'provider' ? renderProviderPage(body, v.cfgId)
     : v.v === 'hogar' ? (renderHogarPage(body), true)
+    : v.v === 'connections' ? renderConnectionsPage(body, v.account)
     : v.v === 'list';
   if (!ok && strict) return false;
   if (!ok || v.v === 'list') {
@@ -4677,7 +4725,7 @@ function setupEditor() {
   };
   $('#profileNotice').onclick = () => openProfiles({ v: 'account', account: activeAccount() });
   $('#linksBack').onclick = () => {
-    if (!linksSub) linksView = { v: 'list' };
+    if (!linksSub) linksView = linksView.v === 'connections' ? { v: 'account', account: linksView.account } : { v: 'list' };
     void renderLinks();
   };
   $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');

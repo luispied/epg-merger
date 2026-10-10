@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.26.0
+
+- En la página de una cuenta, tocar «Conexiones en uso» muestra qué links están conectados: arriba los que están mirando (con el canal y hace cuánto lo abrieron) y abajo los demás, con su último canal. El proveedor solo dice cuántas conexiones hay; Grilla ve cuándo cada link abre un canal, y avisa si hay conexiones que no son de sus links (otra app con la misma cuenta).
+
 ## 1.25.8
 
 - La barra de abajo pierde la pestaña **Revisar**, que casi siempre decía que no había nada. Los canales dudosos se siguen revisando de a uno desde la tarjeta de arriba de la grilla (aparece sola cuando hay alguno) o con el filtro «A revisar». La ayuda lo explica así.
