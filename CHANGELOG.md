@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.31.1
+
+- Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.
+- Buscar también mira la descripción de lo que está dando cada canal, y encuentra aunque las palabras estén en otro orden («inter parma»). Las descripciones van en un archivo aparte por hora (`ui/schedule/hour/<hora>-d.json`) que se baja recién al buscar.
+- En la vista detallada de Canales, el programa en el aire ocupa hasta dos líneas antes de cortarse.
+
 ## 1.31.0
 
 - Resolución real de cada canal: una etiqueta SD, HD, FHD o 4K en la lista de Canales y en la Guía (con el mouse encima se ve el ancho × alto). No sale del nombre del canal: se mide el video que manda el proveedor.
