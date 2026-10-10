@@ -7,12 +7,16 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.30.0
+## 1.31.0
 
 - Modo «solo ver»: en la página de un perfil, **Compartir para ver** crea un link (`/ver#código`) para que otra persona (por ejemplo, alguien a quien le cuesta usar apps) mire la grilla y la Guía de ese perfil sin poder cambiar nada. Se puede copiar, compartir por WhatsApp o mail, escanear con QR, hacer uno nuevo o quitar el acceso. Los links de reproducción no cambian.
 - La página para ver (`web/ver.html`, `web/ver.tsx`) es aparte del editor y no guarda ninguna clave: letra grande, «Canales» con lo que dan ahora, cuánto queda y lo que sigue, búsqueda por canal o programa, la hoja de cada canal con la descripción y lo que viene, y la **Guía** (Grilla y Próximos) sin avisos ni «Cambiar la guía». Sin manifest, así «Agregar a inicio» guarda la dirección con su código.
 - Worker: `POST`/`DELETE /api/cfg/<cfgId>/profiles/<id>/view` (con la clave de edición) crean o quitan el link del perfil, guardado en `view/<código>.json`; `GET /api/view/<código>` devuelve el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker, sin credenciales ni links), con la lista guardada y en el orden de la playlist. Borrar el perfil o la configuración borra su link para ver. La playlist sale de la misma función (`playlistRows`), sin cambios.
 - El service worker guarda la página para ver aparte, así no reemplaza al editor sin conexión.
+
+## 1.30.0
+
+- Guía: tercer modo, **Tu mañana / Tu tarde / Tu noche / Tu madrugada** (el nombre cambia con la hora; si queda menos de hora y media, arma la parte que sigue). Encadena programas de los canales sin que se pisen, saltando de canal, hasta el final de ese rato: primero lo que es en vivo o un partido, después las películas largas, y afuera el relleno, los noticieros y las repeticiones. Cada paso muestra una alternativa («o … en …»); tocarla rearma el plan desde ahí. «Cambio a … a las …» marca los saltos de canal y la campana de cada programa pide el aviso. Sigue el filtro de categorías de arriba.
 
 ## 1.29.0
 

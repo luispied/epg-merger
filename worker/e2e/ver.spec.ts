@@ -91,6 +91,12 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await expect(prog).toContainText('En el aire');
   await expect(prog.locator('.gd-sh-fix')).toHaveCount(0);
   await expect(prog.locator('.remind-btn, .gd-remind')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // Próximos y «Tu noche» también, sin avisos.
+  await page.getByRole('radio', { name: 'Próximos' }).click();
+  await expect(page.locator('#guide')).toContainText('Pronóstico del tiempo');
+  await page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ }).click();
+  await expect(page.locator('#guide .remind-btn, #guide .gd-remind')).toHaveCount(0);
 });
 
 test('un link quitado o sin código dice qué hacer', async ({ page }, info) => {
