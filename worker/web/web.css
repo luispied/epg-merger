@@ -1269,3 +1269,11 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .rp-text { display: flex; flex-direction: column; gap: 2px; }
 .rp-text small { color: var(--muted); font-size: 13.5px; }
 .rp-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* «Tu código»: el de editar y los de modo ver, cada uno con su botón de copiar */
+.cd-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.cd-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cd-text small { color: var(--muted); font-size: 13.5px; }
+.cd-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
+.cd-text code.muted { color: var(--muted); font-family: inherit; }
+.cd-row .btn { flex: none; }
