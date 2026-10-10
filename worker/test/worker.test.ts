@@ -9,6 +9,7 @@ import { handle, rateLimited } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
+import { scheduleFile } from '../src/again.ts';
 import { mediaKey, resetMediaMaps } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, MemoryBucket, mockXtream, STREAMS } from './helpers.ts';
@@ -1563,4 +1564,46 @@ test('versión nueva: la primera vez se anota, avisa solo cuando sube la versió
   assert.equal(isFeatureBump('1.34.0', '1.34.1'), false);
   assert.equal(isFeatureBump('1.9.4', '2.0.0'), true);
   assert.equal(isFeatureBump('1.34.0', '1.33.9'), false);
+});
+
+test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» y «Más como esto»; se borran con la configuración', async () => {
+  const t = await setup();
+  const code = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string }> };
+  await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache);
+  await t.settle();
+  // Lo que pasa ahora en Telefe (la guía por canal que deja la corrida diaria).
+  const now = Math.floor(Date.now() / 1000);
+  await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera']]));
+  const habits = async () => (await handle(req(`/api/cfg/${t.cfgId}/habits`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
+    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string }>; no: Record<string, string>; more: Record<string, string> }>;
+  assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {} });
+  await handle(new Request(`${BASE}/s/${code}/10.ts`), t.env, t.ctx, t.cache);
+  await t.settle();
+  // Un canal sin guía (ESPN) no cuenta.
+  await handle(new Request(`${BASE}/s/${code}/11.ts`), t.env, t.ctx, t.cache);
+  await t.settle();
+  // Volver al mismo programa no lo cuenta dos veces; el canal sí.
+  await handle(new Request(`${BASE}/s/${code}/10.ts`), t.env, t.ctx, t.cache);
+  await t.settle();
+  const h = await habits();
+  assert.deepEqual(Object.keys(h.ch), ['Telefe.ar']);
+  assert.equal(h.ch['Telefe.ar'].n, 2);
+  assert.equal(h.ch['Telefe.ar'].h[new Date().getUTCHours()], 2);
+  assert.deepEqual(h.t['fútbol de primera'], { ...h.t['fútbol de primera'], n: 1, title: 'Fútbol de Primera' });
+  // Los pedidos: uno saca al otro, y «clear» los deshace.
+  const fb = (kind: string, title = 'Fútbol de Primera') => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind }) }), t.env, t.ctx, t.cache);
+  assert.equal((await fb('no')).status, 200);
+  assert.ok((await habits()).no['fútbol de primera']);
+  await fb('more');
+  assert.deepEqual(Object.keys((await habits()).no), []);
+  assert.ok((await habits()).more['fútbol de primera']);
+  await fb('clear');
+  assert.deepEqual((await habits()).more, {});
+  assert.equal((await fb('nada')).status, 400);
+  // Sin la clave, nada.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/habits`), t.env, t.ctx, t.cache)).status, 401);
+  assert.ok(bucket.data.has(`habits/${t.cfgId}.json`));
+  await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
+  assert.ok(!bucket.data.has(`habits/${t.cfgId}.json`));
 });

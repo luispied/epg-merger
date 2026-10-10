@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './icon.tsx';
+import { toast } from './toast.tsx';
 
 export interface GuideChannel {
   i: number; // índice en la lista de canales de app.ts
@@ -26,8 +27,20 @@ export interface GuideHost {
   schedule(epg: string): Promise<Entry[] | null>;
   reminders(): Promise<Set<string> | null>;
   toggleReminder(btn: HTMLElement, channel: string): void;
+  /** Lo que se suele mirar (habits.ts del Worker), para «Tu noche». */
+  habits?(): Promise<Habits | null>;
+  /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
+  feedback?(title: string, kind: Feedback): Promise<Habits | null>;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
   viewer?: boolean;
+}
+export type Feedback = 'no' | 'more' | 'clear';
+/** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
+export interface Habits {
+  ch: Record<string, { n: number; h: number[] }>;
+  t: Record<string, { n: number }>;
+  no: Record<string, string>;
+  more: Record<string, string>;
 }
 
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
@@ -167,7 +180,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const [ver, setVer] = useState(0);
   const [open, setOpen] = useState<{ ch: GuideChannel; p: Prog } | null>(null);
   const [again, setAgain] = useState<AgainMap>(() => new Map());
+  const [habits, setHabits] = useState<Habits | null>(null);
   const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { host.habits?.().then(setHabits).catch(() => {}); }, []);
   useEffect(() => { loadAgain(channels.flatMap((c) => (c.epg ? [c.epg] : []))).then(setAgain); }, [channels]);
 
   const cats = useMemo(() => [...new Set(channels.map((c) => c.cat))], [channels]);
@@ -352,7 +367,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           budget={budgetOn ? budget : null} setBudget={(m) => { setBudget(m); pref.set('budget', String(m)); }} />
       )}
       {mode === 'plan' && channels.length > 0 && (
-        <Plan channels={shown} now={now} host={host} open={(ch, p) => setOpen({ ch, p })} filter={sel}
+        <Plan channels={shown} now={now} host={host} habits={habits} open={(ch, p) => setOpen({ ch, p })} filter={sel}
           suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort(byCount)[0]}
           add={(c) => setSel([...sel, c])} pick={() => setPicking(true)} />
       )}
@@ -393,7 +408,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {now >= t0 && now < t1 && <div class="gd-nowline" style={{ left: `${CHW + x(now)}px`, top: `${RULER}px`, height: `${rows.height}px` }} />}
         </div>
       </div>
-      {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} channels={channels}
+      {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} channels={channels} habits={habits} setHabits={setHabits}
         again={open.p.s <= now && now < open.p.e ? again.get(`${open.ch.epg}|${open.p.s}`) ?? [] : []} close={() => setOpen(null)} />}
     </div>
   );
@@ -533,7 +548,38 @@ const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
 const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
 const MOVIE_CAT = /pel[ií]cul|cine|movie|film/i;
 
-interface Slot { ch: GuideChannel; p: Prog; alt?: { ch: GuideChannel; p: Prog } }
+interface Slot { ch: GuideChannel; p: Prog; alt?: { ch: GuideChannel; p: Prog }; why?: string }
+type Cand = { ch: GuideChannel; p: Prog };
+/** Lo que suma un programa por los gustos de la casa, y por qué; null = «No me interesa». */
+export type Affinity = (c: Cand) => { bonus: number; why?: string } | null;
+
+/** Como el Worker (again.ts): el mismo programa aunque cambien mayúsculas o espacios. */
+export const normTitle = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** Afinidad por hábitos: el programa que se mira seguido, el canal a esa hora (±1 h) y en general, la campana y lo
+ *  pedido. Pesa como mucho lo que un partido en vivo: lo de siempre sube, pero no tapa todo lo demás. */
+export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affinity {
+  return ({ ch, p }) => {
+    const k = normTitle(p.t);
+    if (h?.no[k]) return null;
+    const reasons: [number, string][] = [];
+    let bonus = 0;
+    const add = (v: number, why: string, min = 0) => { bonus += v; if (v > min) reasons.push([v, why]); };
+    if (h?.more[k]) add(3, 'Pediste más como esto');
+    if (marks?.has(`${ch.epg}|${p.s}`)) add(3, 'Le pusiste la campana');
+    const tn = h?.t[k]?.n ?? 0;
+    if (tn) add(Math.min(4, 1.5 * Math.log2(1 + tn)), tn >= 3 ? 'Lo mirás seguido' : 'Ya lo miraste', 1);
+    const c = ch.epg ? h?.ch[ch.epg] : undefined;
+    if (c) {
+      const hr = new Date(p.s * 1000).getUTCHours();
+      const at = [-1, 0, 1].reduce((n, d) => n + (c.h[(hr + d + 24) % 24] ?? 0), 0);
+      add(Math.min(3, 0.75 * at), 'Tu canal a esta hora', 1.4);
+      add(Math.min(1.5, 0.5 * Math.log2(1 + c.n)), 'De tus canales', 0.9);
+    }
+    reasons.sort((a, b) => b[0] - a[0]);
+    return { bonus, why: reasons[0]?.[1] };
+  };
+}
 
 /** Puntaje de un programa para el plan (más es mejor); null si no va. */
 export function planScore(t: string, len: number, cat: string): number | null {
@@ -548,10 +594,11 @@ export function planScore(t: string, len: number, cat: string): number | null {
 
 /** Encadena programas desde `now` hasta `end`: en cada paso, el mejor de los que empiezan cerca de donde
  *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
-export function buildPlan(cands: { ch: GuideChannel; p: Prog }[], now: number, end: number, forced: Map<number, { ch: GuideChannel; p: Prog }>): Slot[] {
+export function buildPlan(cands: Cand[], now: number, end: number, forced: Map<number, Cand>, aff?: Affinity): Slot[] {
   const scored = cands.flatMap((c) => {
     const sc = planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
-    return sc === null ? [] : [{ ...c, sc }];
+    const a = aff ? aff(c) : { bonus: 0 };
+    return sc === null || !a ? [] : [{ ...c, sc: sc + a.bonus, why: a.why }];
   });
   const plan: Slot[] = [];
   const used = new Set<string>();
@@ -565,7 +612,8 @@ export function buildPlan(cands: { ch: GuideChannel; p: Prog }[], now: number, e
     const pick = forced.get(plan.length) ?? opts[0];
     if (!pick) { t += 15 * 60; continue; }
     const alt = opts.find((o) => o.ch.epg !== pick.ch.epg && o.p.t !== pick.p.t);
-    plan.push({ ch: pick.ch, p: pick.p, alt: alt && { ch: alt.ch, p: alt.p } });
+    const why: string | undefined = 'why' in pick ? (pick.why as string | undefined) : aff?.(pick)?.why;
+    plan.push({ ch: pick.ch, p: pick.p, alt: alt && { ch: alt.ch, p: alt.p }, ...(why ? { why } : {}) });
     used.add(pick.p.t);
     t = pick.p.e;
   }
@@ -574,8 +622,8 @@ export function buildPlan(cands: { ch: GuideChannel; p: Prog }[], now: number, e
 
 const MAX_PLAN_CHANNELS = 150;
 
-function Plan({ channels, now, host, open, filter, suggest, add, pick }: {
-  channels: GuideChannel[]; now: number; host: GuideHost; open: (ch: GuideChannel, p: Prog) => void;
+function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }: {
+  channels: GuideChannel[]; now: number; host: GuideHost; habits: Habits | null; open: (ch: GuideChannel, p: Prog) => void;
   /** Las categorías elegidas (vacío = todas), la que conviene sumar si no alcanza, sumarla y abrir la hoja. */
   filter: string[]; suggest?: string; add: (c: string) => void; pick: () => void;
 }) {
@@ -601,8 +649,9 @@ function Plan({ channels, now, host, open, filter, suggest, add, pick }: {
         if (e > now && s < part.end) cands.push({ ch, p: { s, e, t } });
       }
     }
-    return buildPlan(cands, now, part.end, forced);
-  }, [scheds, forced, Math.floor(now / 300), part.end]);
+    return buildPlan(cands, now, part.end, forced, habitAffinity(habits, marks));
+  }, [scheds, forced, Math.floor(now / 300), part.end, habits, marks]);
+  const learned = !!habits && Object.keys(habits.ch).length > 0;
   // Con categorías elegidas, si el plan termina más de media hora antes del final del rato, se dice y se ofrece sumar.
   const lastEnd = plan.reduce((m, sl) => Math.max(m, sl.p.e), now);
   const short = filter.length > 0 && loaded && part.end - lastEnd > 30 * 60;
@@ -621,7 +670,7 @@ function Plan({ channels, now, host, open, filter, suggest, add, pick }: {
 
   return (
     <div class="gd-up gd-plan">
-      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de {filter.length ? <b>{catsLabel(filter)}</b> : 'tus canales'}, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
+      <p class="gd-plan-lead">Armé tu {part.name} con {learned ? 'lo que solés mirar y ' : ''}lo mejor de {filter.length ? <b>{catsLabel(filter)}</b> : 'tus canales'}, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata o decir si te interesa, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
       {!loaded ? <p class="gd-up-empty">Armando tu {part.name}…</p> : !plan.length
         ? !filter.length && <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
         : (
@@ -645,6 +694,7 @@ function Plan({ channels, now, host, open, filter, suggest, add, pick }: {
                     </button>
                     {!live && bell(sl.ch, sl.p)}
                   </div>
+                  {sl.why && <p class="gd-plan-why"><Icon name="sparkles" class="sm" />{sl.why}</p>}
                   {sl.alt && (
                     <button type="button" class="gd-plan-alt" onClick={() => setForced(new Map([...forced].filter(([k]) => k < i)).set(i, sl.alt!))}>
                       o <b>{sl.alt.p.t}</b> en {sl.alt.ch.name} ({hm(sl.alt.p.s)})
@@ -720,8 +770,9 @@ function CatSheet({ cats, counts, sel, toggle, clear, close }: {
   );
 }
 
-function ProgramSheet({ ch, p, now, host, channels, again, close }: {
-  ch: GuideChannel; p: Prog; now: number; host: GuideHost; channels: GuideChannel[]; again: Airing[]; close: () => void;
+function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, close }: {
+  ch: GuideChannel; p: Prog; now: number; host: GuideHost; channels: GuideChannel[]; habits: Habits | null;
+  setHabits: (h: Habits) => void; again: Airing[]; close: () => void;
 }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [entries, setEntries] = useState<Entry[] | null | undefined>(undefined);
@@ -778,6 +829,7 @@ function ProgramSheet({ ch, p, now, host, channels, again, close }: {
           </section>
         )}
         {!live && p.s > now && ch.epg && !host.viewer && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
+        {host.feedback && <Taste title={p.t} host={host} habits={habits} setHabits={setHabits} />}
         {next.length > 0 && (
           <div class="gd-sh-next">
             <h3>Después</h3>
@@ -791,6 +843,37 @@ function ProgramSheet({ ch, p, now, host, channels, again, close }: {
         </button>}
       </div>
     </dialog>
+  );
+}
+
+/** «Más como esto» / «No me interesa» de un programa: cambia Tu noche al momento, con Deshacer. */
+function Taste({ title, host, habits, setHabits }: { title: string; host: GuideHost; habits: Habits | null; setHabits: (h: Habits) => void }) {
+  const k = normTitle(title);
+  const cur: Feedback = habits?.no[k] ? 'no' : habits?.more[k] ? 'more' : 'clear';
+  const send = async (kind: Feedback, quiet = false) => {
+    const prev = cur;
+    try {
+      const h = await host.feedback!(title, kind);
+      if (h) setHabits(h);
+    } catch {
+      toast('No se pudo guardar. Probá de nuevo.', 'bad');
+      return;
+    }
+    if (quiet) return;
+    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu noche.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
+    toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
+  };
+  const btn = (kind: 'more' | 'no', icon: string, label: string) => (
+    <button type="button" class={`chip-btn gd-taste-btn${cur === kind ? ' on' : ''}`} aria-pressed={cur === kind}
+      onClick={() => send(cur === kind ? 'clear' : kind)}>
+      <Icon name={icon} class="sm" />{label}
+    </button>
+  );
+  return (
+    <div class="gd-taste" role="group" aria-label="Para Tu noche">
+      {btn('more', 'thumbs-up', 'Más como esto')}
+      {btn('no', 'thumbs-down', 'No me interesa')}
+    </div>
   );
 }
 

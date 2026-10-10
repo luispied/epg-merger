@@ -29,7 +29,8 @@ def delete_config(r2, prefix):
     cfg_id = matches[0]
     deleted = []
     for key in (f'cfg/{cfg_id}.json', f'list/{cfg_id}.json', f'epg/{cfg_id}.xml.gz', f'compare/{cfg_id}.json',
-                f'health/{cfg_id}.json', f'healthreq/{cfg_id}.json', f'relaylist/{cfg_id}.json'):
+                f'health/{cfg_id}.json', f'healthreq/{cfg_id}.json', f'relaylist/{cfg_id}.json',
+                f'habits/{cfg_id}.json'):
         if r2.get(key) is not None:
             r2.delete(key)
             deleted.append(key)
