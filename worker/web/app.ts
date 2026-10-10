@@ -13,6 +13,7 @@ import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
+import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
@@ -1548,7 +1549,7 @@ function editChannels(chs: Channel[], fn: (e: ChannelEdit, ch: Channel) => void,
       }
       scheduleSave();
       render();
-      refreshSheet?.();
+      refreshChannelSheet();
       toast('Cambio deshecho', 'info');
     });
   }
@@ -1689,11 +1690,6 @@ async function toggleDay(root: HTMLElement, id: string) {
   };
 }
 
-/** Canales entre los que se puede ir con ‹ › (la lista que se estaba viendo al abrir). */
-let sheetList: number[] = [];
-/** Modo «Revisar»: la hoja recorre los canales dudosos de a uno, con «Está bien» como acción principal. */
-let sheetReview = false;
-
 const REVIEW_KEY = (id: string) => `grilla_review_base_${id}`;
 const reviewList = () => state.channels.map((_, i) => i).filter((i) => matchesFilter(state.channels[i], 'revisar'));
 /** Cuántos quedan por revisar y cuántos había al empezar (la base solo crece; en 0 se reinicia). */
@@ -1721,220 +1717,7 @@ function renderReviewCard() {
   card.innerHTML = review + news;
 }
 
-function startReview() {
-  sheetList = reviewList();
-  if (!sheetList.length) return;
-  sheetReview = true;
-  openChannel(sheetList[0]);
-}
-let sheetMoreOpen = false;
-let refreshSheet: (() => void) | null = null;
-
-/** La hoja de un canal (o de un separador de sección): arriba el nombre (se edita tocándolo) con
- *  ‹ › para ir al anterior o siguiente y, debajo, de qué proveedor es y su categoría; después la
- *  guía asignada y las otras opciones; al final, "Más opciones". Todo se guarda solo. */
-function openChannel(i: number) {
-  const ch = state.channels[i];
-  const { edit, auto, epg, hidden, divider, suggestion } = info(ch);
-  const dlg = $('#channelDialog') as HTMLDialogElement;
-  const body = $('#channelBody');
-  const evSheet = eventOf(ch);
-  const defaultName = evSheet?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
-  const categoryLabel = groupLabel(groupOf(ch));
-  const shownDefault = divider ? sectionTitle(categoryLabel) : defaultName;
-  const catHidden = hidden && !edit.hidden;
-  if (!sheetList.includes(i)) {
-    sheetList = visibleChannels().filter((k) => !info(state.channels[k]).divider);
-    if (divider || !sheetList.includes(i)) sheetList = [i];
-  }
-  const pos = sheetList.indexOf(i);
-  const needsReview = !divider && matchesFilter(ch, 'revisar');
-  const nameInput = $<HTMLInputElement>('#channelName');
-  nameInput.value = edit.name || shownDefault;
-  nameInput.placeholder = shownDefault;
-  for (const [id, to] of [['#channelPrev', sheetList[pos - 1]], ['#channelNext', sheetList[pos + 1]]] as const) {
-    const b = $<HTMLButtonElement>(id);
-    b.disabled = to === undefined;
-    b.onclick = () => { if (to !== undefined) openChannel(to); };
-  }
-  // Con varias opciones de igual puntaje, primero las del país de la categoría (marcado en la etiqueta).
-  const home = flagToCountryCode(ch.category, state.rules!)?.toLowerCase() ?? null;
-  const isHome = (id: string) => !!home && state.index?.country.get(id)?.toLowerCase() === home;
-  const ranked = (auto?.ranked ?? []).filter((c) => c.channelId !== edit.epg)
-    .map((c, k) => ({ c, k })).sort((a, b) => (Math.abs(b.c.score - a.c.score) < 0.02 ? Number(isHome(b.c.channelId)) - Number(isHome(a.c.channelId)) : 0) || a.k - b.k)
-    .map(({ c }) => c);
-  // El resalte solo aporta cuando hay opciones de otros países mezcladas.
-  const mixedCountries = ranked.slice(0, 5).some((c) => !isHome(c.channelId));
-  const hiddenCats = new Set(state.cfg!.groups.hidden);
-  const categories = groups().filter((g) => g === groupOf(ch) || (!headersNow().has(g) && !hiddenCats.has(g)));
-  const catSelect = `<label class="cat-chip" title="Categoría">${icon('folder-input', 'sm')}<span class="cat-chip-text">${esc(categoryLabel)}</span>${icon('chevron-down', 'sm')}
-      <select class="move" aria-label="Categoría">${categories
-    .map((g) => `<option value="${esc(g)}"${g === groupOf(ch) ? ' selected' : ''}>${esc(headersNow().has(g) ? sectionTitle(groupLabel(g)) : groupLabel(g))}</option>`).join('')}
-        <option value="__new__">Nueva categoría…</option></select></label>`;
-  const meta = `<div class="ch-meta"><span class="prov" title="Nombre en el proveedor">${esc(ch.name)}</span>${catSelect}</div>`;
-  const more = `<details class="ch-more"${sheetMoreOpen || edit.hidden || edit.customLogo ? ' open' : ''}>
-      <summary>Más opciones${edit.hidden ? ' · oculto' : ''}${edit.customLogo ? ' · logo propio' : ''}${icon('chevron-down', 'sm')}</summary>
-      <label class="opt-row"><span>Visible en la playlist${catHidden ? '<small>Oculto porque su categoría está oculta</small>' : ''}</span>
-        <input type="checkbox" class="switch ch-visible" role="switch"${hidden ? '' : ' checked'}${catHidden ? ' disabled' : ''}></label>
-      ${divider ? '' : `<label class="field"><span>Logo propio</span>
-        <input class="input custom-logo" type="url" inputmode="url" value="${esc(edit.customLogo ?? '')}" placeholder="https://…/logo.png" aria-label="Dirección de la imagen del logo">
-        <small class="help">Dirección de una imagen. Se guarda al terminar de escribir.</small></label>`}
-    </details>`;
-
-  if (divider) {
-    $('#channelProgress').hidden = true;
-    body.innerHTML = `${meta}<p class="help">Separador de sección del proveedor: no es un canal y no lleva guía.</p>${more}`;
-  } else {
-    const guideName = epg ? guideLabel(epg) : '';
-    const cc = epg ? state.index?.country.get(epg) : undefined;
-    // Estado de la guía asignada: un chip arriba a la derecha (la tarjeta es neutra; el color va solo en el chip).
-    const score = !edit.manual && auto?.cid === edit.epg && auto ? Math.round(Math.min(auto.score, 1) * 100) : 0;
-    const stateChip = !epg ? '' : edit.manual
-      ? `<span class="gc-chip">${icon('user-check', 'sm')}Elegida por vos</span>`
-      : score ? (auto!.score >= GOOD
-        ? `<span class="gc-chip ok" title="Coincidencia buena">${icon('check', 'sm')}${score} %</span>`
-        : `<span class="gc-chip warn" title="Coincidencia dudosa: conviene revisarla">${score} % · dudosa</span>`) : '';
-    // Con pie de revisión, las decisiones (usar sugerencia, sin guía, saltar) viven solo ahí.
-    const hasActions = needsReview || sheetReview;
-    const footerNoEpg = hasActions && !(!epg && edit.manual);
-    const current = epg
-      ? `<div class="gc-top">${logoHtml(epg, '', undefined, guideName)}<div class="gc-main"><div class="gc-name"><span>${esc(guideName)}</span>${cc ? `<span class="cc">${esc(cc.toUpperCase())}</span>` : ''}</div></div>${stateChip}</div>
-         <div class="gc-now epg-now" data-now-for="${esc(epg)}" data-compact="1"></div>
-         <button type="button" class="link-btn day-btn" data-act="day" aria-expanded="false">Ver programación de hoy${icon('chevron-right', 'sm')}</button>
-         <div class="day-list" hidden></div>`
-      : `<div class="card-note">${edit.manual ? 'Sin guía, a propósito.' : 'Sin guía asignada.'}</div>${evSheet && !edit.manual ? (() => {
-        const l = eventLabel(evSheet.start);
-        return `<div class="gc-event ${l.cls}">${icon('clock', 'sm')}<span>${esc(l.text)}</span><small>hora de tu dispositivo</small></div>`;
-      })() : ''}${suggestion
-        ? `<div class="gc-sug">Sugerencia: <b>${esc(guideLabel(suggestion.channelId))}</b> <span class="pct ${suggestion.score >= GOOD ? 'ok' : 'warn'}">${Math.round(Math.min(suggestion.score, 1) * 100)} %</span>${hasActions ? ''
-           : `<button type="button" class="btn btn-gray sm" data-pick="${esc(suggestion.channelId)}">Usar</button>`}</div>` : ''}`;
-    const rp = sheetReview ? reviewProgress() : null;
-    // El progreso va en el encabezado fijo de la hoja (no se tapa al desplazar).
-    const progressBox = $('#channelProgress');
-    progressBox.hidden = !rp;
-    progressBox.innerHTML = rp ? `<span>Revisando · ${pos + 1} de ${sheetList.length} · quedan ${rp.left}</span>
-      <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${rp.pct}"><i style="width:${rp.pct}%"></i></div>` : '';
-    const useSuggestion = !epg && !!suggestion;
-    const okLabel = useSuggestion ? 'Usar sugerencia' : needsReview || epg ? 'Está bien' : 'Siguiente';
-    const actions = hasActions ? `<div class="rv-actions">
-        <button type="button" class="btn btn-primary" data-rv="ok">${icon('check')}${okLabel}</button>
-        ${footerNoEpg ? `<button type="button" class="btn btn-gray" data-rv="no-epg">Sin guía</button>` : ''}
-        ${sheetReview ? `<button type="button" class="btn btn-gray" data-rv="skip">Saltar</button>` : ''}</div>` : '';
-    body.innerHTML = `${meta}
-      <h3 class="sec-title">Guía asignada</h3>
-      <div class="ch-current${epg ? '' : ' none'}">${current}</div>
-      <h3 class="sec-title">Otras opciones</h3>
-      <label class="search-field">${icon('search')}<input type="search" class="catalog-search" placeholder="Buscar otra guía: canal o programa" enterkeyhint="search" aria-label="Buscar otra guía"></label>
-      <div class="ch-chips">
-        <button type="button" class="chip-btn" data-act="auto"${edit.manual ? '' : ' disabled'}>${icon('undo-2', 'sm')}Automática</button>
-        ${footerNoEpg ? '' : `<button type="button" class="chip-btn" data-act="no-epg"${!epg && edit.manual ? ' disabled' : ''}>${icon('ban', 'sm')}Sin guía</button>`}
-      </div>
-      <div class="list search-results" hidden></div>
-      ${ranked.length ? `<div class="list opts">${ranked.slice(0, 5).map((c) => candidateButton(c.channelId, c.score, { home: mixedCountries ? home : null })).join('')}</div>` : ''}
-      ${more}
-      ${actions}`;
-  }
-
-  const update = (fn: (e: ChannelEdit) => void, msg?: string) => editChannels([ch], fn, msg);
-  const again = () => openChannel(i);
-  refreshSheet = again;
-  const commitName = () => {
-    const v = nameInput.value.trim();
-    const next = v && v !== shownDefault ? v : undefined;
-    if (next === (edit.name || undefined)) {
-      nameInput.value = edit.name || shownDefault;
-      return;
-    }
-    update((e) => { e.name = next; }, next ? 'Nombre guardado' : 'Vuelve al nombre del proveedor');
-    again();
-  };
-  nameInput.onchange = commitName;
-  nameInput.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); nameInput.blur(); } };
-  $('.ch-more', body).ontoggle = (ev) => { sheetMoreOpen = (ev.target as HTMLDetailsElement).open; };
-  $<HTMLInputElement>('.ch-visible', body).onchange = (ev) => {
-    const on = (ev.target as HTMLInputElement).checked;
-    update((e) => { e.hidden = on ? undefined : true; }, on ? 'Visible' : 'Oculto');
-  };
-  const logoInput = body.querySelector<HTMLInputElement>('.custom-logo');
-  if (logoInput) {
-    logoInput.onchange = () => {
-      const v = logoInput.value.trim();
-      if (v && !/^https?:\/\/\S+$/i.test(v)) {
-        toast('Tiene que ser una dirección http:// o https://', 'bad');
-        return;
-      }
-      update((e) => { e.customLogo = v || undefined; }, v ? 'Logo guardado' : 'Vuelve al logo de la guía');
-      again();
-    };
-  }
-  /** Después de resolver un canal: en la revisión pasa al siguiente que falta; si no, cierra. */
-  const afterReview = () => {
-    if (sheetReview) {
-      const next = sheetList.slice(pos + 1).find((k) => matchesFilter(state.channels[k], 'revisar'));
-      if (next !== undefined) {
-        openChannel(next);
-        return;
-      }
-      dlg.close();
-      toast('¡Listo! Revisaste todos los canales', 'ok');
-      return;
-    }
-    dlg.close();
-  };
-  body.onclick = (ev) => {
-    const rv = (ev.target as HTMLElement).closest<HTMLElement>('[data-rv]')?.dataset.rv;
-    if (rv) {
-      if (rv === 'ok') {
-        const target = epg ?? suggestion?.channelId;
-        if (target) chooseEpg(ch, target, epg ? 'Guía confirmada' : 'Sugerencia aplicada');
-      } else if (rv === 'no-epg') {
-        update(noEpg, 'Quedó sin guía');
-      }
-      afterReview();
-      return;
-    }
-    const picked = epgClick(ev);
-    if (picked) {
-      chooseEpg(ch, picked, 'Guía elegida');
-      if (sheetReview) afterReview();
-      else again();
-      return;
-    }
-    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
-    if (act === 'auto') {
-      update((e) => autoEpg(e, ch), 'Volvió a la guía automática');
-      again();
-    } else if (act === 'no-epg') {
-      update(noEpg, 'Quedó sin guía');
-      again();
-    } else if (act === 'day') {
-      toggleDay(body, edit.epg!);
-    }
-  };
-  body.onkeydown = (ev) => {
-    const el = ev.target as HTMLElement;
-    if (ev.key === 'Enter' && el.matches('[data-pick]')) el.click();
-  };
-  if (!divider) wireGuideSearch(body);
-  fillEpgRows(body);
-  const move = $<HTMLSelectElement>('.move', body);
-  move.onchange = async () => {
-    let target = move.value;
-    if (target === '__new__') {
-      target = (await newCategoryName()) ?? '';
-      if (!target) {
-        move.value = groupOf(ch);
-        return;
-      }
-    }
-    update((e) => { e.group = target === ch.category ? undefined : target; }, `Movido a ${target}`);
-    again();
-  };
-  if (!dlg.open) {
-    dlg.addEventListener('close', () => { refreshSheet = null; sheetList = []; sheetReview = false; }, { once: true });
-    openDock(dlg);
-  }
-}
+// La hoja de un canal (y el modo «Revisar») está en ui/canal.tsx.
 const DOCK_MQ = matchMedia('(min-width: 1100px) and (hover: hover)');
 const DOCKABLE = ['#channelDialog', '#categoriesDialog', '#settingsDialog'];
 /** En escritorio ancho, canal, categorías y configuración quedan fijos a la derecha (sin velo) y la
@@ -3503,14 +3286,16 @@ else showOnboarding();
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa
 // se muda a su propio módulo y sale de esta lista.
 export {
-  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, applyRename, collapsedSections,
-  confirmDialog, connectionsInUse, copyText, createGroup, daysLeft, deleteGroup, EVENT_TZ_KEY, eventTz, exportBackup,
-  fold, forgetConfig, groupChannels, groupLabel, groupOf, groups, guideHealth, guideTime, HEALTH_AHEAD_H, initialOf,
-  isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth, logosOn, matchesFilter, moveGroup,
-  myAccounts, openDock, openHelp, otherAccounts, otherProviders, PAGE, plural, pref, profileDefs, profileDevices,
-  profilesAt, promptDialog, providerName, providerTz, render, renderDownRow, renderTabAvatar, saveCollapsed, saveHome,
-  saveNow, sectionHeaders, sectionTitle, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText,
-  showHomeCode, showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleGroupHidden, toggleGroupNoEpg,
-  unrenameGroup, useHomeCode, useOtherAccount, wireDownRow, wireSwipe,
+  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, applyRename, autoEpg, candidateButton,
+  chooseEpg, collapsedSections, confirmDialog, connectionsInUse, copyText, createGroup, daysLeft, deleteGroup,
+  editChannels, epgClick, esc, EVENT_TZ_KEY, eventLabel, eventOf, eventTz, exportBackup, fillEpgRows, fold,
+  forgetConfig, GOOD, groupChannels, groupLabel, groupOf, groups, guideHealth, guideLabel, guideTime, HEALTH_AHEAD_H,
+  icon, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth, logoHtml,
+  logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, openDock, openHelp, otherAccounts,
+  otherProviders, PAGE, plural, pref, profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz,
+  render, renderDownRow, renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow,
+  sectionHeaders, sectionTitle, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
+  showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleDay, toggleGroupHidden, toggleGroupNoEpg,
+  unrenameGroup, useHomeCode, useOtherAccount, visibleChannels, wireDownRow, wireGuideSearch, wireSwipe,
 };
-export type { Account, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };
+export type { Account, ChannelEdit, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };
