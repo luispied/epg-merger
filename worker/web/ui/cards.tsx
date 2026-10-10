@@ -5,7 +5,7 @@
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { api, copyText, pref, setPref, state, type Device } from '../app.ts';
+import { api, copyText, openPage, pref, setPref, state, type Device } from '../app.ts';
 import { Icon } from './icon.tsx';
 import { renderLinkResult } from './perfiles.tsx';
 
@@ -40,7 +40,7 @@ function LinksCard({ dev, onClose }: { dev: Device; onClose: () => void }) {
         <CopyButton class="btn btn-tonal" text={dev.epgUrl} label="Copiar guía" /></div>
       <button type="button" class="link-btn" onClick={() => {
         renderLinkResult(dev);
-        (el('linksDialog') as HTMLDialogElement).showModal();
+        openPage('profile');
       }}>Ver código QR y otras formas de compartir<Icon name="chevron-right" class="sm" /></button>
     </>
   );
