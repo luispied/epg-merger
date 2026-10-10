@@ -7,6 +7,18 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+Lo que va acá también se muestra en la app («Novedades»), así que conviene escribirlo para quien la usa. No se muestran
+las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
+nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
+
+## 1.35.0
+
+- **Novedades al actualizar.** Cuando Grilla se actualiza, al abrirla aparece «Grilla se actualizó» con lo nuevo de cada versión desde la última que viste; cada novedad muestra su título y se toca para ver el detalle. La primera vez que se abre Grilla no aparece. También está siempre en **Ver novedades**, al pie de Configuración.
+- **Aviso de versión nueva con la app abierta:** «Hay una versión nueva de Grilla» con el botón **Actualizar**, que recarga la app. La app busca versiones nuevas cada vez que volvés a ella.
+- **Notificación** a quien tenga los avisos activados cuando sale una versión con funciones nuevas (no con cada arreglo chico): «Grilla se actualizó a 1.35.0», y al tocarla se abren las novedades. Llega una sola vez por dispositivo, aunque tenga varios proveedores.
+- Ayuda: «Novedades y versiones nuevas» en Configuración.
+- Worker: el cron lee `novedades.json` de los archivos de la web (binding `ASSETS` en `wrangler.toml`), anota la versión avisada en `meta/version.json` y avisa solo cuando sube la versión menor o la mayor; la primera vez solo la anota. `build.mjs` arma `public/novedades.json` con las últimas 12 versiones del CHANGELOG.
+
 ## 1.34.0
 
 - **Aviso cuando el relay no responde.** El servicio que habla con el proveedor (relay) baja la lista, prueba los canales caídos y lee la suscripción. Si deja de responder, arriba de los canales aparece «La lista del proveedor no se actualiza desde hace 5 h» (o «Los canales caídos y la cuenta no se actualizan desde hace 3 días»), y la fila «Canales caídos» dice «sin probar desde hace 3 días: el servicio que prueba no responde». Antes todo seguía con datos viejos sin avisar. Sale si la última prueba falló y lo último bueno tiene más de un día, o si la última bajada de la lista falló y la guardada tiene más de 2 horas.

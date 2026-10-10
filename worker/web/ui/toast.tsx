@@ -7,7 +7,10 @@ import { Icon } from './icon.tsx';
 type Kind = 'ok' | 'bad' | 'info';
 const KIND_ICON: Record<Kind, string> = { ok: 'circle-check', bad: 'circle-x', info: 'info' };
 
-function Toast({ text, kind, ms, undo, close }: { text: string; kind: Kind; ms: number; undo?: () => void; close: () => void }) {
+/** Lo que hace el botón del aviso: «Deshacer» (una función) o una acción con su propio texto. */
+type Action = (() => void) | { label: string; run: () => void };
+
+function Toast({ text, kind, ms, undo, close }: { text: string; kind: Kind; ms: number; undo?: Action; close: () => void }) {
   useEffect(() => {
     const t = setTimeout(close, ms);
     return () => clearTimeout(t);
@@ -17,7 +20,9 @@ function Toast({ text, kind, ms, undo, close }: { text: string; kind: Kind; ms: 
       <Icon name={KIND_ICON[kind]} />
       <span class="msg">{text}</span>
       {undo && (
-        <button type="button" class="btn btn-plain" data-undo onClick={() => { close(); undo(); }}>Deshacer</button>
+        <button type="button" class="btn btn-plain" data-undo onClick={() => { close(); (typeof undo === 'function' ? undo : undo.run)(); }}>
+          {typeof undo === 'function' ? 'Deshacer' : undo.label}
+        </button>
       )}
       <button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso" title="Cerrar" onClick={close}>
         <Icon name="x" />
@@ -28,8 +33,8 @@ function Toast({ text, kind, ms, undo, close }: { text: string; kind: Kind; ms: 
 
 let seq = 0;
 
-/** `undo`: agrega "Deshacer" (el aviso dura más). */
-export function toast(text: string, kind: Kind = 'info', ms = 3500, undo?: () => void) {
+/** `undo`: agrega "Deshacer" (o, con { label, run }, un botón con ese texto); el aviso dura más. */
+export function toast(text: string, kind: Kind = 'info', ms = 3500, undo?: Action) {
   ms = Math.max(ms, Math.min(12000, 2500 + text.length * 45)); // los largos se leen enteros
   if (undo) ms = Math.max(ms, 7000);
   // Dentro del diálogo abierto, si hay uno: si no, queda tapado por el fondo del diálogo.
