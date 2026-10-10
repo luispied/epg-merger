@@ -94,6 +94,9 @@ const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = docu
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)] as T[];
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fold = (s: string) => s.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerCase();
+/** Si el texto (ya plegado) tiene todas las palabras de la búsqueda (ya plegada), en cualquier
+ *  orden: "inter parma" encuentra "Inter de Milán vs. Parma". */
+const hasWords = (text: string, q: string) => q.split(/\s+/).every((w) => text.includes(w));
 
 function icon(name: string, cls = ''): string {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"`
@@ -869,20 +872,30 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch) };
+  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
 }
 
 // ------------------------------------------------------------------ canales caídos
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }> }
+interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 const isDown = (ch: Channel) => {
   const h = streamHealth?.channels[ch.id];
   return !!h && !h.ok && h.fails >= DOWN_AFTER;
 };
+/** La resolución real del canal (la mide el relay una vez por semana, junto con la prueba de caídos): la etiqueta
+ *  corta (SD, HD, FHD, 4K) y el detalle. Sin medir todavía, null. */
+export interface Quality { label: 'SD' | 'HD' | 'FHD' | '4K'; w: number; h: number; t: string }
+function qualityOf(ch: Channel): Quality | null {
+  const r = streamHealth?.res?.[ch.id];
+  if (!r?.w || !r.h) return null;
+  const label = r.h >= 1800 ? '4K' : r.h >= 1000 ? 'FHD' : r.h >= 700 ? 'HD' : 'SD';
+  return { label, w: r.w, h: r.h, t: r.t };
+}
+export const qualityTitle = (q: Quality) => `Resolución: ${q.w} × ${q.h}`;
 async function loadStreamHealth() {
   if (!state.local) return;
   try {
@@ -946,8 +959,9 @@ function matchesFilter(ch: Channel, filter: string) {
 
 // Lo que está dando ahora cada canal (índice de la hora actual), para buscar por programa en
 // la lista principal. Se carga al abrir el editor y al buscar; mientras no llega, se busca solo
-// por nombre y categoría.
+// por nombre y categoría. Las descripciones (archivo aparte, más pesado) se bajan recién al buscar.
 let hourNow: HourIndex | null = null;
+let hourNowDesc: HourDesc | null = null;
 function loadHourNow() {
   hourIndex().then((idx) => {
     if (!idx || idx === hourNow) return;
@@ -955,12 +969,19 @@ function loadHourNow() {
     if (state.search.trim()) render();
   });
 }
-/** El programa en el aire del EPG del canal, si coincide con la búsqueda. */
+function loadHourNowDesc() {
+  hourDescIndex().then((d) => {
+    if (!d || d === hourNowDesc) return;
+    hourNowDesc = d;
+    if (state.search.trim()) render();
+  });
+}
+/** El programa en el aire del EPG del canal, si coincide con la búsqueda por título o descripción. */
 function programMatch(ch: Channel, q: string): NowPlaying | null {
   const epg = state.cfg!.channels[ch.name]?.epg;
   if (!q || !hourNow || !epg) return null;
   const cur = nowFromHour(hourNow, epg);
-  return cur && fold(cur.title).includes(q) ? cur : null;
+  return cur && hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q) ? cur : null;
 }
 
 /** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
@@ -981,7 +1002,7 @@ function visibleChannels(): number[] {
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? '' : '';
-      return fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`).includes(q) || !!programMatch(ch, q);
+      return hasWords(fold(`${ch.name} ${edit.name ?? ''} ${groupLabel(groupOf(ch))} ${groupOf(ch)} ${guideName}`), q) || !!programMatch(ch, q);
     })
     .sort((a, b) => (order.get(groupOf(state.channels[a])) ?? 0) - (order.get(groupOf(state.channels[b])) ?? 0)
       || withinPos(a) - withinPos(b));
@@ -1004,6 +1025,8 @@ function bandTag(band: Band, score?: number): string {
 // La corrida diaria sube a R2 (ui/schedule/) un índice por hora UTC con lo que da toda la guía
 // y un archivo por canal con títulos y descripciones (nombre: sha1 del id, 16 caracteres).
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
+/** Descripciones de la misma hora (<hora>-d.json): por canal, [inicio en minutos, i_descripción]. */
+interface HourDesc { d: string[]; c: Record<string, [number, number][]> }
 type ScheduleEntry = [number, number, string, string?];
 interface NowPlaying { title: string; start: number; stop: number }
 
@@ -1014,6 +1037,21 @@ function hourIndex(offsetHours = 0): Promise<HourIndex | null> {
     hourCache.set(key, fetch(`/api/ui/schedule/hour/${key}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   }
   return hourCache.get(key)!;
+}
+
+const hourDescCache = new Map<string, Promise<HourDesc | null>>();
+function hourDescIndex(): Promise<HourDesc | null> {
+  const key = new Date().toISOString().slice(0, 13).replace(/\D/g, '');
+  if (!hourDescCache.has(key)) {
+    hourDescCache.set(key, fetch(`/api/ui/schedule/hour/${key}-d.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  }
+  return hourDescCache.get(key)!;
+}
+/** La descripción del programa `cur` (sacado de `idx`), si la guía la trae. */
+function descFromHour(d: HourDesc, idx: HourIndex, id: string, cur: NowPlaying): string {
+  const start = (cur.start - idx.h) / 60;
+  const hit = d.c[id]?.find(([s]) => s === start);
+  return hit ? d.d[hit[1]] : '';
 }
 
 const scheduleCache = new Map<string, Promise<ScheduleEntry[] | null>>();
@@ -1185,13 +1223,13 @@ async function renderGuideSearch(term: string, results: HTMLElement) {
     return;
   }
   const seq = ++searchSeq;
-  const idx = await hourIndex();
+  const [idx, descs] = await Promise.all([hourIndex(), hourDescIndex()]);
   if (seq !== searchSeq) return;
   const hits: { id: string; cur: NowPlaying | null; byProgram: boolean }[] = [];
   for (const [id, name] of state.index!.displayName) {
-    const byName = fold(name).includes(q);
+    const byName = hasWords(fold(name), q);
     const cur = idx ? nowFromHour(idx, id) : null;
-    const byProgram = !!cur && fold(cur.title).includes(q);
+    const byProgram = !!cur && hasWords(fold(`${cur.title} ${descs ? descFromHour(descs, idx!, id, cur) : ''}`), q);
     if (byName || byProgram) hits.push({ id, cur, byProgram });
   }
   if (idx) hits.sort((a, b) => Number(!a.cur) - Number(!b.cur));
@@ -1350,7 +1388,7 @@ const guideHost: GuideHost = {
       .map(({ ch, i, inf }) => {
         const name = inf.edit.name || eventOf(ch)?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
         const logo = !logosOn() ? '' : inf.edit.customLogo || (inf.epg ? state.index?.icon.get(inf.epg) ?? '' : '');
-        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose' };
+        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose', q: inf.q?.label ?? null, qTitle: inf.q ? qualityTitle(inf.q) : '' };
       });
   },
   openChannel: (i) => openChannel(i),
@@ -2934,6 +2972,7 @@ function setupEditor() {
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);
     loadHourNow(); // por si cambió la hora desde que se abrió
+    loadHourNowDesc();
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;

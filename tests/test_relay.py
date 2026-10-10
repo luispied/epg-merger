@@ -60,7 +60,7 @@ def test_probe_prueba_en_orden_y_corta_si_la_cuenta_rechaza():
 
     out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': '1', 'ext': 'ts'}, {'id': '2', 'ext': 'ts'}],
                           pick=lambda *a: ('http://s1', {'status': 'Active'}), prober=prober)
-    assert out == {'server': 'http://s1', 'account': {'status': 'Active'}, 'results': {'1': 'up', '2': 'down'}, 'aborted': False}
+    assert out == {'server': 'http://s1', 'account': {'status': 'Active'}, 'results': {'1': 'up', '2': 'down'}, 'res': {}, 'aborted': False}
     out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': str(i), 'ext': 'ts'} for i in range(10)],
                           pick=lambda *a: ('http://s1', None), prober=lambda u: 'rejected')
     assert out['aborted'] is True and out['results'] == {}
@@ -170,3 +170,24 @@ def test_datos_de_la_cuenta_traen_la_zona_horaria_del_panel():
     assert info['timezone'] == 'America/Bogota'
     for raro in ('', '<script>', 'a' * 70, 123, '../../etc'):
         assert 'timezone' not in xtream_client.account_info({'user_info': {}, 'server_info': {'timezone': raro}})
+
+
+def test_probe_mide_la_resolucion_solo_de_lo_pedido_y_que_anda():
+    measured = []
+
+    def measurer(url):
+        measured.append(url.rsplit('/', 1)[1])
+        return (1920, 1080) if '1.' in url else None
+    chans = [{'id': '1', 'ext': 'ts', 'res': True}, {'id': '2', 'ext': 'ts', 'res': True}, {'id': '3', 'ext': 'ts'},
+             {'id': '4', 'ext': 'ts', 'res': True}]
+    out = server.do_probe(['http://s1'], 'u', 'p', chans, pick=lambda *a: ('http://s1', None),
+                          prober=lambda u: 'down' if '4.' in u else 'up', measurer=measurer)
+    assert measured == ['1.ts', '2.ts']
+    assert out['res'] == {'1': [1920, 1080], '2': None}
+
+
+def test_probe_no_mide_si_queda_poco_tiempo():
+    ticks = iter([0, 0, 40, 40, 40])
+    out = server.do_probe(['http://s1'], 'u', 'p', [{'id': '1', 'ext': 'ts', 'res': True}], pick=lambda *a: ('http://s1', None),
+                          prober=lambda u: 'up', measurer=lambda u: (1, 1), clock=lambda: next(ticks), budget_s=45)
+    assert out['results'] == {'1': 'up'} and out['res'] == {}

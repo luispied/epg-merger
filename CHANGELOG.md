@@ -16,6 +16,18 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - Worker: `POST`/`DELETE /api/cfg/<cfgId>/profiles/<id>/view` crean o quitan el código (`view/<código>.json`); `GET /api/view/<código>` devuelve el nombre del perfil y sus canales (sin credenciales ni links, logos por el Worker); `GET /api/view/<código>/connections` da conexiones en uso, máximo y qué mira cada link (sin sus códigos, en caché 1 minuto); `POST /api/view/<código>/report` marca un canal y `GET`/`DELETE /api/cfg/<cfgId>/reports` los lista o resuelve (`reports/<cfgId>.json`, hasta 50). Borrar el perfil o la configuración borra su código y sus avisos. La playlist sale de la misma función (`playlistRows`), sin cambios.
 - El service worker guarda la página para ver aparte, así no reemplaza al editor sin conexión.
 
+## 1.31.1
+
+- Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.
+- Buscar también mira la descripción de lo que está dando cada canal, y encuentra aunque las palabras estén en otro orden («inter parma»). Las descripciones van en un archivo aparte por hora (`ui/schedule/hour/<hora>-d.json`) que se baja recién al buscar.
+- En la vista detallada de Canales, el programa en el aire ocupa hasta dos líneas antes de cortarse.
+
+## 1.31.0
+
+- Resolución real de cada canal: una etiqueta SD, HD, FHD o 4K en la lista de Canales y en la Guía (con el mouse encima se ve el ancho × alto). No sale del nombre del canal: se mide el video que manda el proveedor.
+- La mide el relay junto con la prueba diaria de canales caídos: cada canal una vez por semana, solo los que andan y como mucho 8 por tanda (unos 32 por día), para no comerse el tiempo de la prueba. Lee el comienzo del stream (MPEG-TS, o el primer segmento si es HLS; con un playlist maestro alcanza su RESOLUTION) y saca las medidas del SPS del video, H.264 o HEVC, en Python puro y sin ffprobe (`video_res.py`). Cuesta unos KB por canal: entra de sobra en lo gratis.
+- Worker: queda en `res` de `health/<cfgId>.json` (`src/streamcheck.ts`). Con un relay viejo no se mide nada y la app sigue igual, sin etiquetas: hay que volver a desplegar el relay en Fly.
+
 ## 1.30.1
 
 - Categorías y Perfil pasan a ser páginas enteras, como la Guía: la barra de abajo queda siempre a mano para ir de una a otra (marca dónde estás) y ya no hay cruz para cerrarlas. Lo que se abre desde ellas (una categoría, la ayuda, cambiar de cuenta) sigue siendo una hoja encima. En el escritorio, Esc vuelve a Canales.

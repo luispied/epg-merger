@@ -6,8 +6,8 @@
 import { render } from 'preact';
 import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import {
-  eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, logosOn, PAGE, render as renderAll, sectionTitle, selection,
-  state, viewMode, type Band,
+  eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, logosOn, PAGE, qualityTitle, render as renderAll, sectionTitle,
+  selection, state, viewMode, type Band,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
 
@@ -97,7 +97,7 @@ function StatusMark({ band, score }: { band: Band; score?: number }) {
 
 function Card({ i }: { i: number }) {
   const ch = state.channels[i];
-  const { edit, epg, hidden, band, suggestion, divider, auto } = info(ch);
+  const { edit, epg, hidden, band, suggestion, divider, auto, q } = info(ch);
   const ev = eventOf(ch);
   const shown = edit.name || ev?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
@@ -131,14 +131,14 @@ function Card({ i }: { i: number }) {
   } else {
     guide = <span class="guide none">{edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>;
   }
-  const label = `${shown}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
+  const label = `${shown}${q ? `, ${q.label}` : ''}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
   return (
     <article class={`card row-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={label}>
       <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r"><Icon name="ban" />Sin guía</span><span class="sw sw-l"><Icon name={hidden ? 'eye' : 'eye-off'} />{hidden ? 'Mostrar' : 'Ocultar'}</span></span>
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{guide}{marks}
+        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{guide}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
           {viewMode() === 'detail' && epg && <div class="row-now"><span class="epg-now" data-now-for={epg} data-compact="row" /></div>}</div>

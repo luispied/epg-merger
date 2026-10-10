@@ -2,6 +2,8 @@
 // (cada 30 minutos): una vez por día por configuración, o cuando alguien tocó «Probar ahora» (health/run deja un pedido
 // en healthreq/). El resultado queda en health/<cfgId>.json. Los canales los prueba el perfil activo de la configuración
 // (`activeAccount`); de las demás cuentas solo se traen sus datos.
+// De paso, el relay mide la resolución real (ancho × alto del video) de unos pocos canales que andan: cada canal una vez
+// por semana, pocos por tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
 import { decryptToken } from './crypto.ts';
 import { type Config, loadConfig } from './config.ts';
 import { accountTokens } from './devices.ts';
@@ -15,18 +17,23 @@ export const CHECK_EVERY_MS = 20 * 3600 * 1000;
 export const CHUNK = 50; // canales por pedido al relay
 export const MAX_CHUNKS = 4; // 200 canales por corrida
 const MAX_CONFIGS_PER_TICK = 5;
+export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
+export const RES_PER_CHUNK = 8; // ~32 por día: unos segundos cada una, dentro del tope de tiempo de cada pedido al relay
 const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.
 const EVENT_RE = /ppv|event/i;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 
 interface Entry { t: string; ok: boolean; fails: number }
+/** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta a la semana). */
+export interface Res { t: string; w?: number; h?: number }
 export interface HealthState {
   checked?: string;
   attempted?: string;
   tested?: number;
   total?: number;
   channels?: Record<string, Entry>;
+  res?: Record<string, Res>;
   account?: unknown;
   accounts?: Record<string, unknown>;
   /** Huella de la cuenta que probó los canales (el perfil activo de ese momento). */
@@ -62,6 +69,15 @@ async function readJson<T>(env: Env, key: string): Promise<T | null> {
   }
 }
 
+/** Los canales de la tanda a los que toca medirles la resolución: los que no están caídos y no se midieron en la semana. */
+export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, now: Date, n = RES_PER_CHUNK): Set<string> {
+  const due = (id: string) => !res[id] || now.getTime() - (Date.parse(res[id].t) || 0) >= RES_EVERY_MS;
+  return new Set(chunk.filter((c) => seen[c.id]?.ok !== false && due(c.id)).slice(0, n).map((c) => c.id));
+}
+
+const size = (v: unknown): [number, number] | null =>
+  Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= 64 && x <= 8192) ? [v[0], v[1]] : null;
+
 /** ¿Toca probar esta configuración? Cada 20 horas o si hay un pedido a mano más nuevo que la última prueba. */
 export function isDue(state: HealthState | null, requestedAt: string | undefined, now: Date): boolean {
   const last = Math.max(Date.parse(state?.checked ?? '') || 0, Date.parse(state?.attempted ?? '') || 0);
@@ -70,7 +86,7 @@ export function isDue(state: HealthState | null, requestedAt: string | undefined
   return now.getTime() - last >= CHECK_EVERY_MS;
 }
 
-interface ProbeResponse { account?: unknown; results?: Record<string, string>; aborted?: boolean }
+interface ProbeResponse { account?: unknown; results?: Record<string, string>; res?: Record<string, unknown>; aborted?: boolean }
 type Creds = { u: string; p: string };
 
 /** Prueba una configuración con el relay y deja health/<cfgId>.json. Devuelve false si no hacía falta o no se pudo. */
@@ -92,6 +108,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const channels = visibleChannels(list?.channels ?? [], stored.config);
   const known = new Set(channels.map((c) => c.id));
   let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
+  const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
   let probedBy = prev?.probedBy;
   let first = true;
   for (const t of tokens) {
@@ -106,27 +123,34 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         if (probedBy !== key) { seen = {}; probedBy = key; }
         const batch = pickBatch(channels, seen, CHUNK * MAX_CHUNKS);
         for (let i = 0; i < batch.length; i += CHUNK) {
-          const res = await relayPost<ProbeResponse>(env, '/v1/probe', {
-            servers, username: u, password: p, channels: batch.slice(i, i + CHUNK).map((c) => ({ id: c.id, ext: c.ext })),
+          const chunk = batch.slice(i, i + CHUNK);
+          const measure = needsRes(chunk, seen, res, now);
+          const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
+            servers, username: u, password: p, channels: chunk.map((c) => ({ id: c.id, ext: c.ext, ...(measure.has(c.id) ? { res: true } : {}) })),
           }, 60_000);
-          if (res.account) { accounts[key] = res.account; primaryAccount ??= res.account; }
-          if (res.aborted) break; // la cuenta rechaza: no es el canal, no se anota nada de esta tanda
-          for (const [id, r] of Object.entries(res.results ?? {})) {
+          if (reply.account) { accounts[key] = reply.account; primaryAccount ??= reply.account; }
+          if (reply.aborted) break; // la cuenta rechaza: no es el canal, no se anota nada de esta tanda
+          for (const [id, r] of Object.entries(reply.results ?? {})) {
             const ok = r === 'up';
             seen[id] = { t: now.toISOString(), ok, fails: ok ? 0 : (seen[id]?.fails ?? 0) + 1 };
             tested++;
           }
+          for (const [id, v] of Object.entries(reply.res ?? {})) {
+            if (!measure.has(id)) continue;
+            const wh = size(v);
+            res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1] } : { t: now.toISOString() };
+          }
         }
       } else {
-        const res = await relayPost<{ account?: unknown }>(env, '/v1/account', { servers, username: u, password: p });
-        if (res.account) { accounts[key] = res.account; if (first) primaryAccount ??= res.account; }
+        const reply = await relayPost<{ account?: unknown }>(env, '/v1/account', { servers, username: u, password: p });
+        if (reply.account) { accounts[key] = reply.account; if (first) primaryAccount ??= reply.account; }
       }
     } catch (e) {
       console.error('streamcheck', cfgId, (e as Error).message); // sin datos de la cuenta
     }
     first = false;
   }
-  const out: HealthState = { ...state, channels: seen, total: channels.length, accounts, ...(probedBy ? { probedBy } : {}) };
+  const out: HealthState = { ...state, channels: seen, res, total: channels.length, accounts, ...(probedBy ? { probedBy } : {}) };
   if (tested) { out.checked = now.toISOString(); out.tested = tested; }
   if (primaryAccount) out.account = primaryAccount;
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);

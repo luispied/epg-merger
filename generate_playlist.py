@@ -824,13 +824,24 @@ def _parse_xmltv_time(raw):
 
 
 def _programme_desc(programme):
-    """Descripción del programa para mostrar en la interfaz: <desc>, o si no hay, el
-    <sub-title> (nombre del episodio). Espacios normalizados y recortada a SCHEDULE_DESC_MAX."""
-    for tag in ('desc', 'sub-title'):
-        text = ' '.join((scrub_text(programme.findtext(tag)) or '').split())
-        if text:
-            return text if len(text) <= SCHEDULE_DESC_MAX else text[:SCHEDULE_DESC_MAX - 1].rstrip() + '…'
-    return ''
+    """Descripción del programa para mostrar en la interfaz: <desc> con espacios normalizados y
+    recortada a SCHEDULE_DESC_MAX. El <sub-title> no: ese ya va pegado al título."""
+    text = ' '.join((scrub_text(programme.findtext('desc')) or '').split())
+    return text if len(text) <= SCHEDULE_DESC_MAX else text[:SCHEDULE_DESC_MAX - 1].rstrip() + '…'
+
+
+def _programme_title(programme):
+    """Título para la interfaz: <title> y, si la guía lo trae, el <sub-title> después de un
+    " · " (como hacen TiviMate y otros reproductores). Hay guías que dejan el título genérico
+    ("Live: Fútbol Serie A") y ponen el partido o el episodio solo en el sub-title, y sin él no
+    se ve ni se encuentra al buscar. Si el título ya lo contiene, no se repite."""
+    title = ' '.join((scrub_text(programme.findtext('title')) or '').split())
+    sub = ' '.join((scrub_text(programme.findtext('sub-title')) or '').split())
+    if not title:
+        return sub
+    if not sub or sub.casefold() in title.casefold():
+        return title
+    return f'{title} · {sub}'
 
 
 def _schedule_filename(channel_id):
@@ -864,8 +875,7 @@ class ScheduleCollector:
         if not start or not stop or stop <= self.window_start or start >= self.window_end:
             return
         channel_id = programme.get('channel')
-        title_elem = programme.find('title')
-        title = (scrub_text(title_elem.text) or '').strip() if title_elem is not None else ''
+        title = _programme_title(programme)
         if not channel_id or not title:
             return
         self.by_channel.setdefault(channel_id, []).append(
@@ -910,27 +920,39 @@ def write_hourly_index(by_channel, out_dir, window_start, window_end):
     "c": {channel_id: [[inicio, fin, i_título], ...]}}, con inicio/fin en minutos relativos a
     "h" (números cortos en vez de timestamps: son decenas de miles de entradas por archivo).
     Los títulos van deduplicados aparte porque muchos canales repiten el mismo (feeds regionales
-    del mismo canal, "Paid Programming", etc.)."""
+    del mismo canal, "Paid Programming", etc.).
+
+    Las descripciones van en otro archivo por hora (<hora>-d.json), que la web baja solo al
+    buscar: {"d": [descripciones], "c": {channel_id: [[inicio, i_descripción], ...]}}, con el
+    mismo inicio que la entrada del índice (solo las que traen descripción)."""
     first_hour = int(window_start.replace(minute=0, second=0, microsecond=0).timestamp())
     last_hour = int(window_end.timestamp())
-    buckets = {h: ([], {}, {}) for h in range(first_hour, last_hour, 3600)}
+    buckets = {h: ([], {}, {}, [], {}, {}) for h in range(first_hour, last_hour, 3600)}
     for channel_id, entries in by_channel.items():
-        for start, stop, title, *_ in entries:
+        for start, stop, title, *rest in entries:
+            desc = rest[0] if rest else ''
             h = max(first_hour, start - (start - first_hour) % 3600)
             while h < stop and h in buckets:
-                titles, title_idx, channels = buckets[h]
+                titles, title_idx, channels, descs, desc_idx, desc_channels = buckets[h]
                 if title not in title_idx:
                     title_idx[title] = len(titles)
                     titles.append(title)
                 channels.setdefault(channel_id, []).append(
                     [(start - h) // 60, (stop - h) // 60, title_idx[title]])
+                if desc:
+                    if desc not in desc_idx:
+                        desc_idx[desc] = len(descs)
+                        descs.append(desc)
+                    desc_channels.setdefault(channel_id, []).append([(start - h) // 60, desc_idx[desc]])
                 h += 3600
 
     os.makedirs(out_dir, exist_ok=True)
-    for h, (titles, _, channels) in buckets.items():
+    for h, (titles, _, channels, descs, _, desc_channels) in buckets.items():
         name = datetime.datetime.fromtimestamp(h, datetime.timezone.utc).strftime('%Y%m%d%H')
         with open(os.path.join(out_dir, f'{name}.json'), 'w', encoding='utf-8') as f:
             json.dump({'h': h, 't': titles, 'c': channels}, f, ensure_ascii=False, separators=(',', ':'))
+        with open(os.path.join(out_dir, f'{name}-d.json'), 'w', encoding='utf-8') as f:
+            json.dump({'d': descs, 'c': desc_channels}, f, ensure_ascii=False, separators=(',', ':'))
     return len(buckets)
 
 

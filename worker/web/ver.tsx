@@ -307,7 +307,7 @@ function App() {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
   }, []);
 
-  const channels = useMemo<GuideChannel[]>(() => (data?.channels ?? []).map((c, i) => ({ i, name: c.name, cat: c.cat, epg: c.epg, logo: c.logo, quiet: !!c.quiet })), [data]);
+  const channels = useMemo<GuideChannel[]>(() => (data?.channels ?? []).map((c, i) => ({ i, name: c.name, cat: c.cat, epg: c.epg, logo: c.logo, quiet: !!c.quiet, q: null, qTitle: '' })), [data]);
   const host = useMemo<GuideHost>(() => ({
     viewer: true,
     channels: () => channels,

@@ -14,6 +14,9 @@ export interface GuideChannel {
   logo: string;
   /** Sin guía a propósito (o categoría «Sin guía»): el hueco se ve neutro, no como algo para arreglar. */
   quiet: boolean;
+  /** Resolución real medida (SD, HD, FHD, 4K) y su detalle; sin medir, null. */
+  q: string | null;
+  qTitle: string;
 }
 type Entry = [number, number, string, string?];
 export interface GuideHost {
@@ -317,6 +320,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                 <button type="button" class="gd-ch" onClick={() => host.openChannel(r.ch.i)} aria-label={`Abrir ${r.ch.name}`}>
                   <Logo ch={r.ch} />
                   <span class="nm">{r.ch.name}</span>
+                  {r.ch.q && <span class={`qtag${r.ch.q === '4K' ? ' k4' : ''}`} title={r.ch.qTitle}>{r.ch.q}</span>}
                 </button>
                 <div class="gd-track" style={{ width: `${W}px` }}>
                   {r.ch.epg

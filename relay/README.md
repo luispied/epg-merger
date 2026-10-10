@@ -9,7 +9,7 @@ cada persona (cifradas en sus links) y se las manda al relay en cada pedido; el 
 |---|---|
 | `POST /v1/list` `{servers, username, password}` | `{server, channels}` (la lista, sin URLs) |
 | `POST /v1/account` `{servers, username, password}` | `{server, account}` (vencimiento, conexiones, zona horaria del panel) |
-| `POST /v1/probe` `{servers, username, password, channels:[{id, ext}]}` | `{server, account, results, aborted}` (hasta 60 canales) |
+| `POST /v1/probe` `{servers, username, password, channels:[{id, ext, res?}]}` | `{server, account, results, res, aborted}` (hasta 60 canales; los que llevan `res: true` y andan también se miden: `res[id] = [ancho, alto]` o `null`, ver `video_res.py`) |
 | `GET /health` | `{ok: true}` |
 
 Todos los `POST` llevan `Authorization: Bearer <RELAY_SECRET>`.
