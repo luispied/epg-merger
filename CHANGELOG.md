@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.32.1
+
+- Modo ver: las conexiones quedan como en la cuenta del editor, una tarjeta chica «2 de 2 · Conexiones en uso»; tocarla despliega qué está mirando cada link.
+- Modo ver: «Lo que dan en la tele no es esto» sube en la hoja del canal, justo debajo de lo que dan ahora, para que se encuentre sin bajar.
+- Compartir para ver: el código ya no se muestra, solo el botón **Copiar código**, como con los links.
+
 ## 1.32.0
 
 - Modo «solo ver»: en la página de un perfil, **Compartir para ver** crea un **código para ver** (`ver.<código>`). Se pega al entrar a Grilla, donde va el código de otro dispositivo, y ese dispositivo queda en modo ver: la grilla y la Guía de ese perfil, sin poder cambiar nada (pensado para alguien a quien le cuesta usar apps). Al abrir Grilla otra vez vuelve al modo ver, hasta tocar **Salir del modo ver**. El código también se puede copiar, compartir por WhatsApp o mail con el link directo (`/ver#código`), escanear con QR, cambiar por uno nuevo o quitar. Los links de reproducción no cambian.

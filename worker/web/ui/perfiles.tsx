@@ -1204,7 +1204,8 @@ function ViewShare({ p }: { p: ProfileView }) {
   return (
     <>
       <SubTitle>Código para ver «{p.name}»</SubTitle>
-      <input class="input mono" readOnly value={viewCode} aria-label="Código para ver" onFocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
+      <Help>Copialo y pasáselo. En su celular o tablet: abrí Grilla, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
+        en modo ver. Si después agrega Grilla a la pantalla de inicio, queda como una app.</Help>
       <div class="lc-actions">
         <button type="button" class="btn btn-primary" onClick={async () => {
           await copyText(viewCode);
@@ -1213,8 +1214,6 @@ function ViewShare({ p }: { p: ProfileView }) {
         }}>{copied ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}</button>
         <a class="btn btn-tonal" href={url} target="_blank" rel="noopener noreferrer"><Icon name="external-link" />Probar</a>
       </div>
-      <Help>En su celular o tablet: abrí Grilla, tocá <b>Pegá el código</b> y pegá este. Desde ahí la app abre siempre
-        en modo ver. Si después agrega Grilla a la pantalla de inicio, queda como una app.</Help>
       <div class="share-row">
         {'share' in navigator ? (
           <button type="button" class="btn btn-tonal" onClick={async () => {

@@ -112,8 +112,10 @@ test('compartir para ver: crear el código, copiarlo y quitar el acceso', async 
   await expect(page.locator('#linksBody')).toContainText('No puede cambiar nada');
   await page.screenshot({ path: `test-results/ver-${info.project.name}-crear.png` });
   await page.getByRole('button', { name: 'Crear el código para ver' }).click();
-  const input = page.getByRole('textbox', { name: 'Código para ver' });
-  await expect(input).toHaveValue(/^ver\.Vistap2/);
+  // El código no se muestra: solo el botón para copiarlo, como los links.
+  await expect(page.getByRole('button', { name: 'Copiar código' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Código para ver' })).toHaveCount(0);
+  await expect(page.locator('#linksBody')).not.toContainText('Vistap2');
   expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeTruthy();
   await page.screenshot({ path: `test-results/ver-${info.project.name}-link.png` });
   // Quitar el acceso (con confirmación) vuelve al botón de crear; los links del perfil no se tocan.
