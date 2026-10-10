@@ -48,4 +48,26 @@ writeFileSync(here('./public/index.html'), readFileSync(here('./web/index.html')
 writeFileSync(here('./public/ver.html'), readFileSync(here('./web/ver.html'), 'utf-8').replaceAll('__VERSION__', version));
 // El service worker (sin conexión) guarda la app de esta versión.
 writeFileSync(here('./public/sw.js'), readFileSync(here('./web/sw.js'), 'utf-8').replaceAll('__VERSION__', version));
+// Novedades: las últimas versiones del CHANGELOG, solo lo que le sirve a quien usa la app (sin las líneas del Worker,
+// de tests ni rutas de archivos). Las muestra la hoja «Novedades» y el Worker las usa para el aviso de versión nueva.
+writeFileSync(here('./public/novedades.json'), JSON.stringify(novedades(readFileSync(here('../CHANGELOG.md'), 'utf-8'))));
 console.log(`public/ listo (app ${appVersion}, v=${version})`);
+
+/** [{ version, items }] de las últimas `max` versiones del CHANGELOG, en texto para la gente: sin las líneas técnicas,
+ *  sin los paréntesis con rutas o nombres de código y sin las comillas invertidas. Deja el **negrita**. */
+export function novedades(md, max = 12) {
+  const out = [];
+  for (const sec of md.split(/^## /m).slice(1)) {
+    const [head, ...rest] = sec.split('\n');
+    const version = head.trim();
+    if (!/^\d+\.\d+\.\d+$/.test(version)) continue;
+    const items = rest.join('\n').split(/\n(?=- )/).map((b) => b.trim()).filter((b) => b.startsWith('- '))
+      .map((b) => b.slice(2).replace(/\s*\n\s*/g, ' ').trim())
+      .filter((b) => !/^(Worker|Interno|Tests?|Tests de humo|Test de humo|Regla nueva del proyecto)\b/i.test(b) && !/\bTests?\b|\be2e\b/.test(b))
+      .map((b) => b.replace(/\s*\([^()]*`[^()]*\)/g, '').replace(/`/g, '').replace(/\s*Ver planes\/\S+/g, '').replace(/\s+([.,;:])/g, '$1'))
+      .filter(Boolean);
+    if (items.length) out.push({ version, items });
+    if (out.length >= max) break;
+  }
+  return out;
+}

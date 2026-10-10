@@ -15,6 +15,7 @@ import {
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
+import { checkNovedades } from './ui/novedades.tsx';
 import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
@@ -2873,9 +2874,19 @@ new MutationObserver((records) => {
 
 // ------------------------------------------------------------------ arranque
 // Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
+// Versión nueva: el service worker nuevo se instala solo; con la app abierta se avisa para recargar, y al volver a
+// abrirla la hoja «Novedades» cuenta qué cambió (ui/novedades.tsx).
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* sin SW: anda igual */ }));
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((reg) => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => { /* sin SW: anda igual */ }));
+  let controlled = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!controlled) { controlled = true; return; } // la primera instalación no es una versión nueva
+    toast('Hay una versión nueva de Grilla', 'info', 15000, { label: 'Actualizar', run: () => location.reload() });
+  });
 }
+void checkNovedades(__APP_VERSION__, new URLSearchParams(location.search).has('novedades'));
 hydrateIcons();
 addSearchClear(document);
 for (const el of $$('[data-version]')) el.textContent = `Grilla ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;

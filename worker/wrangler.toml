@@ -14,6 +14,8 @@ command = "npm install --no-audit --no-fund && node build.mjs"
 
 [assets]
 directory = "./public"
+# Para que el Worker lea public/novedades.json (aviso de versión nueva, src/push.ts).
+binding = "ASSETS"
 
 [[r2_buckets]]
 binding = "BUCKET"
