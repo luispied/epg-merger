@@ -31,6 +31,8 @@ export interface GuideHost {
   habits?(): Promise<Habits | null>;
   /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
   feedback?(title: string, kind: Feedback): Promise<Habits | null>;
+  /** La ayuda de la Guía (el ? del título). */
+  help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
   viewer?: boolean;
 }
@@ -327,7 +329,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     <div class="gd-shell">
       <header class="app-header gd-head">
         <div class="title-row">
-          <h1>Guía</h1>
+          <span class="title-left">
+            <h1>Guía</h1>
+            {host.help && <button type="button" class="icon-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
+          </span>
           {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
         </div>
         <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">

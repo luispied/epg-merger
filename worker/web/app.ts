@@ -1246,6 +1246,7 @@ const guideHost: GuideHost = {
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
   habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
   feedback: (title, kind) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind } }),
+  help: () => openHelp('guide'),
 };
 // ------------------------------------------------------------------ pestañas de abajo
 // Canales es la página de la lista; Guía, Categorías y Perfil son páginas enteras que la tapan, con la barra de abajo
@@ -1813,9 +1814,9 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
   renderChannelOrder(g);
 }
 
-const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Grilla', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
+const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Grilla', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
 /** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
-function openHelp(topic: 'main' | 'settings' | 'categories' | 'links', from?: string) {
+function openHelp(topic: 'main' | 'guide' | 'settings' | 'categories' | 'links', from?: string) {
   const help = $('#helpDialog') as HTMLDialogElement;
   for (const t of $$<HTMLElement>('.help-topic', help)) t.hidden = t.dataset.topic !== topic;
   $('#helpTitle').textContent = HELP_TITLES[topic];
