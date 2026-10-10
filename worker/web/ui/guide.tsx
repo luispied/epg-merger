@@ -28,7 +28,7 @@ export interface GuideHost {
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
 interface Prog { s: number; e: number; t: string; gap?: boolean }
 
-type Mode = 'grid' | 'next';
+type Mode = 'grid' | 'next' | 'plan';
 const HOUR = 3600;
 const SLOT = 1800;
 const SPAN_H = 30; // la guía publicada llega ~30 h adelante
@@ -133,7 +133,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const x = (t: number) => ((t - t0) / 60) * PX;
 
   const [cat, setCat] = useState('');
-  const [mode, setModeState] = useState<Mode>(() => (pref.get('mode') === 'next' ? 'next' : 'grid'));
+  const [mode, setModeState] = useState<Mode>(() => {
+    const m = pref.get('mode');
+    return m === 'next' || m === 'plan' ? m : 'grid';
+  });
   const setMode = (m: Mode) => { setModeState(m); pref.set('mode', m); };
   const [budgetOn, setBudgetOn] = useState(false);
   const [budget, setBudget] = useState(() => Math.min(360, Math.max(20, Number(pref.get('budget')) || 75)));
@@ -269,7 +272,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
         </div>
         <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
-          {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
+          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', `Tu ${partOfDay(now).name}`]] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>
               {mode === m && <Icon name="check" class="sm" />}{label}
             </button>
@@ -291,6 +294,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       {mode === 'next' && channels.length > 0 && (
         <Upcoming channels={shown} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
           budget={budgetOn ? budget : null} setBudget={(m) => { setBudget(m); pref.set('budget', String(m)); }} />
+      )}
+      {mode === 'plan' && channels.length > 0 && (
+        <Plan channels={shown} now={now} host={host} open={(ch, p) => setOpen({ ch, p })} />
       )}
       <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
@@ -439,6 +445,151 @@ function Upcoming({ channels, now, again, open, budget, setBudget }: {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+// Tu mañana / tarde / noche / madrugada: Grilla arma el rato que queda de esta parte del día
+// encadenando programas de la lista sin que se pisen, saltando de canal, y avisa en cada cambio.
+// Sin géneros en la guía, «lo mejor» sale del título y la duración: en vivo y partidos primero,
+// películas largas después, y afuera el relleno, los noticieros y las repeticiones.
+interface Part { name: string; end: number }
+/** La parte del día de `t` y cuándo termina; si queda menos de hora y media, la que sigue. */
+export function partOfDay(t: number): Part {
+  const parts: [number, number, string][] = [[2, 6, 'madrugada'], [6, 12, 'mañana'], [12, 19, 'tarde'], [19, 26, 'noche']];
+  const d = new Date(t * 1000);
+  const day = new Date(d).setHours(0, 0, 0, 0) / 1000;
+  let h = d.getHours() + d.getMinutes() / 60;
+  if (h < 2) h += 24; // de 0 a 2 sigue siendo la noche de ayer
+  const base = d.getHours() < 2 ? day - 86400 : day;
+  const i = parts.findIndex(([a, b]) => h >= a && h < b);
+  const at = (k: number) => ({ name: parts[k % 4][2], end: base + parts[k % 4][1] * 3600 + (k >= 4 ? 86400 : 0) });
+  const cur = at(i < 0 ? 0 : i);
+  return cur.end - t < 90 * 60 ? at((i < 0 ? 0 : i) + 1) : cur;
+}
+
+const FILLER = /paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
+const LIVE = /\b(en vivo|vivo|live|vs\.?|final|semifinal|cl[aá]sico|gran premio|grand prix)\b/i;
+const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
+const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
+const MOVIE_CAT = /pel[ií]cul|cine|movie|film/i;
+
+interface Slot { ch: GuideChannel; p: Prog; alt?: { ch: GuideChannel; p: Prog } }
+
+/** Puntaje de un programa para el plan (más es mejor); null si no va. */
+export function planScore(t: string, len: number, cat: string): number | null {
+  if (len < 25 * 60 || FILLER.test(t)) return null;
+  let sc = Math.min(len, 150 * 60) / 1800;
+  if (LIVE.test(t)) sc += 4;
+  if (MOVIE_CAT.test(cat) && len >= 80 * 60) sc += 2;
+  if (RERUN.test(t)) sc -= 3;
+  if (NEWS.test(t)) sc -= 2;
+  return sc;
+}
+
+/** Encadena programas desde `now` hasta `end`: en cada paso, el mejor de los que empiezan cerca de donde
+ *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
+export function buildPlan(cands: { ch: GuideChannel; p: Prog }[], now: number, end: number, forced: Map<number, { ch: GuideChannel; p: Prog }>): Slot[] {
+  const scored = cands.flatMap((c) => {
+    const sc = planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
+    return sc === null ? [] : [{ ...c, sc }];
+  });
+  const plan: Slot[] = [];
+  const used = new Set<string>();
+  let t = now;
+  while (t < end - 20 * 60 && plan.length < 12) {
+    const first = !plan.length;
+    const opts = scored
+      .filter((c) => !used.has(c.p.t) && c.p.e > t + 20 * 60 && c.p.s >= t - (first ? 20 * 60 : 10 * 60) && c.p.s <= t + 45 * 60)
+      .map((c) => ({ ...c, v: c.sc - Math.max(0, c.p.s - t) / 900 }))
+      .sort((a, b) => b.v - a.v || a.p.s - b.p.s);
+    const pick = forced.get(plan.length) ?? opts[0];
+    if (!pick) { t += 15 * 60; continue; }
+    const alt = opts.find((o) => o.ch.epg !== pick.ch.epg && o.p.t !== pick.p.t);
+    plan.push({ ch: pick.ch, p: pick.p, alt: alt && { ch: alt.ch, p: alt.p } });
+    used.add(pick.p.t);
+    t = pick.p.e;
+  }
+  return plan;
+}
+
+const MAX_PLAN_CHANNELS = 150;
+
+function Plan({ channels, now, host, open }: {
+  channels: GuideChannel[]; now: number; host: GuideHost; open: (ch: GuideChannel, p: Prog) => void;
+}) {
+  const part = partOfDay(now);
+  const [scheds, setScheds] = useState<Map<string, Entry[] | null>>(() => new Map());
+  const [marks, setMarks] = useState<Set<string> | null>(null);
+  const [forced, setForced] = useState<Map<number, { ch: GuideChannel; p: Prog }>>(() => new Map());
+  const withGuide = useMemo(() => channels.filter((c) => c.epg && !c.quiet).slice(0, MAX_PLAN_CHANNELS), [channels]);
+  useEffect(() => {
+    let live = true;
+    setForced(new Map());
+    Promise.all(withGuide.map((c) => host.schedule(c.epg!).then((e) => [c.epg!, e] as const)))
+      .then((list) => { if (live) setScheds(new Map(list)); });
+    host.reminders().then((m) => live && setMarks(m));
+    return () => { live = false; };
+  }, [withGuide]);
+  const loaded = withGuide.every((c) => scheds.has(c.epg!));
+
+  const plan = useMemo(() => {
+    const cands: { ch: GuideChannel; p: Prog }[] = [];
+    for (const ch of withGuide) {
+      for (const [s, e, t] of scheds.get(ch.epg!) ?? []) {
+        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t } });
+      }
+    }
+    return buildPlan(cands, now, part.end, forced);
+  }, [scheds, forced, Math.floor(now / 300), part.end]);
+
+  const bell = (ch: GuideChannel, p: Prog) => {
+    const on = marks?.has(`${ch.epg}|${p.s}`) ?? false;
+    return (
+      <button type="button" class={`remind-btn${on ? ' on' : ''}`} data-epg={ch.epg!} data-start={p.s} data-title={p.t}
+        aria-pressed={on} aria-label={`Avisarme: ${p.t}`} title="Avisarme antes de que empiece"
+        onClick={(ev) => { ev.stopPropagation(); host.toggleReminder(ev.currentTarget as HTMLElement, ch.name); }}>
+        <Icon name="bell" />
+      </button>
+    );
+  };
+
+  return (
+    <div class="gd-up gd-plan">
+      <p class="gd-plan-lead">Armé tu {part.name} con lo mejor de tus canales, sin que nada se pise. Tocá la campana y te aviso en cada cambio.</p>
+      {!loaded ? <p class="gd-up-empty">Armando tu {part.name}…</p> : !plan.length
+        ? <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
+        : (
+          <ol class="gd-plan-list">
+            {plan.map((sl, i) => {
+              const prev = plan[i - 1];
+              const live = sl.p.s <= now;
+              return (
+                <li key={`${sl.ch.i}:${sl.p.s}`}>
+                  {prev && prev.ch.epg !== sl.ch.epg && (
+                    <p class="gd-plan-hop"><Icon name="refresh-cw" class="sm" />Cambio a <b>{sl.ch.name}</b> a las {hm(sl.p.s)}</p>
+                  )}
+                  <div class={`gd-plan-slot${live ? ' live' : ''}`}>
+                    <span class="gd-plan-time">{hm(sl.p.s)}</span>
+                    <button type="button" class="gd-plan-card" onClick={() => open(sl.ch, sl.p)} aria-label={`${sl.p.t}, ${sl.ch.name}, ${hm(sl.p.s)} a ${hm(sl.p.e)}`}>
+                      <Logo ch={sl.ch} />
+                      <span class="gd-up-main">
+                        <span class="tt">{live && <span class="gd-plan-dot" aria-label="En el aire" />}{sl.p.t}</span>
+                        <span class="sub"><span class="nm">{sl.ch.name}</span><span class="meta">{live ? `quedan ${dur(sl.p.e - now)}` : `${hm(sl.p.s)} – ${hm(sl.p.e)}`}</span></span>
+                      </span>
+                    </button>
+                    {!live && bell(sl.ch, sl.p)}
+                  </div>
+                  {sl.alt && (
+                    <button type="button" class="gd-plan-alt" onClick={() => setForced(new Map([...forced].filter(([k]) => k < i)).set(i, sl.alt!))}>
+                      o <b>{sl.alt.p.t}</b> en {sl.alt.ch.name} ({hm(sl.alt.p.s)})
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
     </div>
   );
 }
