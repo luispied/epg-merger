@@ -7,11 +7,17 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.30.1
+## 1.30.2
 
 - Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.
 - Buscar también mira la descripción de lo que está dando cada canal, y encuentra aunque las palabras estén en otro orden («inter parma»). Las descripciones van en un archivo aparte por hora (`ui/schedule/hour/<hora>-d.json`) que se baja recién al buscar.
 - En la vista detallada de Canales, el programa en el aire ocupa hasta dos líneas antes de cortarse.
+
+## 1.30.1
+
+- Categorías y Perfil pasan a ser páginas enteras, como la Guía: la barra de abajo queda siempre a mano para ir de una a otra (marca dónde estás) y ya no hay cruz para cerrarlas. Lo que se abre desde ellas (una categoría, la ayuda, cambiar de cuenta) sigue siendo una hoja encima. En el escritorio, Esc vuelve a Canales.
+- Tirar para refrescar anda solo en la lista de Canales: en la Guía y en las páginas ya no se dispara al desplazarse hacia arriba.
+- Refrescar ya no vacía la lista ni la lleva arriba de todo mientras vuelve a bajar los datos: queda como está con el ícono girando. En el iPhone, ese salto en medio del gesto podía dejar la app sin responder a los toques ni a la barra de abajo.
 
 ## 1.30.0
 

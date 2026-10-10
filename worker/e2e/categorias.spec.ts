@@ -117,3 +117,59 @@ test('ordenar los canales de una categoría', async ({ page }) => {
   await expect(order).toBeHidden();
   await expect(page.locator('#catMenuName')).toHaveValue('Deportes');
 });
+
+test('Categorías y Perfil son páginas enteras y la barra de abajo cambia entre ellas', async ({ page }) => {
+  const tab = (id: string) => page.locator(`#${id}`);
+  await openCategories(page);
+  await expect(tab('categoriesBtn')).toHaveAttribute('aria-current', 'page');
+  // Página entera: ocupa todo el ancho, sin cruz, y la barra de abajo sigue por encima y se puede tocar.
+  const vw = page.viewportSize()!.width;
+  expect((await sheet(page).boundingBox())!.width).toBeGreaterThan(vw - 20); // menos la barra de desplazamiento del escritorio
+  await expect(sheet(page).getByRole('button', { name: 'Cerrar' })).toBeHidden();
+  await tab('tabLinks').click();
+  await expect(page.locator('#linksDialog')).toBeVisible();
+  await expect(sheet(page)).toBeHidden();
+  await expect(tab('tabLinks')).toHaveAttribute('aria-current', 'page');
+  await tab('tabGuide').click();
+  await expect(page.locator('#guide')).toBeVisible();
+  await expect(page.locator('#linksDialog')).toBeHidden();
+  await tab('categoriesBtn').click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(page.locator('#guide')).toBeHidden();
+  await tab('tabHome').click();
+  await expect(sheet(page)).toBeHidden();
+  await expect(tab('tabHome')).toHaveAttribute('aria-current', 'page');
+});
+
+/** Simula tirar hacia abajo con el dedo desde arriba de todo. */
+async function pull(page: Page) {
+  await page.evaluate(() => {
+    const at = (y: number) => [new Touch({ identifier: 1, target: document.body, clientX: 100, clientY: y })];
+    window.dispatchEvent(new TouchEvent('touchstart', { touches: at(100) }));
+    window.dispatchEvent(new TouchEvent('touchmove', { touches: at(320) }));
+    window.dispatchEvent(new TouchEvent('touchend', { touches: [] }));
+  });
+}
+
+test('tirar para refrescar: solo en Canales, sin vaciar la lista, y las pestañas siguen andando', async ({ page }) => {
+  // Refrescar primero guarda lo pendiente (PUT de la configuración) y después vuelve a bajar todo.
+  const gets = () => fake.writes.filter((w) => w.path === '/api/cfg/c1' && w.method === 'PUT').length;
+  // En la Guía no refresca.
+  await page.locator('#tabGuide').click();
+  await expect(page.locator('#guide')).toBeVisible();
+  const before = gets();
+  await pull(page);
+  await page.waitForTimeout(300);
+  expect(gets()).toBe(before);
+  await expect(page.locator('body')).not.toHaveClass(/refreshing/);
+  // En Canales sí, y la lista no se cambia por el esqueleto mientras tanto.
+  await page.locator('#tabHome').click();
+  await pull(page);
+  await expect.poll(gets).toBeGreaterThan(before);
+  await expect(page.locator('#editor main')).not.toHaveClass(/loading/);
+  await expect(page.locator('body')).not.toHaveClass(/refreshing/);
+  await page.locator('#categoriesBtn').click();
+  await expect(sheet(page)).toBeVisible();
+  await page.locator('#tabHome').click();
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+});

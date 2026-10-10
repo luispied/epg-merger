@@ -1131,6 +1131,23 @@ body.guide-open { overflow: hidden; }
 .gd-again .also { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
 .gd-again .also b { color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* Páginas de la barra de abajo: Categorías y Perfil ocupan la pantalla entera (como la Guía), con la barra siempre a
+   mano. Son <dialog> no modales: lo que se abre desde ellas sigue siendo una hoja encima. */
+dialog.sheet.page {
+  position: fixed; inset: 0; z-index: 7; margin: 0; width: 100%; max-width: none; height: 100%; max-height: none;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bg); color: var(--text); padding: 0;
+}
+dialog.sheet.page > .sheet-body {
+  height: 100%; max-height: none; overflow-y: auto; box-sizing: border-box; max-width: 760px; margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) var(--gutter) calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px));
+}
+dialog.sheet.page > .sheet-body::before { display: none; }
+dialog.sheet.page .sheet-body > .title-row { background: var(--bg); padding-top: 16px; }
+dialog.sheet.page .sheet-body > .title-row::after { background: linear-gradient(var(--bg), transparent); }
+dialog.sheet.page .sheet-body > .title-row h2 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+/* Sin cruz: se sale con la barra de abajo. */
+dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: none; }
+@media (min-width: 900px) { dialog.sheet.page > .sheet-body { padding-left: 24px; padding-right: 24px; } }
 /* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
 .gd-modes { display: flex; margin-top: 12px; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; max-width: 480px; }
 .gd-modes button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }

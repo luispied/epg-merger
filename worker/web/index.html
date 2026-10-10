@@ -145,7 +145,7 @@
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
   <button type="button" class="tab" id="tabGuide"><span data-icon="layout-grid"></span><span>Guía</span></button>
   <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
-  <button type="button" class="tab" id="tabLinks" aria-haspopup="dialog" title="Perfil (mantené apretado para cambiar de cuenta)"><span class="tab-ico"><span class="avatar tab-avatar" id="tabAvatar" aria-hidden="true">T</span></span><span>Perfil</span></button>
+  <button type="button" class="tab" id="tabLinks" title="Perfil (mantené apretado para cambiar de cuenta)"><span class="tab-ico"><span class="avatar tab-avatar" id="tabAvatar" aria-hidden="true">T</span></span><span>Perfil</span></button>
 </nav>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -173,7 +173,7 @@
 </dialog>
 
 <!-- Categorías: la arma ui/categorias.tsx. -->
-<dialog class="sheet settings-sheet" id="categoriesDialog" aria-labelledby="categoriesTitle">
+<dialog class="sheet settings-sheet page" id="categoriesDialog" aria-labelledby="categoriesTitle">
   <div class="sheet-body"></div>
 </dialog>
 
@@ -187,7 +187,7 @@
   <div class="sheet-body"></div>
 </dialog>
 
-<dialog class="sheet settings-sheet" id="linksDialog" aria-labelledby="linksTitle">
+<dialog class="sheet settings-sheet page" id="linksDialog" aria-labelledby="linksTitle">
   <div class="sheet-body">
     <div class="title-row">
       <span class="title-left">
