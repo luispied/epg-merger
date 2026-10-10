@@ -1468,3 +1468,52 @@ test('solo ver: un link por perfil con sus canales (sin credenciales ni links), 
   assert.deepEqual([...(t.env.BUCKET as MemoryBucket).data.keys()].filter((k) => k.startsWith('short/')).sort(), shortBefore);
   assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
 });
+
+test('estado del relay: la prueba y la bajada de la lista anotan cuándo respondió y cuándo falló, y la API lo devuelve', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const channels = [{ name: 'Canal 1', category: 'Aire', id: '1', ext: 'ts', icon: '', epgId: null }];
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels }), uploaded: new Date(Date.now() - 3 * 3600_000) });
+  t.env.RELAY_URL = 'https://relay.example';
+  t.env.RELAY_SECRET = 'r'.repeat(40);
+  let up = false;
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.origin !== 'https://relay.example') return base(input, init);
+    if (!up) return new Response(JSON.stringify({ error: 'caído' }), { status: 502 });
+    if (url.pathname === '/v1/list') return new Response(JSON.stringify({ server: S1, channels }));
+    return new Response(JSON.stringify({ server: S1, account: { expires: '2027-01-01T00:00:00Z' }, results: { 1: 'up' } }));
+  }) as typeof fetch;
+  const health = async () => await (await handle(req(`/api/cfg/${t.cfgId}/health`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as Record<string, string>;
+  const now = new Date('2026-10-10T10:00:00Z');
+  try {
+    // El relay no responde: la prueba lo anota como falla y no da por probado nada.
+    assert.equal(await runHealthCheck(t.env, t.cfgId, now), true);
+    let h = await health();
+    assert.equal(h.relayFail, now.toISOString());
+    assert.equal(h.relayOk, undefined);
+    assert.equal(h.checked, undefined);
+    // La playlist con la lista vieja pide una nueva al relay; si falla, queda anotado y la lista sigue siendo la de antes.
+    await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache);
+    await t.settle();
+    h = await health();
+    assert.ok(h.listFailAt);
+    assert.equal(h.listOkAt, undefined);
+    assert.ok(Date.now() - Date.parse(h.listAt) > 2 * 3600_000);
+    // Vuelve: la próxima prueba anota que respondió (la falla de antes queda como dato viejo).
+    up = true;
+    const later = new Date(now.getTime() + 30 * 3600_000);
+    assert.equal(await runHealthCheck(t.env, t.cfgId, later), true);
+    h = await health();
+    assert.equal(h.relayOk, later.toISOString());
+    assert.equal(h.relayFail, now.toISOString());
+    assert.equal(h.checked, later.toISOString());
+    // Borrar la configuración borra también el estado de la lista.
+    assert.ok(bucket.data.has(`relaylist/${t.cfgId}.json`));
+    await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
+    assert.ok(!bucket.data.has(`relaylist/${t.cfgId}.json`));
+  } finally {
+    globalThis.fetch = base;
+  }
+});

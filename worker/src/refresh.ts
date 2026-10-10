@@ -20,9 +20,24 @@ export async function refreshViaRelay(env: Env, cache: SimpleCache, cfgId: strin
     const list = await relayList(env, servers, username, password);
     if (!list.channels.length) return false;
     await env.BUCKET.put(`list/${cfgId}.json`, JSON.stringify(list), JSON_TYPE);
+    await noteRelayList(env, cfgId, 'okAt', now);
     return true;
   } catch (e) {
     console.error('relay refresh', (e as Error).message);
+    await noteRelayList(env, cfgId, 'failAt', now).catch(() => {});
     return false;
   }
+}
+
+/** Cuándo el relay bajó la lista por última vez y cuándo falló (`relaylist/<cfgId>.json`): la web avisa si la lista
+ *  se queda vieja porque el relay no responde. */
+export interface RelayListState { okAt?: string; failAt?: string }
+async function noteRelayList(env: Env, cfgId: string, field: keyof RelayListState, now: Date) {
+  const key = `relaylist/${cfgId}.json`;
+  let prev: RelayListState = {};
+  try {
+    const obj = await env.BUCKET.get(key);
+    if (obj) prev = JSON.parse(await obj.text()) as RelayListState;
+  } catch { /* ilegible: se empieza de cero */ }
+  await env.BUCKET.put(key, JSON.stringify({ ...prev, [field]: now.toISOString() }), JSON_TYPE);
 }

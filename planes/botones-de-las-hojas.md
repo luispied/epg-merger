@@ -19,3 +19,4 @@ de arriba de la app ni los de las filas («…», plegar).
 
 ## Estado
 - ✅ 1.33.1: el CSS, con capturas de antes y después en claro y oscuro (canal, categoría y ayuda) y la suite e2e entera.
+- 1.34.0: las páginas (Perfil, Categorías) usan el mismo estilo y su encabezado fijo ya no deja ver lo que se desplaza.

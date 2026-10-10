@@ -868,9 +868,29 @@ function computeInfo(ch: Channel) {
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }> }
+interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }> }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
+
+/** «hace 5 h», «hace 3 días». */
+function sinceText(t: number): string {
+  const h = Math.max(1, Math.round((Date.now() - t) / 3600_000));
+  return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
+}
+/** El relay (el servicio que habla con el proveedor) dejó de responder: la prueba de canales falló la última vez y lo
+ *  último bueno tiene más de un día, o la lista no se pudo bajar la última vez y la guardada tiene más de 2 horas.
+ *  Dice desde cuándo («hace 3 días», o null si nunca anduvo) cada cosa no se actualiza; null si todo anda. */
+function relayTrouble(): { probe?: string | null; list?: string } | null {
+  const h = streamHealth;
+  if (!h) return null;
+  const t = (s?: string) => Date.parse(s ?? '') || 0;
+  const out: { probe?: string | null; list?: string } = {};
+  const fail = t(h.relayFail), good = Math.max(t(h.relayOk), t(h.checked));
+  if (fail > good && Date.now() - (good || fail) > 24 * 3600_000) out.probe = good ? sinceText(good) : null;
+  const listFail = t(h.listFailAt), listAt = t(h.listAt);
+  if (listFail > t(h.listOkAt) && listAt && Date.now() - listAt > 2 * 3600_000) out.list = sinceText(listAt);
+  return 'probe' in out || out.list ? out : null;
+}
 const isDown = (ch: Channel) => {
   const h = streamHealth?.channels[ch.id];
   return !!h && !h.ok && h.fails >= DOWN_AFTER;
@@ -2538,8 +2558,11 @@ function renderDownRow() {
     const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
     parts.push(`${down ? plural(down, 'canal caído', 'canales caídos') : 'Ninguno caído'} · ${tested} de ${streamHealth!.total ?? '?'} probados`);
   }
+  const trouble = relayTrouble();
   if (running) parts.push('probando ahora: los resultados llegan en unos minutos');
-  else if (wait > 0) parts.push(`próxima prueba en ${Math.ceil(wait)} h`);
+  else if (trouble && 'probe' in trouble) {
+    parts.push(`${trouble.probe ? `sin probar desde ${trouble.probe}` : 'no se pudo probar'}: el servicio que prueba no responde`);
+  } else if (wait > 0) parts.push(`próxima prueba en ${Math.ceil(wait)} h`);
   else parts.push('ya se puede probar');
   sub.textContent = parts.join(' · ');
   const btn = $<HTMLButtonElement>('#runCheckBtn');
@@ -2897,7 +2920,7 @@ export {
   hourDescIndex, hourIndex, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles,
   loadReminders, loadStreamHealth, logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, nowFromHour,
   nowPlaying, openDock, openHelp, openPage, openProfiles, otherAccounts, otherProviders, PAGE, pickEpg, plural, pref,
-  profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, remindKey, render, renderDownRow,
+  profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, relayTrouble, remindKey, render, renderDownRow,
   renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow, schedule, sectionHeaders,
   sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
   showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleGroupHidden, toggleGroupNoEpg,

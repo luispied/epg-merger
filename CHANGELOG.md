@@ -7,6 +7,14 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.34.0
+
+- **Aviso cuando el relay no responde.** El servicio que habla con el proveedor (relay) baja la lista, prueba los canales caídos y lee la suscripción. Si deja de responder, arriba de los canales aparece «La lista del proveedor no se actualiza desde hace 5 h» (o «Los canales caídos y la cuenta no se actualizan desde hace 3 días»), y la fila «Canales caídos» dice «sin probar desde hace 3 días: el servicio que prueba no responde». Antes todo seguía con datos viejos sin avisar. Sale si la última prueba falló y lo último bueno tiene más de un día, o si la última bajada de la lista falló y la guardada tiene más de 2 horas.
+- Worker: la prueba diaria anota `relayOk`/`relayFail` en `health/<cfgId>.json`, la bajada de la lista anota `okAt`/`failAt` en `relaylist/<cfgId>.json` (se borra con la configuración y con `tools/delete_cfg.py`), y `GET /api/cfg/<id>/health` suma `listAt`, `listOkAt` y `listFailAt`.
+- Perfil y Categorías: al desplazarse, el encabezado (título, ‹ y ?) ya no deja ver lo que pasa por debajo. Cubre todo el ancho y la zona de la barra de estado con fondo sólido, y aparece una línea fina cuando hay algo debajo (en lugar del degradé de antes). El círculo de «tirar para refrescar» ya no asoma debajo de la barra de estado del iPhone.
+- Animaciones cortas donde ayudan a seguir qué cambió: las pestañas de abajo y la Guía aparecen con un fundido, cada página nueva dentro de Perfil entra desde la derecha, los modos de la Guía cambian con un fundido, lo que se prende (categorías, campana) hace un «pop», los avisos de arriba bajan al aparecer, el menú «…» se abre desde su botón y las conexiones del modo ver se despliegan. Con «reducir movimiento» del sistema se apagan.
+- Ayuda de «Canales caídos» al día. Tests nuevos: el estado del relay en el Worker y el aviso en la web (`e2e/relay.spec.ts`).
+
 ## 1.33.3
 
 - Fin de la migración a Preact (ver `planes/react.md`): la tarjeta de revisión de arriba de la lista (con los canales nuevos) y el menú «…» de una fila pasan a componentes en `worker/web/ui/canales.tsx`. La barra de estado con «Reintentar», la píldora de «sin conexión», los filtros con su cuenta, los íconos sueltos y el QR pasan a `worker/web/ui/piezas.tsx`. `app.ts` ya no arma HTML con texto: se borran `icon()`, `esc()` y el último `innerHTML`. Se ve y se comporta igual.
