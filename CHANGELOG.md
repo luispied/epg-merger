@@ -10,6 +10,8 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 ## 1.32.2
 
 - «Tu código» (Perfil → Usar en otro dispositivo → Ver tu código) pasa a ser una hoja con los dos códigos a la vista, cada uno con su **Copiar** al lado y sin «Cancelar»: arriba el **código para editar** (el del hogar) y abajo el **código para ver** de cada perfil del proveedor (`ver.<código>`). Un perfil que todavía no tiene código para ver lo crea al copiarlo. La hoja está en `worker/web/ui/codes.tsx`.
+- Ayuda: «Usar en otro dispositivo» cuenta lo de los códigos para ver, y la ayuda de Perfil suma **Modo ver: para alguien que solo mira** (cómo se comparte, qué ve quien lo usa, el aviso de «la guía no coincide» y cómo quitar el acceso), que faltaba desde la 1.32.0.
+- Regla nueva del proyecto (`CLAUDE.md`): cada cambio de interfaz actualiza las ayudas o agrega una nueva.
 
 ## 1.32.1
 
