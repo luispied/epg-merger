@@ -10,6 +10,7 @@ import { sourceAlias } from '../src/crypto.ts';
 import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
+import { showGuide, type GuideHost } from './ui/guide.tsx';
 import { toast } from './ui/toast.tsx';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
@@ -1411,6 +1412,46 @@ function renderNow() {
   $('#loadMoreSentinel').hidden = list.length <= state.shown;
   recheckGrid();
   renderStatusLine();
+}
+
+// ------------------------------------------------------------------ guía (grilla de canales × hora)
+// La pantalla es un componente Preact (ui/guide.tsx); acá se le pasan los canales (en el orden de
+// Canales, sin ocultos ni separadores) y lo que necesita del resto de la app.
+const guideHost: GuideHost = {
+  channels() {
+    const order = new Map(groups().map((g, k) => [g, k]));
+    return state.channels.map((ch, i) => ({ ch, i, inf: info(ch) }))
+      .filter(({ inf }) => !inf.hidden && !inf.divider)
+      .sort((a, b) => (order.get(groupOf(a.ch)) ?? 0) - (order.get(groupOf(b.ch)) ?? 0) || withinPos(a.i) - withinPos(b.i))
+      .map(({ ch, i, inf }) => {
+        const name = inf.edit.name || eventOf(ch)?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
+        const logo = !logosOn() ? '' : inf.edit.customLogo || (inf.epg ? state.index?.icon.get(inf.epg) ?? '' : '');
+        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose' };
+      });
+  },
+  openChannel: (i) => openChannel(i),
+  schedule: (epg) => schedule(epg),
+  reminders: async () => {
+    const st = await loadReminders();
+    return st.configured ? st.keys : null;
+  },
+  toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
+};
+function setGuide(on: boolean) {
+  const el = $('#guide');
+  el.hidden = !on;
+  document.body.classList.toggle('guide-open', on);
+  $('#tabHome').classList.toggle('active', !on);
+  $('#tabGuide').classList.toggle('active', on);
+  if (on) {
+    $('#tabGuide').setAttribute('aria-current', 'page');
+    $('#tabHome').removeAttribute('aria-current');
+    infoMemo = new Map();
+    try { showGuide(el, guideHost); } finally { infoMemo = null; }
+  } else {
+    $('#tabHome').setAttribute('aria-current', 'page');
+    $('#tabGuide').removeAttribute('aria-current');
+  }
 }
 
 // ------------------------------------------------------------------ canal: diálogo
@@ -4696,9 +4737,13 @@ function setupEditor() {
     openDock($('#categoriesDialog') as HTMLDialogElement);
   };
   wirePullToRefresh();
-  // Barra inferior: Canales (volver arriba), Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
+  // Barra inferior: Canales (volver arriba), Guía, Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
   $('#helpTopBtn').onclick = () => openHelp('main');
-  $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('#tabHome').onclick = () => {
+    if (!$('#guide').hidden) return setGuide(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  $('#tabGuide').onclick = () => setGuide(true);
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
   const openProfiles = (v: LinksView = { v: 'list' }) => {
     linksView = v;
