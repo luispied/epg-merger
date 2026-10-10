@@ -13,6 +13,7 @@ import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
+import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
@@ -2182,113 +2183,7 @@ function saveCollapsed(set: Set<string>) {
   } catch { /* sin storage */ }
 }
 
-function renderCategories() {
-  const list = groups();
-  const hidden = new Set(state.cfg!.groups.hidden);
-  const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
-  const headers = sectionHeaders();
-  const collapsed = collapsedSections();
-  const counts = new Map<string, number>();
-  for (const ch of state.channels) counts.set(groupOf(ch), (counts.get(groupOf(ch)) ?? 0) + 1);
-  const q = fold($<HTMLInputElement>('#categoriesFilter').value.trim());
-  // Categorías que tiene cada sección (hasta la siguiente), y a qué sección pertenece cada una.
-  const owner = new Map<string, string>();
-  const size = new Map<string, number>();
-  let current = '';
-  for (const g of list) {
-    if (headers.has(g)) {
-      current = g;
-      size.set(g, 0);
-    } else if (current) {
-      owner.set(g, current);
-      size.set(current, (size.get(current) ?? 0) + 1);
-    }
-  }
-  // Con un filtro el orden no se puede arrastrar (se movería entre categorías que no se ven).
-  const rows = list.map((g, i) => ({ g, i })).filter(({ g }) => !q || fold(`${groupLabel(g)} ${g}`).includes(q));
-  const folded = (g: string) => !q && !headers.has(g) && collapsed.has(owner.get(g) ?? '\u0000');
-  const flags = (g: string) => (state.newGroups.has(g) ? ' · nueva' : '') + (noEpg.has(g) ? ' · sin guía' : '') + (hidden.has(g) ? ' · oculta' : '');
-  const marks = (g: string) => [state.newGroups.has(g) ? 'nueva' : '', noEpg.has(g) ? 'sin guía' : '', hidden.has(g) ? 'oculta' : '']
-    .filter(Boolean).map((m) => `<span class="mark">${m}</span>`).join('');
-  const swipe = (g: string, section: boolean) => `<span class="swipe-bg" aria-hidden="true">${section ? '' : `<span class="sw sw-r">${icon('ban')}${noEpg.has(g) ? 'Pedir guía' : 'Sin guía'}</span>`}<span class="sw sw-l">${icon(hidden.has(g) ? 'eye' : 'eye-off')}${hidden.has(g) ? 'Mostrar' : 'Ocultar'}</span></span>`;
-  $('#categoriesList').innerHTML = rows.map(({ g, i }) => headers.has(g) ? `
-    <div class="menu-row static cat-row section-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}" tabindex="0" role="button" aria-label="${esc(sectionTitle(groupLabel(g)))}, sección">
-      ${swipe(g, true)}
-      <div class="row-in">
-      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover la sección ${esc(sectionTitle(groupLabel(g)))}" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <button type="button" class="icon-btn sm fold-btn" data-fold="${i}" aria-expanded="${!collapsed.has(g)}" aria-label="${collapsed.has(g) ? 'Expandir' : 'Contraer'} la sección ${esc(sectionTitle(groupLabel(g)))}">${icon(collapsed.has(g) ? 'chevron-right' : 'chevron-down')}</button>
-      <span class="menu-text"><span class="section-name">${esc(sectionTitle(groupLabel(g)))}</span><small>${plural(size.get(g) ?? 0, 'categoría', 'categorías')}${marks(g)}</small></span>
-      ${icon('chevron-right', 'go')}
-      </div>
-    </div>` : `
-    <div class="menu-row static cat-row${hidden.has(g) ? ' is-off' : ''}" data-g="${i}" tabindex="0" role="button" aria-label="${esc(groupLabel(g))}"${folded(g) ? ' hidden' : ''}>
-      ${swipe(g, false)}
-      <div class="row-in">
-      ${q ? '' : `<button type="button" class="drag-handle" aria-label="Mover ${esc(groupLabel(g))} (arrastrá, o flechas del teclado)" title="Arrastrá para cambiar el orden">${icon('grip-vertical')}</button>`}
-      <span class="menu-text">${esc(groupLabel(g))}<small>${plural(counts.get(g) ?? 0, 'canal', 'canales')}${marks(g)}</small></span>
-      ${icon('chevron-right', 'go')}
-      </div>
-    </div>`).join('') || '<p class="help">Ninguna categoría coincide.</p>';
-  const nHidden = list.filter((g) => hidden.has(g) && !headers.has(g)).length;
-  const nCats = list.filter((g) => !headers.has(g)).length;
-  $('#categoriesSummary').textContent = `${plural(nCats, 'categoría', 'categorías')}${nHidden ? ` · ${plural(nHidden, 'oculta', 'ocultas')}` : ''}`;
-  // Contraer o expandir todas las secciones, según lo que haya.
-  const sections = list.filter((g) => headers.has(g) && (size.get(g) ?? 0) > 0);
-  const allFolded = sections.length > 0 && sections.every((g) => collapsed.has(g));
-  const toggle = $('#foldAllBtn');
-  toggle.hidden = !sections.length;
-  toggle.innerHTML = `${icon(allFolded ? 'chevrons-up-down' : 'chevrons-down-up')}${allFolded ? 'Desplegar todo' : 'Plegar todo'}`;
-  toggle.setAttribute('aria-label', allFolded ? 'Expandir todas las secciones' : 'Contraer todas las secciones');
-  toggle.dataset.mode = allFolded ? 'expand' : 'collapse';
-}
-
-/** La hoja de una categoría o sección, con el mismo patrón que la del canal: arriba el nombre (se
- *  edita tocándolo) con ‹ › para ir a la anterior o siguiente; después los interruptores y, al
- *  final, "Más opciones". Todo se guarda solo. */
-let catMoreOpen = false;
-function openCategoryMenu(i: number) {
-  const list = groups();
-  const g = list[i];
-  const isSection = sectionHeaders().has(g);
-  const noEpg = !!state.cfg!.groups.noEpg?.includes(g);
-  const hidden = state.cfg!.groups.hidden.includes(g);
-  const mine = new Set([...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]);
-  const members = state.channels.filter((ch) => groupOf(ch) === g).length;
-  const empty = members === 0;
-  const dlg = $('#catMenuDialog') as HTMLDialogElement;
-  dlg.dataset.g = String(i);
-  const label = isSection ? sectionTitle(groupLabel(g)) : groupLabel(g);
-  const input = $<HTMLInputElement>('#catMenuName');
-  input.value = label;
-  input.placeholder = isSection ? sectionTitle(g) : g;
-  for (const [id, to] of [['#catMenuPrev', i - 1], ['#catMenuNext', i + 1]] as const) {
-    const b = $<HTMLButtonElement>(id);
-    b.disabled = to < 0 || to >= list.length;
-    b.onclick = () => openCategoryMenu(to);
-  }
-  const renamed = !!state.cfg!.groups.rename?.[g];
-  const row = (iconName: string, text: string, action: string, cls = '') =>
-    `<button type="button" class="menu-row ${cls}" data-action="${action}"><span class="menu-icon">${icon(iconName)}</span><span class="menu-text">${esc(text)}</span></button>`;
-  const sw = (text: string, small: string, cls: string, on: boolean) =>
-    `<label class="opt-row"><span>${esc(text)}${small ? `<small>${esc(small)}</small>` : ''}</span><input type="checkbox" class="switch ${cls}" role="switch"${on ? ' checked' : ''}></label>`;
-  // Ocultar y «sin guía» se hacen deslizando la fila; acá quedan plegados (teclado y lectores de pantalla).
-  const extra = [
-    renamed ? row('rotate-ccw', 'Volver al nombre original', 'unrename') : '',
-    mine.has(g) && empty ? row('trash-2', 'Borrar', 'delete', 'danger') : '',
-  ].join('');
-  $('#catMenuBody').innerHTML = `
-    <div class="ch-meta"><span class="prov">${isSection ? 'Sección' : plural(members, 'canal', 'canales')}${renamed ? ` · en el proveedor: ${esc(isSection ? sectionTitle(g) : g)}` : ''}</span></div>
-    ${isSection ? '' : `<div class="menu">${row('list-ordered', 'Ordenar los canales', 'order')}</div>`}
-    <div class="opt-group">
-      ${sw('Visible en la playlist', '', 'cat-visible', !hidden)}
-      ${isSection ? '' : sw('Sin guía', 'No necesita guía de programación', 'cat-noepg', noEpg)}
-    </div>
-    ${extra ? `<details class="ch-more"${catMoreOpen ? ' open' : ''}><summary>Más opciones${icon('chevron-down', 'sm')}</summary><div class="menu">${extra}</div></details>` : ''}`;
-  const body = $('#catMenuBody');
-  const more = body.querySelector<HTMLDetailsElement>('.ch-more');
-  if (more) more.ontoggle = () => { catMoreOpen = more.open; };
-  if (!dlg.open) dlg.showModal();
-}
+// La hoja de Categorías, la de una categoría y la de ordenar sus canales están en ui/categorias.tsx.
 
 /** Crea una categoría o un separador de sección propio: queda al final, para arrastrarlo a su lugar. */
 async function createGroup(kind: 'category' | 'separator') {
@@ -2474,22 +2369,6 @@ function setupDrag(box: HTMLElement, rowSel: string, drop: (from: HTMLElement, t
   });
 }
 
-function setupCategoryDrag(box: HTMLElement) {
-  setupDrag(box, '.cat-row:not([hidden])', (from, to) => moveGroup(Number(from.dataset.g), Number(to.dataset.g)), (row, up) => {
-    const i = Number(row.dataset.g);
-    const list = groups();
-    const headers = sectionHeaders();
-    let j = i + (up ? -1 : 1);
-    // Una sección baja saltando la siguiente entera.
-    if (!up && headers.has(list[i]) && !isLoneHeader(list, i, headers)) while (j < list.length && !headers.has(list[j])) j++;
-    if (j < 0 || j >= list.length) return;
-    const moved = list[i];
-    moveGroup(i, j);
-    const k = groups().indexOf(moved);
-    $<HTMLElement>(`.cat-row[data-g="${k}"] .drag-handle`, box)?.focus();
-  });
-}
-
 // ------------------------------------------------------------------ orden de canales
 /** Canales de una categoría en el orden de la playlist (el propio primero). */
 function groupChannels(g: string): string[] {
@@ -2505,21 +2384,6 @@ function groupChannels(g: string): string[] {
       }
     });
   return names;
-}
-
-function renderChannelOrder(g: string) {
-  const names = groupChannels(g);
-  const custom = !!state.cfg!.groups.channels?.[g];
-  $('#orderTitle').textContent = groupLabel(g);
-  $('#orderBody').innerHTML = `
-    <p class="help">Arrastrá desde <span class="inline-icon">${icon('grip-vertical')}</span> para ordenar los canales de esta categoría en la playlist. Los canales nuevos del proveedor van al final.</p>
-    <div class="menu" id="orderList">${names.map((n, k) => {
-      const shown = state.cfg!.channels[n]?.name || parseEvent(n, eventTz(), Date.now())?.clean || stripDisplayPrefix(n, state.rules!)[0];
-      return `<div class="menu-row static ord-row" data-k="${k}">
-        <button type="button" class="drag-handle" aria-label="Mover ${esc(shown)}">${icon('grip-vertical')}</button>
-        <span class="menu-text">${esc(shown)}</span></div>`;
-    }).join('')}</div>
-    ${custom ? '<div class="row-actions"><button type="button" class="btn btn-plain" data-reset-order>Volver al orden del proveedor</button></div>' : ''}`;
 }
 
 function setChannelOrder(g: string, names: string[] | null, msg: string) {
@@ -2551,111 +2415,6 @@ function wireNested(child: string, back: string, close: string) {
     const from = dlg.dataset.from;
     dlg.close();
     if (from) ($(from) as HTMLDialogElement).close();
-  };
-}
-
-function openChannelOrder(g: string) {
-  renderChannelOrder(g);
-  const dlg = $('#orderDialog') as HTMLDialogElement;
-  dlg.dataset.group = g;
-  dlg.showModal();
-}
-
-function setupChannelOrder() {
-  const body = $('#orderBody');
-  const move = (from: number, to: number) => {
-    const g = ($('#orderDialog') as HTMLDialogElement).dataset.group!;
-    const names = groupChannels(g);
-    const [n] = names.splice(from, 1);
-    names.splice(to, 0, n);
-    setChannelOrder(g, names, 'Orden de canales guardado');
-    $<HTMLElement>(`.ord-row[data-k="${to}"] .drag-handle`, body)?.focus();
-  };
-  setupDrag(body, '.ord-row', (a, b) => move(Number(a.dataset.k), Number(b.dataset.k)), (row, up) => {
-    const k = Number(row.dataset.k);
-    const j = k + (up ? -1 : 1);
-    if (j >= 0 && j < $$('.ord-row', body).length) move(k, j);
-  });
-  body.addEventListener('click', (ev) => {
-    if (!(ev.target as HTMLElement).closest('[data-reset-order]')) return;
-    const g = ($('#orderDialog') as HTMLDialogElement).dataset.group!;
-    setChannelOrder(g, null, 'Vuelve al orden del proveedor');
-  });
-}
-
-function setupCategories() {
-  // Las secciones quedan ancladas justo debajo del título fijo de la hoja.
-  const catTitle = document.querySelector<HTMLElement>('#categoriesDialog .sheet-body > .title-row');
-  if (catTitle && 'ResizeObserver' in window) {
-    new ResizeObserver(() => ($('#categoriesDialog') as HTMLElement).style.setProperty('--cat-title-h', `${catTitle.offsetHeight}px`)).observe(catTitle);
-  }
-  const box = $('#categoriesList');
-  setupCategoryDrag(box);
-  $<HTMLInputElement>('#categoriesFilter').oninput = () => renderCategories();
-  $('#newCategoryBtn').onclick = () => createGroup('category');
-  $('#newSectionBtn').onclick = () => createGroup('separator');
-  $('#categoriesHelpBtn').onclick = () => openHelp('categories', '#categoriesDialog');
-  $('#foldAllBtn').onclick = () => {
-    const headers = sectionHeaders();
-    const list = groups();
-    const withMembers = list.filter((g, i) => headers.has(g) && i + 1 < list.length && !headers.has(list[i + 1]));
-    saveCollapsed($('#foldAllBtn').dataset.mode === 'collapse' ? new Set(withMembers) : new Set());
-    renderCategories();
-  };
-  // Deslizar una categoría: izquierda = ocultar o mostrar, derecha = sin guía (no en las secciones).
-  const swiped = wireSwipe(box, '.cat-row', (row) => toggleGroupHidden(groups()[Number(row.dataset.g)]), (row) => {
-    const g = groups()[Number(row.dataset.g)];
-    if (!sectionHeaders().has(g)) toggleGroupNoEpg(g);
-  }, (row) => !sectionHeaders().has(groups()[Number(row.dataset.g)]));
-  box.onclick = (ev) => {
-    if (swiped()) return;
-    const t = ev.target as HTMLElement;
-    const fold = t.closest<HTMLElement>('[data-fold]');
-    if (fold) {
-      const g = groups()[Number(fold.dataset.fold)];
-      const set = collapsedSections();
-      if (!set.delete(g)) set.add(g);
-      saveCollapsed(set);
-      renderCategories();
-      return;
-    }
-    if (t.closest('.drag-handle')) return;
-    const row = t.closest<HTMLElement>('.cat-row');
-    if (row) openCategoryMenu(Number(row.dataset.g));
-  };
-  box.onkeydown = (ev) => {
-    const t = ev.target as HTMLElement;
-    if (ev.key === 'Enter' && t.matches('.cat-row')) openCategoryMenu(Number(t.dataset.g));
-  };
-  const menu = () => ($('#catMenuDialog') as HTMLDialogElement);
-  const menuGroup = () => groups()[Number(menu().dataset.g)];
-  const again = () => openCategoryMenu(Number(menu().dataset.g));
-  const input = $<HTMLInputElement>('#catMenuName');
-  input.onchange = () => {
-    applyRename(menuGroup(), input.value);
-    again();
-  };
-  input.onkeydown = (ev) => {
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      input.blur();
-    }
-  };
-  $('#catMenuBody').onchange = (ev) => {
-    const t = ev.target as HTMLElement;
-    if (t.matches('.cat-visible')) toggleGroupHidden(menuGroup());
-    else if (t.matches('.cat-noepg')) toggleGroupNoEpg(menuGroup());
-    else return;
-    again();
-  };
-  $('#catMenuBody').onclick = (ev) => {
-    const action = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]')?.dataset.action;
-    if (!action) return;
-    const g = menuGroup();
-    menu().close();
-    if (action === 'unrename') unrenameGroup(g);
-    else if (action === 'delete') deleteGroup(g);
-    else if (action === 'order') openChannelOrder(g);
   };
 }
 
@@ -3610,11 +3369,7 @@ function setupEditor() {
     $('#loadMoreSentinel').hidden = list.length <= state.shown;
     return !$('#loadMoreSentinel').hidden;
   });
-  $('#categoriesBtn').onclick = () => {
-    $<HTMLInputElement>('#categoriesFilter').value = '';
-    renderCategories();
-    openDock($('#categoriesDialog') as HTMLDialogElement);
-  };
+  $('#categoriesBtn').onclick = openCategories;
   wirePullToRefresh();
   // Barra inferior: Canales (volver arriba), Guía, Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
   $('#helpTopBtn').onclick = () => openHelp('main');
@@ -3650,16 +3405,6 @@ function setupEditor() {
   $('#linksBack').onclick = linksBack;
   $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');
   wireNested('#helpDialog', '#helpBack', '#helpClose');
-  // Ordenar los canales se abre desde la hoja de la categoría: «‹» vuelve a esa hoja y «×» cierra.
-  $('#orderBack').onclick = () => {
-    const dlg = $('#orderDialog') as HTMLDialogElement;
-    const idx = groups().indexOf(dlg.dataset.group!);
-    dlg.close();
-    if (idx >= 0) openCategoryMenu(idx);
-  };
-  $('#orderClose').onclick = () => ($('#orderDialog') as HTMLDialogElement).close();
-  setupCategories();
-  setupChannelOrder();
   // Atajos (escritorio): "/" busca; Escape en el buscador lo borra.
   document.addEventListener('keydown', (ev) => {
     if ($('#editor').hidden || document.querySelector('dialog[open]')) return;
@@ -3758,13 +3503,14 @@ else showOnboarding();
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa
 // se muda a su propio módulo y sale de esta lista.
 export {
-  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse,
-  copyText, daysLeft, EVENT_TZ_KEY, eventTz, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups,
-  guideHealth, guideTime, HEALTH_AHEAD_H, initialOf, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth,
-  logosOn, matchesFilter, myAccounts, openDock, openHelp, otherAccounts, otherProviders, PAGE, plural, pref,
-  profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, render, renderDownRow,
-  renderTabAvatar, saveHome, saveNow, sectionHeaders, sectionTitle, setActiveAccount, setPref, shareText,
-  showHomeCode, showOnboarding, showQr, startGuideRefresh, state, switchProvider, useHomeCode, useOtherAccount,
-  wireDownRow,
+  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, applyRename, collapsedSections,
+  confirmDialog, connectionsInUse, copyText, createGroup, daysLeft, deleteGroup, EVENT_TZ_KEY, eventTz, exportBackup,
+  fold, forgetConfig, groupChannels, groupLabel, groupOf, groups, guideHealth, guideTime, HEALTH_AHEAD_H, initialOf,
+  isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles, loadStreamHealth, logosOn, matchesFilter, moveGroup,
+  myAccounts, openDock, openHelp, otherAccounts, otherProviders, PAGE, plural, pref, profileDefs, profileDevices,
+  profilesAt, promptDialog, providerName, providerTz, render, renderDownRow, renderTabAvatar, saveCollapsed, saveHome,
+  saveNow, sectionHeaders, sectionTitle, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText,
+  showHomeCode, showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleGroupHidden, toggleGroupNoEpg,
+  unrenameGroup, useHomeCode, useOtherAccount, wireDownRow, wireSwipe,
 };
 export type { Account, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };

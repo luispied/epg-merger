@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.27.5
+
+- Categorías pasa a Preact, en `worker/web/ui/categorias.tsx`: la lista con sus secciones, el buscador, arrastrar y deslizar, la hoja de una categoría y la de ordenar sus canales. Se ve y se comporta igual.
+- Tests de humo de Categorías: el buscador, mover con el teclado y arrastrando, ocultar y renombrar una categoría, y ordenar sus canales.
+
 ## 1.27.4
 
 - Configuración pasa a Preact, con los avisos push, en `worker/web/ui/settings.tsx`. Se ve y se comporta igual. Se arma de cero cada vez que se abre.
