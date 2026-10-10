@@ -7,11 +7,15 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.30.0
+## 1.31.0
 
 - Resolución real de cada canal: una etiqueta SD, HD, FHD o 4K en la lista de Canales y en la Guía (con el mouse encima se ve el ancho × alto). No sale del nombre del canal: se mide el video que manda el proveedor.
 - La mide el relay junto con la prueba diaria de canales caídos: cada canal una vez por semana, solo los que andan y como mucho 8 por tanda (unos 32 por día), para no comerse el tiempo de la prueba. Lee el comienzo del stream (MPEG-TS, o el primer segmento si es HLS; con un playlist maestro alcanza su RESOLUTION) y saca las medidas del SPS del video, H.264 o HEVC, en Python puro y sin ffprobe (`video_res.py`). Cuesta unos KB por canal: entra de sobra en lo gratis.
 - Worker: queda en `res` de `health/<cfgId>.json` (`src/streamcheck.ts`). Con un relay viejo no se mide nada y la app sigue igual, sin etiquetas: hay que volver a desplegar el relay en Fly.
+
+## 1.30.0
+
+- Guía: tercer modo, **Tu mañana / Tu tarde / Tu noche / Tu madrugada** (el nombre cambia con la hora; si queda menos de hora y media, arma la parte que sigue). Encadena programas de los canales sin que se pisen, saltando de canal, hasta el final de ese rato: primero lo que es en vivo o un partido, después las películas largas, y afuera el relleno, los noticieros y las repeticiones. Cada paso muestra una alternativa («o … en …»); tocarla rearma el plan desde ahí. «Cambio a … a las …» marca los saltos de canal y la campana de cada programa pide el aviso. Sigue el filtro de categorías de arriba.
 
 ## 1.29.0
 
