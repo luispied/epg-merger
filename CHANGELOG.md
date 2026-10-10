@@ -7,6 +7,15 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.33.0
+
+- Guía: **varias categorías a la vez**. Cada botón de categoría se suma o se saca (vuelve a tocarlo para sacarla) y **Todas** limpia. El filtro es el mismo en Grilla, Próximos y Tu noche, y queda guardado en el dispositivo. Con dos o más elegidas, la Grilla sigue con un encabezado por categoría.
+- Con más de 8 categorías, la fila muestra las elegidas, una raya y las 5 con más canales con guía. **Más** abre una hoja con buscador, las elegidas arriba y cuántos canales con guía tiene cada una.
+- **Tu noche** (o mañana, tarde, madrugada) arma el plan solo con lo elegido y lo nombra («lo mejor de Deportes y Películas»). Si no alcanza para llenar el rato, dice desde qué hora no encontró nada y ofrece **Sumar** la categoría con más canales o **Elegir otras**.
+- Anda igual en el modo ver.
+- Arreglo: con una categoría elegida, Tu noche volvía a pedir la programación y a armar el plan en cada render.
+- Ayuda de la Guía al día. Tests de humo nuevos (`e2e/guia-categorias.spec.ts`).
+
 ## 1.32.2
 
 - «Tu código» (Perfil → Usar en otro dispositivo → Ver tu código) pasa a ser una hoja con los dos códigos a la vista, cada uno con su **Copiar** al lado y sin «Cancelar»: arriba el **código para editar** (el del hogar) y abajo el **código para ver** de cada perfil del proveedor (`ver.<código>`). Un perfil que todavía no tiene código para ver lo crea al copiarlo. La hoja está en `worker/web/ui/codes.tsx`.
