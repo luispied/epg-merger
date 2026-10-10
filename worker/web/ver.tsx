@@ -12,7 +12,8 @@ Object.assign(window.ICONS, {
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
 });
 
-interface ViewData { name: string; channels: { name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
+interface ViewData { name: string; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
+interface Conn { inUse?: number; max?: number; watching: { name: string; channel: string; t: string }[] }
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
 type Entry = [number, number, string, string?];
 interface Prog { s: number; e: number; t: string }
@@ -122,8 +123,46 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
   );
 }
 
-/** La hoja de un canal: lo que da ahora (con su descripción) y lo que viene. */
-function ChannelSheet({ ch, now, close }: { ch: GuideChannel; now: number; close: () => void }) {
+const since = (iso: string) => {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
+};
+
+/** Conexiones en uso de la cuenta (lo que dice el proveedor) y qué está mirando cada link. Se pide cada minuto. */
+function Connections({ code }: { code: string }) {
+  const [c, setC] = useState<Conn | null>(null);
+  useEffect(() => {
+    const load = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetch(`/api/view/${code}/connections`).then((r) => (r.ok ? r.json() : null)).then((v) => v && setC(v)).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    document.addEventListener('visibilitychange', load);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', load); };
+  }, []);
+  if (!c || (c.inUse === undefined && !c.watching.length)) return null;
+  const full = c.max && (c.inUse ?? 0) >= c.max;
+  return (
+    <section class="vw-conn" aria-label="Conexiones">
+      <div class="vw-conn-head">
+        <span class={`vw-conn-n${full ? ' warn' : ''}`}>{c.inUse ?? c.watching.length}{c.max ? <small> de {c.max}</small> : null}</span>
+        <span class="vw-conn-t"><strong>{c.inUse === undefined ? 'Mirando ahora' : 'Conexiones en uso'}</strong>
+          <small>{full ? 'Están todas ocupadas' : c.watching.length ? 'Qué está mirando cada uno' : 'Nadie está mirando ahora'}</small></span>
+      </div>
+      {c.watching.map((w) => (
+        <div class="vw-conn-row" key={w.name + w.t}>
+          <span class="conn-dot on" aria-hidden="true" />
+          <span class="vw-conn-who"><strong>{w.name}</strong><small>{w.channel} · {since(w.t)}</small></span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** La hoja de un canal: lo que da ahora (con su descripción) y lo que viene, y avisar si la guía no coincide. */
+function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: string; code: string; now: number; close: () => void }) {
+  const [sent, setSent] = useState<'' | 'busy' | 'ok' | 'bad'>('');
   const dlg = useRef<HTMLDialogElement>(null);
   const [entries, setEntries] = useState<Entry[] | null | undefined>(ch.epg ? undefined : null);
   useLayoutEffect(() => {
@@ -158,12 +197,22 @@ function ChannelSheet({ ch, now, close }: { ch: GuideChannel; now: number; close
             {later.map(([s, , t]) => <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t}</span></div>)}
           </div>
         )}
+        <div class="vw-report">
+          {sent === 'ok' ? <p class="vw-report-ok"><Icon name="check" />Listo, le avisamos a quien arma la grilla.</p> : (
+            <button type="button" class="btn btn-gray btn-block" disabled={sent === 'busy'} onClick={() => {
+              setSent('busy');
+              fetch(`/api/view/${code}/report`, { method: 'POST', body: JSON.stringify({ id, title: cur?.[2] ?? '' }) })
+                .then((r) => setSent(r.ok ? 'ok' : 'bad')).catch(() => setSent('bad'));
+            }}><Icon name="triangle-alert" />Lo que dan en la tele no es esto</button>
+          )}
+          {sent === 'bad' && <p class="vw-report-bad">No se pudo avisar. Probá de nuevo en un rato.</p>}
+        </div>
       </div>
     </dialog>
   );
 }
 
-function Channels({ data, channels, onOpen }: { data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void }) {
+function Channels({ code, data, channels, onOpen }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void }) {
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
@@ -198,19 +247,35 @@ function Channels({ data, channels, onOpen }: { data: ViewData; channels: GuideC
         </label>
       </div>
       <main class="vw-list">
+        {!q.trim() && <Connections code={code} />}
         {out.length ? out : <div class="empty"><Icon name="inbox" class="lg" /><strong>Nada por acá</strong>{q ? `Nada coincide con “${q}”.` : 'Este perfil no tiene canales.'}</div>}
+        <p class="vw-foot">Grilla en modo «solo ver»: acá no se puede cambiar nada.
+          <button type="button" class="link-btn" onClick={leave}>Salir del modo ver</button></p>
       </main>
     </>
   );
 }
 
-function Problem({ title, text, retry }: { title: string; text: string; retry?: () => void }) {
+/** Salir del modo ver: este dispositivo deja de abrir Grilla así (para usarla con una configuración propia). */
+function leave() {
+  if (!confirm('¿Salir del modo «solo ver» en este dispositivo? Para volver vas a necesitar el código otra vez.')) return;
+  restart();
+}
+
+/** Volver al inicio de Grilla sin el código guardado (para pegar otro). */
+function restart() {
+  try { localStorage.removeItem(CODE_KEY); } catch { /* sin storage */ }
+  location.href = '/';
+}
+
+function Problem({ title, text, retry, other }: { title: string; text: string; retry?: () => void; other?: boolean }) {
   return (
     <main class="vw-problem">
       <img src="img/icon.svg" alt="" width="64" height="64" />
       <h1>{title}</h1>
       <p>{text}</p>
       {retry && <button type="button" class="btn btn-primary" onClick={retry}><Icon name="refresh-cw" />Probar de nuevo</button>}
+      {other && <button type="button" class="btn btn-primary" onClick={restart}>Pegar otro código</button>}
     </main>
   );
 }
@@ -258,15 +323,15 @@ function App() {
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
 
-  if (!code) return <Problem title="Falta el código" text="Abrí el link completo que te pasaron para ver la programación." />;
-  if (err?.status === 404) return <Problem title="Este link ya no funciona" text="Pedile un link nuevo a quien te lo pasó." />;
+  if (!code) return <Problem title="Falta el código" text="Abrí Grilla y tocá «Pegá el código» con el que te pasaron." other />;
+  if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
   if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
   if (!data) return <main class="vw-loading" aria-busy="true"><Icon name="loader-circle" class="spin" /><span>Cargando los canales…</span></main>;
 
   return (
     <>
-      <section hidden={tab !== 'canales'}><Channels data={data} channels={channels} onOpen={setOpen} /></section>
+      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
@@ -276,7 +341,7 @@ function App() {
           <Icon name="layout-grid" /><span>Guía</span>
         </button>
       </nav>
-      {open && <ChannelSheet key={open.i} ch={open} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
+      {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>
   );
 }

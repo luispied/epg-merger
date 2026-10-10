@@ -31,3 +31,39 @@ export async function createView(bucket: R2Bucket, cfgId: string, profile: strin
 export async function deleteView(bucket: R2Bucket, code: string | undefined): Promise<void> {
   if (code && VIEW_RE.test(code)) await bucket.delete(key(code));
 }
+
+// «La guía no coincide»: desde el modo ver se marca un canal cuya programación no es la que se ve en la tele. Se
+// guarda por configuración (reports/<cfgId>.json) y quien edita lo ve en Canales para corregirlo. Sin credenciales:
+// el id del canal en la lista, su nombre, la guía que tenía, el programa que mostraba y quién lo marcó (el perfil).
+export interface Report { id: string; name: string; epg: string | null; title?: string; by: string; at: string }
+export const MAX_REPORTS = 50;
+const reportsKey = (cfgId: string) => `reports/${cfgId}.json`;
+
+export async function readReports(bucket: R2Bucket, cfgId: string): Promise<Report[]> {
+  const obj = await bucket.get(reportsKey(cfgId));
+  if (!obj) return [];
+  try {
+    const v = JSON.parse(await obj.text()) as { items?: Report[] };
+    return Array.isArray(v.items) ? v.items : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeReports(bucket: R2Bucket, cfgId: string, items: Report[]): Promise<void> {
+  if (items.length) await bucket.put(reportsKey(cfgId), JSON.stringify({ items }), { httpMetadata: { contentType: 'application/json' } });
+  else await bucket.delete(reportsKey(cfgId));
+}
+
+/** Agrega (o renueva) la marca de un canal. Las más viejas salen si se pasa del tope. */
+export async function addReport(bucket: R2Bucket, cfgId: string, r: Report): Promise<void> {
+  const items = (await readReports(bucket, cfgId)).filter((x) => x.id !== r.id);
+  await writeReports(bucket, cfgId, [r, ...items].slice(0, MAX_REPORTS));
+}
+
+export async function removeReport(bucket: R2Bucket, cfgId: string, id: string): Promise<void> {
+  const items = await readReports(bucket, cfgId);
+  if (items.some((x) => x.id === id)) await writeReports(bucket, cfgId, items.filter((x) => x.id !== id));
+}
+
+export const deleteReports = (bucket: R2Bucket, cfgId: string) => bucket.delete(reportsKey(cfgId));

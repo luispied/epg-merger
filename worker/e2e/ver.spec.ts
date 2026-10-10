@@ -9,10 +9,10 @@ const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
 const view = {
   name: 'Abuela',
   channels: [
-    { name: 'Canal Uno', cat: 'Noticias', epg: 'g0000000000001.uy', logo: '' },
-    { name: 'Canal Dos', cat: 'Noticias', epg: 'g0000000000002.uy', logo: '' },
-    { name: 'Cine Clásico', cat: 'Películas', epg: 'g0000000000003.uy', logo: '' },
-    { name: 'Canal Local', cat: 'Películas', epg: null, logo: '', quiet: true },
+    { id: '1', name: 'Canal Uno', cat: 'Noticias', epg: 'g0000000000001.uy', logo: '' },
+    { id: '2', name: 'Canal Dos', cat: 'Noticias', epg: 'g0000000000002.uy', logo: '' },
+    { id: '3', name: 'Cine Clásico', cat: 'Películas', epg: 'g0000000000003.uy', logo: '' },
+    { id: '4', name: 'Canal Local', cat: 'Películas', epg: null, logo: '', quiet: true },
   ],
 };
 // Cada canal: un programa en el aire y otro la hora siguiente.
@@ -28,15 +28,27 @@ const hour = (h: number) => ({
 
 let errors: string[] = [];
 let gone = false;
+let reported: unknown[] = [];
 
 test.beforeEach(async ({ page }) => {
   errors = [];
   gone = false;
+  reported = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/api/**', (r) => {
     const path = new URL(r.request().url()).pathname;
     // El modo ver no escribe nada.
-    if (r.request().method() !== 'GET' && path !== '/api/ui/again') errors.push(`escribió ${path}`);
+    if (r.request().method() !== 'GET' && path !== '/api/ui/again' && path !== `/api/view/${CODE}/report`) errors.push(`escribió ${path}`);
+    if (path === `/api/view/${CODE}/connections`) {
+      return r.fulfill({ json: { inUse: 2, max: 2, watching: [
+        { name: 'TV del living', channel: 'Canal Uno', t: new Date(Date.now() - 20 * 60_000).toISOString() },
+        { name: 'Tablet', channel: 'Cine Clásico', t: new Date(Date.now() - 3 * 60_000).toISOString() },
+      ] } });
+    }
+    if (path === `/api/view/${CODE}/report`) {
+      reported.push(r.request().postDataJSON());
+      return r.fulfill({ json: { ok: true } });
+    }
     if (path === `/api/view/${CODE}`) return gone ? r.fulfill({ status: 404, json: { error: 'no' } }) : r.fulfill({ json: view });
     const m = path.match(/^\/api\/ui\/schedule\/hour\/(\d{10})\.json$/);
     if (m) {
@@ -64,6 +76,12 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await expect(first).toContainText('Noticiero central');
   await expect(first).toContainText('Después: Pronóstico del tiempo');
   await expect(page.locator('.vw-row').nth(3)).toContainText('Sin guía');
+  // Las conexiones de la cuenta y qué mira cada link.
+  const conn = page.locator('.vw-conn');
+  await expect(conn.locator('.vw-conn-n')).toHaveText('2 de 2');
+  await expect(conn).toContainText('Están todas ocupadas');
+  await expect(conn.locator('.vw-conn-row')).toHaveCount(2);
+  await expect(conn.locator('.vw-conn-row').first()).toContainText('Canal Uno · hace 20 min');
   await page.screenshot({ path: `test-results/ver-${info.project.name}-canales.png` });
   // Buscar por programa.
   await page.getByRole('searchbox').fill('casablanca');
@@ -78,6 +96,11 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await expect(sheet).toContainText('Deportes al cierre');
   await expect(sheet.locator('.remind-btn, .gd-remind')).toHaveCount(0);
   await page.screenshot({ path: `test-results/ver-${info.project.name}-canal.png` });
+  // Avisar que la guía no coincide.
+  await sheet.getByRole('button', { name: 'Lo que dan en la tele no es esto' }).click();
+  await expect(sheet).toContainText('le avisamos a quien arma la grilla');
+  expect(reported).toEqual([{ id: '1', title: 'Noticiero central' }]);
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-avisado.png` });
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
   // La Guía: los programas, sin «Cambiar la guía» ni avisos.
@@ -102,9 +125,27 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
 test('un link quitado o sin código dice qué hacer', async ({ page }, info) => {
   gone = true;
   await page.goto(`/ver#${CODE}`);
-  await expect(page.locator('.vw-problem')).toContainText('Este link ya no funciona');
+  await expect(page.locator('.vw-problem')).toContainText('Este código ya no funciona');
   await page.screenshot({ path: `test-results/ver-${info.project.name}-quitado.png` });
   await page.evaluate(() => localStorage.clear());
   await page.goto('/ver');
   await expect(page.locator('.vw-problem')).toContainText('Falta el código');
+});
+
+test('pegar el código para ver al abrir Grilla deja el dispositivo en modo ver, hasta salir', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await page.locator('#homeLink').click();
+  await page.locator('#askDialog input').fill(`ver.${CODE}`);
+  await page.locator('#askCheck').click();
+  await expect(page).toHaveURL(/\/ver#/);
+  await expect(page.locator('.vw-row')).toHaveCount(4);
+  // Abrir Grilla otra vez (el ícono de inicio) vuelve al modo ver.
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/ver#/);
+  await expect(page.locator('.vw-who')).toContainText('Abuela');
+  // Salir (con confirmación) vuelve a la bienvenida.
+  page.once('dialog', (d) => void d.accept());
+  await page.getByRole('button', { name: 'Salir del modo ver' }).click();
+  await expect(page.locator('#onboarding')).toBeVisible();
 });

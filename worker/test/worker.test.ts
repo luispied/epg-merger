@@ -1420,6 +1420,27 @@ test('solo ver: un link por perfil con sus canales (sin credenciales ni links), 
   const va = await (await view(all.code)).json() as { channels: { name: string; logo: string }[] };
   assert.deepEqual(va.channels.map((c) => c.name), ['ESPN', 'Telefe', 'Evento del día']);
   assert.ok(!va.channels.some((c) => c.logo.includes('http://p/')));
+  // Conexiones: qué está mirando cada link de la cuenta (sin relay, sin el número del proveedor).
+  const short = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
+  assert.equal((await handle(req(`/s/${short}/10.ts`), t.env, t.ctx, t.cache)).status, 302);
+  await t.settle();
+  const conn = await (await handle(req(`/api/view/${all.code}/connections`), t.env, t.ctx, t.cache)).json() as { inUse?: number; watching: { name: string; channel: string }[] };
+  assert.equal(conn.inUse, undefined);
+  assert.equal(conn.watching.length, 1);
+  assert.equal(conn.watching[0].channel, 'Telefe');
+  assert.ok(!JSON.stringify(conn).includes(short));
+  // «La guía no coincide»: se marca desde el modo ver y quien edita lo ve y lo da por resuelto.
+  const report = (id: string) => handle(req(`/api/view/${all.code}/report`, { method: 'POST', body: JSON.stringify({ id, title: 'Noticiero' }) }), t.env, t.ctx, t.cache);
+  assert.equal((await report('999')).status, 404);
+  assert.equal((await report('10')).status, 200);
+  assert.equal((await report('10')).status, 200); // no se repite
+  type Rep = { items: { id: string; name: string; epg: string | null; title?: string; by: string }[] };
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/reports`), t.env, t.ctx, t.cache)).status, 401);
+  let reps = await (await call('/reports')).json() as Rep;
+  assert.deepEqual(reps.items.map((r) => [r.id, r.name, r.epg, r.title]), [['10', 'Telefe', 'Telefe.ar', 'Noticiero']]);
+  assert.equal((await call('/reports/10', { method: 'DELETE', body: '{}' })).status, 200);
+  reps = await (await call('/reports')).json() as Rep;
+  assert.equal(reps.items.length, 0);
   // Un código inventado o quitado: 404. Los links de reproducción siguen iguales y andando.
   assert.equal((await view('x'.repeat(22))).status, 404);
   assert.equal((await call(`/profiles/${kids.profile.id}/view`, { method: 'DELETE', body: '{}' })).status, 200);

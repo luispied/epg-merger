@@ -14,6 +14,7 @@ import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
+import { loadReports } from './ui/reports.tsx';
 import { refreshCards, renderCards, renderSkeleton } from './ui/canales.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
@@ -349,11 +350,25 @@ async function switchProvider(cfgId: string) {
   streamHealth = null;
   await openSaved();
 }
-/** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero. */
+// Código para ver (Perfil → un perfil → Compartir para ver): «ver.<código>», o el link /ver#<código>. Abre este
+// dispositivo en el modo «solo ver» (ver.tsx), que no guarda ninguna clave de edición.
+const VIEW_CODE_KEY = 'grilla_ver_code';
+const viewCodeOf = (text: string) => /(?:^ver\.|\/ver#)([A-Za-z0-9_-]{20,32})$/.exec(text.trim())?.[1] ?? null;
+async function useViewCode(code: string) {
+  const res = await fetchRetry(`/api/view/${code}`);
+  if (res.status === 404) throw new Error('ese código para ver ya no existe');
+  if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+  try { localStorage.setItem(VIEW_CODE_KEY, code); } catch { /* sin storage: queda en la dirección */ }
+  location.href = `/ver#${code}`;
+}
+/** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero.
+ *  Un código para ver abre el modo «solo ver». */
 async function useHomeCode() {
-  const code = await promptDialog({ title: 'Pegar un código', ok: 'Usar', icon: 'arrow-right-left', input: { label: 'Código', placeholder: 'El que muestra tu otro dispositivo' } });
+  const code = await promptDialog({ title: 'Pegar un código', ok: 'Usar', icon: 'arrow-right-left', input: { label: 'Código', placeholder: 'El de tu otro dispositivo o uno para ver' } });
   if (!code) return;
   try {
+    const view = viewCodeOf(code);
+    if (view) return void await useViewCode(view);
     const added = await joinHome(code);
     toast(added ? `Listo: ${plural(added, 'proveedor sumado', 'proveedores sumados')}` : 'Ya tenías todos los proveedores de ese código', 'ok', 6000);
     for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
@@ -2733,6 +2748,7 @@ async function openSaved(soft = false) {
     loadHealth();
     loadStreamHealth();
     loadProfiles();
+    void loadReports();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -3215,7 +3231,11 @@ setupEditor();
     else if (travel < -40) bar.classList.remove('compact');
   }, { passive: true });
 }
-if (state.local) openSaved();
+// Un dispositivo que entró con un código para ver (y no tiene configuración propia) abre siempre en ese modo.
+let viewOnly: string | null = null;
+try { viewOnly = state.local ? null : localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
+if (viewOnly) location.replace(`/ver#${viewOnly}`);
+else if (state.local) openSaved();
 else showOnboarding();
 
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa

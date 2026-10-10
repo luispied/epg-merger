@@ -19,6 +19,9 @@
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
 //   POST   /api/cfg/<cfgId>/profiles/<id>/view  (Bearer editKey) link «solo ver» del perfil → {code} · DELETE: quitarlo
 //   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
+//   GET    /api/view/<código>/connections  conexiones en uso de su cuenta y qué está mirando cada link
+//   POST   /api/view/<código>/report     {id, epg, title} «la guía no coincide» en un canal
+//   GET    /api/cfg/<cfgId>/reports      (Bearer editKey) los canales marcados · DELETE …/reports/<id>: ya está
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
 //   POST   /api/ui/again                 {ids} → cuándo vuelve a empezar lo que está en el aire (again.ts)
@@ -31,7 +34,7 @@
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config, type ProfileDef } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
-import { addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
+import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh } from './github.ts';
@@ -39,9 +42,9 @@ import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './playlist.ts';
-import { createView, deleteView, readView } from './view.ts';
+import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
-import { relayConfigured, relayList } from './relay.ts';
+import { relayConfigured, relayList, relayPost } from './relay.ts';
 import { checkAllHealth, liveAccounts } from './streamcheck.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
@@ -209,16 +212,22 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
 // Canales de proveedores que separan secciones (▀▀▀ DEPORTES ▀▀▀): no se miran.
 const DIVIDER_RE = /[\u2580-\u259F]{2,}/;
 
-/** Modo «solo ver»: el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker), en el orden de
- *  la playlist. Sin credenciales, cuentas ni links. Si el link se quitó, 404. */
-async function serveView(code: string, url: URL, env: Env): Promise<Response> {
+/** El perfil de un código para ver (null si no existe o se quitó). */
+async function viewProfile(env: Env, code: string): Promise<{ cfgId: string; cfg: Config; profile: ProfileDef } | null> {
   const rec = await readView(env.BUCKET, code);
   const stored = rec ? await loadConfig(env.BUCKET, rec.cfgId) : null;
   const profile = stored ? findProfile(stored.config, rec!.profile) : undefined;
-  if (!stored || !profile || profile.view !== code) return fail(404, 'este link para ver ya no existe');
-  const list = await env.BUCKET.get(r2ListKey(rec!.cfgId));
+  return stored && profile && profile.view === code ? { cfgId: rec!.cfgId, cfg: stored.config, profile } : null;
+}
+
+/** Modo «solo ver»: el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker), en el orden de
+ *  la playlist. Sin credenciales, cuentas ni links. Si el código se quitó, 404. */
+async function serveView(code: string, url: URL, env: Env): Promise<Response> {
+  const v = await viewProfile(env, code);
+  if (!v) return fail(404, 'este código para ver ya no existe');
+  const { cfg, profile } = v;
+  const list = await env.BUCKET.get(r2ListKey(v.cfgId));
   if (!list) return fail(409, 'todavía no hay canales para mostrar');
-  const cfg = stored.config;
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const rows = playlistRows((JSON.parse(await list.text()) as LiveList).channels, cfg,
     { filter: profile.filter, logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
@@ -228,8 +237,50 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   for (const r of rows) if (r.ch) size.set(rawGroup(r), (size.get(rawGroup(r)) ?? 0) + 1);
   const channels = rows
     .filter((r) => r.ch && !DIVIDER_RE.test(rawGroup(r)) && !(size.get(rawGroup(r)) === 1 && (cfg.channels[r.ch.name]?.name || r.ch.name) === rawGroup(r)))
-    .map((r) => ({ name: r.name, cat: r.group, epg: r.epg, logo: r.logo, ...(r.quiet ? { quiet: true } : {}) }));
+    .map((r) => ({ id: r.ch!.id, name: r.name, cat: r.group, epg: r.epg, logo: r.logo, ...(r.quiet ? { quiet: true } : {}) }));
   return json({ name: profile.name, channels }, 200, { 'Cache-Control': 'private, max-age=60' });
+}
+
+/** Un link «mira» si abrió un canal en las últimas 3 horas (como en Conexiones de la web). */
+const WATCHING_MS = 3 * 3600 * 1000;
+
+/** Modo «solo ver»: conexiones en uso de la cuenta del perfil (por el relay, si hay) y qué está mirando cada link de esa
+ *  cuenta. Solo el nombre del link, el canal y cuándo lo abrió: ni códigos ni direcciones. */
+async function serveViewConnections(code: string, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
+  const key = `https://grilla.internal/view-conn/${code}`;
+  const hit = await cache.match(key);
+  if (hit) return json(JSON.parse(await hit.text()), 200, { 'Cache-Control': 'no-store' });
+  const v = await viewProfile(env, code);
+  if (!v) return fail(404, 'este código para ver ya no existe');
+  const { cfgId, cfg, profile } = v;
+  const devices = (await listDevices(env.BUCKET, cfgId)).filter((d) => d.active && sameAcc(d.account, profile.account));
+  const plays = await Promise.all(devices.map((d) => readPlay(env.BUCKET, d.code).catch(() => null)));
+  const list = await env.BUCKET.get(r2ListKey(cfgId));
+  const names = new Map<string, string>();
+  if (list) for (const ch of (JSON.parse(await list.text()) as LiveList).channels) names.set(ch.id, cfg.channels[ch.name]?.name || ch.name);
+  const now = Date.now();
+  const watching = devices.map((d, i) => ({ d, p: plays[i] }))
+    .filter(({ p }) => p && now - Date.parse(p.t) < WATCHING_MS)
+    .sort((a, b) => b.p!.t.localeCompare(a.p!.t))
+    .map(({ d, p }) => ({ name: d.name, channel: names.get(p!.ch) ?? 'Un canal', t: p!.t }));
+  let inUse: number | undefined;
+  let max: number | undefined;
+  if (relayConfigured(env) && cfg.provider.type === 'xtream') {
+    const t = (await accountTokens(env.BUCKET, cfgId, profile.account)).find((x) => sameAcc(x.account, profile.account));
+    const creds = t ? await decryptToken(env.TOKEN_KEY, cfgId, t.token) : null;
+    if (creds && 'u' in creds) {
+      try {
+        const res = await relayPost<{ account?: { activeConnections?: unknown; maxConnections?: unknown } }>(env, '/v1/account',
+          { servers: cfg.provider.servers, username: creds.u, password: creds.p }, 12_000);
+        if (typeof res.account?.activeConnections === 'number') inUse = res.account.activeConnections;
+        if (typeof res.account?.maxConnections === 'number') max = res.account.maxConnections;
+      } catch { /* sin datos del proveedor: quedan los links */ }
+    }
+  }
+  const body = { ...(inUse !== undefined ? { inUse } : {}), ...(max ? { max } : {}), watching };
+  // Se pide cada minuto mientras la página está abierta: un minuto de caché para no ir al proveedor de más.
+  ctx.waitUntil(cache.put(key, new Response(JSON.stringify(body), { headers: { 'Cache-Control': 'max-age=60' } })));
+  return json(body, 200, { 'Cache-Control': 'no-store' });
 }
 
 async function serveStream(cfgId: string, token: string, file: string, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
@@ -357,6 +408,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`remind/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
       for (const pr of stored.config.profiles ?? []) await deleteView(env.BUCKET, pr.view);
+      await deleteReports(env.BUCKET, cfgId);
       return json({ ok: true });
     }
     if (action === 'status' && method === 'GET') {
@@ -429,6 +481,14 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       if (sub === 'test' && method === 'POST') {
         return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });
+      }
+    }
+    if (action === 'reports') {
+      // «La guía no coincide», marcado desde el modo ver: se listan y se dan por resueltos (view.ts).
+      if (method === 'GET') return json({ items: await readReports(env.BUCKET, cfgId) }, 200, { 'Cache-Control': 'no-store' });
+      if (method === 'DELETE' && parts[4]) {
+        await removeReport(env.BUCKET, cfgId, parts[4]);
+        return json({ ok: true });
       }
     }
     if (action === 'remind') {
@@ -691,6 +751,23 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   }
 
   if (section === 'view' && cfgId && !action && method === 'GET') return await serveView(cfgId, new URL(request.url), env);
+  if (section === 'view' && cfgId && action === 'connections' && method === 'GET') return await serveViewConnections(cfgId, env, ctx, cache);
+  if (section === 'view' && cfgId && action === 'report' && method === 'POST') {
+    if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
+    const v = await viewProfile(env, cfgId);
+    if (!v) return fail(404, 'este código para ver ya no existe');
+    const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
+    if (typeof body.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(body.id)) return fail(400, 'canal inválido');
+    const list = await env.BUCKET.get(r2ListKey(v.cfgId));
+    const ch = list ? (JSON.parse(await list.text()) as LiveList).channels.find((c) => c.id === body.id) : undefined;
+    if (!ch) return fail(404, 'ese canal no está en la lista');
+    const edit = v.cfg.channels[ch.name] ?? {};
+    await addReport(env.BUCKET, v.cfgId, {
+      id: ch.id, name: edit.name || ch.name, epg: edit.epg ?? null, by: v.profile.name, at: new Date().toISOString(),
+      ...(typeof body.title === 'string' && body.title.trim() ? { title: body.title.trim().slice(0, 120) } : {}),
+    });
+    return json({ ok: true });
+  }
   if (section === 'guide' && cfgId === 'index.json' && method === 'GET') {
     return serveR2(env, 'guide/index.json', 'application/json', 3600);
   }
