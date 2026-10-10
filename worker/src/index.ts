@@ -21,6 +21,8 @@
 //   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
 //   GET    /api/view/<código>/connections  conexiones en uso de su cuenta y qué está mirando cada link
 //   POST   /api/view/<código>/report     {id, epg, title} «la guía no coincide» en un canal
+//   GET    /api/cfg/<cfgId>/habits       (Bearer editKey) hábitos para «Tu noche» · POST {title, kind: no|more|clear}
+//   GET    /api/view/<código>/habits     los del perfil · POST {title, kind} (habits.ts)
 //   GET    /api/cfg/<cfgId>/reports      (Bearer editKey) los canales marcados · DELETE …/reports/<id>: ya está
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
@@ -46,6 +48,7 @@ import { addReport, createView, deleteReports, deleteView, readReports, readView
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
 import { checkAllHealth, liveAccounts } from './streamcheck.ts';
+import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
@@ -156,12 +159,12 @@ async function liveList(cfgId: string, cfg: Config, creds: Credentials, env: Env
 // credenciales cifradas con la clave del Worker) queda guardado en R2 a cambio de links que
 // no muestran nada: ni la configuración ni el token.
 /** Resuelve un link corto y, ya que lo leyó, anota el último uso del dispositivo. */
-async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string; off: boolean; filter?: DeviceFilter } | null> {
+async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: string; token: string; off: boolean; filter?: DeviceFilter; profile?: string } | null> {
   const rec = await readShort(env.BUCKET, code);
   if (!rec) return null;
   const off = rec.active === false;
   if (!off) ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
-  return { cfgId: rec.cfgId, token: rec.token, off, filter: rec.filter };
+  return { cfgId: rec.cfgId, token: rec.token, off, filter: rec.filter, profile: rec.profile };
 }
 
 /** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
@@ -207,6 +210,14 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     },
   });
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+/** Hábitos de «Tu noche» (habits.ts): el canal abierto, por su guía; sin guía no hay qué sugerir. */
+async function playHabit(env: Env, cfgId: string, profile: string, ch: string): Promise<void> {
+  const [list, stored] = await Promise.all([env.BUCKET.get(r2ListKey(cfgId)), loadConfig(env.BUCKET, cfgId)]);
+  const found = list && stored ? (JSON.parse(await list.text()) as LiveList).channels.find((c) => c.id === ch) : undefined;
+  const epg = found ? stored!.config.channels[found.name]?.epg : undefined;
+  if (epg) await noteHabit(env.BUCKET, cfgId, profile, epg);
 }
 
 // Canales de proveedores que separan secciones (▀▀▀ DEPORTES ▀▀▀): no se miran.
@@ -407,6 +418,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`healthreq/${cfgId}.json`);
       await env.BUCKET.delete(`relaylist/${cfgId}.json`);
       await env.BUCKET.delete(`remind/${cfgId}.json`);
+      await deleteHabits(env.BUCKET, cfgId);
       await removeAllDevices(env.BUCKET, cfgId);
       for (const pr of stored.config.profiles ?? []) await deleteView(env.BUCKET, pr.view);
       await deleteReports(env.BUCKET, cfgId);
@@ -493,6 +505,16 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       if (sub === 'test' && method === 'POST') {
         return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });
+      }
+    }
+    if (action === 'habits') {
+      // Hábitos de «Tu noche» (habits.ts): los de la casa, y los pedidos del editor.
+      if (method === 'GET') return json(await readHabits(env.BUCKET, cfgId), 200, { 'Cache-Control': 'no-store' });
+      if (method === 'POST') {
+        const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
+        if (!validFeedback(body)) return fail(400, 'pedido inválido');
+        await feedbackHabit(env.BUCKET, cfgId, '', body.title, body.kind);
+        return json(await readHabits(env.BUCKET, cfgId));
       }
     }
     if (action === 'reports') {
@@ -764,6 +786,18 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
 
   if (section === 'view' && cfgId && !action && method === 'GET') return await serveView(cfgId, new URL(request.url), env);
   if (section === 'view' && cfgId && action === 'connections' && method === 'GET') return await serveViewConnections(cfgId, env, ctx, cache);
+  if (section === 'view' && cfgId && action === 'habits') {
+    // Hábitos del perfil para «Tu noche» y sus «No me interesa» / «Más como esto» (habits.ts).
+    if (method === 'POST' && rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
+    const v = await viewProfile(env, cfgId);
+    if (!v) return fail(404, 'este código para ver ya no existe');
+    if (method === 'GET') return json(await readHabits(env.BUCKET, v.cfgId, v.profile.id), 200, { 'Cache-Control': 'no-store' });
+    if (method === 'POST') {
+      const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
+      if (!validFeedback(body)) return fail(400, 'pedido inválido');
+      return json(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind));
+    }
+  }
   if (section === 'view' && cfgId && action === 'report' && method === 'POST') {
     if (rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
     const v = await viewProfile(env, cfgId);
@@ -848,7 +882,10 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       if (short.off) return new Response('Link desactivado', { status: 403 });
       const res = await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
       const ch = /^([A-Za-z0-9_-]{1,64})\./.exec(parts[2])?.[1];
-      if (res.status === 302 && ch) ctx.waitUntil(notePlay(env.BUCKET, parts[1], ch).catch(() => {}));
+      if (res.status === 302 && ch) {
+        ctx.waitUntil(notePlay(env.BUCKET, parts[1], ch)
+          .then((noted) => (noted ? playHabit(env, short.cfgId, short.profile ?? '', ch) : undefined)).catch(() => {}));
+      }
       return res;
     }
     return fail(404, 'no encontrado');

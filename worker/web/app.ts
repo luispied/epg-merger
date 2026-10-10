@@ -22,7 +22,7 @@ import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReview
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
-import { showGuide, type GuideHost } from './ui/guide.tsx';
+import { showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { toast } from './ui/toast.tsx';
@@ -1244,6 +1244,8 @@ const guideHost: GuideHost = {
     return st.configured ? st.keys : null;
   },
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
+  habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
+  feedback: (title, kind) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind } }),
 };
 // ------------------------------------------------------------------ pestañas de abajo
 // Canales es la página de la lista; Guía, Categorías y Perfil son páginas enteras que la tapan, con la barra de abajo

@@ -11,7 +11,7 @@ const MAX_PER_CHANNEL = 4;    // más veces en un mismo canal = relleno, noticie
 const MAX_LATER = 3;
 const SYNOPSIS = 40;         // desde este largo, la descripción distingue un capítulo de otro
 // Títulos genéricos que no dicen qué es (las fuentes los usan para cualquier cosa).
-const GENERIC = new Set(['paid programming', 'programa pagado', 'programación pagada', 'no data', 'sin información',
+export const GENERIC = new Set(['paid programming', 'programa pagado', 'programación pagada', 'no data', 'sin información',
   'movie', 'película', 'pelicula', 'to be announced', 'tba', 'off air', 'fuera del aire', 'programación', 'programacion']);
 
 type Entry = [number, number, string, string?];
@@ -22,12 +22,12 @@ export type Again = [number, number, [number, number][]][];
 export const validAgainIds = (ids: unknown): ids is string[] =>
   Array.isArray(ids) && ids.length > 0 && ids.length <= MAX_AGAIN_IDS && ids.every((id) => typeof id === 'string' && ALIAS_RE.test(id));
 
-async function scheduleFile(id: string): Promise<string> {
+export async function scheduleFile(id: string): Promise<string> {
   const d = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(id));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }
 
-const norm = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+export const norm = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** Dos emisiones son el mismo programa si duran lo mismo (±5 min o 10 %) y las sinopsis no dicen
  *  lo contrario: dos sinopsis largas distintas son capítulos distintos. En el mismo canal además

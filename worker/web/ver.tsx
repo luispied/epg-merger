@@ -322,6 +322,12 @@ function App() {
     schedule,
     reminders: async () => null,
     toggleReminder: () => {},
+    habits: () => fetch(`/api/view/${code}/habits`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    feedback: async (title, kind) => {
+      const r = await fetch(`/api/view/${code}/habits`, { method: 'POST', body: JSON.stringify({ title, kind }) });
+      if (!r.ok) throw new Error('no se pudo guardar');
+      return r.json();
+    },
   }), [channels]);
 
   useEffect(() => {

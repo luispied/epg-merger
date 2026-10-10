@@ -11,6 +11,15 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.0
+
+- **Tu noche aprende lo que mirás.** Cada vez que abrís un canal con un link de Grilla se anota el canal, la hora y el programa que pasaba, y Tu noche (o tu tarde, o tu mañana) sube lo de siempre: los programas que mirás seguido, tus canales a esa hora y lo que tiene la campana. Sigue armando el plan con lo mejor que hay, sin que nada se pise.
+- **El porqué de cada sugerencia:** debajo de cada programa del plan dice por qué está ahí: «Lo mirás seguido», «Tu canal a esta hora», «Le pusiste la campana»…
+- **No me interesa y Más como esto.** Tocá un programa de la Guía y elegí **No me interesa** para que no aparezca más en Tu noche, o **Más como esto** para que te lo sugiera más. El plan cambia al momento, y se deshace tocándolo otra vez. Funciona también en el modo ver, y cada perfil tiene sus gustos.
+- Ayuda de la Guía al día.
+- Interno: plan de la fase 2, con IA para sugerir programas parecidos, en `planes/recomendaciones.md`.
+- Worker: `habits/<cfgId>.json` por perfil (`src/habits.ts`), anotado al abrir un canal con un link corto; rutas `GET/POST /api/cfg/<id>/habits` y `/api/view/<código>/habits`. Se borra con la configuración y con `tools/delete_cfg.py`.
+
 ## 1.35.0
 
 - **Novedades al actualizar.** Cuando Grilla se actualiza, al abrirla aparece «Grilla se actualizó» con lo nuevo de cada versión desde la última que viste; cada novedad muestra su título y se toca para ver el detalle. La primera vez que se abre Grilla no aparece. También está siempre en **Ver novedades**, al pie de Configuración.

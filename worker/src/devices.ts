@@ -197,11 +197,13 @@ export async function readPlay(bucket: R2Bucket, code: string): Promise<LastPlay
   }
 }
 
-/** Anota el canal que abrió un link; el mismo canal, como mucho cada 5 minutos (hay reproductores que lo vuelven a pedir). */
-export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date()): Promise<void> {
+/** Anota el canal que abrió un link; el mismo canal, como mucho cada 5 minutos (hay reproductores que lo vuelven a pedir).
+ *  Devuelve si lo anotó. */
+export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date()): Promise<boolean> {
   const prev = await readPlay(bucket, code);
-  if (prev && prev.ch === ch && now.getTime() - Date.parse(prev.t) < PLAY_EVERY_MS) return;
+  if (prev && prev.ch === ch && now.getTime() - Date.parse(prev.t) < PLAY_EVERY_MS) return false;
   await bucket.put(playKey(code), JSON.stringify({ t: now.toISOString(), ch }), JSON_TYPE);
+  return true;
 }
 
 /** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta): del
