@@ -34,6 +34,7 @@ type LinksSub =
   | { k: 'delete-account'; a: AccountView }
   | { k: 'servers' }
   | { k: 'filter'; p: ProfileView }
+  | { k: 'view'; p: ProfileView }
   | { k: 'result'; result: LinkResult };
 
 let linksView: LinksView = { v: 'list' };
@@ -500,6 +501,11 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
           <button type="button" class="btn btn-tonal btn-block" onClick={() => openSub({ k: 'add-device', p, a })}>
             <Icon name="plus" />{p.devices.length ? 'Agregar otro link' : 'Agregar link'}
           </button>
+          <SubTitle>Para mirar</SubTitle>
+          <div class="menu">
+            <MenuRow ico="eye" title="Compartir para ver" sub={p.view ? 'Código activo: la grilla y la Guía, sin poder cambiar nada'
+              : 'Un código para abrir la app solo para ver este perfil, sin poder cambiar nada'} onClick={() => openSub({ k: 'view', p })} />
+          </div>
           <div class="menu">
             <MenuRow ico="pencil" title="Cambiar nombre" sub="Los links no cambian" onClick={() => void renameProfile(p)} />
             <MenuRow ico="trash-2" title="Borrar perfil" sub={p.devices.length ? 'Sus links pasan a otro perfil, sin cambiar' : ''} cls="danger"
@@ -677,6 +683,7 @@ function SubPage({ s }: { s: LinksSub }) {
     case 'delete-account': return <DeleteAccount a={s.a} />;
     case 'servers': return <Servers />;
     case 'filter': return <ProfileFilter p={s.p} />;
+    case 'view': return <ViewShare p={s.p} />;
     case 'result': return <LinkResultView result={s.result} />;
   }
 }
@@ -1139,6 +1146,92 @@ function ProfileFilter({ p }: { p: ProfileView }) {
         }}>Guardar filtro</button>
       </div>
       <div class="form-actions"><button type="button" class="btn btn-gray btn-block" id="pfClear" onClick={() => void save(null, 'Sin filtro: ve todo')}>Quitar filtro (ver todo)</button></div>
+    </>
+  );
+}
+
+/** «Compartir para ver»: un código (ver.<código>) para que otra persona abra Grilla en modo «solo ver» y mire la grilla
+ *  y la Guía de este perfil sin poder cambiar nada. Se pega donde va el código del hogar (o se abre como link /ver#…).
+ *  Se crea al tocar el botón; quitarlo lo invalida. Los links de reproducción no cambian. */
+function ViewShare({ p }: { p: ProfileView }) {
+  const [code, setCode] = useState(p.view ?? '');
+  const [copied, setCopied] = useState(false);
+  const [busy, run] = useBusy();
+  const path = `/api/cfg/${state.local!.cfgId}/profiles/${p.id}/view`;
+  const url = code ? `${location.origin}/ver#${code}` : '';
+  const viewCode = code ? `ver.${code}` : '';
+  useEffect(() => { if (url) void showQr(url, 'O escaneá con el celular o la tablet de quien va a mirar: abre directo'); }, [url]);
+  const changed = () => void loadProfiles(false);
+  const create = () => run(async () => {
+    try {
+      setCode((await api<{ code: string }>(path, { method: 'POST', body: {} })).code);
+      changed();
+    } catch (e) {
+      toast((e as Error).message, 'bad');
+    }
+  });
+  const remove = async (again: boolean) => {
+    const ok = await confirmDialog(again
+      ? { title: 'Hacer un código nuevo', icon: 'refresh-cw', ok: 'Hacer otro', text: 'El código de ahora deja de funcionar (también en los dispositivos que ya lo usan) y vas a tener que pasar el nuevo. Los links de reproducción no cambian.' }
+      : { title: 'Quitar el acceso', icon: 'eye-off', ok: 'Quitar', danger: true, text: 'Quien tenga el código ya no va a poder ver la grilla. Los links de reproducción no cambian.' });
+    if (!ok) return;
+    await run(async () => {
+      try {
+        await api(path, { method: 'DELETE', body: {} });
+        setCode('');
+        if (again) setCode((await api<{ code: string }>(path, { method: 'POST', body: {} })).code);
+        toast(again ? 'Código nuevo listo' : 'Acceso quitado', 'ok');
+        changed();
+      } catch (e) {
+        toast((e as Error).message, 'bad');
+      }
+    });
+  };
+  const text = `Para ver qué dan en la tele: abrí Grilla (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
+  if (!code) {
+    return (
+      <>
+        <SubTitle>Compartir para ver</SubTitle>
+        <Help>Un código para otra persona (por ejemplo, alguien a quien le cuesta usar apps): lo pega al abrir Grilla,
+          donde va el código de otro dispositivo, y la app queda en modo «solo ver»: la grilla con lo que dan ahora y la
+          Guía, con letra grande, solo con los canales de «{p.name}». No puede cambiar nada, ni ver tus cuentas ni tus
+          links.</Help>
+        <Help>Lo podés quitar cuando quieras. Los links de reproducción no cambian.</Help>
+        <button type="button" class="btn btn-primary btn-block" disabled={busy} onClick={() => void create()}><Icon name="eye" />Crear el código para ver</button>
+      </>
+    );
+  }
+  return (
+    <>
+      <SubTitle>Código para ver «{p.name}»</SubTitle>
+      <input class="input mono" readOnly value={viewCode} aria-label="Código para ver" onFocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
+      <div class="lc-actions">
+        <button type="button" class="btn btn-primary" onClick={async () => {
+          await copyText(viewCode);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}>{copied ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}</button>
+        <a class="btn btn-tonal" href={url} target="_blank" rel="noopener noreferrer"><Icon name="external-link" />Probar</a>
+      </div>
+      <Help>En su celular o tablet: abrí Grilla, tocá <b>Pegá el código</b> y pegá este. Desde ahí la app abre siempre
+        en modo ver. Si después agrega Grilla a la pantalla de inicio, queda como una app.</Help>
+      <div class="share-row">
+        {'share' in navigator ? (
+          <button type="button" class="btn btn-tonal" onClick={async () => {
+            try {
+              await navigator.share({ title: 'Grilla', text: 'Para ver qué dan en la tele', url });
+            } catch { /* cancelado */ }
+          }}><Icon name="share-2" />Compartir</button>
+        ) : null}
+        <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
+        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('Grilla')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+      </div>
+      <div class="qr" id="qr" />
+      <Help>Ve solo los canales de este perfil; si cambiás qué ve el perfil, también cambia ahí.</Help>
+      <div class="menu">
+        <MenuRow ico="refresh-cw" title="Hacer un código nuevo" sub="El de ahora deja de funcionar" onClick={() => void remove(true)} />
+        <MenuRow ico="eye-off" title="Quitar el acceso" sub="Los links de reproducción no cambian" cls="danger" onClick={() => void remove(false)} />
+      </div>
     </>
   );
 }

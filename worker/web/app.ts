@@ -14,6 +14,7 @@ import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
+import { loadReports } from './ui/reports.tsx';
 import { refreshCards, renderCards, renderSkeleton } from './ui/canales.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
@@ -352,11 +353,25 @@ async function switchProvider(cfgId: string) {
   streamHealth = null;
   await openSaved();
 }
-/** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero. */
+// Código para ver (Perfil → un perfil → Compartir para ver): «ver.<código>», o el link /ver#<código>. Abre este
+// dispositivo en el modo «solo ver» (ver.tsx), que no guarda ninguna clave de edición.
+const VIEW_CODE_KEY = 'grilla_ver_code';
+const viewCodeOf = (text: string) => /(?:^ver\.|\/ver#)([A-Za-z0-9_-]{20,32})$/.exec(text.trim())?.[1] ?? null;
+async function useViewCode(code: string) {
+  const res = await fetchRetry(`/api/view/${code}`);
+  if (res.status === 404) throw new Error('ese código para ver ya no existe');
+  if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+  try { localStorage.setItem(VIEW_CODE_KEY, code); } catch { /* sin storage: queda en la dirección */ }
+  location.href = `/ver#${code}`;
+}
+/** Pegar el código de un hogar: suma sus proveedores a este navegador y, si no había ninguno abierto, abre el primero.
+ *  Un código para ver abre el modo «solo ver». */
 async function useHomeCode() {
-  const code = await promptDialog({ title: 'Pegar un código', ok: 'Usar', icon: 'arrow-right-left', input: { label: 'Código', placeholder: 'El que muestra tu otro dispositivo' } });
+  const code = await promptDialog({ title: 'Pegar un código', ok: 'Usar', icon: 'arrow-right-left', input: { label: 'Código', placeholder: 'El de tu otro dispositivo o uno para ver' } });
   if (!code) return;
   try {
+    const view = viewCodeOf(code);
+    if (view) return void await useViewCode(view);
     const added = await joinHome(code);
     toast(added ? `Listo: ${plural(added, 'proveedor sumado', 'proveedores sumados')}` : 'Ya tenías todos los proveedores de ese código', 'ok', 6000);
     for (const d of $$<HTMLDialogElement>('dialog[open]')) d.close();
@@ -2256,7 +2271,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];
@@ -2410,7 +2425,7 @@ async function createFirstDevice() {
   } catch { /* se pueden generar después, desde Configuración */ }
 }
 
-async function showQr(text: string) {
+async function showQr(text: string, caption = 'Escaneá para abrir el link de la playlist en otro dispositivo') {
   try {
     if (!window.qrcode) {
       await new Promise<void>((resolve, reject) => {
@@ -2424,7 +2439,7 @@ async function showQr(text: string) {
     const qr = window.qrcode!(0, 'L');
     qr.addData(text);
     qr.make();
-    $('#qr').innerHTML = `${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<small class="help">Escaneá para abrir el link de la playlist en otro dispositivo</small>`;
+    $('#qr').innerHTML = `${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<small class="help">${esc(caption)}</small>`;
   } catch {
     // Sin QR (sin internet para la librería): los links alcanzan.
   }
@@ -2771,6 +2786,7 @@ async function openSaved(soft = false) {
     loadHealth();
     loadStreamHealth();
     loadProfiles();
+    void loadReports();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -3254,7 +3270,11 @@ setupEditor();
     else if (travel < -40) bar.classList.remove('compact');
   }, { passive: true });
 }
-if (state.local) openSaved();
+// Un dispositivo que entró con un código para ver (y no tiene configuración propia) abre siempre en ese modo.
+let viewOnly: string | null = null;
+try { viewOnly = state.local ? null : localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
+if (viewOnly) location.replace(`/ver#${viewOnly}`);
+else if (state.local) openSaved();
 else showOnboarding();
 
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa

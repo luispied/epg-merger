@@ -9,7 +9,8 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  const file = join(root, normalize(path === '/' ? '/index.html' : path));
+  // Como Cloudflare: /ver sirve ver.html.
+  const file = join(root, normalize(path === '/' ? '/index.html' : extname(path) ? path : `${path}.html`));
   if (!file.startsWith(root)) return void res.writeHead(403).end();
   try {
     const body = await readFile(file);

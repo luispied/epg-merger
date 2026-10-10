@@ -9,7 +9,9 @@ const day = 86_400_000;
 export interface Fake {
   /** Los pedidos que cambian algo (método, ruta y cuerpo), en orden. */
   writes: { method: string; path: string; body: unknown }[];
-  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null }[];
+  /** Canales marcados desde el modo ver («la guía no coincide»). */
+  reports: { id: string; name: string; epg: string | null; title?: string; by: string; at: string }[];
+  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string }[];
 }
 
 const channels = [
@@ -29,6 +31,7 @@ const guide = [
 export async function fakeWorker(page: Page): Promise<Fake> {
   const fake: Fake = {
     writes: [],
+    reports: [],
     profiles: [
       { id: 'p1', name: 'Luis' },
       { id: 'p2', name: 'Chicos', filter: { groups: ['Deportes'], channels: [] } },
@@ -68,6 +71,20 @@ export async function fakeWorker(page: Page): Promise<Fake> {
       const profile = { id: `p${fake.profiles.length + 1}`, ...body };
       fake.profiles.push(profile);
       return json({ profile });
+    }
+    if (path === '/api/cfg/c1/reports') return json({ items: fake.reports });
+    const rp = path.match(/^\/api\/cfg\/c1\/reports\/(\w+)$/);
+    if (rp && method === 'DELETE') {
+      fake.reports = fake.reports.filter((r) => r.id !== rp[1]);
+      return json({ ok: true });
+    }
+    const v = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)\/view$/);
+    if (v) {
+      const p = fake.profiles.find((x) => x.id === v[1]);
+      if (!p) return json({ error: 'no existe' }, 404);
+      if (method === 'DELETE') { delete p.view; return json({ ok: true }); }
+      p.view ??= `Vista${p.id}Abcdefghijklmnop`.slice(0, 22);
+      return json({ code: p.view });
     }
     const m = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)$/);
     if (m && method === 'PUT') {

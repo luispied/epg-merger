@@ -7,6 +7,15 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.32.0
+
+- Modo «solo ver»: en la página de un perfil, **Compartir para ver** crea un **código para ver** (`ver.<código>`). Se pega al entrar a Grilla, donde va el código de otro dispositivo, y ese dispositivo queda en modo ver: la grilla y la Guía de ese perfil, sin poder cambiar nada (pensado para alguien a quien le cuesta usar apps). Al abrir Grilla otra vez vuelve al modo ver, hasta tocar **Salir del modo ver**. El código también se puede copiar, compartir por WhatsApp o mail con el link directo (`/ver#código`), escanear con QR, cambiar por uno nuevo o quitar. Los links de reproducción no cambian.
+- La página para ver (`web/ver.html`, `web/ver.tsx`) es aparte del editor y no guarda ninguna clave: letra grande, «Canales» con lo que dan ahora, cuánto queda y lo que sigue, búsqueda por canal o programa, la hoja de cada canal con la descripción y lo que viene, y la **Guía** (Grilla, Próximos y Tu noche) sin avisos ni «Cambiar la guía».
+- En el modo ver, arriba de los canales: **las conexiones de la cuenta** («2 de 2», «Están todas ocupadas») y qué está mirando cada link activo, con hace cuánto. Se actualiza cada minuto.
+- **La guía no coincide**: en la hoja de un canal del modo ver, «Lo que dan en la tele no es esto» le avisa a quien arma la grilla. En el editor aparece el aviso «La guía de «X» no coincide · Lo marcó Abuela desde el modo ver»; tocarlo abre la lista con **Cambiar guía** y **Resuelto**.
+- Worker: `POST`/`DELETE /api/cfg/<cfgId>/profiles/<id>/view` crean o quitan el código (`view/<código>.json`); `GET /api/view/<código>` devuelve el nombre del perfil y sus canales (sin credenciales ni links, logos por el Worker); `GET /api/view/<código>/connections` da conexiones en uso, máximo y qué mira cada link (sin sus códigos, en caché 1 minuto); `POST /api/view/<código>/report` marca un canal y `GET`/`DELETE /api/cfg/<cfgId>/reports` los lista o resuelve (`reports/<cfgId>.json`, hasta 50). Borrar el perfil o la configuración borra su código y sus avisos. La playlist sale de la misma función (`playlistRows`), sin cambios.
+- El service worker guarda la página para ver aparte, así no reemplaza al editor sin conexión.
+
 ## 1.31.1
 
 - Los títulos de los programas ya no quedan cortados cuando la guía pone el partido o el episodio aparte: el subtítulo va pegado al título con « · » («Live: Fútbol Serie A · Inter de Milán vs. Parma»), en la grilla, la Guía, la hoja del programa y la búsqueda. Antes se perdía si el programa tenía descripción. Se ve con la próxima corrida diaria de la guía.

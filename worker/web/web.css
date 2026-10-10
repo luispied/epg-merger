@@ -1136,6 +1136,40 @@ body.guide-open { overflow: hidden; }
 .gd-again .also { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
 .gd-again .also b { color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* ---- Modo «solo ver» (ver.html / ver.tsx): letra grande, filas altas y nada para editar. ---- */
+body.viewer { font-size: 17px; }
+.vw-head .title-row { align-items: center; }
+.vw-who { display: inline-flex; align-items: center; gap: 6px; max-width: 55%; padding: 6px 12px; border-radius: 999px;
+  background: var(--fill); color: var(--muted); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-who .icon { flex: none; width: 17px; height: 17px; }
+.vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; background: var(--bg); max-width: 760px; margin: 0 auto; }
+.vw-search .search-field input { font-size: 18px; min-height: 52px; }
+.vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
+.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 14px 0 4px; padding: 6px 4px;
+  background: var(--bg); font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.vw-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 84px; padding: 12px 14px; margin: 0 0 8px;
+  border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow); }
+.vw-row:active { background: var(--fill); }
+.vw-row:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.vw-row .logo.lg { width: 56px; height: 56px; }
+.vw-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vw-name { font-size: 19px; font-weight: 700; line-height: 1.25; }
+.vw-now { font-size: 17px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.vw-when { font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-bar { display: block; height: 5px; margin: 3px 0 2px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.vw-bar > i { display: block; height: 100%; background: var(--accent); }
+.vw-chev { flex: none; color: var(--faint); }
+.vw-sheet .gd-sh-title { font-size: 24px; }
+.vw-sheet .gd-sh-when, .vw-sheet .gd-sh-desc { font-size: 17px; }
+.vw-sheet .gd-sh-row { font-size: 17px; padding: 6px 0; }
+.vw-sheet .gd-sh-row b { width: 56px; }
+.vw-k { margin: 8px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.vw-tabbar .tab { font-size: 13.5px; }
+.vw-problem, .vw-loading { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.vw-problem img { border-radius: var(--radius); }
+.vw-problem h1 { margin: 8px 0 0; font-size: 24px; }
+.vw-problem p { margin: 0 0 8px; color: var(--muted); font-size: 18px; max-width: 360px; }
+.vw-loading { color: var(--muted); }
 /* Páginas de la barra de abajo: Categorías y Perfil ocupan la pantalla entera (como la Guía), con la barra siempre a
    mano. Son <dialog> no modales: lo que se abre desde ellas sigue siendo una hoja encima. */
 dialog.sheet.page {
@@ -1211,3 +1245,24 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-plan-alt { display: block; width: 100%; margin: -2px 0 12px; padding: 0 0 0 12px; background: none; border: 0; font: inherit; font-size: 12.5px; color: var(--faint); text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gd-plan-alt b { color: var(--muted); font-weight: 500; }
 .gd-plan-alt:hover b { color: var(--accent); text-decoration: underline; }
+.vw-foot { margin: 28px 4px 0; text-align: center; color: var(--muted); font-size: 14px; }
+.vw-foot .link-btn { display: block; margin: 6px auto 0; font-size: 14px; }
+.vw-conn { margin: 4px 0 6px; padding: 14px 16px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.vw-conn-head { display: flex; align-items: center; gap: 14px; }
+.vw-conn-n { flex: none; min-width: 56px; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
+.vw-conn-n small { font-size: 17px; font-weight: 600; color: var(--muted); }
+.vw-conn-n.warn { color: var(--red); }
+.vw-conn-t { display: flex; flex-direction: column; gap: 2px; font-size: 17px; }
+.vw-conn-t small { font-size: 15px; color: var(--muted); }
+.vw-conn-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.vw-conn-row .conn-dot { margin: 0 22px 0 6px; }
+.vw-conn-who { display: flex; flex-direction: column; gap: 2px; font-size: 17px; min-width: 0; }
+.vw-conn-who small { font-size: 15px; color: var(--muted); }
+.vw-report { margin-top: 20px; }
+.vw-report .btn { min-height: 52px; font-size: 16px; }
+.vw-report-ok { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--green); font-size: 16px; }
+.vw-report-bad { margin: 8px 0 0; color: var(--red); font-size: 15px; }
+.rp-row { padding: 12px 0; border-top: 1px solid var(--hairline); }
+.rp-text { display: flex; flex-direction: column; gap: 2px; }
+.rp-text small { color: var(--muted); font-size: 13.5px; }
+.rp-actions { display: flex; gap: 8px; margin-top: 8px; }

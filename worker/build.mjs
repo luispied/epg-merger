@@ -14,8 +14,8 @@ const appVersion = JSON.parse(readFileSync(here('./package.json'), 'utf-8')).ver
 let appCommit = '';
 try { appCommit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* sin git */ }
 
-await build({
-  entryPoints: [here('./web/app.ts').pathname],
+// El editor (app.ts) y el modo «solo ver» (ver.tsx, ver.html): dos páginas que no comparten estado.
+const common = {
   bundle: true,
   format: 'esm',
   target: 'es2022',
@@ -24,10 +24,11 @@ await build({
   jsxImportSource: 'preact',
   minify: true,
   sourcemap: false,
-  outfile: here('./public/app.js').pathname,
   define: { __APP_VERSION__: JSON.stringify(appVersion), __APP_COMMIT__: JSON.stringify(appCommit) },
   logLevel: 'warning',
-});
+};
+await build({ ...common, entryPoints: [here('./web/app.ts').pathname], outfile: here('./public/app.js').pathname });
+await build({ ...common, entryPoints: [here('./web/ver.tsx').pathname], outfile: here('./public/ver.js').pathname });
 // Un solo CSS: los estilos base (web/base.css) y los de la web (web/web.css, que van después y mandan).
 writeFileSync(here('./public/app.css'), `${readFileSync(here('./web/base.css'), 'utf-8')}\n${readFileSync(here('./web/web.css'), 'utf-8')}`);
 mkdirSync(here('./public/fonts'), { recursive: true });
@@ -41,9 +42,10 @@ writeFileSync(here('./public/manifest.webmanifest'), JSON.stringify(manifest, nu
 
 // ?v= con el hash del contenido: el HTML nuevo nunca carga JS o CSS viejos de la caché.
 const hash = createHash('sha256');
-for (const f of ['app.js', 'app.css', 'icons.js', 'fonts/inter-latin.woff2']) hash.update(readFileSync(here(`./public/${f}`)));
+for (const f of ['app.js', 'ver.js', 'app.css', 'icons.js', 'fonts/inter-latin.woff2']) hash.update(readFileSync(here(`./public/${f}`)));
 const version = hash.digest('hex').slice(0, 10);
 writeFileSync(here('./public/index.html'), readFileSync(here('./web/index.html'), 'utf-8').replaceAll('__VERSION__', version));
+writeFileSync(here('./public/ver.html'), readFileSync(here('./web/ver.html'), 'utf-8').replaceAll('__VERSION__', version));
 // El service worker (sin conexión) guarda la app de esta versión.
 writeFileSync(here('./public/sw.js'), readFileSync(here('./web/sw.js'), 'utf-8').replaceAll('__VERSION__', version));
 console.log(`public/ listo (app ${appVersion}, v=${version})`);

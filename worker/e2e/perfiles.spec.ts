@@ -101,3 +101,25 @@ test('qué ve un perfil: apagar una categoría y guardar', async ({ page }) => {
   expect(fake.profiles.find((p) => p.id === 'p2')?.filter).toEqual({ groups: ['Deportes', 'Noticias'], channels: [] });
   await expect(page.locator('#linksTitle')).toHaveText('Chicos');
 });
+
+test('compartir para ver: crear el código, copiarlo y quitar el acceso', async ({ page }, info) => {
+  await openPerfiles(page);
+  await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Chicos' }).click();
+  await expect(page.locator('#linksBody .sub-title')).toContainText(['Para mirar']);
+  await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).evaluate((b) => b.scrollIntoView({ block: 'center' }));
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-perfil.png` });
+  await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).click();
+  await expect(page.locator('#linksBody')).toContainText('No puede cambiar nada');
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-crear.png` });
+  await page.getByRole('button', { name: 'Crear el código para ver' }).click();
+  const input = page.getByRole('textbox', { name: 'Código para ver' });
+  await expect(input).toHaveValue(/^ver\.Vistap2/);
+  expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeTruthy();
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-link.png` });
+  // Quitar el acceso (con confirmación) vuelve al botón de crear; los links del perfil no se tocan.
+  await page.getByRole('button', { name: /Quitar el acceso/ }).click();
+  await page.locator('#askDialog').getByRole('button', { name: 'Quitar' }).click();
+  await expect(page.getByRole('button', { name: 'Crear el código para ver' })).toBeVisible();
+  expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeUndefined();
+  expect(fake.writes.filter((w) => !w.path.includes('/view')).filter((w) => w.path.includes('/devices'))).toEqual([]);
+});

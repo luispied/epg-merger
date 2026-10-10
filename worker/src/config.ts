@@ -4,6 +4,7 @@
 import { randomId, sha256Hex } from './crypto.ts';
 import { parseFilter, type DeviceFilter } from './playlist.ts';
 import type { R2Bucket } from './env.ts';
+import { VIEW_RE } from './view.ts';
 
 /** Lo que la persona decidió para un canal, por su nombre crudo en el proveedor. */
 export interface ChannelEdit {
@@ -51,6 +52,8 @@ export interface ProfileDef {
   /** Cuenta del proveedor (el `account` de sus links); sin dato = la principal. */
   account?: string;
   filter?: DeviceFilter;
+  /** Código del link «solo ver» del perfil (ver view.ts). */
+  view?: string;
 }
 export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
 const MAX_PROFILES = 50;
@@ -64,7 +67,8 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const name = typeof r.name === 'string' ? r.name.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
     const account = typeof r.account === 'string' ? r.account.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
     const filter = parseFilter(r.filter);
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}) });
+    const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}) });
   }
   return out;
 }
