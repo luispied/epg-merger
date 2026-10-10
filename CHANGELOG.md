@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.33.1
+
+- Los botones del encabezado de las hojas (cerrar ×, volver, anterior ‹ y siguiente ›) ahora tienen un círculo de fondo y el ícono en el color del texto: antes eran íconos grises sueltos que casi no se notaban, sobre todo en el celular. Al apretarlos se oscurecen un poco. Anterior y siguiente sin a dónde ir quedan con un borde fino y el ícono apagado. Vale para todas las hojas, también en el modo ver. Ver `planes/botones-de-las-hojas.md`.
+
 ## 1.33.0
 
 - Guía: **varias categorías a la vez**. Cada botón de categoría se suma o se saca (vuelve a tocarlo para sacarla) y **Todas** limpia. El filtro es el mismo en Grilla, Próximos y Tu noche, y queda guardado en el dispositivo. Con dos o más elegidas, la Grilla sigue con un encabezado por categoría.
