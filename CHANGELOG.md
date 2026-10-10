@@ -11,6 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.1
+
+- **Ayuda de la Guía.** La Guía tiene su propio **?** al lado del título, con todo lo que hace: Grilla, Próximos y Tengo tiempo, Tu noche y lo que aprende de lo que mirás, las categorías y la hoja de cada programa.
+- **Ayuda en el modo ver.** Quien usa Grilla en modo «solo ver» tiene un **?** arriba (y en la Guía) que explica, con letra grande, los canales, las conexiones en uso, la Guía, qué hacer si en la tele dan otra cosa y cómo salir.
+- Ayudas al día con la app de hoy: qué son las etiquetas SD, HD, FHD y 4K, los avisos de arriba de los canales, las conexiones que se están mirando en la cuenta, la hora de los eventos del proveedor, el buscador de Categorías y «Volver al orden del proveedor».
+- En la ayuda, las preguntas de «Más preguntas» ya no muestran la flecha dada vuelta estando cerradas.
+- Interno: `CLAUDE.md` suma la ayuda de la Guía y la del modo ver a las que hay que mantener al día. Tests nuevos de las dos ayudas en `e2e/guide.spec.ts` y `e2e/ver.spec.ts`.
+
 ## 1.36.0
 
 - **Tu noche aprende lo que mirás.** Cada vez que abrís un canal con un link de Grilla se anota el canal, la hora y el programa que pasaba, y Tu noche (o tu tarde, o tu mañana) sube lo de siempre: los programas que mirás seguido, tus canales a esa hora y lo que tiene la campana. Sigue armando el plan con lo mejor que hay, sin que nada se pise.

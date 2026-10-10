@@ -219,7 +219,49 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
   );
 }
 
-function Channels({ code, data, channels, onOpen }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void }) {
+/** La ayuda del modo ver: corta, con letra grande y en el orden en que se descubre la app. */
+function HelpSheet({ close }: { close: () => void }) {
+  const dlg = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => {
+    dlg.current?.showModal();
+    return () => dlg.current?.close();
+  }, []);
+  return (
+    <dialog class="sheet help-sheet vw-help" ref={dlg} onClose={close} aria-labelledby="vwHelpTitle">
+      <div class="sheet-body">
+        <div class="title-row">
+          <h2 id="vwHelpTitle">Cómo se usa</h2>
+          <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
+        </div>
+        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
+        <details open>
+          <summary>Canales<Icon name="chevron-down" /></summary>
+          <p>Cada canal muestra lo que dan <b>ahora</b>, hasta qué hora y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
+          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
+        </details>
+        <details>
+          <summary>Conexiones en uso<Icon name="chevron-down" /></summary>
+          <p>«2 de 3 · Conexiones en uso» dice cuántas pantallas están mirando con esta cuenta y cuántas permite. Si están todas ocupadas, otra tele no va a poder abrir un canal. Tocalo para ver quién está mirando y qué canal.</p>
+        </details>
+        <details>
+          <summary>Guía<Icon name="chevron-down" /></summary>
+          <p>Abajo, <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde), <b>Próximos</b> (lo que empieza pronto) o <b>Tu noche</b> (un plan con lo mejor de tus canales, que cambia de nombre según la hora).</p>
+          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en Tu noche y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
+        </details>
+        <details>
+          <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
+          <p>Abrí el canal y tocá <b>Lo que dan en la tele no es esto</b>. Le llega un aviso a quien arma tu grilla para que lo arregle.</p>
+        </details>
+        <details>
+          <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
+          <p>Grilla abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
+        </details>
+      </div>
+    </dialog>
+  );
+}
+
+function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void }) {
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
@@ -243,7 +285,10 @@ function Channels({ code, data, channels, onOpen }: { code: string; data: ViewDa
       <header class="app-header vw-head">
         <div class="title-row">
           <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark">Grilla</span></h1>
-          <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
+          <span class="vw-head-r">
+            <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
+            <button type="button" class="icon-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
+          </span>
         </div>
       </header>
       <div class="vw-search">
@@ -293,6 +338,7 @@ function App() {
   const [err, setErr] = useState<{ status: number } | null>(null);
   const [tab, setTab] = useState<'canales' | 'guia'>('canales');
   const [open, setOpen] = useState<GuideChannel | null>(null);
+  const [help, setHelp] = useState(false);
   const guideEl = useRef<HTMLElement>(null);
 
   const load = () => {
@@ -328,6 +374,7 @@ function App() {
       if (!r.ok) throw new Error('no se pudo guardar');
       return r.json();
     },
+    help: () => setHelp(true),
   }), [channels]);
 
   useEffect(() => {
@@ -344,7 +391,7 @@ function App() {
 
   return (
     <>
-      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} /></section>
+      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
@@ -354,6 +401,7 @@ function App() {
           <Icon name="layout-grid" /><span>Guía</span>
         </button>
       </nav>
+      {help && <HelpSheet close={() => setHelp(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>
   );

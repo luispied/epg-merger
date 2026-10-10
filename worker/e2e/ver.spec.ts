@@ -155,3 +155,17 @@ test('pegar el código para ver al abrir Grilla deja el dispositivo en modo ver,
   await page.getByRole('button', { name: 'Salir del modo ver' }).click();
   await expect(page.locator('#onboarding')).toBeVisible();
 });
+
+test('el ? del modo ver abre su ayuda, también desde la Guía', async ({ page }, info) => {
+  await page.goto(`/ver#${CODE}`);
+  await page.getByRole('button', { name: 'Cómo se usa' }).click();
+  const help = page.locator('dialog.vw-help');
+  await expect(help).toBeVisible();
+  await expect(help).toContainText('Lo que dan en la tele no es esto');
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-ayuda.png`, animations: 'disabled' });
+  await page.keyboard.press('Escape');
+  await expect(help).toHaveCount(0);
+  await page.getByRole('button', { name: 'Guía' }).click();
+  await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
+  await expect(page.locator('dialog.vw-help')).toBeVisible();
+});

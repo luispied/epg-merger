@@ -132,3 +132,15 @@ test('Tu mañana/tarde/noche: arma el plan con la programación de los canales',
   await slot.locator('.gd-plan-card').click();
   await expect(page.locator('dialog.gd-sheet')).toContainText('Película de la noche');
 });
+
+test('el ? de la Guía abre su ayuda', async ({ page }, info) => {
+  await page.locator('#tabGuide').click();
+  await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
+  const help = page.locator('#helpDialog');
+  await expect(help).toBeVisible();
+  await expect(page.locator('#helpTitle')).toHaveText('Cómo usar la Guía');
+  await expect(help.locator('.help-topic[data-topic="guide"]')).toBeVisible();
+  await expect(help.locator('.help-topic[data-topic="main"]')).toBeHidden();
+  await expect(help).toContainText('Próximos y Tengo tiempo');
+  await page.screenshot({ path: `test-results/ayuda-guia-${info.project.name}.png`, animations: 'disabled' });
+});
