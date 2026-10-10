@@ -27,8 +27,10 @@ const guide = [
   { id: 'g00000000000003.ar', k: 'k3', source: 's1', names: ['Canal Rural'], icon: '' },
 ];
 
-/** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. */
-export async function fakeWorker(page: Page): Promise<Fake> {
+/** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. `extra` suma canales
+ *  ([nombre, categoría]) a la lista del proveedor. */
+export async function fakeWorker(page: Page, opts: { extra?: string[][] } = {}): Promise<Fake> {
+  const list = [...channels, ...(opts.extra ?? []).map(([name, category], i) => ({ name, category, id: String(100 + i), ext: 'ts', icon: '', epgId: null }))];
   const fake: Fake = {
     writes: [],
     reports: [],
@@ -58,7 +60,7 @@ export async function fakeWorker(page: Page): Promise<Fake> {
     if (method !== 'GET') fake.writes.push({ method, path, body: req.postDataJSON() });
     if (path === '/api/guide/index.json') return json({ matching_rules: rules, sources: { s1: { country: 'ar', priority: 0 } }, channels: guide });
     if (path === '/api/cfg/c1') return method === 'GET' ? json(cfg) : json({});
-    if (path === '/api/cfg/c1/list') return json({ channels });
+    if (path === '/api/cfg/c1/list') return json({ channels: list });
     if (path === '/api/cfg/c1/devices') return json({ devices, profiles: fake.profiles, mainName: 'Luis' });
     if (path === '/api/cfg/c1/accounts') {
       return json({ accounts: { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });

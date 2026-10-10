@@ -1,9 +1,11 @@
 // La lista de Canales, en Preact (ver planes/react.md): las filas (o tarjetas), con un encabezado de categoría cada vez
-// que cambia, el vacío con su motivo y el esqueleto mientras carga. Qué canales se ven, en qué orden, y los gestos
-// (tocar, mantener apretado para elegir varios, deslizar, el menú «…») siguen en app.ts, que escucha en #cards.
+// que cambia, el vacío con su motivo, el esqueleto mientras carga, la tarjeta de revisión de arriba y el menú «…» de
+// una fila. Qué canales se ven, en qué orden, y los gestos (tocar, mantener apretado para elegir varios, deslizar)
+// siguen en app.ts, que escucha en #cards.
 //
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { render } from 'preact';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import {
   eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, PAGE, qualityTitle, render as renderAll, sectionTitle,
@@ -156,5 +158,92 @@ function Empty() {
   return (
     <div class="empty"><Icon name="inbox" class="lg" /><strong>Nada por acá</strong>{why}
       {(q || f !== 'todos') && <button type="button" class="btn btn-tonal" data-clear-filters onClick={clear}>Ver todos los canales</button>}</div>
+  );
+}
+
+// ------------------------------------------------------------------ tarjeta de revisión y canales nuevos
+export interface ReviewCardProps {
+  left: number; base: number; done: number; pct: number;
+  /** Canales nuevos de esta apertura de la app (el aviso va solo la primera vez). */
+  news: number; onNewFilter: boolean;
+  onStart: () => void; onShowNew: () => void; onSeen: () => void;
+}
+
+/** Arriba de la lista: cuántos canales quedan por revisar, con la barra de avance, y el aviso de canales nuevos. */
+export function renderReviewCard(p: ReviewCardProps) {
+  const card = document.getElementById('reviewCard')!;
+  card.hidden = !p.left && !p.news;
+  render(card.hidden ? null : <ReviewCard {...p} />, card);
+}
+
+function ReviewCard({ left, base, done, pct, news, onNewFilter, onStart, onShowNew, onSeen }: ReviewCardProps) {
+  return (
+    <>
+      {left > 0 && (
+        <>
+          <div class="rv-top">
+            <div class="rv-text"><strong>{left === 1 ? '1 canal' : `${left} canales`} para revisar</strong>
+              <small>{done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
+            <button type="button" class="btn btn-primary" onClick={onStart}>Empezar</button>
+          </div>
+          <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>
+        </>
+      )}
+      {news > 0 && (
+        <div class={`rv-new${left ? ' split' : ''}`}>
+          <Icon name="sparkles" /><span class="grow">{news === 1 ? '1 canal nuevo' : `${news} canales nuevos`} en tu lista</span>
+          {!onNewFilter && <button type="button" class="btn btn-tonal sm" onClick={onShowNew}>Ver</button>}
+          <button type="button" class="btn btn-plain sm" onClick={onSeen}>Marcar como vistos</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ menú «…» de una fila
+export interface MenuItem { icon: string; text: string; run: () => void }
+
+/** Menú flotante junto a `anchor` (el «…» de una fila, para usar con mouse): se cierra al elegir, al tocar afuera o
+ *  con Esc (que devuelve el foco al «…»). */
+export function openRowMenu(anchor: HTMLElement, items: MenuItem[]) {
+  let host = document.getElementById('rowMenuHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'rowMenuHost';
+    document.body.appendChild(host);
+  }
+  const h = host;
+  render(null, h);
+  render(<RowMenu anchor={anchor} items={items} close={() => render(null, h)} />, h);
+}
+
+function RowMenu({ anchor, items, close }: { anchor: HTMLElement; items: MenuItem[]; close: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const menu = ref.current!;
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
+    menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+    menu.querySelector<HTMLElement>('button')!.focus();
+    const away = (ev: Event) => { if (!menu.contains(ev.target as Node)) close(); };
+    const key = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Escape') return;
+      ev.stopPropagation();
+      close();
+      anchor.focus();
+    };
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', key, true);
+    return () => {
+      document.removeEventListener('pointerdown', away, true);
+      document.removeEventListener('keydown', key, true);
+    };
+  }, []);
+  return (
+    <div class="row-menu" role="menu" ref={ref}>
+      {items.map((it) => (
+        <button key={it.text} type="button" role="menuitem" onClick={() => { close(); it.run(); }}><Icon name={it.icon} class="sm" />{it.text}</button>
+      ))}
+    </div>
   );
 }

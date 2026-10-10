@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.32.3
+
+- Fin de la migración a Preact (ver `planes/react.md`): la tarjeta de revisión de arriba de la lista (con los canales nuevos) y el menú «…» de una fila pasan a componentes en `worker/web/ui/canales.tsx`. La barra de estado con «Reintentar», la píldora de «sin conexión», los filtros con su cuenta, los íconos sueltos y el QR pasan a `worker/web/ui/piezas.tsx`. `app.ts` ya no arma HTML con texto: se borran `icon()`, `esc()` y el último `innerHTML`. Se ve y se comporta igual.
+- Se borran unos 90 selectores de CSS que ya no usaba nadie (restos de pantallas viejas: la fila de guía de antes, el aviso de canales nuevos, el estado de la guía, fuentes de EPG…).
+- Tests de humo de la tarjeta de revisión, el menú «…» (Esc y tocar afuera) y «Reintentar» cuando la grilla no carga. El Worker de prueba acepta canales extra.
+
 ## 1.32.1
 
 - Limpieza de la migración a Preact: las piezas de la guía que seguían siendo HTML pasan a componentes en `worker/web/ui/epg.tsx` (el logo, lo que está dando ahora, la opción elegible, el buscador de guías y «Ver programación de hoy»). Las usan la lista de Canales, la hoja del canal y la hoja de la selección, que también pasa a Preact (`worker/web/ui/seleccion.tsx`). Se ve y se comporta igual.

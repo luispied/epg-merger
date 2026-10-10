@@ -9,12 +9,12 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .header-actions .btn { min-height: 38px; }
 .pick-row { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .pick-row:active, .pick-row:hover { background: var(--fill); }
-#channelBody > .epg-row { background: var(--surface-2); border-radius: var(--radius-sm); }
 #channelBody .row-actions { margin-top: 10px; }
 .cat-row { gap: 6px; }
 .cat-row .icon-btn[disabled] { opacity: .3; }
 .input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
 .qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0 4px; }
+.qr-svg { display: contents; }
 .qr svg { width: 180px; height: 180px; background: #fff; border-radius: var(--radius-sm); }
 .danger-zone { margin-top: 16px; }
 .muted { color: var(--muted); }
@@ -23,13 +23,6 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 #m3uDownload.disabled { opacity: .5; }
 .app-header h1.brand { display: flex; align-items: center; line-height: 0; }
 .app-header h1.brand img { width: 44px; height: 44px; border-radius: var(--radius-sm); box-shadow: 0 0 0 .5px var(--hairline); }
-.guide-status { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 12px; font-size: 14px; box-shadow: var(--shadow); }
-.guide-status .grow { flex: 1; min-width: 0; }
-.guide-status.ok .icon { color: var(--green); }
-.guide-status.pending .icon { color: var(--accent); }
-.guide-status .btn { min-height: 34px; padding: 0 12px; font-size: 14px; flex: none; }
-.card-note.suggest { display: flex; align-items: center; gap: 10px; }
-.card-note.suggest > span { flex: 1; min-width: 0; }
 .btn.sm { min-height: 30px; padding: 0 12px; font-size: 13.5px; flex: none; }
 .pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .cat-filter { margin: 12px 0 10px; }
@@ -116,8 +109,8 @@ body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystem
 .icon-btn:active { transform: none; }
 .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .icon-btn:active { background: color-mix(in srgb, var(--text) 12%, transparent); }
-.icon-btn.filled, .inline-field .icon-btn { background: var(--accent-soft); color: var(--on-accent-soft); }
-.icon-btn.filled:hover, .inline-field .icon-btn:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); }
+.icon-btn.filled { background: var(--accent-soft); color: var(--on-accent-soft); }
+.icon-btn.filled:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); }
 #selectBtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -134,8 +127,6 @@ textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; }
 .stack { gap: 16px; margin-top: 16px; }
 .stack > .field { margin-top: 0; }
 .form-actions { margin-top: 8px; }
-.inline-field { gap: 8px; }
-.inline-field .icon-btn { width: 48px; height: 48px; border-radius: 50%; }
 .help { font-size: 13px; line-height: 1.45; margin: 8px 2px 0; }
 .card .help { margin-top: 16px; }
 #cancelReload { margin-top: 20px; }
@@ -176,7 +167,6 @@ dialog .search-field { background: var(--surface-2); }
 .card { border-radius: var(--radius); padding: 16px; transition: background-color .15s ease, opacity .2s ease; }
 .card:hover { background: color-mix(in srgb, var(--surface) 96%, var(--text)); }
 .card-name { font-size: 16px; font-weight: 500; }
-.card > .epg-row { border-radius: var(--radius-sm); }
 .cards { gap: 12px; }
 .card.section-card { display: flex; align-items: center; gap: 12px; padding: 16px 4px 4px 4px; background: transparent; box-shadow: none; animation: none; }
 .card.section-card:hover { background: transparent; }
@@ -186,7 +176,7 @@ dialog .search-field { background: var(--surface-2); }
 .card.section-card.selected { box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
 .card.section-card .sel-box { margin-top: 0; }
 .pill { border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--on-accent-soft); padding: 2px 8px; font-weight: 500; }
-.status-bar, .guide-status { border-radius: var(--radius); box-shadow: none; background: var(--surface-2); padding: 12px 16px; }
+.status-bar { border-radius: var(--radius); box-shadow: none; background: var(--surface-2); padding: 12px 16px; }
 
 .list { border-radius: var(--radius); margin: 0 0 8px; }
 .menu { border-radius: var(--radius); margin-top: 16px; }
@@ -247,10 +237,7 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 }
 .search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .search-clear[hidden] { display: none; }
-
 /* Canales nuevos, programación del día, logo propio, compartir. */
-.new-banner .icon { color: var(--accent); }
-.new-banner .btn { min-height: 32px; }
 .day-btn { margin-top: 12px; }
 .day-list { margin-top: 8px; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; max-height: 360px; overflow-y: auto; }
 .day-head { font-size: 13px; font-weight: 500; color: var(--accent); padding: 12px 16px 4px; text-transform: capitalize; }
@@ -269,9 +256,6 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 .ord-row { gap: 10px; }
 .day-time { width: 76px; white-space: nowrap; }
 .day-item p { padding-left: 104px; }
-.new-banner { flex-wrap: wrap; row-gap: 4px; }
-.new-banner .grow { min-width: calc(100% - 40px); }
-.new-banner .btn:first-of-type { margin-left: 30px; }
 
 /* Inicio: cómo funciona y demo. */
 .how { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; max-width: 640px; }
@@ -332,8 +316,6 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .device-info { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; }
 .device-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .device-info small { opacity: .7; }
-.creds-change { margin: 12px 0; }
-.creds-change summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .sub-title { font-size: 1rem; margin: 16px 0 8px; }
 .device [data-dev=show] { flex: 1; }
 
@@ -370,10 +352,9 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .search-field { border-radius: var(--radius); }
 .seg { border-radius: var(--radius-sm); }
 .input, .select { border-radius: var(--radius-sm); }
-.inline-field .icon-btn { border-radius: var(--radius-sm); }
 .pill { border-radius: 6px; }
 .segmented button, .chip-btn { border-radius: var(--radius-sm); }
-.tag, .pct, .day-time, .count, .epg-src { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.tag, .pct, .day-time, .count { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .tag { font-weight: 600; letter-spacing: -.01em; }
 .app-header h1.brand img { border-radius: var(--radius-sm); }
 .card { box-shadow: none; box-shadow: inset 0 0 0 1px var(--hairline); }
@@ -404,8 +385,6 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .cards.rows .card.row-card.is-hidden { opacity: .5; }
 
 /* Hoja de canal: resumen y pocas acciones. */
-#channelBody > .epg-row { margin-bottom: 4px; }
-
 #channelBody .menu { margin-top: 12px; }
 #channelBody .menu-row > .icon { flex: none; color: var(--faint); }
 #channelBody .day-btn { margin-top: 12px; }
@@ -421,8 +400,6 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .ch-field > .icon { flex: none; color: var(--faint); width: 22px; height: 22px; }
 .ch-field .input, .ch-field .select { flex: 1; min-width: 0; }
 .ch-field .icon-btn { flex: none; }
-#channelBody .epg-head .icon-btn { margin: -8px -8px -8px 0; flex: none; }
-#channelBody .epg-head { align-items: center; }
 /* Alternativas compactas: la línea "Ahora" solo aparece si hay algo en el aire. */
 
 /* Títulos de hoja: el ojo / la ayuda junto al título, lejos de la X. */
@@ -432,9 +409,6 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 
 /* Guía en uso: resaltada, con las acciones juntas y más aire hacia lo que está en el aire. */
 .ch-current { background: var(--accent-soft); border-radius: var(--radius); box-shadow: inset 3px 0 0 var(--accent); padding: 4px 4px 8px; }
-.ch-current > .epg-row { background: transparent; }
-.ch-current .epg-body .epg-now { margin-top: 10px; }
-.ch-current .epg-head { align-items: center; gap: 2px; }
 
 .ch-current .card-note { background: transparent; }
 .ch-current .day-list { margin: 8px 8px 0; }
@@ -478,8 +452,6 @@ dialog:focus, dialog:focus-visible { outline: none; }
 /* Alternativas: porcentaje en una sola línea y filas más bajas. */
 .pct, .tag { white-space: nowrap; }
 
-.alts .epg-name, .epg-row .epg-name { min-width: 0; flex: 1; }
-
 /* Filtros: se esconden al bajar y vuelven al subir; se nota que hay más a la derecha. */
 .toolbar .segmented { transition: max-height .2s ease, opacity .2s ease, margin .2s ease; max-height: 48px; }
 .toolbar.compact .segmented { max-height: 0; opacity: 0; overflow: hidden; margin: -6px 0 0; pointer-events: none; }
@@ -491,9 +463,8 @@ dialog:focus, dialog:focus-visible { outline: none; }
 .how-wrap summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 6px 0; }
 .how-wrap .how { margin-top: 8px; }
 /* Área táctil ampliada sin agrandar el aspecto: chips, "Usar" y botones chicos. */
-.segmented button, .btn.sm, .now-btn { position: relative; }
+.segmented button, .btn.sm { position: relative; }
 .segmented button::after, .btn.sm::after { content: ""; position: absolute; inset: -6px 0; }
-.now-btn::after { content: ""; position: absolute; inset: -5px 0; }
 .icon-btn.day-btn { width: 44px; height: 44px; }
 /* Contraste del tema claro (4,5:1 mínimo). */
 :root { --green: #17683a; }
@@ -617,8 +588,6 @@ body.selecting .row-in { padding-left: 12px; }
 .opt-row small { display: block; color: var(--muted); font-size: 12px; }
 .ch-more .field { margin-top: 8px; }
 .ch-name { text-align: left; }
-.gc-state { display: flex; align-items: center; gap: 10px; margin-top: 2px; min-height: 20px; }
-.gc-state .chip { margin-top: 0; }
 .gc-name .pct { margin-left: 0; }
 
 /* ---- Categorías y Configuración con el patrón de la hoja del canal ---- */
@@ -644,9 +613,6 @@ body.selecting .row-in { padding-left: 12px; }
 #catMenuBody .menu { margin-top: 0; }
 #catMenuBody .opt-row { padding: 0 4px; }
 /* Configuración */
-.primary-row { width: 100%; border: 0; border-radius: var(--radius); background: var(--accent-soft); color: var(--on-accent-soft); text-align: left; margin-top: 4px; }
-.primary-row:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)) !important; }
-.primary-row .menu-icon, .primary-row .icon, .primary-row small { color: var(--on-accent-soft); }
 #settingsDialog .sec-title { margin-top: 24px; }
 #settingsDialog .menu { margin-top: 0; }
 #settingsDialog .danger-zone { margin-top: 0; }
@@ -679,7 +645,7 @@ body.selecting .row-in { padding-left: 12px; }
 .cards.rows .card.row-card:focus-visible .row-in, .cat-row:focus-visible .row-in, .cards.rows .card.section-card:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 /* Títulos de hoja con peso 600 (el nombre del canal pesaba más que el título). */
 .sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-weight: 600; }
-.pct, .count, .tag, .gc-state, .opt-top .pct, .meta-line { font-variant-numeric: tabular-nums; }
+.pct, .count, .tag, .opt-top .pct, .meta-line { font-variant-numeric: tabular-nums; }
 /* Texto terciario con más contraste. */
 :root { --faint: #6f6a5f; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --faint: #8a91a0; } }
@@ -690,7 +656,6 @@ body.selecting .row-in { padding-left: 12px; }
   .cards.rows .card.row-card.selected:hover .row-in { background: var(--accent-soft); }
   .menu-row:not(.static):hover, .pick-row:hover, .opt:hover, .day-item summary:hover, .ch-name:hover { background: transparent; }
   .opt:hover .radio { box-shadow: inset 0 0 0 2px var(--faint); }
-  .primary-row:hover { background: var(--accent-soft) !important; }
 }
 
 /* ---- Etapa 1: alta con marca y camino a los links ---- */
@@ -759,8 +724,6 @@ body.selecting .tabbar { display: none; }
 .tab .icon { width: 24px; height: 24px; }
 .tab.active { color: var(--accent); }
 .tab-ico { position: relative; display: inline-flex; }
-.tab-badge { position: absolute; top: -6px; left: 14px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
-.tab-badge[hidden] { display: none; }
 #editor main { padding-bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
 body > .toasts { bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom, 0px)); }
 body.selecting > .toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
@@ -786,7 +749,7 @@ body.selecting #editor main { padding-bottom: 96px; }
 @font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("fonts/inter-latin.woff2") format("woff2"); }
 body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "cv11", "ss03"; }
 /* Los números y las etiquetas usan la misma fuente (alineados con tabulares), no monoespaciada. */
-.tag, .pct, .day-time, .count, .epg-src { font-family: inherit; font-variant-numeric: tabular-nums; }
+.tag, .pct, .day-time, .count { font-family: inherit; font-variant-numeric: tabular-nums; }
 
 /* ---- Ámbar solo para lo principal: botón primario, elegido, foco, progreso ---- */
 .btn-gray, .btn-plain { color: var(--text); }
@@ -912,7 +875,6 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
   -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
 .tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
 .tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
-.tab-badge { left: 12px; top: -4px; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
 body > .toasts { bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
@@ -956,9 +918,6 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .links-card { background: var(--surface-2); color: var(--text); box-shadow: none; }
 .review-card { background: var(--surface-2); box-shadow: none; }
 .lc-head > .icon { color: var(--muted); }
-
-/* Cuenta adicional del proveedor en la fila de un dispositivo. */
-.device-info .acc-tag { align-self: flex-start; margin: 2px 0; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--on-accent-soft); font-size: 11.5px; font-weight: 600; }
 .stack[hidden] { display: none; }
 
 /* Perfiles: una cuenta del proveedor cada uno (ver planes/perfiles.md). */
@@ -976,10 +935,6 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .profile-card.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .profile-card .device-list { margin: 0; }
 .profile-card > .help { margin: 0; }
-.pc-head { display: flex; align-items: center; gap: 12px; }
-.pc-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.pc-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pc-name small { color: var(--muted); }
 .pc-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--on-accent-soft); }
 .pc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; }
 .pc-stat { background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; min-width: 0; }

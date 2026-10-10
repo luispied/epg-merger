@@ -15,7 +15,9 @@ import {
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
-import { refreshCards, renderCards, renderSkeleton } from './ui/canales.tsx';
+import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
+import { hydrateIcons } from './ui/icon.tsx';
+import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
@@ -93,19 +95,10 @@ Object.assign(window.ICONS, {
 // ------------------------------------------------------------------ utilidades
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)] as T[];
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fold = (s: string) => s.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerCase();
 /** Si el texto (ya plegado) tiene todas las palabras de la búsqueda (ya plegada), en cualquier
  *  orden: "inter parma" encuentra "Inter de Milán vs. Parma". */
 const hasWords = (text: string, q: string) => q.split(/\s+/).every((w) => text.includes(w));
-
-function icon(name: string, cls = ''): string {
-  return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"`
-    + ` stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${window.ICONS[name] || ''}</svg>`;
-}
-function hydrateIcons(root: ParentNode = document) {
-  $$('[data-icon]', root).forEach((el) => { el.outerHTML = icon((el as HTMLElement).dataset.icon!, el.className); });
-}
 
 // showModal() y show() enfocan el primer elemento de la hoja (el ojo, la ayuda o el nombre editable del
 // canal) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco cae en un
@@ -150,7 +143,7 @@ function ask(o: AskOptions): Promise<string | null> {
   // Pedir un texto: campo con ícono y la tilde para confirmar (sin botones con texto).
   // Confirmar: el texto y los dos botones.
   $('#askActions').hidden = !!o.input;
-  $('#askIcon').innerHTML = icon(o.icon ?? 'text-cursor-input');
+  renderIcon($('#askIcon'), o.icon ?? 'text-cursor-input');
   input.value = o.input?.value ?? '';
   input.placeholder = o.input?.placeholder ?? o.input?.label ?? '';
   input.setAttribute('aria-label', o.input?.label ?? '');
@@ -177,13 +170,12 @@ const newCategoryName = () => promptDialog({
   title: 'Categoría nueva', ok: 'Crear', icon: 'folder-plus', input: { label: 'Nombre', placeholder: 'Nombre de la categoría' },
 });
 
-function status(el: HTMLElement, text: string | null, kind: 'busy' | 'ok' | 'bad' = 'busy') {
+function status(el: HTMLElement, text: string | null, kind: 'busy' | 'ok' | 'bad' = 'busy', retry?: () => void) {
   if (el.id === 'onboardStatus') document.body.classList.toggle('onboard-busy', !!text && kind === 'busy');
   el.hidden = !text;
   if (!text) return;
   el.className = `status-bar ${kind}`;
-  el.innerHTML = `${icon(kind === 'busy' ? 'loader-circle' : kind === 'ok' ? 'circle-check' : 'triangle-alert', kind === 'busy' ? 'spin' : '')}`
-    + `<span class="lead">${esc(text)}</span>`;
+  renderStatus(el, text, kind, retry);
 }
 
 const loadLocal = (): Local | null => {
@@ -1163,7 +1155,7 @@ function updateNet() {
   const pending = !!$('#statusLine').dataset.pending;
   const text = !navigator.onLine ? 'Sin conexión · tus cambios se guardan en este dispositivo' : pending ? 'Guardando tus cambios…' : '';
   pill.hidden = !text;
-  if (text) pill.innerHTML = `${icon(!navigator.onLine ? 'cloud-off' : 'loader-circle', !navigator.onLine ? '' : 'spin')}<span>${esc(text)}</span>`;
+  if (text) renderNetPill(pill, !navigator.onLine, text);
 }
 window.addEventListener('online', updateNet);
 window.addEventListener('offline', updateNet);
@@ -1196,14 +1188,14 @@ function renderNow() {
   for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
     const f = b.dataset.filter!;
     b.setAttribute('aria-pressed', String(f === state.filter));
-    b.innerHTML = `${esc(b.dataset.label)}<span class="count">${state.channels.filter((c) => matchesFilter(c, f)).length}</span>`;
+    renderFilterTab(b, b.dataset.label ?? '', state.channels.filter((c) => matchesFilter(c, f)).length);
   }
   renderReviewCard();
   const list = visibleChannels();
   const cards = $('#cards');
   const mode = viewMode();
   const viewBtn = $('#viewBtn');
-  viewBtn.innerHTML = icon(VIEW_BTN[mode][0]);
+  renderIcon(viewBtn, VIEW_BTN[mode][0]);
   viewBtn.title = viewBtn.ariaLabel = VIEW_BTN[mode][1];
   cards.classList.toggle('detail', mode === 'detail');
   cards.classList.toggle('grid', mode === 'grid');
@@ -1451,18 +1443,19 @@ function reviewProgress(left = reviewList().length) {
 }
 
 function renderReviewCard() {
-  const card = $('#reviewCard');
-  const { left, base, done, pct } = reviewProgress();
-  card.hidden = !left && !bannerCount;
-  if (card.hidden) return;
-  const review = left ? `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
-      <small>${done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
-      <button type="button" class="btn btn-primary" data-rv="start">Empezar</button></div>
-    <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>` : '';
-  const news = bannerCount ? `<div class="rv-new${left ? ' split' : ''}">${icon('sparkles')}<span class="grow">${bannerCount === 1 ? '1 canal nuevo' : `${bannerCount} canales nuevos`} en tu lista</span>
-      ${state.filter === 'nuevos' ? '' : '<button type="button" class="btn btn-tonal sm" data-new="show">Ver</button>'}
-      <button type="button" class="btn btn-plain sm" data-new="seen">Marcar como vistos</button></div>` : '';
-  card.innerHTML = review + news;
+  renderReviewCardView({
+    ...reviewProgress(), news: bannerCount, onNewFilter: state.filter === 'nuevos', onStart: startReview,
+    onShowNew: () => {
+      state.filter = 'nuevos';
+      state.shown = PAGE;
+      render();
+    },
+    onSeen: () => {
+      markSeen();
+      render();
+      toast('Canales marcados como vistos', 'ok');
+    },
+  });
 }
 
 // La hoja de un canal (y el modo «Revisar») está en ui/canal.tsx.
@@ -1504,38 +1497,14 @@ document.addEventListener('keydown', (e) => {
 
 /** Menú «…» de una fila (con mouse no hay gestos obvios): ocultar o mostrar, sin guía, seleccionar. */
 function openRowMenu(anchor: HTMLElement, i: number) {
-  $$('.row-menu').forEach((m) => m.remove());
   const ch = state.channels[i];
   const wasHidden = !!state.cfg!.channels[ch.name]?.hidden;
-  const menu = document.createElement('div');
-  menu.className = 'row-menu';
-  menu.setAttribute('role', 'menu');
-  const item = (act: string, ic: string, text: string) =>
-    `<button type="button" role="menuitem" data-act="${act}">${icon(ic, 'sm')}${esc(text)}</button>`;
-  menu.innerHTML = item('hide', wasHidden ? 'eye' : 'eye-off', wasHidden ? 'Mostrar' : 'Ocultar')
-    + item('noepg', 'ban', 'Dejar sin guía') + item('select', 'square-check', 'Seleccionar');
-  document.body.appendChild(menu);
-  const r = anchor.getBoundingClientRect();
-  menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
-  menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
-  const close = () => {
-    menu.remove();
-    document.removeEventListener('pointerdown', away, true);
-    document.removeEventListener('keydown', esc_, true);
-  };
-  const away = (ev: Event) => { if (!menu.contains(ev.target as Node)) close(); };
-  const esc_ = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); anchor.focus(); } };
-  document.addEventListener('pointerdown', away, true);
-  document.addEventListener('keydown', esc_, true);
-  menu.onclick = (ev) => {
-    const act = (ev.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
-    if (!act) return;
-    close();
-    if (act === 'hide') editChannels([ch], (e) => { e.hidden = e.hidden ? undefined : true; }, wasHidden ? 'Visible' : 'Oculto');
-    else if (act === 'noepg') editChannels([ch], noEpg, 'Quedó sin guía');
-    else setSelectMode(true, i);
-  };
-  menu.querySelector<HTMLElement>('button')!.focus();
+  openRowMenuView(anchor, [
+    { icon: wasHidden ? 'eye' : 'eye-off', text: wasHidden ? 'Mostrar' : 'Ocultar',
+      run: () => editChannels([ch], (e) => { e.hidden = e.hidden ? undefined : true; }, wasHidden ? 'Visible' : 'Oculto') },
+    { icon: 'ban', text: 'Dejar sin guía', run: () => editChannels([ch], noEpg, 'Quedó sin guía') },
+    { icon: 'square-check', text: 'Seleccionar', run: () => setSelectMode(true, i) },
+  ]);
 }
 
 // ------------------------------------------------------------------ selección múltiple
@@ -2106,7 +2075,7 @@ async function showQr(text: string, caption = 'Escaneá para abrir el link de la
     const qr = window.qrcode!(0, 'L');
     qr.addData(text);
     qr.make();
-    $('#qr').innerHTML = `${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<small class="help">${esc(caption)}</small>`;
+    renderQr($('#qr'), qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }), caption);
   } catch {
     // Sin QR (sin internet para la librería): los links alcanzan.
   }
@@ -2464,9 +2433,7 @@ async function openSaved(soft = false) {
       state.creds = null;
       showOnboarding();
     } else {
-      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad');
-      st.insertAdjacentHTML('beforeend', `<button type="button" class="btn btn-tonal sm" id="retryOpen">${icon('refresh-cw')}Reintentar</button>`);
-      $('#retryOpen').onclick = () => void refreshGrid();
+      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad', () => void refreshGrid());
     }
   }
 }
@@ -2762,20 +2729,6 @@ function setupEditor() {
       t.click();
     }
   });
-  $('#reviewCard').onclick = (ev) => {
-    const t = ev.target as HTMLElement;
-    if (t.closest('[data-rv=start]')) startReview();
-    const act = t.closest<HTMLElement>('[data-new]')?.dataset.new;
-    if (act === 'show') {
-      state.filter = 'nuevos';
-      state.shown = PAGE;
-      render();
-    } else if (act === 'seen') {
-      markSeen();
-      render();
-      toast('Canales marcados como vistos', 'ok');
-    }
-  };
   $('#viewBtn').onclick = () => {
     setPref('grilla_density', NEXT_VIEW[viewMode()]);
     render();
@@ -2876,7 +2829,7 @@ function addSearchClear(root: ParentNode) {
     btn.className = 'search-clear';
     btn.setAttribute('aria-label', 'Borrar la búsqueda');
     btn.title = 'Borrar';
-    btn.innerHTML = icon('x');
+    renderIcon(btn, 'x');
     btn.hidden = !input.value;
     field.appendChild(btn);
   }
@@ -2943,9 +2896,9 @@ else showOnboarding();
 export {
   accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, applyBulk, applyRename, autoEpg,
   chooseEpg, collapsedSections, confirmDialog, connectionsInUse, copyText, createGroup, daysLeft, deleteGroup,
-  descFromHour, editChannels, esc, EVENT_TZ_KEY, eventLabel, eventOf, eventTz, exportBackup, fold, forgetConfig, GOOD,
+  descFromHour, editChannels, EVENT_TZ_KEY, eventLabel, eventOf, eventTz, exportBackup, fold, forgetConfig, GOOD,
   groupChannels, groupLabel, groupOf, groups, guideHealth, guideLabel, guideTime, hasWords, HEALTH_AHEAD_H, hhmm,
-  hourDescIndex, hourIndex, icon, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles,
+  hourDescIndex, hourIndex, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles,
   loadReminders, loadStreamHealth, logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, nowFromHour,
   nowPlaying, openDock, openHelp, openPage, openProfiles, otherAccounts, otherProviders, PAGE, pickEpg, plural, pref,
   profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, remindKey, render, renderDownRow,
