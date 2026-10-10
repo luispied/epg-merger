@@ -6,9 +6,10 @@
 import { render } from 'preact';
 import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import {
-  eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, logosOn, PAGE, qualityTitle, render as renderAll, sectionTitle,
+  eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, PAGE, qualityTitle, render as renderAll, sectionTitle,
   selection, state, viewMode, type Band,
 } from '../app.ts';
+import { Logo, RowNow } from './epg.tsx';
 import { Icon } from './icon.tsx';
 
 const box = () => document.getElementById('cards')!;
@@ -61,27 +62,6 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
     out.push(<Card key={list[k]} i={list[k]} />);
   }
   return <>{out}</>;
-}
-
-/** Sin imagen: iniciales sobre un color que sale del nombre (se distingue una fila de otra). */
-function Mono({ label }: { label: string }) {
-  const words = label.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
-  if (!words.length) return <Icon name="tv" />;
-  const ini = (words[0][0] + (words.length > 1 ? words[1][0] : (words[0][1] ?? ''))).toUpperCase();
-  let h = 0;
-  for (const c of words.join(' ')) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return <span class="mono" style={`--h:${h}`} aria-hidden="true">{ini}</span>;
-}
-
-/** El logo del canal (el propio, o el de la guía), sobre las iniciales mientras carga o si no hay. */
-function Logo({ id, custom, label }: { id: string | null; custom?: string; label: string }) {
-  const url = !logosOn() ? '' : custom || (id ? state.index?.icon.get(id) : '');
-  return (
-    <span class="logo ">
-      <Mono label={label} />
-      {url && <img src={url} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />}
-    </span>
-  );
 }
 
 /** Estado a la derecha de la fila: solo lo que pide atención. Lo que está bien lleva una tilde. */
@@ -141,7 +121,7 @@ function Card({ i }: { i: number }) {
         <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{guide}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
-          {viewMode() === 'detail' && epg && <div class="row-now"><span class="epg-now" data-now-for={epg} data-compact="row" /></div>}</div>
+          {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
         {sug ? <button type="button" class="btn btn-gray sm" data-use={i}>Usar</button> : <StatusMark band={band} score={auto?.score} />}
         <button type="button" class="icon-btn sm row-more" data-more={i} aria-label={`Más acciones: ${shown}`} aria-haspopup="menu"><Icon name="ellipsis" /></button>
       </div>

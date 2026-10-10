@@ -7,6 +7,12 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.33.2
+
+- Limpieza de la migración a Preact: las piezas de la guía que seguían siendo HTML pasan a componentes en `worker/web/ui/epg.tsx` (el logo, lo que está dando ahora, la opción elegible, el buscador de guías y «Ver programación de hoy»). Las usan la lista de Canales, la hoja del canal y la hoja de la selección, que también pasa a Preact (`worker/web/ui/seleccion.tsx`). Se ve y se comporta igual.
+- Se borra código que ya no usaba nadie (la fila de guía vieja y su «Ahora» desplegable).
+- Tests de humo de la hoja de la selección (elegir una guía para varios, mover y ocultar) y de la programación del día.
+
 ## 1.33.1
 
 - Los botones del encabezado de las hojas (cerrar ×, volver, anterior ‹ y siguiente ›) ahora tienen un círculo de fondo y el ícono en el color del texto: antes eran íconos grises sueltos que casi no se notaban, sobre todo en el celular. Al apretarlos se oscurecen un poco. Anterior y siguiente sin a dónde ir quedan con un borde fino y el ícono apagado. Vale para todas las hojas, también en el modo ver. Ver `planes/botones-de-las-hojas.md`.
