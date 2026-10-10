@@ -1654,9 +1654,6 @@ function reviewProgress(left = reviewList().length) {
 function renderReviewCard() {
   const card = $('#reviewCard');
   const { left, base, done, pct } = reviewProgress();
-  const badge = $('#tabReviewBadge');
-  badge.hidden = !left;
-  badge.textContent = left > 999 ? '999+' : String(left);
   card.hidden = !left && !bannerCount;
   if (card.hidden) return;
   const review = left ? `<div class="rv-top"><div class="rv-text"><strong>${plural(left, 'canal', 'canales')} para revisar</strong>
@@ -4651,13 +4648,9 @@ function setupEditor() {
     openDock($('#categoriesDialog') as HTMLDialogElement);
   };
   wirePullToRefresh();
-  // Barra inferior: Canales (volver arriba), Revisar, Categorías y Perfil.
+  // Barra inferior: Canales (volver arriba), Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
   $('#helpTopBtn').onclick = () => openHelp('main');
   $('#tabHome').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
-  $('#tabReview').onclick = () => {
-    if (reviewList().length) startReview();
-    else toast('¡No queda nada por revisar!', 'ok');
-  };
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
   const openProfiles = (v: LinksView = { v: 'list' }) => {
     linksView = v;

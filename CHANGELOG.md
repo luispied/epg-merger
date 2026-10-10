@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.25.8
+
+- La barra de abajo pierde la pestaña **Revisar**, que casi siempre decía que no había nada. Los canales dudosos se siguen revisando de a uno desde la tarjeta de arriba de la grilla (aparece sola cuando hay alguno) o con el filtro «A revisar». La ayuda lo explica así.
+
 ## 1.25.7
 
 - La web empieza a pasar a Preact, de a una pantalla (plan en `planes/react.md`). La primera pieza es el aviso de abajo («Listo…», «No se pudo…»): se ve y se comporta igual que antes.
