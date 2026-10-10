@@ -38,6 +38,9 @@ export interface HealthState {
   accounts?: Record<string, unknown>;
   /** Huella de la cuenta que probó los canales (el perfil activo de ese momento). */
   probedBy?: string;
+  /** Última vez que el relay respondió y última vez que falló (la web avisa si deja de responder). */
+  relayOk?: string;
+  relayFail?: string;
   [k: string]: unknown;
 }
 
@@ -111,6 +114,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
   let probedBy = prev?.probedBy;
   let first = true;
+  let relayOk = false;
+  let relayFail = false;
   for (const t of tokens) {
     const creds = await decryptToken(env.TOKEN_KEY, cfgId, t.token);
     if (!creds || !('u' in creds)) continue;
@@ -128,6 +133,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
             servers, username: u, password: p, channels: chunk.map((c) => ({ id: c.id, ext: c.ext, ...(measure.has(c.id) ? { res: true } : {}) })),
           }, 60_000);
+          relayOk = true;
           if (reply.account) { accounts[key] = reply.account; primaryAccount ??= reply.account; }
           if (reply.aborted) break; // la cuenta rechaza: no es el canal, no se anota nada de esta tanda
           for (const [id, r] of Object.entries(reply.results ?? {})) {
@@ -143,16 +149,20 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         }
       } else {
         const reply = await relayPost<{ account?: unknown }>(env, '/v1/account', { servers, username: u, password: p });
+        relayOk = true;
         if (reply.account) { accounts[key] = reply.account; if (first) primaryAccount ??= reply.account; }
       }
     } catch (e) {
       console.error('streamcheck', cfgId, (e as Error).message); // sin datos de la cuenta
+      relayFail = true;
     }
     first = false;
   }
   const out: HealthState = { ...state, channels: seen, res, total: channels.length, accounts, ...(probedBy ? { probedBy } : {}) };
   if (tested) { out.checked = now.toISOString(); out.tested = tested; }
   if (primaryAccount) out.account = primaryAccount;
+  if (relayOk) out.relayOk = now.toISOString();
+  else if (relayFail) out.relayFail = now.toISOString();
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);
   return true;
 }

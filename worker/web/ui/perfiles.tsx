@@ -10,7 +10,7 @@ import {
   accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
   eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups, initialOf, liveAt, loadHome, loadProfiles,
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
-  promptDialog, providerName, providerTz, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
+  promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
   sectionTitle, setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode,
   useOtherAccount, wireDownRow,
   type Account, type AccountView, type Device, type DeviceFilter, type LinkResult, type OtherProvider, type ProfileDef, type ProfileView,
@@ -1317,7 +1317,8 @@ export function openProfileSwitch() {
   dlg.showModal();
 }
 
-/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto o tiene las conexiones llenas. */
+/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto o tiene las conexiones llenas;
+ *  si no, si el relay dejó de responder (la lista o la prueba de canales no se actualizan). */
 export function renderProfileNotice() {
   const box = document.querySelector<HTMLButtonElement>('#profileNotice');
   if (!box) return;
@@ -1328,11 +1329,20 @@ export function renderProfileNotice() {
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
   else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${connectionsInUse(acc)} de ${acc.maxConnections} en uso)`;
+  let sub = 'Tocá para ver la cuenta o cambiar de cuenta';
+  let ico = 'clock';
+  const trouble = !text && relayTrouble();
+  if (trouble) {
+    ico = 'triangle-alert';
+    text = trouble.list ? `La lista del proveedor no se actualiza desde ${trouble.list}`
+      : trouble.probe ? `Los canales caídos y la cuenta no se actualizan desde ${trouble.probe}` : 'No se pudo probar los canales ni leer la cuenta';
+    sub = 'El servicio que habla con tu proveedor no responde. Los canales nuevos y los datos de la cuenta van a tardar en aparecer';
+  }
   box.hidden = !text;
   render(text ? (
     <>
-      <Icon name="clock" />
-      <span class="pn-text"><strong>{text}</strong><small>Tocá para ver la cuenta o cambiar de cuenta</small></span>
+      <Icon name={ico} />
+      <span class="pn-text"><strong>{text}</strong><small>{sub}</small></span>
       <Icon name="chevron-right" />
     </>
   ) : null, box);

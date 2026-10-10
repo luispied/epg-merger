@@ -405,6 +405,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`epg/${cfgId}.xml.gz`);
       await env.BUCKET.delete(`health/${cfgId}.json`);
       await env.BUCKET.delete(`healthreq/${cfgId}.json`);
+      await env.BUCKET.delete(`relaylist/${cfgId}.json`);
       await env.BUCKET.delete(`remind/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
       for (const pr of stored.config.profiles ?? []) await deleteView(env.BUCKET, pr.view);
@@ -447,7 +448,18 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         if (saved) data = JSON.parse(await saved.text()) as Record<string, unknown>;
       } catch { /* archivo ilegible: como si no hubiera */ }
       const { requested } = await healthTimes(env.BUCKET, cfgId);
-      return json({ ...data, ...(requested ? { requested: new Date(requested).toISOString() } : {}) }, 200, { 'Cache-Control': 'no-store' });
+      // La lista: cuándo se guardó y cómo le fue al relay al bajarla (para avisar si se queda vieja).
+      const listHead = await env.BUCKET.head(r2ListKey(cfgId));
+      let relayList: Record<string, unknown> = {};
+      try {
+        const rl = await env.BUCKET.get(`relaylist/${cfgId}.json`);
+        if (rl) relayList = JSON.parse(await rl.text()) as Record<string, unknown>;
+      } catch { /* ilegible: sin datos */ }
+      return json({
+        ...data, ...(requested ? { requested: new Date(requested).toISOString() } : {}),
+        ...(listHead?.uploaded ? { listAt: listHead.uploaded.toISOString() } : {}),
+        ...(relayList.okAt ? { listOkAt: relayList.okAt } : {}), ...(relayList.failAt ? { listFailAt: relayList.failAt } : {}),
+      }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'list' && method === 'GET') {
       const saved = await env.BUCKET.get(r2ListKey(cfgId));
