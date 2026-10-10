@@ -1295,3 +1295,10 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-plan-gap .t { margin: 0; font-weight: 600; }
 .gd-plan-gap .d { margin: 0; color: var(--muted); font-size: 14px; }
 .gd-plan-gap .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* Botones del encabezado de las hojas (cerrar, volver, anterior, siguiente): con fondo propio, para que se vean como
+   botones también en el celular, donde no hay :hover. Ver planes/botones-de-las-hojas.md. */
+dialog .title-row .icon-btn { background: var(--fill); color: var(--text); }
+dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); }
+dialog .title-row .icon-btn:active { background: color-mix(in srgb, var(--fill) 70%, var(--text)); transform: scale(.94); }
+dialog .title-row .icon-btn:disabled { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 1; cursor: default; transform: none; }
