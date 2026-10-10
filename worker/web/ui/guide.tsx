@@ -123,7 +123,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
 
   // Bajar las horas que se ven (y una de margen).
   useEffect(() => {
-    for (let h = Math.max(t0, Math.floor(visFrom / HOUR) * HOUR - HOUR); h < Math.min(t1, visTo + HOUR); h += HOUR) {
+    for (let h = Math.max(Math.floor(t0 / HOUR) * HOUR, Math.floor(visFrom / HOUR) * HOUR - HOUR); h < Math.min(t1, visTo + HOUR); h += HOUR) {
       if (hours.has(h)) continue;
       hours.set(h, 'loading');
       fetch(`/api/ui/schedule/hour/${hourKey(h)}.json`)
