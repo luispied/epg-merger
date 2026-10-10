@@ -180,52 +180,19 @@
   </div>
 </dialog>
 
+<!-- Categorías: la arma ui/categorias.tsx. -->
 <dialog class="sheet settings-sheet" id="categoriesDialog" aria-labelledby="categoriesTitle">
-  <div class="sheet-body">
-    <div class="title-row">
-      <span class="title-left">
-        <h2 id="categoriesTitle">Categorías</h2>
-        <button type="button" class="icon-btn" id="categoriesHelpBtn" aria-label="Cómo funciona" title="Cómo funciona"><span data-icon="circle-help"></span></button>
-      </span>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
-      <p class="meta-line" id="categoriesSummary"></p>
-    </div>
-    <label class="search-field cat-filter">
-      <span data-icon="search"></span>
-      <input type="search" id="categoriesFilter" placeholder="Buscar categoría" autocomplete="off">
-    </label>
-    <div class="ch-chips cat-chips">
-      <button type="button" class="chip-btn" id="newCategoryBtn"><span data-icon="folder-plus"></span>Categoría</button>
-      <button type="button" class="chip-btn" id="newSectionBtn"><span data-icon="separator-horizontal"></span>Sección</button>
-      <button type="button" class="chip-btn" id="foldAllBtn" hidden></button>
-    </div>
-    <div class="menu" id="categoriesList"></div>
-  </div>
+  <div class="sheet-body"></div>
 </dialog>
 
+<!-- La hoja de una categoría (ui/categorias.tsx). -->
 <dialog class="sheet settings-sheet" id="catMenuDialog" aria-labelledby="catMenuName">
-  <div class="sheet-body">
-    <div class="title-row ch-head">
-      <button type="button" class="icon-btn" id="catMenuPrev" title="Anterior" aria-label="Categoría anterior"><span data-icon="chevron-left"></span></button>
-      <input id="catMenuName" class="ch-name" autocomplete="off" enterkeyhint="done" aria-label="Nombre en la playlist">
-      <button type="button" class="icon-btn" id="catMenuNext" title="Siguiente" aria-label="Categoría siguiente"><span data-icon="chevron-right"></span></button>
-      <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></form>
-    </div>
-    <div id="catMenuBody"></div>
-  </div>
+  <div class="sheet-body"></div>
 </dialog>
 
+<!-- Ordenar los canales de una categoría (ui/categorias.tsx). -->
 <dialog class="sheet settings-sheet" id="orderDialog" aria-labelledby="orderTitle">
-  <div class="sheet-body">
-    <div class="title-row">
-      <span class="title-left">
-        <button type="button" class="icon-btn" id="orderBack" aria-label="Volver" title="Volver"><span data-icon="chevron-left"></span></button>
-        <h2 id="orderTitle" class="menu-title"></h2>
-      </span>
-      <button type="button" class="icon-btn" id="orderClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
-    </div>
-    <div id="orderBody"></div>
-  </div>
+  <div class="sheet-body"></div>
 </dialog>
 
 <dialog class="sheet settings-sheet" id="linksDialog" aria-labelledby="linksTitle">
