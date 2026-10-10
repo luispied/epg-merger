@@ -23,6 +23,8 @@ export interface GuideHost {
   schedule(epg: string): Promise<Entry[] | null>;
   reminders(): Promise<Set<string> | null>;
   toggleReminder(btn: HTMLElement, channel: string): void;
+  /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
+  viewer?: boolean;
 }
 
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
@@ -110,7 +112,7 @@ function useNow() {
   return now;
 }
 
-function Logo({ ch, cls = '' }: { ch: GuideChannel; cls?: string }) {
+export function Logo({ ch, cls = '' }: { ch: GuideChannel; cls?: string }) {
   const [ok, setOk] = useState(false);
   const ini = ch.name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return (
@@ -317,8 +319,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                       <button type="button" class={`gd-cell gap${r.ch.quiet ? ' quiet' : ''}`} style={{ left: `${Math.max(lx, 0) + 2}px`, width: `${view.w - CHW - 4}px` }}
                         onClick={() => host.openChannel(r.ch.i)}>
                         <span class="gd-in">
-                          <span class="tt">{r.ch.quiet ? 'Sin guía' : 'Sin guía asignada'}</span>
-                          <span class="hh">{r.ch.quiet ? 'Lo dejaste así a propósito' : 'Tocá para elegir una guía'}</span>
+                          <span class="tt">{r.ch.quiet || host.viewer ? 'Sin guía' : 'Sin guía asignada'}</span>
+                          <span class="hh">{host.viewer ? 'Este canal no tiene programación' : r.ch.quiet ? 'Lo dejaste así a propósito' : 'Tocá para elegir una guía'}</span>
                         </span>
                       </button>
                     )}
@@ -461,6 +463,7 @@ function ProgramSheet({ ch, p, now, host, channels, again, close }: {
   const next = (entries ?? []).filter(([s]) => s >= p.e).slice(0, 4);
   const live = p.s <= now && now < p.e;
   const bell = (s: number, t: string, primary: boolean | string = false, on_ = ch) => {
+    if (host.viewer) return null;
     const on = marks?.has(`${on_.epg}|${s}`) ?? false;
     return (
       <button type="button" class={primary ? `btn btn-tonal gd-remind${on ? ' on' : ''}` : `remind-btn${on ? ' on' : ''}`}
@@ -499,7 +502,7 @@ function ProgramSheet({ ch, p, now, host, channels, again, close }: {
             ))}
           </section>
         )}
-        {!live && p.s > now && ch.epg && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
+        {!live && p.s > now && ch.epg && !host.viewer && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
         {next.length > 0 && (
           <div class="gd-sh-next">
             <h3>Después</h3>
@@ -508,9 +511,9 @@ function ProgramSheet({ ch, p, now, host, channels, again, close }: {
             ))}
           </div>
         )}
-        <button type="button" class="link-btn gd-sh-fix" onClick={() => { dlg.current?.close(); host.openChannel(ch.i); }}>
+        {!host.viewer && <button type="button" class="link-btn gd-sh-fix" onClick={() => { dlg.current?.close(); host.openChannel(ch.i); }}>
           <Icon name="pencil" class="sm" />¿No coincide con lo que ves? Cambiar la guía de este canal
-        </button>
+        </button>}
       </div>
     </dialog>
   );

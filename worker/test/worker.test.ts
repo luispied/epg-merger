@@ -11,7 +11,7 @@ import { checkAllHealth, isDue, pickBatch, runHealthCheck, visibleChannels } fro
 import { buildPlaylist } from '../src/playlist.ts';
 import { mediaKey, resetMediaMaps } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
-import { CATEGORIES, makeEnv, mockXtream, STREAMS } from './helpers.ts';
+import { CATEGORIES, makeEnv, MemoryBucket, mockXtream, STREAMS } from './helpers.ts';
 
 const BASE = 'https://grilla.example';
 const S1 = 'http://s1.example:8080';
@@ -1390,4 +1390,48 @@ test('links de antes sin huella de cuenta: la reciben al listar, sin cambiar có
   const after = JSON.parse(await (await t.env.BUCKET.get(`short/${code}.json`))!.text());
   assert.equal(after.token, before.token);
   assert.equal(after.key, await accountKey('user', 'pa ss'));
+});
+
+test('solo ver: un link por perfil con sus canales (sin credenciales ni links), que se quita sin tocar la reproducción', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const view = (code: string) => handle(req(`/api/view/${code}`), t.env, t.ctx, t.cache);
+  // La lista queda en R2 al servir la playlist.
+  assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  await t.settle();
+  const shortBefore = [...(t.env.BUCKET as MemoryBucket).data.keys()].filter((k) => k.startsWith('short/')).sort();
+  const profiles = (await (await call('/devices')).json() as { profiles: { id: string }[] }).profiles;
+  const pid = profiles[0].id;
+  const kids = await (await call('/profiles', { method: 'POST', body: JSON.stringify({ name: 'Abuela', filter: { groups: ['Deportes AR'], channels: [], only: true } }) })).json() as { profile: { id: string } };
+  // Sin la clave de edición no se crea.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/profiles/${kids.profile.id}/view`, { method: 'POST', body: '{}' }), t.env, t.ctx, t.cache)).status, 401);
+  const { code } = await (await call(`/profiles/${kids.profile.id}/view`, { method: 'POST', body: '{}' })).json() as { code: string };
+  // Pedirlo de nuevo devuelve el mismo.
+  assert.equal((await (await call(`/profiles/${kids.profile.id}/view`, { method: 'POST', body: '{}' })).json() as { code: string }).code, code);
+  const res = await view(code);
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  const v = JSON.parse(body) as { name: string; channels: { name: string; cat: string; epg: string | null }[] };
+  assert.equal(v.name, 'Abuela');
+  assert.deepEqual(v.channels.map((c) => [c.name, c.cat]), [['ESPN', 'Deportes AR']]);
+  assert.ok(!/pa ss|token|\/s\/|\/l\//.test(body));
+  // El perfil sin filtro ve todo menos los ocultos, en el orden de la playlist; los logos del proveedor no salen.
+  const all = await (await call(`/profiles/${pid}/view`, { method: 'POST', body: '{}' })).json() as { code: string };
+  const va = await (await view(all.code)).json() as { channels: { name: string; logo: string }[] };
+  assert.deepEqual(va.channels.map((c) => c.name), ['ESPN', 'Telefe', 'Evento del día']);
+  assert.ok(!va.channels.some((c) => c.logo.includes('http://p/')));
+  // Un código inventado o quitado: 404. Los links de reproducción siguen iguales y andando.
+  assert.equal((await view('x'.repeat(22))).status, 404);
+  assert.equal((await call(`/profiles/${kids.profile.id}/view`, { method: 'DELETE', body: '{}' })).status, 200);
+  assert.equal((await view(code)).status, 404);
+  const again = await (await call(`/profiles/${kids.profile.id}/view`, { method: 'POST', body: '{}' })).json() as { code: string };
+  assert.notEqual(again.code, code);
+  // Guardar la configuración desde la web no borra el link; borrar el perfil sí.
+  const cfg = await (await call('')).json() as Record<string, unknown>;
+  await call('', { method: 'PUT', body: JSON.stringify({ ...cfg, profiles: [] }) });
+  assert.equal((await view(again.code)).status, 200);
+  assert.equal((await call(`/profiles/${kids.profile.id}`, { method: 'DELETE', body: JSON.stringify({ to: pid }) })).status, 200);
+  assert.equal((await view(again.code)).status, 404);
+  assert.deepEqual([...(t.env.BUCKET as MemoryBucket).data.keys()].filter((k) => k.startsWith('short/')).sort(), shortBefore);
+  assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
 });

@@ -7,6 +7,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.30.0
+
+- Modo «solo ver»: en la página de un perfil, **Compartir para ver** crea un link (`/ver#código`) para que otra persona (por ejemplo, alguien a quien le cuesta usar apps) mire la grilla y la Guía de ese perfil sin poder cambiar nada. Se puede copiar, compartir por WhatsApp o mail, escanear con QR, hacer uno nuevo o quitar el acceso. Los links de reproducción no cambian.
+- La página para ver (`web/ver.html`, `web/ver.tsx`) es aparte del editor y no guarda ninguna clave: letra grande, «Canales» con lo que dan ahora, cuánto queda y lo que sigue, búsqueda por canal o programa, la hoja de cada canal con la descripción y lo que viene, y la **Guía** (Grilla y Próximos) sin avisos ni «Cambiar la guía». Sin manifest, así «Agregar a inicio» guarda la dirección con su código.
+- Worker: `POST`/`DELETE /api/cfg/<cfgId>/profiles/<id>/view` (con la clave de edición) crean o quitan el link del perfil, guardado en `view/<código>.json`; `GET /api/view/<código>` devuelve el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker, sin credenciales ni links), con la lista guardada y en el orden de la playlist. Borrar el perfil o la configuración borra su link para ver. La playlist sale de la misma función (`playlistRows`), sin cambios.
+- El service worker guarda la página para ver aparte, así no reemplaza al editor sin conexión.
+
 ## 1.29.0
 
 - Guía: arriba se elige cómo verla, **Grilla · Próximos**. Próximos es una lista de lo que empieza en las próximas 3 horas en todos los canales, ordenada por hora: «Recién empezados, todavía llegás» (los que empezaron hace 15 minutos o menos) y «Lo que viene», con «Empieza ya», «Empieza en 14 min» o «Empezó hace 7 min» y el ↻ cuando vuelve a empezar. El mismo programa a la misma hora en varios canales va en una sola fila («y 2 más»). Tocar una fila abre la hoja del programa.

@@ -52,8 +52,26 @@ export interface PlaylistOptions {
   logoUrl?: (url: string) => string;
 }
 
-export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOptions): string {
+/** Un canal tal como sale en la playlist (y en el modo «solo ver»), ya ordenado. */
+export interface PlaylistRow {
+  name: string;
+  /** La categoría como se ve (renombrada). */
+  group: string;
+  /** Id de la guía elegida (o null). */
+  epg: string | null;
+  logo: string;
+  /** Separador creado a mano: no es un canal. */
+  separator?: boolean;
+  /** El canal del proveedor (no está en los separadores). */
+  ch?: Channel;
+  /** La categoría está marcada «Sin guía» o el canal quedó sin guía a propósito. */
+  quiet?: boolean;
+}
+
+/** Los canales que ve un perfil, con las ediciones y en el orden guardado (lo mismo que la playlist). */
+export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
+  const noEpg = new Set(cfg.groups?.noEpg ?? []);
   // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
   const present = [...new Set(channels.map((ch) => cfg.channels[ch.name]?.group || ch.category))];
   const order = new Map(placeNewGroups(cfg.groups?.order ?? [], present, new Set(cfg.groups?.separators ?? [])).map((g, i) => [g, i]));
@@ -61,9 +79,10 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
   const within = new Map(Object.entries(cfg.groups?.channels ?? {}).map(([g, names]) => [g, new Map(names.map((n, i) => [n, i]))]));
   const rename = cfg.groups?.rename ?? {};
   const label = (g: string) => rename[g] || g;
-  const rows: { group: number; pos: number; text: string }[] = [];
+  const rows: { group: number; pos: number; row: PlaylistRow }[] = [];
   const fGroups = new Set(opts.filter?.groups ?? []);
   const fChannels = new Set(opts.filter?.channels ?? []);
+  const providerLogos = opts.providerLogos ?? true;
   channels.forEach((ch, pos) => {
     const edit = cfg.channels[ch.name] ?? {};
     const group = edit.group || ch.category;
@@ -76,13 +95,12 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
     // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
     // que la persona haya puesto uno propio.
     const guideLogo = edit.logo && opts.logoUrl ? opts.logoUrl(edit.logo) : edit.logo;
-    const logo = edit.customLogo || (epg ? guideLogo || ch.icon : '');
+    const logo = edit.customLogo || (epg ? guideLogo || (providerLogos ? ch.icon : '') : '');
     const custom = within.get(group)?.get(ch.name);
     rows.push({
       group: order.get(group) ?? order.size,
       pos: custom ?? channels.length + pos,
-      text: `#EXTINF:-1 tvg-id="${attr(epg ?? name)}" tvg-name="${attr(name)}" tvg-logo="${attr(logo)}" ` +
-        `group-title="${groupTitle(label(group))}",${attr(name)}\n${opts.streamUrl(ch)}`,
+      row: { name, group: label(group), epg, logo: logo ?? '', ch, ...(noEpg.has(group) || (edit.manual && !epg) ? { quiet: true } : {}) },
     });
   });
   // Separadores creados a mano: un canal de aviso al principio de su grupo.
@@ -90,14 +108,18 @@ export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOp
     if (hiddenGroups.has(sep)) continue;
     if (opts.filter && !(opts.filter.only ? fGroups.has(sep) : !fGroups.has(sep))) continue;
     const title = label(sep);
-    rows.push({
-      group: order.get(sep) ?? order.size,
-      pos: -1,
-      text: `#EXTINF:-1 tvg-id="${attr(title)}" tvg-name="${attr(title)}" tvg-logo="" group-title="${groupTitle(title)}",${attr(title)}\n`
-        + (opts.separatorUrl ?? ''),
-    });
+    rows.push({ group: order.get(sep) ?? order.size, pos: -1, row: { name: title, group: title, epg: null, logo: '', separator: true } });
   }
   // Las categorías en el orden guardado, con las nuevas ya ubicadas.
   rows.sort((a, b) => a.group - b.group || a.pos - b.pos);
-  return [`#EXTM3U url-tvg="${attr(opts.epgUrl)}"`, ...rows.map((r) => r.text)].join('\n') + '\n';
+  return rows.map((r) => r.row);
+}
+
+export function buildPlaylist(channels: Channel[], cfg: Config, opts: PlaylistOptions): string {
+  const lines = playlistRows(channels, cfg, opts).map((r) => (r.separator
+    ? `#EXTINF:-1 tvg-id="${attr(r.name)}" tvg-name="${attr(r.name)}" tvg-logo="" group-title="${groupTitle(r.name)}",${attr(r.name)}\n`
+      + (opts.separatorUrl ?? '')
+    : `#EXTINF:-1 tvg-id="${attr(r.epg ?? r.name)}" tvg-name="${attr(r.name)}" tvg-logo="${attr(r.logo)}" `
+      + `group-title="${groupTitle(r.group)}",${attr(r.name)}\n${opts.streamUrl(r.ch!)}`));
+  return [`#EXTM3U url-tvg="${attr(opts.epgUrl)}"`, ...lines].join('\n') + '\n';
 }

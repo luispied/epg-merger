@@ -42,7 +42,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
-    event.respondWith(networkFirst(req, SHELL, '/'));
+    // El modo «solo ver» es otra página: se guarda aparte, así no reemplaza al editor sin conexión.
+    event.respondWith(networkFirst(req, SHELL, url.pathname === '/ver' || url.pathname === '/ver.html' ? '/ver' : '/'));
   } else if (isData(url.pathname)) {
     event.respondWith(networkFirst(req, DATA));
   } else if (!url.pathname.startsWith('/api/') && !/^\/(p|s|l|g)\//.test(url.pathname)) {

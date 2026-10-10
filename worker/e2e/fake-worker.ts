@@ -9,7 +9,7 @@ const day = 86_400_000;
 export interface Fake {
   /** Los pedidos que cambian algo (método, ruta y cuerpo), en orden. */
   writes: { method: string; path: string; body: unknown }[];
-  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null }[];
+  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string }[];
 }
 
 const channels = [
@@ -68,6 +68,14 @@ export async function fakeWorker(page: Page): Promise<Fake> {
       const profile = { id: `p${fake.profiles.length + 1}`, ...body };
       fake.profiles.push(profile);
       return json({ profile });
+    }
+    const v = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)\/view$/);
+    if (v) {
+      const p = fake.profiles.find((x) => x.id === v[1]);
+      if (!p) return json({ error: 'no existe' }, 404);
+      if (method === 'DELETE') { delete p.view; return json({ ok: true }); }
+      p.view ??= `Vista${p.id}Abcdefghijklmnop`.slice(0, 22);
+      return json({ code: p.view });
     }
     const m = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)$/);
     if (m && method === 'PUT') {

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0d10" media="(prefers-color-scheme: dark)">
+<!-- Modo «solo ver» (ver.tsx): sin manifest, así «Agregar a inicio» guarda esta dirección con su código. -->
+<title>Grilla</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grilla">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png?v=__VERSION__">
+<script>
+  try {
+    var t = localStorage.getItem('grilla_theme') || 'dark';
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  } catch (e) { /* sin storage: sigue al sistema */ }
+</script>
+<link rel="stylesheet" href="app.css?v=__VERSION__">
+<link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script src="icons.js?v=__VERSION__"></script>
+<script type="module" src="ver.js?v=__VERSION__"></script>
+</head>
+<body class="viewer">
+<div id="app"></div>
+</body>
+</html>

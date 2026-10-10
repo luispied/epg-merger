@@ -17,6 +17,8 @@
 //   GET    /api/push/key                 clave pública VAPID de los avisos push (404 si no están activados)
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
+//   POST   /api/cfg/<cfgId>/profiles/<id>/view  (Bearer editKey) link «solo ver» del perfil → {code} · DELETE: quitarlo
+//   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
 //   POST   /api/ui/again                 {ids} → cuándo vuelve a empezar lo que está en el aire (again.ts)
@@ -36,7 +38,8 @@ import { dispatchRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
-import { buildPlaylist, parseFilter, type DeviceFilter } from './playlist.ts';
+import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './playlist.ts';
+import { createView, deleteView, readView } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList } from './relay.ts';
 import { checkAllHealth, liveAccounts } from './streamcheck.ts';
@@ -203,6 +206,32 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
+// Canales de proveedores que separan secciones (▀▀▀ DEPORTES ▀▀▀): no se miran.
+const DIVIDER_RE = /[\u2580-\u259F]{2,}/;
+
+/** Modo «solo ver»: el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker), en el orden de
+ *  la playlist. Sin credenciales, cuentas ni links. Si el link se quitó, 404. */
+async function serveView(code: string, url: URL, env: Env): Promise<Response> {
+  const rec = await readView(env.BUCKET, code);
+  const stored = rec ? await loadConfig(env.BUCKET, rec.cfgId) : null;
+  const profile = stored ? findProfile(stored.config, rec!.profile) : undefined;
+  if (!stored || !profile || profile.view !== code) return fail(404, 'este link para ver ya no existe');
+  const list = await env.BUCKET.get(r2ListKey(rec!.cfgId));
+  if (!list) return fail(409, 'todavía no hay canales para mostrar');
+  const cfg = stored.config;
+  const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
+  const rows = playlistRows((JSON.parse(await list.text()) as LiveList).channels, cfg,
+    { filter: profile.filter, logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
+  // Como en la web: una categoría decorativa, o una con un solo canal que se llama igual, es un separador.
+  const rawGroup = (r: (typeof rows)[number]) => cfg.channels[r.ch!.name]?.group || r.ch!.category;
+  const size = new Map<string, number>();
+  for (const r of rows) if (r.ch) size.set(rawGroup(r), (size.get(rawGroup(r)) ?? 0) + 1);
+  const channels = rows
+    .filter((r) => r.ch && !DIVIDER_RE.test(rawGroup(r)) && !(size.get(rawGroup(r)) === 1 && (cfg.channels[r.ch.name]?.name || r.ch.name) === rawGroup(r)))
+    .map((r) => ({ name: r.name, cat: r.group, epg: r.epg, logo: r.logo, ...(r.quiet ? { quiet: true } : {}) }));
+  return json({ name: profile.name, channels }, 200, { 'Cache-Control': 'private, max-age=60' });
+}
+
 async function serveStream(cfgId: string, token: string, file: string, env: Env, ctx: Ctx, cache: SimpleCache): Promise<Response> {
   const m = /^([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9]{1,6})$/.exec(file);
   if (!m) return new Response('No encontrado', { status: 404 });
@@ -327,6 +356,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.delete(`healthreq/${cfgId}.json`);
       await env.BUCKET.delete(`remind/${cfgId}.json`);
       await removeAllDevices(env.BUCKET, cfgId);
+      for (const pr of stored.config.profiles ?? []) await deleteView(env.BUCKET, pr.view);
       return json({ ok: true });
     }
     if (action === 'status' && method === 'GET') {
@@ -533,6 +563,22 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }
       const p = findProfile(config, pid);
       if (!p) return fail(404, 'perfil inexistente');
+      if (parts[5] === 'view') {
+        // Link «solo ver»: uno por perfil. Crearlo de nuevo devuelve el mismo; quitarlo lo invalida (los links de
+        // reproducción no cambian).
+        if (method === 'POST') {
+          if (p.view && await readView(env.BUCKET, p.view)) return json({ code: p.view });
+          const code = await createView(env.BUCKET, cfgId, p.id);
+          await save(profiles.map((x) => (x.id === p.id ? { ...x, view: code } : x)));
+          return json({ code });
+        }
+        if (method === 'DELETE') {
+          await deleteView(env.BUCKET, p.view);
+          await save(profiles.map((x) => (x.id === p.id ? (({ view: _v, ...rest }) => rest)(x) : x)));
+          return json({ ok: true });
+        }
+        return fail(405, 'método no permitido');
+      }
       if (method === 'PUT') {
         const next: ProfileDef = { ...p };
         if ('name' in raw) next.name = cleanProfileName(raw.name) || p.name;
@@ -580,6 +626,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
             return { ...base, profile: dest.id, ...(dest.filter ? { filter: dest.filter } : {}) };
           });
         }
+        await deleteView(env.BUCKET, p.view);
         await save(profiles.filter((x) => x.id !== p.id));
         return json({ ok: true, moved: links.length });
       }
@@ -643,6 +690,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     }
   }
 
+  if (section === 'view' && cfgId && !action && method === 'GET') return await serveView(cfgId, new URL(request.url), env);
   if (section === 'guide' && cfgId === 'index.json' && method === 'GET') {
     return serveR2(env, 'guide/index.json', 'application/json', 3600);
   }

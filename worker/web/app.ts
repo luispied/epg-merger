@@ -2178,7 +2178,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];
@@ -2332,7 +2332,7 @@ async function createFirstDevice() {
   } catch { /* se pueden generar después, desde Configuración */ }
 }
 
-async function showQr(text: string) {
+async function showQr(text: string, caption = 'Escaneá para abrir el link de la playlist en otro dispositivo') {
   try {
     if (!window.qrcode) {
       await new Promise<void>((resolve, reject) => {
@@ -2346,7 +2346,7 @@ async function showQr(text: string) {
     const qr = window.qrcode!(0, 'L');
     qr.addData(text);
     qr.make();
-    $('#qr').innerHTML = `${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<small class="help">Escaneá para abrir el link de la playlist en otro dispositivo</small>`;
+    $('#qr').innerHTML = `${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}<small class="help">${esc(caption)}</small>`;
   } catch {
     // Sin QR (sin internet para la librería): los links alcanzan.
   }
