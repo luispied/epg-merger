@@ -7,10 +7,14 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.25.6
+## 1.25.7
 
 - La web empieza a pasar a Preact, de a una pantalla (plan en `planes/react.md`). La primera pieza es el aviso de abajo («Listo…», «No se pudo…»): se ve y se comporta igual que antes.
 - Tests de humo de la web con Playwright (`npm run e2e` en `worker/`), que también corren en cada PR.
+
+## 1.25.6
+
+- Arreglo: las conexiones en uso ya no pueden mostrar más que el máximo («4 de 3»). El proveedor sigue contando por un rato la conexión de un canal que se dejó (al cambiar de canal o estrenar un link) y a veces informa de más; ahora se ve «3 de 3», como llenas.
 
 ## 1.25.5
 

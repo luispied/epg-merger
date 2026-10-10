@@ -45,7 +45,7 @@ React completo lo elegiría solo si sabés que vas a querer librerías grandes d
 
 ## Plan (en PRs, cada uno verde y con capturas)
 
-1. **Base** (1.25.6): Preact en el build (`jsxImportSource`, componentes en `worker/web/ui/`), el aviso (toast) como primera pieza, y tests de humo con Playwright (`worker/e2e/`, también en CI). Sin cambios visibles. `@preact/signals` entra con la Guía, que es la primera que lo usa.
+1. **Base** (1.25.7): Preact en el build (`jsxImportSource`, componentes en `worker/web/ui/`), el aviso (toast) como primera pieza, y tests de humo con Playwright (`worker/e2e/`, también en CI). Sin cambios visibles. `@preact/signals` entra con la Guía, que es la primera que lo usa.
 2. **Guía nueva en Preact** (el trabajo del otro hilo), con virtualización en los dos ejes. Convive con el resto vanilla.
 3. **Migrar por pantalla**, de lo más aislado a lo más central: Perfil/cuentas (~1.100 líneas), Links, Configuración y push, Categorías y orden, editor de canal, y por último la lista de Canales.
 4. Al final se borra el helper de `innerHTML` y `app.ts` queda como arranque.
