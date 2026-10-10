@@ -13,6 +13,7 @@ import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
   linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
+import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
 import { toast } from './ui/toast.tsx';
 
@@ -2942,10 +2943,8 @@ async function copyText(text: string) {
   }
 }
 
-// La primera vez los links se arman solos (con un dispositivo «Mi reproductor») y una tarjeta arriba
-// de la lista los ofrece listos para copiar; se descarta con la X. Después viven en la pestaña Links.
-const LINKS_CARD_KEY = (id: string) => `grilla_links_card_${id}`;
-
+// La primera vez los links se arman solos (con un dispositivo «Mi reproductor») y una tarjeta arriba de la lista los
+// ofrece listos para copiar (ui/cards.tsx).
 async function createFirstDevice() {
   if (!state.local || !state.creds) return;
   try {
@@ -2953,56 +2952,6 @@ async function createFirstDevice() {
     await api(`/api/cfg/${state.local.cfgId}/token`, { method: 'POST', body: { ...state.creds, name: 'Mi reproductor' } });
     setPref(LINKS_CARD_KEY(state.local.cfgId), '1');
   } catch { /* se pueden generar después, desde Configuración */ }
-}
-
-/** Una sola vez, a quien arma su lista por primera vez: cómo se usan los gestos (que no se ven). */
-function renderTipCard() {
-  const card = $('#tipCard');
-  const fresh = state.local && localStorage.getItem(LINKS_CARD_KEY(state.local.cfgId)) !== null;
-  // Con la tarjeta de los links a la vista no se suma otra: aparece cuando se descarta.
-  card.hidden = !fresh || pref('grilla_tip_gestures', '') === '1' || !$('#linksCard').hidden;
-  if (card.hidden) return;
-  card.innerHTML = `<div class="tip-head">${icon('lightbulb')}<div class="tip-text"><strong>Atajos</strong>
-      <small><b>Deslizá</b> una fila hacia la izquierda para ocultarla o hacia la derecha para dejarla sin guía. <b>Mantenela apretada</b> para elegir varias.</small></div>
-      <button type="button" class="icon-btn" data-tip="close" aria-label="Entendido">${icon('x')}</button></div>`;
-}
-
-async function renderLinksCard() {
-  const card = $('#linksCard');
-  card.hidden = true;
-  if (!state.local || pref(LINKS_CARD_KEY(state.local.cfgId), '') !== '1') return;
-  let dev: Device | undefined;
-  try {
-    dev = (await api<{ devices: Device[] }>(`/api/cfg/${state.local.cfgId}/devices`)).devices[0];
-  } catch { /* sin conexión: no se muestra */ }
-  if (!dev || !dev.active) return;
-  const d = dev;
-  card.innerHTML = `<div class="lc-head">${icon('tv')}
-      <div class="lc-text"><strong>Tu lista está lista</strong><small>Copiá estos dos links en tu reproductor (TiviMate, IPTV Smarters…).</small></div>
-      <button type="button" class="icon-btn" data-lc="close" aria-label="Descartar">${icon('x')}</button></div>
-    <div class="lc-actions">
-      <button type="button" class="btn btn-primary" data-lc="playlist">${icon('copy')}Copiar playlist</button>
-      <button type="button" class="btn btn-tonal" data-lc="epg">${icon('copy')}Copiar guía</button></div>
-    <button type="button" class="link-btn" data-lc="more">Ver código QR y otras formas de compartir${icon('chevron-right', 'sm')}</button>`;
-  card.hidden = false;
-  card.onclick = async (ev) => {
-    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-lc]');
-    if (!btn) return;
-    const act = btn.dataset.lc;
-    if (act === 'close') {
-      setPref(LINKS_CARD_KEY(state.local!.cfgId), '0');
-      card.hidden = true;
-      renderTipCard();
-    } else if (act === 'more') {
-      renderLinkResult(d);
-      ($('#linksDialog') as HTMLDialogElement).showModal();
-    } else {
-      await copyText(act === 'playlist' ? d.playlistUrl : d.epgUrl);
-      const before = btn.innerHTML;
-      btn.innerHTML = `${icon('check')}Copiado`;
-      setTimeout(() => { btn.innerHTML = before; }, 2000);
-    }
-  };
 }
 
 async function showQr(text: string) {
@@ -3703,11 +3652,6 @@ function setupEditor() {
       toast('Canales marcados como vistos', 'ok');
     }
   };
-  $('#tipCard').onclick = (ev) => {
-    if (!(ev.target as HTMLElement).closest('[data-tip=close]')) return;
-    setPref('grilla_tip_gestures', '1');
-    ($('#tipCard') as HTMLElement).hidden = true;
-  };
   $('#viewBtn').onclick = () => {
     setPref('grilla_density', NEXT_VIEW[viewMode()]);
     render();
@@ -3960,7 +3904,7 @@ export {
   accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
   eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups, initialOf, liveAt, loadHome, loadProfiles,
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
-  promptDialog, providerName, providerTz, render, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders, sectionTitle,
+  pref, promptDialog, providerName, providerTz, render, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders, sectionTitle,
   setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode, useOtherAccount,
   wireDownRow,
 };

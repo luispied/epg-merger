@@ -7,6 +7,11 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.27.2
+
+- La tarjeta de los links recién armados (arriba de los canales) y la de los atajos pasan a Preact, en `worker/web/ui/cards.tsx`. Se ven y se comportan igual.
+- Test de humo de las dos tarjetas: copiar, abrir el QR, descartar y que no vuelvan al recargar.
+
 ## 1.27.1
 
 - Perfil (cuentas, perfiles y links) pasa a Preact: la lista, las páginas de cuenta, conexiones, perfil, proveedor y «Usar en otro dispositivo», sus formularios, la lista para cambiar de cuenta y el aviso de arriba de los canales. Se ve y se comporta igual que antes; ahora vive en `worker/web/ui/perfiles.tsx` en vez de `app.ts`.
