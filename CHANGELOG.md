@@ -7,6 +7,10 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
+## 1.27.3
+
+- Conexiones: un link sin canales anotados dice «Sin canales registrados todavía» en vez de «Todavía no abrió ningún canal». Grilla anota los canales desde la 1.26.0, así que un dispositivo que ya estaba mirando antes puede estar conectado sin figurar.
+
 ## 1.27.2
 
 - La tarjeta de los links recién armados (arriba de los canales) y la de los atajos pasan a Preact, en `worker/web/ui/cards.tsx`. Se ven y se comportan igual.

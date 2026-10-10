@@ -392,7 +392,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
   const unseen = inUse === undefined ? 0 : inUse - watching.length;
   const Row = ({ d }: { d: Device }) => {
     const prof = a.profiles.find((p) => p.id === d.profile)?.name;
-    const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Todavía no abrió ningún canal';
+    const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Sin canales registrados todavía';
     const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
     return (
       <div class={`device conn-row${d.active ? '' : ' off'}`}>
