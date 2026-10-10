@@ -1276,3 +1276,32 @@ dialog .title-row .icon-btn { background: var(--fill); color: var(--text); }
 dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); }
 dialog .title-row .icon-btn:active { background: color-mix(in srgb, var(--fill) 70%, var(--text)); transform: scale(.94); }
 dialog .title-row .icon-btn:disabled { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 1; cursor: default; transform: none; }
+
+/* ---- Movimiento: entradas cortas y sutiles donde ayudan a seguir qué cambió. Todas con `backwards`, así al terminar no
+   queda ningún transform aplicado (no rompen lo fijo ni lo pegajoso de adentro). Con «reducir movimiento» se apagan
+   (base.css). */
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes view-in { from { opacity: 0; transform: translateX(16px); } }
+@keyframes menu-in { from { opacity: 0; transform: scale(.94) translateY(-4px); } }
+@keyframes pop { 45% { transform: scale(1.2); } }
+/* Pestañas de abajo: Categorías, Perfil y la Guía aparecen con un fundido corto (no suben desde abajo como una hoja). */
+dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease backwards; }
+.tab .icon { transition: transform .15s ease; }
+.tab:active .icon { transform: scale(.9); }
+.tab.active .icon { animation: pop .3s ease; }
+/* Dentro de Perfil, cada página nueva (una cuenta, un perfil, un link) entra desde la derecha. */
+#linksBody > * { animation: view-in .22s cubic-bezier(.2, .8, .3, 1) backwards; }
+/* Guía: al cambiar entre Grilla, Próximos y Tu noche, lo nuevo entra con un fundido. */
+.gd-up, #guide .gd:not([hidden]) { animation: page-in .18s ease backwards; }
+.gd-modes button { transition: background-color .15s ease, color .15s ease; }
+/* Botones de estado: el cambio de color se ve, y lo que se prende hace un «pop». */
+.chip-btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.chip-btn[aria-pressed="true"] .icon, .remind-btn.on .icon { animation: pop .3s ease; }
+.remind-btn { transition: background-color .15s ease, color .15s ease; }
+/* Avisos de arriba de la lista y la tarjeta de revisión: bajan un poco al aparecer. */
+.profile-notice:not([hidden]), .review-card:not([hidden]) { animation: slide-down .25s ease backwards; }
+/* El menú «…» de una fila se abre desde el botón. */
+.row-menu { transform-origin: top right; animation: menu-in .14s ease-out backwards; }
+/* Modo ver: las conexiones se despliegan y la flecha gira. */
+.vw-conn-chev { transition: transform .2s ease; }
+.vw-conn-list { animation: slide-down .2s ease backwards; }
