@@ -18,6 +18,7 @@ import { loadReports } from './ui/reports.tsx';
 import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
+import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost } from './ui/guide.tsx';
@@ -408,7 +409,7 @@ async function forgetConfig() {
   showOnboarding();
 }
 
-/** El código del hogar, para abrir todos los proveedores en otro dispositivo. */
+/** «Tu código»: el del hogar, para abrir todos los proveedores en otro dispositivo, y los de modo ver de cada perfil. */
 async function showHomeCode() {
   const h = loadHome();
   try {
@@ -416,12 +417,7 @@ async function showHomeCode() {
   } catch (e) {
     return void toast((e as Error).message, 'bad', 6000);
   }
-  const code = homeCode(loadHome());
-  if (await confirmDialog({ title: 'Tu código', icon: 'arrow-right-left', ok: 'Copiar',
-    text: `Con este código abrís todos tus proveedores y perfiles en otro dispositivo (Perfil → Usar en otro dispositivo → Pegar un código). Se mantiene al día solo. Guardalo en privado: quien lo tenga puede editar tus configuraciones.\n\n${code}` })) {
-    await copyText(code);
-    toast('Código copiado', 'ok');
-  }
+  openCodes(homeCode(loadHome()));
 }
 
 /** Agregar otro proveedor: el alta de siempre, sin perder la configuración abierta (queda en el hogar). */

@@ -79,6 +79,11 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   // Las conexiones de la cuenta y qué mira cada link.
   const conn = page.locator('.vw-conn');
   await expect(conn.locator('.vw-conn-n')).toHaveText('2 de 2');
+  await expect(conn).toContainText('Conexiones en uso');
+  // Cerrado muestra solo «N de M»; tocarlo despliega qué mira cada link.
+  await expect(conn.locator('.vw-conn-row')).toHaveCount(0);
+  await page.screenshot({ path: `test-results/ver-${info.project.name}-conexiones.png` });
+  await conn.getByRole('button', { name: /Conexiones en uso/ }).click();
   await expect(conn).toContainText('Están todas ocupadas');
   await expect(conn.locator('.vw-conn-row')).toHaveCount(2);
   await expect(conn.locator('.vw-conn-row').first()).toContainText('Canal Uno · hace 20 min');
@@ -120,6 +125,7 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await expect(page.locator('#guide')).toContainText('Pronóstico del tiempo');
   await page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ }).click();
   await expect(page.locator('#guide .remind-btn, #guide .gd-remind')).toHaveCount(0);
+  await expect(page.locator('.gd-plan-lead')).not.toContainText('campana');
 });
 
 test('un link quitado o sin código dice qué hacer', async ({ page }, info) => {

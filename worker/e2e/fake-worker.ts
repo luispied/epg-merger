@@ -74,6 +74,9 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][] } = {}):
       fake.profiles.push(profile);
       return json({ profile });
     }
+    // El hogar: se crea con id y clave fijos; lo que sube viene cifrado y no se mira.
+    if (path === '/api/home' && method === 'POST') return json({ homeId: 'Hogar0123456789abcd', homeKey: 'Clave0123456789abcdefgh' });
+    if (path.startsWith('/api/home/') && method === 'PUT') return json({});
     if (path === '/api/cfg/c1/reports') return json({ items: fake.reports });
     const rp = path.match(/^\/api\/cfg\/c1\/reports\/(\w+)$/);
     if (rp && method === 'DELETE') {

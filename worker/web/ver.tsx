@@ -141,21 +141,28 @@ function Connections({ code }: { code: string }) {
     document.addEventListener('visibilitychange', load);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', load); };
   }, []);
+  const [open, setOpen] = useState(false);
   if (!c || (c.inUse === undefined && !c.watching.length)) return null;
   const full = c.max && (c.inUse ?? 0) >= c.max;
+  // Como en la cuenta del editor: «N de M · Conexiones en uso»; tocarlo despliega qué mira cada link.
   return (
-    <section class="vw-conn" aria-label="Conexiones">
-      <div class="vw-conn-head">
-        <span class={`vw-conn-n${full ? ' warn' : ''}`}>{c.inUse ?? c.watching.length}{c.max ? <small> de {c.max}</small> : null}</span>
-        <span class="vw-conn-t"><strong>{c.inUse === undefined ? 'Mirando ahora' : 'Conexiones en uso'}</strong>
-          <small>{full ? 'Están todas ocupadas' : c.watching.length ? 'Qué está mirando cada uno' : 'Nadie está mirando ahora'}</small></span>
-      </div>
-      {c.watching.map((w) => (
-        <div class="vw-conn-row" key={w.name + w.t}>
-          <span class="conn-dot on" aria-hidden="true" />
-          <span class="vw-conn-who"><strong>{w.name}</strong><small>{w.channel} · {since(w.t)}</small></span>
+    <section class={`vw-conn${open ? ' open' : ''}`} aria-label="Conexiones">
+      <button type="button" class="vw-conn-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span class={`vw-conn-n${full ? ' warn' : ''}`}>{c.inUse ?? c.watching.length}{c.max ? ` de ${c.max}` : ''}</span>
+        <span class="vw-conn-t">{c.inUse === undefined ? 'Mirando ahora' : 'Conexiones en uso'}</span>
+        <Icon name="chevron-down" class="vw-conn-chev" />
+      </button>
+      {open && (
+        <div class="vw-conn-list">
+          {full ? <p class="vw-conn-note">Están todas ocupadas.</p> : null}
+          {c.watching.length ? c.watching.map((w) => (
+            <div class="vw-conn-row" key={w.name + w.t}>
+              <span class="conn-dot on" aria-hidden="true" />
+              <span class="vw-conn-who"><strong>{w.name}</strong><small>{w.channel} · {since(w.t)}</small></span>
+            </div>
+          )) : <p class="vw-conn-note">Nadie está mirando ahora.</p>}
         </div>
-      ))}
+      )}
     </section>
   );
 }
@@ -191,12 +198,6 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
           </>
         )}
         {entries && !cur && <p class="gd-sh-desc muted">No hay nada anunciado para este momento.</p>}
-        {later.length > 0 && (
-          <div class="gd-sh-next">
-            <h3>Más tarde</h3>
-            {later.map(([s, , t]) => <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t}</span></div>)}
-          </div>
-        )}
         <div class="vw-report">
           {sent === 'ok' ? <p class="vw-report-ok"><Icon name="check" />Listo, le avisamos a quien arma la grilla.</p> : (
             <button type="button" class="btn btn-gray btn-block" disabled={sent === 'busy'} onClick={() => {
@@ -207,6 +208,12 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
           )}
           {sent === 'bad' && <p class="vw-report-bad">No se pudo avisar. Probá de nuevo en un rato.</p>}
         </div>
+        {later.length > 0 && (
+          <div class="gd-sh-next">
+            <h3>Más tarde</h3>
+            {later.map(([s, , t]) => <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t}</span></div>)}
+          </div>
+        )}
       </div>
     </dialog>
   );

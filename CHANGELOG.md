@@ -7,17 +7,43 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 - **Menor** (`1.1.0`): una función nueva.
 - **Parche** (`1.0.1`): una corrección o un ajuste visual.
 
-## 1.32.3
+## 1.33.3
 
 - Fin de la migración a Preact (ver `planes/react.md`): la tarjeta de revisión de arriba de la lista (con los canales nuevos) y el menú «…» de una fila pasan a componentes en `worker/web/ui/canales.tsx`. La barra de estado con «Reintentar», la píldora de «sin conexión», los filtros con su cuenta, los íconos sueltos y el QR pasan a `worker/web/ui/piezas.tsx`. `app.ts` ya no arma HTML con texto: se borran `icon()`, `esc()` y el último `innerHTML`. Se ve y se comporta igual.
 - Se borran unos 90 selectores de CSS que ya no usaba nadie (restos de pantallas viejas: la fila de guía de antes, el aviso de canales nuevos, el estado de la guía, fuentes de EPG…).
 - Tests de humo de la tarjeta de revisión, el menú «…» (Esc y tocar afuera) y «Reintentar» cuando la grilla no carga. El Worker de prueba acepta canales extra.
 
-## 1.32.1
+## 1.33.2
 
 - Limpieza de la migración a Preact: las piezas de la guía que seguían siendo HTML pasan a componentes en `worker/web/ui/epg.tsx` (el logo, lo que está dando ahora, la opción elegible, el buscador de guías y «Ver programación de hoy»). Las usan la lista de Canales, la hoja del canal y la hoja de la selección, que también pasa a Preact (`worker/web/ui/seleccion.tsx`). Se ve y se comporta igual.
 - Se borra código que ya no usaba nadie (la fila de guía vieja y su «Ahora» desplegable).
 - Tests de humo de la hoja de la selección (elegir una guía para varios, mover y ocultar) y de la programación del día.
+
+## 1.33.1
+
+- Los botones del encabezado de las hojas (cerrar ×, volver, anterior ‹ y siguiente ›) ahora tienen un círculo de fondo y el ícono en el color del texto: antes eran íconos grises sueltos que casi no se notaban, sobre todo en el celular. Al apretarlos se oscurecen un poco. Anterior y siguiente sin a dónde ir quedan con un borde fino y el ícono apagado. Vale para todas las hojas, también en el modo ver. Ver `planes/botones-de-las-hojas.md`.
+
+## 1.33.0
+
+- Guía: **varias categorías a la vez**. Cada botón de categoría se suma o se saca (vuelve a tocarlo para sacarla) y **Todas** limpia. El filtro es el mismo en Grilla, Próximos y Tu noche, y queda guardado en el dispositivo. Con dos o más elegidas, la Grilla sigue con un encabezado por categoría.
+- Con más de 8 categorías, la fila muestra las elegidas, una raya y las 5 con más canales con guía. **Más** abre una hoja con buscador, las elegidas arriba y cuántos canales con guía tiene cada una.
+- **Tu noche** (o mañana, tarde, madrugada) arma el plan solo con lo elegido y lo nombra («lo mejor de Deportes y Películas»). Si no alcanza para llenar el rato, dice desde qué hora no encontró nada y ofrece **Sumar** la categoría con más canales o **Elegir otras**.
+- Anda igual en el modo ver.
+- Arreglo: con una categoría elegida, Tu noche volvía a pedir la programación y a armar el plan en cada render.
+- Ayuda de la Guía al día. Tests de humo nuevos (`e2e/guia-categorias.spec.ts`).
+
+## 1.32.2
+
+- «Tu código» (Perfil → Usar en otro dispositivo → Ver tu código) pasa a ser una hoja con los dos códigos a la vista, cada uno con su **Copiar** al lado y sin «Cancelar»: arriba el **código para editar** (el del hogar) y abajo el **código para ver** de cada perfil del proveedor (`ver.<código>`). Un perfil que todavía no tiene código para ver lo crea al copiarlo. La hoja está en `worker/web/ui/codes.tsx`.
+- Ayuda: «Usar en otro dispositivo» cuenta lo de los códigos para ver, y la ayuda de Perfil suma **Modo ver: para alguien que solo mira** (cómo se comparte, qué ve quien lo usa, el aviso de «la guía no coincide» y cómo quitar el acceso), que faltaba desde la 1.32.0.
+- Modo ver: en «Tu noche» (o mañana, tarde, madrugada) ya no dice «Tocá la campana y te aviso», porque ahí no hay campana. Dice que se toca un programa para verlo o una opción para cambiarlo.
+- Regla nueva del proyecto (`CLAUDE.md`): cada cambio de interfaz actualiza las ayudas o agrega una nueva.
+
+## 1.32.1
+
+- Modo ver: las conexiones quedan como en la cuenta del editor, una tarjeta chica «2 de 2 · Conexiones en uso»; tocarla despliega qué está mirando cada link.
+- Modo ver: «Lo que dan en la tele no es esto» sube en la hoja del canal, justo debajo de lo que dan ahora, para que se encuentre sin bajar.
+- Compartir para ver: el código ya no se muestra, solo el botón **Copiar código**, como con los links.
 
 ## 1.32.0
 

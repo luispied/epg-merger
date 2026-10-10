@@ -112,8 +112,10 @@ test('compartir para ver: crear el código, copiarlo y quitar el acceso', async 
   await expect(page.locator('#linksBody')).toContainText('No puede cambiar nada');
   await page.screenshot({ path: `test-results/ver-${info.project.name}-crear.png` });
   await page.getByRole('button', { name: 'Crear el código para ver' }).click();
-  const input = page.getByRole('textbox', { name: 'Código para ver' });
-  await expect(input).toHaveValue(/^ver\.Vistap2/);
+  // El código no se muestra: solo el botón para copiarlo, como los links.
+  await expect(page.getByRole('button', { name: 'Copiar código' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Código para ver' })).toHaveCount(0);
+  await expect(page.locator('#linksBody')).not.toContainText('Vistap2');
   expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeTruthy();
   await page.screenshot({ path: `test-results/ver-${info.project.name}-link.png` });
   // Quitar el acceso (con confirmación) vuelve al botón de crear; los links del perfil no se tocan.
@@ -122,4 +124,26 @@ test('compartir para ver: crear el código, copiarlo y quitar el acceso', async 
   await expect(page.getByRole('button', { name: 'Crear el código para ver' })).toBeVisible();
   expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeUndefined();
   expect(fake.writes.filter((w) => !w.path.includes('/view')).filter((w) => w.path.includes('/devices'))).toEqual([]);
+});
+
+test('tu código: el de editar y los de modo ver, cada uno con su copiar', async ({ page }, info) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+  await openPerfiles(page);
+  await page.locator('#linksBody').getByRole('button', { name: /Usar en otro dispositivo/ }).click();
+  await page.locator('#linksBody').getByRole('button', { name: /Ver tu código/ }).click();
+  const sheet = page.locator('.cd-sheet');
+  await expect(sheet).toBeVisible();
+  // Sin «Cancelar»: los dos códigos a la vista, con su «Copiar».
+  await expect(sheet.getByRole('button', { name: 'Cancelar' })).toHaveCount(0);
+  await expect(sheet.locator('.cd-row').first()).toContainText('Hogar0123456789abcd.Clave0123456789abcdefgh');
+  await expect(sheet.locator('.cd-row')).toHaveCount(3);
+  await expect(sheet.locator('.cd-row', { hasText: 'Para ver «Chicos»' })).toContainText('Se crea al copiarlo');
+  await page.screenshot({ path: `test-results/codigos-${info.project.name}.png` });
+  // Copiar el de un perfil sin código lo crea y lo muestra.
+  await sheet.getByRole('button', { name: 'Copiar: Para ver «Chicos»' }).click();
+  await expect(sheet.locator('.cd-row', { hasText: 'Para ver «Chicos»' })).toContainText('ver.Vistap2');
+  await expect(sheet.getByRole('button', { name: 'Copiar: Para ver «Chicos»' })).toContainText('Copiado');
+  expect(fake.profiles.find((p) => p.id === 'p2')?.view).toBeTruthy();
+  await sheet.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(sheet).toHaveCount(0);
 });
