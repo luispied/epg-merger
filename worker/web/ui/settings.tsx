@@ -5,11 +5,10 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openDock, openHelp, PAGE, plural, pref,
+  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openDock, openHelp, openProfiles, PAGE, plural, pref,
   render as renderGrid, setPref, startGuideRefresh, state, type GuideStatus,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
-import { openLinksView } from './perfiles.tsx';
 import { toast } from './toast.tsx';
 
 declare const __APP_VERSION__: string;
@@ -178,8 +177,7 @@ function Settings({ summary }: { summary: string }) {
       <div class="menu">
         <MenuRow icon="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => {
           dialog().close();
-          openLinksView({ v: 'hogar' });
-          (document.getElementById('linksDialog') as HTMLDialogElement).showModal();
+          openProfiles({ v: 'hogar' });
         }} />
       </div>
       <h3 class="sec-title">Preferencias</h3>
