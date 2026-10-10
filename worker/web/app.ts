@@ -2682,7 +2682,7 @@ const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
 interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
-interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; playlistUrl: string; epgUrl: string }
+interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; lastPlay?: { t: string; ch: string }; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
 const ago = (iso?: string) => {

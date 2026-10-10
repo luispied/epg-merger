@@ -28,7 +28,7 @@ export async function fakeWorker(page: Page): Promise<Fake> {
     ],
   };
   const devices = [{
-    code: 'd1', name: 'TV del living', active: true, lastUsed: new Date(Date.now() - 3_600_000).toISOString(), accountKey: 'ak1', profile: 'p1',
+    code: 'd1', name: 'TV del living', active: true, lastUsed: new Date(Date.now() - 3_600_000).toISOString(), accountKey: 'ak1', profile: 'p1', lastPlay: { t: new Date(Date.now() - 20 * 60_000).toISOString(), ch: '4' },
     playlistUrl: 'https://grilla.test/p/abc123', epgUrl: 'https://grilla.test/e/abc123',
   }];
   const cfg = {

@@ -49,6 +49,13 @@ test('cuenta: datos, perfiles y volver', async ({ page }) => {
   await expect(stats).toContainText('1 de 2');
   await expect(page.locator('#downRow')).toBeVisible();
   await expect(page.locator('#linksBody .sub-title')).toHaveText(['Perfiles', 'Cuenta']);
+  // Conexiones: qué link está mirando; «‹» vuelve a la cuenta y otra vez, a la lista.
+  await page.getByRole('button', { name: 'Conexiones en uso: ver qué links están conectados' }).click();
+  await expect(page.locator('#linksTitle')).toHaveText('Conexiones');
+  await expect(page.locator('#linksBody .conn-row')).toContainText('TV del living');
+  await expect(page.locator('#linksBody .conn-row small')).toHaveText('CNN · hace 20 min');
+  await page.locator('#linksBack').click();
+  await expect(page.locator('#linksTitle')).toHaveText('Luis');
   await page.locator('#linksBack').click();
   await expect(page.locator('#linksTitle')).toHaveText('Perfiles');
 });

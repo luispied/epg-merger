@@ -102,6 +102,31 @@ test('playlist: lista en vivo con ediciones, ocultos, orden y canales nuevos', a
   assert.ok(!text.includes('pa ss') && !text.includes('pa%20ss'), 'en modo redirect la playlist no lleva credenciales');
 });
 
+test('links: abrir un canal anota cuál fue, para ver qué links están conectados', async () => {
+  const t = await setup();
+  const code = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string }> };
+  const devices = async () => (await (await handle(req(`/api/cfg/${t.cfgId}/devices`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
+    { devices: { code: string; lastPlay?: { t: string; ch: string } }[] }).devices;
+  assert.equal((await devices()).find((d) => d.code === code)?.lastPlay, undefined);
+  const res = await handle(new Request(`${BASE}/s/${code}/12.ts`), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 302);
+  await t.settle();
+  const first = (await devices()).find((d) => d.code === code)?.lastPlay;
+  assert.equal(first?.ch, '12');
+  // El mismo canal otra vez, enseguida: no se vuelve a escribir.
+  await handle(new Request(`${BASE}/s/${code}/12.ts`), t.env, t.ctx, t.cache);
+  await t.settle();
+  assert.equal((await devices()).find((d) => d.code === code)?.lastPlay?.t, first?.t);
+  // Otro canal sí.
+  await handle(new Request(`${BASE}/s/${code}/11.ts`), t.env, t.ctx, t.cache);
+  await t.settle();
+  assert.equal((await devices()).find((d) => d.code === code)?.lastPlay?.ch, '11');
+  // Quitar el link borra también su último canal.
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
+  assert.ok(!bucket.data.has(`play/${code}.json`));
+});
+
 test('playlist: link con token inválido o de otra configuración → 403', async () => {
   const t = await setup();
   const other = await setup();
