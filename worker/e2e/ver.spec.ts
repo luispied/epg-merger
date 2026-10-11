@@ -75,8 +75,8 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   const first = page.locator('.vw-row').first();
   await expect(first).toContainText('Noticiero central');
   await expect(first).toContainText('Después: Pronóstico del tiempo');
-  // Lo que queda va primero y entero (con letra grande no se corta).
-  await expect(first.locator('.vw-left')).toHaveText(/^Quedan \d+ min · hasta las \d\d:\d\d$/);
+  // Lo que queda va primero y entero (con letra grande no se corta). Justo al empezar la hora quedan 60 minutos: «1 h».
+  await expect(first.locator('.vw-left')).toHaveText(/^Quedan (\d+ min|\d+ h( \d+ min)?) · hasta las \d\d:\d\d$/);
   await expect(page.locator('.vw-row').nth(3)).toContainText('Sin guía');
   // Las conexiones de la cuenta y qué mira cada link.
   const conn = page.locator('.vw-conn');
