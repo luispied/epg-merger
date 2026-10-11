@@ -1,0 +1,63 @@
+/* Tokens de Grilla web: el único lugar que define colores, sombras, radios y escalas. El resto de los estilos (base.css
+   y web.css) solo piden tokens con var(). Paleta «Guía de TV»: oscuro con acento ámbar por defecto; el claro es cálido
+   (papel y ámbar oscuro). Colores por rol, al estilo Material 3: los componentes piden un rol, no un color.
+
+   light-dark(claro, oscuro): cada token que cambia con el tema se escribe una sola vez. No es el light-dark() de CSS:
+   lo expande build.mjs en los bloques de siempre (claro en :root; oscuro con el sistema en oscuro y con el tema forzado
+   en oscuro), así anda en cualquier navegador (también iPhones viejos) y vale para cualquier valor, no solo colores.
+   Un valor con comas propias (una sombra de varias capas) separa el claro del oscuro con « | ». */
+:root {
+  color-scheme: light dark;
+
+  /* Fondos y texto */
+  --bg: light-dark(#f5f2ec, #0c0d10);
+  --surface: light-dark(#ffffff, #15171c);
+  --surface-2: light-dark(#efebe3, #1d2026);
+  --fill: light-dark(#e4dfd4, #272b33);
+  --text: light-dark(#1c1a15, #eceef2);
+  --muted: light-dark(#4d4a40, #b4bac6);
+  --faint: light-dark(#6f6a5f, #8a91a0);
+  --hairline: light-dark(#d9d3c6, #2a2e37);
+  --toolbar-bg: light-dark(rgba(245, 242, 236, .92), rgba(12, 13, 16, .92));
+
+  /* Acento (ámbar): lo que se toca y lo elegido */
+  --accent: light-dark(#8f5200, #ffb224);
+  --on-accent: light-dark(#ffffff, #1d1300);
+  --accent-soft: light-dark(#ffe3b8, #3d2d09);
+  --on-accent-soft: light-dark(#3b2400, #ffd98a);
+
+  /* Estados */
+  --green: light-dark(#17683a, #52d49a);
+  --live: var(--green); /* lo que pasa ahora (en el aire, en vivo) */
+  --orange: light-dark(#b03a10, #ff8566);
+  --red: light-dark(#b3261e, #ff7b72);
+  --on-danger: light-dark(#ffffff, #3c0a07);
+  --blue: light-dark(#1d5fb8, #7fb2ff);
+  --gray: light-dark(#6a665b, #98a0ae);
+
+  /* Superficie invertida (avisos) */
+  --inverse-surface: light-dark(#2b2820, #2d3139);
+  --inverse-text: light-dark(#f1ede3, #eceef2);
+  --inverse-accent: light-dark(#ffc15c, #ffb224);
+
+  /* Sombras */
+  --shadow: light-dark(0 1px 2px rgba(0, 0, 0, .08), 0 1px 3px 1px rgba(0, 0, 0, .05) | 0 1px 3px rgba(0, 0, 0, .5));
+  --shadow-lg: light-dark(0 4px 8px 3px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .18) | 0 4px 12px 2px rgba(0, 0, 0, .65));
+
+  /* Formas */
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  /* Medidas de la app */
+  --gutter: calc(16px + env(safe-area-inset-left, 0px));
+  --tab-h: 56px;
+
+  /* Escalas (las pantallas las van adoptando; ver planes/auditoria-diseno.md) */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 28px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
+  --z-sticky: 3; --z-toolbar: 5; --z-page: 7; --z-tabbar: 8; --z-toast: 20; --z-sheet: 60; --z-menu: 200;
+  --dur-1: 120ms; --dur-2: 200ms; --dur-3: 280ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-in: cubic-bezier(.4, 0, 1, 1);
+}

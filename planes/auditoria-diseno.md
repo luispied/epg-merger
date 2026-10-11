@@ -31,5 +31,10 @@ a la vista (como el de tokens), tiene que decir «Ninguna pantalla cambió».
 
 ## Estado
 - ✅ 1.36.4: paso 1 (#281).
-- 🔄 Paso 2: prueba de capturas en el CI; después `tokens.css`.
+- ✅ Paso 2a: prueba de capturas en el CI (#282).
+- ✅ 1.36.5: paso 2b. `worker/web/tokens.css` es el único lugar que define los tokens: cada uno con su claro y su
+  oscuro en `light-dark(claro, oscuro)`, que `worker/tokens.mjs` expande al armar `app.css` en los bloques de siempre
+  (así anda en iPhones viejos y sirve para sombras). Escalas definidas (`--fs-*`, `--sp-*`, `--z-*`, `--dur-*`,
+  `--ease-*`, `--radius-full`) y `--live`; las pantallas las adoptan en el paso 3, que es el que cambia lo que se ve.
+  De `base.css` se borraron 171 declaraciones que `web.css` pisaba enteras. Sin cambios a la vista (0 diferencias).
 - Pendiente: pasos 3 y 4.
