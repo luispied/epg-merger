@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.40.0
+
+- **Nowline abre con su logo, como las apps del celular.** Al abrir la app (y el modo ver) se ve el ícono con «nowline» en el centro, en claro u oscuro según tu tema, y se va con un fundido apenas está lista tu pantalla. No suma espera: la app carga debajo, y no vuelve a aparecer al navegar ni al recargar.
+- **Instalada en el celular, sin pantallazo negro ni blanco.** En Android el inicio del sistema usa el fondo de la app, y en el iPhone, desde la pantalla de inicio, aparece el mismo logo antes de que cargue la página.
+- Interno: las imágenes de inicio del iPhone se arman con `npm run splash-images` (`splash-images.mjs`, en `web/img/splash/`).
+
 ## 1.39.1
 
 - Interno: la programación que sube la corrida diaria a R2 va empacada: los ~17.500 archivos por canal pasan a 256 tandas y todo va en gzip (`tools/pack_schedule.py`). `ui/` baja de 203 MB a 76 MB y las escrituras diarias de unas 17.600 a unas 320.

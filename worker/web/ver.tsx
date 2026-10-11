@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import { Icon } from './ui/icon.tsx';
 import { BrandFoot, Progress } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { hideSplash } from './ui/splash.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
 declare global { interface Window { ICONS: Record<string, string> } }
@@ -239,7 +240,7 @@ function HelpSheet({ close }: { close: () => void }) {
           <h2 id="vwHelpTitle">Cómo se usa</h2>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
+        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo. Al abrir, el logo de Nowline se ve un instante mientras cargan los canales.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
           <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
@@ -391,6 +392,10 @@ function App() {
     if (tab === 'guia' && guideEl.current) showGuide(guideEl.current, host);
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
+
+  // El logo de inicio se va cuando hay canales o un problema que mostrar (o a los 5 s, y queda «Cargando los canales…»).
+  useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
+  useEffect(() => { const t = setTimeout(hideSplash, 5000); return () => clearTimeout(t); }, []);
 
   if (!code) return <Problem title="Falta el código" text="Abrí Nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
