@@ -17,6 +17,7 @@
   try {
     var t = localStorage.getItem('grilla_theme') || 'dark';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    if (localStorage.getItem('grilla_text') === 'lg') document.documentElement.dataset.text = 'lg';
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
 <link rel="stylesheet" href="app.css?v=__VERSION__">
@@ -230,7 +231,7 @@
       <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
 <div class="help-topic" data-topic="main">
-    <p>Nowline ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span>; esta es la de Canales.</p>
+    <p>Nowline ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo (en una pantalla grande, a la izquierda) tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span>; esta es la de Canales.</p>
 
     <details open>
       <summary>¿Cómo pongo Nowline en mi reproductor?<span data-icon="chevron-down"></span></summary>
@@ -389,8 +390,8 @@
         <p>Guardá el código y el archivo en un lugar privado: con ellos se pueden editar tus configuraciones.</p>
       </details>
       <details>
-        <summary>Tema, avisos, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
-        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Avisos</b>: notificaciones cuando aparecen canales nuevos en tu lista, cuando se acerca el vencimiento de una cuenta, cuando Nowline suma una función nueva y para los programas que marcaste con la campana (solo si el servidor los tiene activados; en iPhone hay que instalar la app primero). <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
+        <summary>Tema, avisos, letra grande, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Avisos</b>: notificaciones cuando aparecen canales nuevos en tu lista, cuando se acerca el vencimiento de una cuenta, cuando Nowline suma una función nueva y para los programas que marcaste con la campana (solo si el servidor los tiene activados; en iPhone hay que instalar la app primero). <b>Letra grande</b>: agranda toda la app (letras, botones y filas) en este dispositivo. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
       </details>
       <details>
         <summary>Novedades y versiones nuevas<span data-icon="chevron-down"></span></summary>

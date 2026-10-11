@@ -236,16 +236,13 @@ dialog.sheet::backdrop { animation: fade-in .2s ease both; }
    blancos sobre transparente (las fuentes de EPG traen de los dos). */
 .logo {
   flex: none; width: 40px; height: 40px;
-  background: #f2f2f7; color: #aeaeb2;
+  background: var(--logo-tile); color: var(--logo-ink);
   display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .logo.lg { width: 48px; height: 48px; }
 .logo img { max-width: 84%; max-height: 84%; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0, 0, 0, .55)); }
 .logo.has-img > .icon { display: none; }
 .logo > .icon { width: 20px; height: 20px; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .logo { background: #e5e5ea; color: #8e8e93; }
-}
 
 /* ------------------------------------------------------------------ configuración */
 .settings-sheet .sheet-body { overflow-y: auto; }
@@ -282,7 +279,6 @@ label.menu-row.static { cursor: pointer; }
   content: ""; position: absolute; border-radius: 50%;
 }
 body.no-logos .logo { display: none; }
-:root[data-theme="dark"] .logo { background: #e5e5ea; color: #8e8e93; }
 
 /* ------------------------------------------------------------------ selección múltiple */
 .card.selectable { cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }

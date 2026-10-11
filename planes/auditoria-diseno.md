@@ -47,4 +47,10 @@ a la vista (como el de tokens), tiene que decir «Ninguna pantalla cambió».
   anclado del escritorio y las páginas no cambian. `ui/kit.tsx` con `<Progress>`. El resto del kit (listas, chips,
   segmentado, rótulo, monograma) sigue con las clases comunes que unificó el paso 3a: se arma como componente cuando una
   pantalla nueva lo necesite, no vale la pena reescribir las que ya andan.
-- Pendiente: paso 4.
+- ✅ 1.37.0: paso 4. En el escritorio las pestañas van en una barra fija a la izquierda (`--rail-w`) y el contenido
+  se corre; la Guía pinta celdas de carga (esqueleto) en las horas que todavía no llegaron; «Letra grande» en
+  Configuración (`html[data-text=lg]`, zoom 1.12). Los colores sueltos que quedaban en `base.css`/`web.css` pasan a
+  tokens (`--amber`, `--on-amber`, `--logo-tile`, `--logo-ink`, `--qr-bg`) y `test/tokens.test.ts` falla si vuelve a
+  aparecer un hex o una regla de tema oscuro fuera de `tokens.css` (en lugar de Stylelint, que era mucho armado para
+  esto). View Transitions quedó afuera: las pantallas ya tienen su fundido y no sumaba.
+- Auditoría terminada.

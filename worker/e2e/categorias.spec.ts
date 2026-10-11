@@ -124,7 +124,17 @@ test('Categorías y Perfil son páginas enteras y la barra de abajo cambia entre
   await expect(tab('categoriesBtn')).toHaveAttribute('aria-current', 'page');
   // Página entera: ocupa todo el ancho, sin cruz, y la barra de abajo sigue por encima y se puede tocar.
   const vw = page.viewportSize()!.width;
-  expect((await sheet(page).boundingBox())!.width).toBeGreaterThan(vw - 20); // menos la barra de desplazamiento del escritorio
+  const box = (await sheet(page).boundingBox())!;
+  // Llega hasta el borde derecho (menos la barra de desplazamiento del escritorio). En el escritorio empieza después de la
+  // barra lateral; en el celular, desde el borde.
+  expect(box.x + box.width).toBeGreaterThan(vw - 20);
+  const bar = (await page.locator('#tabbar').boundingBox())!;
+  if (vw >= 1100) {
+    expect(bar.width).toBeLessThan(120);
+    expect(box.x).toBeGreaterThanOrEqual(bar.width - 1);
+  } else {
+    expect(box.x).toBe(0);
+  }
   await expect(sheet(page).getByRole('button', { name: 'Cerrar' })).toBeHidden();
   await tab('tabLinks').click();
   await expect(page.locator('#linksDialog')).toBeVisible();
