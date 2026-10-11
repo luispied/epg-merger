@@ -1,0 +1,34 @@
+name: Consumo de servidores
+
+# Registro interno de cuánto consumen el Worker, R2 y el relay en Fly contra lo gratis de cada uno
+# (tools/consumo.py). Deja la tabla en el issue «Consumo de servidores» y avisa con un comentario
+# la primera vez en el mes que algo pasa el 70 %. Las partes sin credencial se saltean.
+on:
+  schedule:
+    - cron: '40 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  consumo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install -r requirements.txt boto3
+    - name: Medir
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+        CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+        FLY_READ_TOKEN: ${{ secrets.FLY_READ_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: python tools/consumo.py
