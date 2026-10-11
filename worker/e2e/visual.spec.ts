@@ -78,6 +78,18 @@ async function setup(page: Page, theme: string) {
   await page.emulateMedia({ colorScheme: theme === 'dark' ? 'dark' : 'light', reducedMotion: 'reduce' });
 }
 
+/** Espera a que un elemento con desplazamiento (la grilla, que se corre sola a «ahora») se quede quieto. */
+async function still(page: Page, sel: string) {
+  await page.waitForFunction((s) => {
+    const el = document.querySelector(s) as HTMLElement & { _last?: string } | null;
+    if (!el) return false;
+    const now = `${el.scrollLeft},${el.scrollTop}`;
+    const same = el._last === now;
+    el._last = now;
+    return same && el.scrollLeft > 0;
+  }, sel, { polling: 100 });
+}
+
 // Suave: si una pantalla cambió, el test sigue y compara las demás. La versión y el commit (pie de Configuración y de la
 // bienvenida) cambian con cada PR: van tapados.
 const shot = (page: Page, name: string) => expect.soft(page).toHaveScreenshot(`${name}.png`,
@@ -125,17 +137,18 @@ for (const theme of ['light', 'dark']) {
       await expect(page.locator('#cards .card').first()).toBeVisible();
       await page.locator('#tabGuide').click();
       await expect(page.locator('#guide .gd-cell').first()).toBeVisible();
+      await still(page, '#guide .gd');
       await shot(page, `${theme}-guia-grilla`);
+      await page.locator('#guide .gd-cell.live').first().click();
+      await expect(page.locator('dialog.gd-sheet')).toBeVisible();
+      await shot(page, `${theme}-guia-programa`);
+      await page.keyboard.press('Escape');
       await page.getByRole('radio', { name: 'Próximos' }).click();
       await expect(page.locator('#guide .gd-up-row').first()).toBeVisible();
       await shot(page, `${theme}-guia-proximos`);
       await page.getByRole('radio', { name: /^Tu / }).click();
       await expect(page.locator('#guide .gd-plan-list, #guide .gd-up-empty').first()).toBeVisible();
       await shot(page, `${theme}-guia-tu-noche`);
-      await page.getByRole('radio', { name: 'Grilla' }).click();
-      await page.locator('#guide .gd-cell.live').first().click();
-      await expect(page.locator('dialog.gd-sheet')).toBeVisible();
-      await shot(page, `${theme}-guia-programa`);
     });
 
     test('modo ver: canales y Guía', async ({ page }) => {
@@ -154,6 +167,7 @@ for (const theme of ['light', 'dark']) {
       await shot(page, `${theme}-ver-canales`);
       await page.getByRole('button', { name: 'Guía' }).click();
       await expect(page.locator('#guide .gd-cell').first()).toBeVisible();
+      await still(page, '#guide .gd');
       await shot(page, `${theme}-ver-guia`);
     });
   });
