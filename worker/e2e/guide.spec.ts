@@ -149,7 +149,7 @@ test('Próximos: lo que viene y «Tengo tiempo»', async ({ page }) => {
 
 test('Tu mañana/tarde/noche: arma el plan con la programación de los canales', async ({ page }) => {
   await page.locator('#tabGuide').click();
-  const tab = page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ });
+  const tab = page.getByRole('radio', { name: 'Tu plan' });
   await tab.click();
   await expect(tab).toHaveAttribute('aria-checked', 'true');
   const slot = page.locator('.gd-plan-slot', { hasText: 'Película de la noche' });

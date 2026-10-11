@@ -14,6 +14,10 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 ## 1.37.1
 
 - **La Guía ya no se queda mostrando celdas grises.** Si la abrías pasada la media hora, los bloques de «cargando» de la primera hora no se iban nunca y tapaban los programas.
+- **«Tu noche» pasa a llamarse «Tu plan».** El botón ya no cambia de nombre con la hora, así entra siempre (antes «Tu madrugada» no cabía). El plan sigue diciendo arriba si es tu mañana, tu tarde, tu noche o tu madrugada.
+- Los modos de la Guía (Grilla, Próximos, Tu plan) ya no llevan ✓: el elegido se marca con el fondo gris, como los demás botones segmentados.
+- Tu plan ya no sugiere «Canal no disponible» como alternativa: es relleno de la guía, no un programa.
+- Ayudas de la Guía y del modo ver al día.
 - Test nuevo en `e2e/guide.spec.ts`: la Guía abierta pasada la media hora.
 
 ## 1.37.0

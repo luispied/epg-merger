@@ -360,9 +360,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
         </div>
         <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
-          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', `Tu ${partOfDay(now).name}`]] as [Mode, string][]).map(([m, label]) => (
+          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', 'Tu plan']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>
-              {mode === m && <Icon name="check" class="sm" />}{label}
+              {label}
             </button>
           ))}
         </div>
@@ -573,7 +573,7 @@ export function partOfDay(t: number): Part {
   return cur.end - t < 90 * 60 ? at((i < 0 ? 0 : i) + 1) : cur;
 }
 
-const FILLER = /paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
+const FILLER = /canal no disponible|se[ñn]al no disponible|paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
 const LIVE = /\b(en vivo|vivo|live|vs\.?|final|semifinal|cl[aá]sico|gran premio|grand prix)\b/i;
 const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
 const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
@@ -891,7 +891,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
       return;
     }
     if (quiet) return;
-    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu noche.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
+    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu plan.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
@@ -901,7 +901,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
     </button>
   );
   return (
-    <div class="gd-taste" role="group" aria-label="Para Tu noche">
+    <div class="gd-taste" role="group" aria-label="Para Tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
     </div>

@@ -247,8 +247,8 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Guía<Icon name="chevron-down" /></summary>
-          <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es), <b>Próximos</b> (lo que empieza pronto) o <b>Tu noche</b> (un plan con lo mejor de tus canales, que cambia de nombre según la hora).</p>
-          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en Tu noche y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
+          <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es), <b>Próximos</b> (lo que empieza pronto) o <b>Tu plan</b> (lo mejor de tus canales para lo que queda de la mañana, la tarde, la noche o la madrugada).</p>
+          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en Tu plan y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
