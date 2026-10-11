@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './icon.tsx';
+import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
 
 export interface GuideChannel {
@@ -55,6 +56,7 @@ const SPAN_H = 30; // la guía publicada llega ~30 h adelante
 const RULER = 32;
 const CAT_H = 30;
 const MIN_GAP = 10 * 60;
+const TINY = 52; // px: una celda más angosta va sin texto
 
 const hm = (t: number) => new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 const hourKey = (t: number) => new Date(t * 1000).toISOString().slice(0, 13).replace(/\D/g, '');
@@ -157,7 +159,7 @@ function useNow() {
 
 export function Logo({ ch, cls = '' }: { ch: GuideChannel; cls?: string }) {
   const [ok, setOk] = useState(false);
-  const ini = ch.name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const ini = initials(ch.name);
   return (
     <span class={`logo ${cls}${ok ? ' has-img' : ''}`}>
       <span class="mono" aria-hidden="true">{ini || '·'}</span>
@@ -298,9 +300,12 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const ticks = [];
   for (let t = Math.max(t0, Math.floor(visFrom / SLOT) * SLOT); t < Math.min(t1, visTo); t += SLOT) {
     const midnight = new Date(t * 1000).getHours() === 0 && new Date(t * 1000).getMinutes() === 0;
+    // La píldora de la hora actual tapa el rótulo de la marca que tiene cerca: ahí queda solo la raya.
+    const dx = x(now) - x(t);
+    const hidden = now >= t0 && now < t1 && dx > -24 && dx < (midnight ? 120 : 76);
     ticks.push(
       <span key={t} class={`gd-tick${t % HOUR ? ' half' : ''}${midnight ? ' day' : ''}`} style={{ left: `${x(t)}px`, width: `${PX * 30}px` }}>
-        {midnight ? `${dayLabel(t, now)} ${hm(t)}` : hm(t)}
+        {hidden ? '' : midnight ? `${dayLabel(t, now)} ${hm(t)}` : hm(t)}
       </span>,
     );
   }
@@ -315,18 +320,21 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const live = !p.gap && p.s <= now && now < p.e;
     const past = !p.gap && p.e <= now;
     const shift = Math.max(0, Math.min(lx - l, r - l - 56)); // el título queda pegado al borde visible
-    const cls = `gd-cell${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
+    const tiny = r - l - 4 < TINY; // angosta: sin texto (se lee al tocarla), no letras sueltas
+    const cls = `gd-cell${tiny ? ' tiny' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
     const re = live && now - p.s >= AGAIN_AFTER ? again.get(`${ch.epg}|${p.s}`)?.[0] : undefined;
     const label = p.gap ? `${ch.name}: sin programación de ${hm(p.s)} a ${hm(p.e)}`
       : `${ch.name}: ${p.t}, de ${hm(p.s)} a ${hm(p.e)}${re ? `; vuelve a empezar a las ${hm(re.s)}` : ''}`;
     return (
-      <button type="button" key={p.s} class={cls} aria-label={label}
+      <button type="button" key={p.s} class={cls} aria-label={label} title={tiny ? label : undefined}
         style={{ left: `${l + 2}px`, width: `${Math.max(r - l - 4, 4)}px`, ...(live ? { '--p': `${Math.round(((now - p.s) / (p.e - p.s)) * 100)}%` } : {}) }}
         onClick={() => (p.gap ? host.openChannel(ch.i) : setOpen({ ch, p }))}>
-        <span class="gd-in" style={shift ? { paddingLeft: `${shift}px` } : undefined}>
-          <span class="tt">{p.gap ? 'Sin programación' : p.t}</span>
-          <span class="hh">{re && <span class="rp">↻ {hm(re.s)} · </span>}{hm(p.s)} – {hm(p.e)}</span>
-        </span>
+        {!tiny && (
+          <span class="gd-in" style={shift ? { paddingLeft: `${shift}px` } : undefined}>
+            <span class="tt">{p.gap ? 'Sin programación' : p.t}</span>
+            <span class="hh">{re && <span class="rp">↻ {hm(re.s)} · </span>}{hm(p.s)} – {hm(p.e)}</span>
+          </span>
+        )}
       </button>
     );
   };
