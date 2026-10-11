@@ -25,6 +25,12 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - **Instalada en el celular, sin pantallazo negro ni blanco.** En Android el inicio del sistema usa el fondo de la app, y en el iPhone, desde la pantalla de inicio, aparece el mismo logo antes de que cargue la página.
 - Interno: las imágenes de inicio del iPhone se arman con `npm run splash-images` (`splash-images.mjs`, en `web/img/splash/`).
 
+## 1.41.1
+
+- **La Guía y la lista abren más rápido.** El cruce de cada canal con la guía se guarda en este navegador: se vuelve a calcular solo cuando cambia la guía del día, tu lista o tus preferencias.
+- Interno: caché en IndexedDB (`worker/web/cache.ts`) con una clave que incluye la fecha de la guía, el nombre, el id y la categoría de cada canal, y las preferencias de cruce.
+- Tests: el cruce guardado y su reemplazo al cambiar la guía (`e2e/cruce-cache.spec.ts`).
+
 ## 1.39.3
 
 - **La Guía gasta mucho menos datos.** Baja la programación de cada hora solo de tus canales, unos 27 KB en vez de unos 400 KB de toda la guía. Lo mismo en el modo ver y en el chequeo de qué canales dan programación.

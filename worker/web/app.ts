@@ -7,6 +7,7 @@ import {
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
 import { sourceAlias } from '../src/crypto.ts';
+import { hashKey, readCache, writeCache } from './cache.ts';
 import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
@@ -584,14 +585,17 @@ const CREDS_KEY = 'grilla_creds';
 const selection = { active: false, items: new Set<number>() };
 
 // ------------------------------------------------------------------ guía y matching
+/** Cuándo se armó la guía que está cargada: cambia una vez por día y es la clave del caché del cruce. */
+let guideAt: string | null = null;
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
   const res = await fetchRetry('/api/guide/index.json');
   if (!res.ok) throw new Error(`la guía no respondió (HTTP ${res.status})`);
   const guide = await res.json() as {
-    matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[];
+    matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[]; generated_at?: string;
   };
+  guideAt = guide.generated_at ?? null;
   onStatus('Preparando la guía…');
   await new Promise((r) => setTimeout(r));
   state.rules = new MatchingRules(guide.matching_rules);
@@ -612,7 +616,14 @@ function maskStoredIds(): boolean {
   return changed;
 }
 
-/** Cruza todos los canales con la guía (en tandas, para no congelar la página). Los EPG
+const MATCH_CACHE = 'cruce';
+/** Lo que tiene que ser igual para reusar el cruce: la guía del día, la lista (nombre, id y categoría) y las preferencias. */
+function matchCacheKey(cfg: Config, channels: Channel[], guideDay: string): Promise<string> {
+  return hashKey(JSON.stringify([2, guideDay, cfg.provider.type, cfg.matching ?? null, channels.map((c) => [c.name, c.epgId ?? null, c.category])]));
+}
+
+/** Cruza todos los canales con la guía. Con miles de canales tarda varios segundos, así que el resultado se guarda en
+ *  este navegador (ver matchCacheKey): mientras no cambie la guía del día, la lista o las preferencias, se reusa. Los EPG
  *  elegidos a mano no se tocan. Devuelve si cambió algo de la configuración. */
 async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   const { cfg, index, rules } = state;
@@ -632,13 +643,25 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
   if ('feed' in prefs) index.preferredFeed = prefs.feed ?? null;
   const names = [...new Set(state.channels.map((c) => c.name))];
   const byName = new Map(state.channels.map((c) => [c.name, c]));
-  for (let i = 0; i < names.length; i++) {
-    if (i % 150 === 0) {
-      onStatus(`Buscando la guía de cada canal… ${Math.round((100 * i) / names.length)} %`);
-      await new Promise((r) => setTimeout(r));
+  const cacheKey = guideAt ? await matchCacheKey(cfg, state.channels, guideAt).catch(() => null) : null;
+  const cached = cacheKey ? await readCache<Record<string, Auto>>(MATCH_CACHE, cacheKey) : null;
+  const matches = new Map<string, Auto>(Object.entries(cached ?? {}));
+  if (!cached) {
+    for (let i = 0; i < names.length; i++) {
+      if (i % 150 === 0) {
+        onStatus(`Buscando la guía de cada canal… ${Math.round((100 * i) / names.length)} %`);
+        await new Promise((r) => setTimeout(r));
+      }
+      const ch = byName.get(names[i])!;
+      // Los separadores de sección del proveedor no son canales: nunca llevan guía.
+      if (DIVIDER_RE.test(ch.category)) continue;
+      const m = matchStream(ch.name, ch.epgId, index, {}, categories[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
+      matches.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
     }
-    const ch = byName.get(names[i])!;
-    // Los separadores de sección del proveedor no son canales: nunca llevan guía.
+    if (cacheKey) void writeCache(MATCH_CACHE, cacheKey, Object.fromEntries(matches));
+  }
+  for (const name of names) {
+    const ch = byName.get(name)!;
     if (DIVIDER_RE.test(ch.category)) {
       state.auto.set(ch.name, { cid: null, score: 0, ranked: [] });
       const edit = cfg.channels[ch.name] ?? {};
@@ -649,17 +672,17 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
       setEdit(ch.name, edit);
       continue;
     }
-    const m = matchStream(ch.name, ch.epgId, index, {}, categories[ch.category] ?? {}, flagToCountryCode(ch.category, rules), { trustListIds: trust, minAssignScore });
-    state.auto.set(ch.name, { cid: m.channelId, score: m.score, ranked: m.ranked.slice(0, 8) });
+    const m = matches.get(ch.name) ?? { cid: null, score: 0, ranked: [] };
+    state.auto.set(ch.name, m);
     const edit = cfg.channels[ch.name] ?? {};
     // Lo que trajo la importación de GitHub entra marcado "a mano" para no recalcularlo, pero si
     // coincide con lo que elige el cruce automático no es una elección propia: vuelve a ser
     // automático (muestra su porcentaje y sigue la guía del día, como en GitHub).
-    if (cfg.matching && edit.manual && edit.epg && m.channelId === edit.epg) delete edit.manual;
+    if (cfg.matching && edit.manual && edit.epg && m.cid === edit.epg) delete edit.manual;
     if (!edit.manual) {
-      if (m.channelId) {
-        edit.epg = m.channelId;
-        const logo = index.icon.get(m.channelId);
+      if (m.cid) {
+        edit.epg = m.cid;
+        const logo = index.icon.get(m.cid);
         if (logo) edit.logo = logo;
         else delete edit.logo;
       } else {
