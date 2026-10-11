@@ -11,3 +11,14 @@ export function Progress({ value, cls, label }: { value: number; cls: string; la
     ? <div class={cls} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>{bar}</div>
     : <span class={cls} aria-hidden="true">{bar}</span>;
 }
+
+/** La marca al pie (Configuración y modo ver): ícono y wordmark chicos. Las pestañas llevan su título, no la marca; en
+ *  el escritorio el ícono va arriba de la barra lateral. */
+export function BrandFoot() {
+  return (
+    <div class="brand-foot">
+      <img src="img/icon.svg" alt="" width="28" height="28" />
+      <span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span>
+    </div>
+  );
+}

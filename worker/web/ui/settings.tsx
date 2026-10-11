@@ -11,6 +11,7 @@ import {
 import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
+import { BrandFoot } from './kit.tsx';
 
 declare const __APP_VERSION__: string;
 declare const __APP_COMMIT__: string;
@@ -237,7 +238,8 @@ function Settings({ summary }: { summary: string }) {
           </select>
         </label>
       </div>
-      <p class="app-version" data-version>{`Nowline ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`}</p>
+      <BrandFoot />
+      <p class="app-version" data-version>{`Versión ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`}</p>
       <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
     </>
   );
