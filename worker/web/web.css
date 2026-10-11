@@ -1343,3 +1343,18 @@ dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease back
 /* Letra grande (Configuración → Preferencias): toda la app un 12 % más grande, en este dispositivo. Con zoom y no con el
    zoom del navegador: el diseño se acomoda al ancho que queda (un iPhone pasa a medir ~350 px de ancho). */
 html[data-text="lg"] { zoom: 1.12; }
+
+/* Encabezados: cada pestaña abre con su título (Canales, Guía, Categorías, Perfiles), del mismo tamaño y a la misma
+   altura. La marca no se repite en cada pantalla: va en la bienvenida, al pie de Configuración y del modo ver, y en el
+   escritorio arriba de la barra lateral. */
+.app-header h1:not(.brand) { font-size: 28px; line-height: 1.2; }
+#editor .app-header, .vw-head { padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+.tab-brand { display: none; }
+.brand-foot { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 28px 0 0; }
+.brand-foot img { width: 28px; height: 28px; border-radius: 7px; box-shadow: 0 0 0 .5px var(--hairline); }
+.brand-foot .wordmark { font-size: 18px; }
+.brand-foot + .app-version { margin-top: 6px; }
+@media (min-width: 1100px) and (hover: hover) {
+  .tab-brand { display: block; flex: none; width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 10px; box-shadow: 0 0 0 .5px var(--hairline); }
+}
+.brand-foot + .vw-foot { margin-top: 6px; }

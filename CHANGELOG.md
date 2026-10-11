@@ -19,6 +19,13 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - Ayudas de la Guía, de Canales y del modo ver al día.
 - Tests de la Guía y del modo ver al día; test nuevo de «Ahora» en `e2e/guide.spec.ts`.
 
+## 1.38.2
+
+- **Todas las pestañas abren igual: con su nombre como título.** Canales ahora dice «Canales» arriba, del mismo tamaño y a la misma altura que Guía, Categorías y Perfiles (antes era la única que mostraba el nombre de la app). En el modo ver, lo mismo.
+- En una pantalla grande, el ícono de Nowline queda arriba de la barra lateral.
+- El nombre de la app aparece al pie de Configuración, arriba de la versión, y al final de la lista del modo ver.
+- Test de Configuración al día con el pie nuevo («Versión 1.38.2»).
+
 ## 1.38.1
 
 - **La Guía ya no se queda mostrando celdas grises.** Si la abrías pasada la media hora, los bloques de «cargando» de la primera hora no se iban nunca y tapaban los programas.
