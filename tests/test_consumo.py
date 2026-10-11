@@ -68,8 +68,8 @@ def test_fly_usa_las_horas_del_mes():
 
 def test_historial_ida_y_vuelta():
     hist = consumo.merge_row(consumo.load_history(''), {'date': '2026-10-09', 'worker_requests': 1})
-    hist = consumo.merge_row(hist, {'date': '2026-10-10', 'worker_requests': 2, 'worker_cpu_p99_ms': 3.0})
-    hist = consumo.merge_row(hist, {'date': '2026-10-10', 'worker_requests': 5, 'worker_cpu_p99_ms': 3.0})
+    hist = consumo.merge_row(hist, {'date': '2026-10-10', 'worker_requests': 2, 'worker_errors': 0, 'worker_cpu_p50_ms': 1.0, 'worker_cpu_p99_ms': 3.0})
+    hist = consumo.merge_row(hist, {'date': '2026-10-10', 'worker_requests': 5, 'worker_errors': 0, 'worker_cpu_p50_ms': 1.0, 'worker_cpu_p99_ms': 3.0})
     body = consumo.render(hist, ['Sin `FLY_READ_TOKEN`: falta el tráfico del relay.'])
     back = consumo.load_history(body)
     assert [r['worker_requests'] for r in back['rows']] == [1, 5]
@@ -111,3 +111,24 @@ def test_fly_manda_el_token_flyv1_tal_cual():
     consumo.fly('FlyV1 fm2_abc,fm2_def\n', DAY, get=get)
     consumo.fly('viejo', DAY, get=get)
     assert seen[0] == 'FlyV1 fm2_abc,fm2_def' and seen[-1] == 'Bearer viejo'
+
+
+def test_cpu_avisa_por_el_pedido_tipico_no_por_los_picos():
+    row = {'date': '2026-10-10', 'worker_requests': 10000, 'worker_errors': 0, 'worker_cpu_p50_ms': 0.8, 'worker_cpu_p99_ms': 30.7,
+           'r2_class_a_month': 1, 'r2_class_b_month': 1}
+    assert consumo.new_warnings({'rows': [row], 'warned': {}}, row) == []
+    body = consumo.render({'rows': [row], 'warned': {}}, [])
+    assert '| CPU del Worker, pedido típico (ms) | 0.8 | 10 | 8 % |' in body and '| Errores del Worker (ayer) | 0 | | |' in body
+
+
+def test_r2_sin_bucket_usa_grilla(monkeypatch):
+    import types
+    seen = {}
+
+    class Client:
+        def list_objects_v2(self, **kw):
+            seen['bucket'] = kw['Bucket']
+            return {'Contents': [{'Key': 'cfg/a.json', 'Size': 10}]}
+    monkeypatch.setitem(sys.modules, 'boto3', types.SimpleNamespace(client=lambda *a, **k: Client()))
+    row, _ = consumo.collect(DAY, {'R2_ACCOUNT_ID': 'x', 'R2_ACCESS_KEY_ID': 'k', 'R2_SECRET_ACCESS_KEY': 's', 'R2_BUCKET': ''})
+    assert seen['bucket'] == 'grilla' and row['r2_bytes'] == 10

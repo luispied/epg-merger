@@ -177,7 +177,10 @@ def usage(row):
     out = []
     if 'worker_requests' in row:
         out.append(('worker_requests_day', 'Pedidos al Worker (ayer)', row['worker_requests'], LIMITS['worker_requests_day']))
-        out.append(('worker_cpu_ms', 'CPU del Worker, p99 por pedido (ms)', row['worker_cpu_p99_ms'], LIMITS['worker_cpu_ms']))
+        # El tope de 10 ms del plan gratis no corta por un pedido suelto (Cloudflare deja pasar picos): lo que hay que
+        # mirar es el pedido típico. El p99 queda en la tabla de los últimos días, y un pedido cortado sale en errores.
+        out.append(('worker_cpu_ms', 'CPU del Worker, pedido típico (ms)', row['worker_cpu_p50_ms'], LIMITS['worker_cpu_ms']))
+        out.append(('worker_errors_day', 'Errores del Worker (ayer)', row['worker_errors'], 0))
     if 'r2_bytes' in row:
         out.append(('r2_storage_bytes', 'Almacenamiento en R2', row['r2_bytes'], LIMITS['r2_storage_bytes']))
     if 'r2_class_a_month' in row:
@@ -214,7 +217,10 @@ def render(hist, notes):
              f'{int(WARN_AT * 100)} %.', '', f'## Al {last.get("date", "—")}', '',
              '| | Usado | Gratis | % |', '|---|---:|---:|---:|']
     for k, name, used, cap in usage(last):
-        pct = used / cap * 100 if cap else 0
+        if not cap:
+            lines.append(f'| {name} | {human(k, used)} | | |')
+            continue
+        pct = used / cap * 100
         flag = ' ⚠️' if pct >= WARN_AT * 100 else ''
         lines.append(f'| {name} | {human(k, used)} | {human(k, cap)} | {pct:.0f} %{flag} |')
     if 'fly_up_hours' in last:
@@ -266,7 +272,7 @@ def collect(day, env):
             client = boto3.client('s3', endpoint_url=f"https://{env['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
                                   aws_access_key_id=env['R2_ACCESS_KEY_ID'], aws_secret_access_key=env['R2_SECRET_ACCESS_KEY'],
                                   region_name='auto')
-            row.update(r2_storage(client, env['R2_BUCKET']))
+            row.update(r2_storage(client, env.get('R2_BUCKET') or 'grilla'))
         except Exception as e:  # noqa: BLE001 — una parte que falla no frena a las demás
             notes.append(f'R2: no se pudo medir el almacenamiento ({type(e).__name__}).')
     if env.get('CLOUDFLARE_ANALYTICS_TOKEN'):
