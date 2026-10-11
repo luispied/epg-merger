@@ -9,7 +9,13 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 
 Lo que va acá también se muestra en la app («Novedades»), así que conviene escribirlo para quien la usa. No se muestran
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
-nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
+nombres de código.
+
+## 1.41.3
+
+- **Nowline se actualiza sola, sin avisos con la app abierta.** Ya no aparece «Hay una versión nueva» con el botón **Actualizar**, ni llega una notificación push por cada versión nueva. La versión nueva se ve al abrir la app. Al abrirla después de una actualización, un aviso breve dice «Nowline se actualizó» y **Qué hay nuevo** muestra los cambios.
+- Worker: se quitó el aviso push de versión nueva (`notifyNewVersion`).
+- Tests: se quitó la prueba de ese aviso.
 
 ## 1.41.2
 

@@ -1,9 +1,11 @@
-// Novedades: al abrir Nowline después de una actualización, una hoja con lo nuevo de cada versión desde la última que
-// se vio en este navegador (sale de public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez
-// que se abre Nowline no se muestra nada: solo se anota la versión. También se abre desde Configuración.
+// Novedades: al abrir Nowline después de una actualización, un aviso breve («Nowline se actualizó») y, si se
+// quiere, la hoja con lo nuevo de cada versión desde la última que se vio en este navegador (sale de
+// public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez que se abre Nowline no se muestra
+// nada: solo se anota la versión. La hoja también se abre desde Configuración.
 import { render } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './icon.tsx';
+import { toast } from './toast.tsx';
 
 export interface Novedad { version: string; items: string[] }
 const SEEN_KEY = 'grilla_seen_version';
@@ -27,23 +29,25 @@ async function load(): Promise<Novedad[]> {
 const seen = () => { try { return localStorage.getItem(SEEN_KEY); } catch { return null; } };
 const markSeen = (v: string) => { try { localStorage.setItem(SEEN_KEY, v); } catch { /* sin almacenamiento */ } };
 
-/** Al arrancar: si la versión cambió desde la última vez (o se pidió con ?novedades, desde el aviso), muestra lo nuevo. */
-export async function checkNovedades(current: string, force = false) {
+/** Al arrancar: si la versión cambió desde la última vez, un aviso breve; «Qué hay nuevo» abre lo nuevo. */
+export async function checkNovedades(current: string) {
   const last = seen();
-  if (!last && !force) return markSeen(current); // primera vez en este navegador: nada que contar
-  if (!force && last === current) return;
-  const list = await load();
-  const fresh = last ? list.filter((n) => cmpVersion(n.version, last) > 0) : [];
+  if (!last) return markSeen(current); // primera vez en este navegador: nada que contar
+  if (last === current) return;
   markSeen(current);
-  if (fresh.length || force) open(force && !fresh.length ? list.slice(0, 3) : fresh.slice(0, 5), current, fresh.length > 0);
+  const fresh = (await load()).filter((n) => cmpVersion(n.version, last) > 0);
+  if (!fresh.length) return;
+  // Espera a que se vaya la pantalla de inicio (450 ms y el fundido), así el aviso no queda debajo del logo.
+  await new Promise((r) => setTimeout(r, document.getElementById('splash') ? 900 : 0));
+  toast('Nowline se actualizó', 'info', 6000, { label: 'Qué hay nuevo', run: () => open(fresh.slice(0, 5), current) });
 }
 
 /** Desde Configuración: las últimas versiones, aunque ya se hayan visto. */
 export async function openNovedades(current: string) {
-  open((await load()).slice(0, 6), current, false);
+  open((await load()).slice(0, 6), current);
 }
 
-function open(list: Novedad[], current: string, updated: boolean) {
+function open(list: Novedad[], current: string) {
   let host = document.getElementById('novedadesHost');
   if (!host) {
     host = document.createElement('div');
@@ -51,7 +55,7 @@ function open(list: Novedad[], current: string, updated: boolean) {
     document.body.appendChild(host);
   }
   const h = host;
-  render(<Sheet key={Date.now()} list={list} current={current} updated={updated} close={() => render(null, h)} />, h);
+  render(<Sheet key={Date.now()} list={list} close={() => render(null, h)} />, h);
 }
 
 /** **negrita** del CHANGELOG como <b>; el resto, texto. */
@@ -85,7 +89,7 @@ function Item({ text }: { text: string }) {
   );
 }
 
-function Sheet({ list, current, updated, close }: { list: Novedad[]; current: string; updated: boolean; close: () => void }) {
+function Sheet({ list, close }: { list: Novedad[]; close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     dlg.current?.showModal();
@@ -95,10 +99,9 @@ function Sheet({ list, current, updated, close }: { list: Novedad[]; current: st
     <dialog class="sheet settings-sheet nv-sheet" ref={dlg} onClose={close} aria-labelledby="nvTitle">
       <div class="sheet-body">
         <div class="title-row">
-          <h2 id="nvTitle">{updated ? 'Nowline se actualizó' : 'Novedades'}</h2>
+          <h2 id="nvTitle">Novedades</h2>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        {updated && <p class="nv-lead"><Icon name="sparkles" />Ya tenés la versión {current}. Esto es lo nuevo:</p>}
         {list.length ? list.map((n) => (
           <section class="nv-ver" key={n.version}>
             <h3 class="sec-title">Versión {n.version}</h3>
