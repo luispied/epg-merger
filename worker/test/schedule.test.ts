@@ -67,3 +67,31 @@ test('índice por hora y de la guía: el guardado en gzip viaja tal cual, el vie
   assert.equal(guide.headers.get('Cache-Control'), 'public, max-age=3600');
   assert.equal(await gunzip(new Uint8Array(await guide.arrayBuffer())), '{"channels":[]}');
 });
+
+test('índice por hora de la configuración: solo sus canales, y el de toda la guía si está viejo o no está', async () => {
+  const t = makeEnv();
+  const cfgId = 'abcdefghijklmnop';
+  const all = '{"h":1,"t":["A","B"],"c":{"x":[[0,60,0]],"y":[[0,60,1]]}}';
+  const mine = '{"h":1,"t":["A"],"c":{"x":[[0,60,0]]}}';
+  await t.env.BUCKET.put('ui/schedule/hour/2026101119.json', gzipSync(all), { httpMetadata: { contentEncoding: 'gzip' } });
+  const get = async (path: string) => {
+    const res = await handle(req(path), t.env, t.ctx, t.cache);
+    return res.ok ? gunzip(new Uint8Array(await res.arrayBuffer())) : res.status;
+  };
+  // Sin índice propio todavía: el de toda la guía.
+  await t.env.BUCKET.put(`cfg/${cfgId}.json`, '{}');
+  assert.equal(await get(`/api/cfg/${cfgId}/hour/2026101119.json`), all);
+
+  await t.env.BUCKET.put(`ui/schedule/cfg/${cfgId}`, shard({ 2026101119: JSON.parse(mine) }));
+  assert.equal(await get(`/api/cfg/${cfgId}/hour/2026101119.json`), mine);
+  // Por el código para ver, el de su configuración.
+  await t.env.BUCKET.put('view/vercodigo0123456789abc.json', JSON.stringify({ cfgId, profile: 'p' }));
+  assert.equal(await get('/api/view/vercodigo0123456789abc/hour/2026101119.json'), mine);
+  // Una hora que no está en el índice propio, o la configuración cambiada después: el de toda la guía.
+  assert.equal(await get(`/api/cfg/${cfgId}/hour/2026101120.json`), 404);
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { uploaded?: Date }> };
+  bucket.data.get(`cfg/${cfgId}.json`)!.uploaded = new Date(Date.now() + 60_000);
+  assert.equal(await get(`/api/cfg/${cfgId}/hour/2026101119.json`), all);
+  assert.equal(await get('/api/cfg/x/hour/2026101119.json'), 404);
+  assert.equal(await get('/api/view/nada/hour/2026101119.json'), 404);
+});

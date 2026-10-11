@@ -59,7 +59,7 @@ test('buscar, el vacío y ver todos', async ({ page }) => {
 
 test('buscar por el programa en el aire: todas las palabras y también la descripción', async ({ page }) => {
   // Lo que está dando ESPN ahora, en el índice de la hora y su descripción en el archivo aparte.
-  await page.route(/\/api\/ui\/schedule\/hour\/\d{10}(-d)?\.json$/, (r) => {
+  await page.route(/\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}(-d)?\.json$/, (r) => {
     const h = Math.floor(Date.now() / 3_600_000) * 3600;
     return r.fulfill({ json: r.request().url().endsWith('-d.json')
       ? { d: ['Inter enfrenta a Parma. Desde el Stadio Giuseppe Meazza.'], c: { 'g00000000000001.ar': [[-30, 0]] } }

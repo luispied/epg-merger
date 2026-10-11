@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
 });
 
 const isData = (path) => path.startsWith('/api/guide/') || path.startsWith('/api/ui/')
-  || /^\/api\/cfg\/[A-Za-z0-9_-]+(\/list)?$/.test(path);
+  || /^\/api\/cfg\/[A-Za-z0-9_-]+(\/list)?$/.test(path) || /^\/api\/(cfg|view)\/[A-Za-z0-9_-]+\/hour\//.test(path);
 
 async function networkFirst(request, cacheName, key = request) {
   const cache = await caches.open(cacheName);

@@ -56,7 +56,7 @@ function hourIndex(h: number) {
 async function schedules(page: Page) {
   await page.route('**/api/ui/**', async (r) => {
     const path = new URL(r.request().url()).pathname;
-    const m = path.match(/^\/api\/ui\/schedule\/hour\/(\d{10})(-d)?\.json$/);
+    const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})(-d)?\.json$/);
     if (m) {
       const h = [...Array(32).keys()].map((k) => H - 3600 + k * 3600).find((x) => hourKey(x) === m[1]);
       if (h === undefined || m[2]) return r.fulfill({ status: 404, json: {} });
