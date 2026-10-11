@@ -11,13 +11,19 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
-## 1.40.0
+## 1.41.0
 
 - **Los avisos van arriba.** Ya no quedan tapados por la barra de abajo, por el pie de la revisión ni por una página abierta: en el celular aparecen debajo de la hora, centrados, y en la computadora arriba a la derecha. Siempre quedan por encima de todo.
 - **La prueba de canales caídos muestra su avance.** Mientras prueba, arriba de la lista de canales aparece una franja fija: «Probando 50 de 180 · 3 caídos», con su barra y **Detener**, que la corta y guarda lo que alcanzó a probar. Antes de arrancar dice que está en espera. Al terminar, un aviso dice cuántos quedaron caídos y **Ver** los muestra.
 - Worker: la prueba deja su avance en `healthprog/` después de cada tanda (lo devuelve `GET /health` como `progress`) y mira `healthstop/`, que deja `DELETE /health/run`.
 - Ayudas de Canales y de Perfil al día.
 - Tests nuevos: el avance y «Detener» en el Worker (`test/worker.test.ts`) y la franja en `e2e/prueba.spec.ts`.
+
+## 1.40.0
+
+- **Nowline abre con su logo, como las apps del celular.** Al abrir la app (y el modo ver) se ve el ícono con «nowline» en el centro, en claro u oscuro según tu tema, y se va con un fundido apenas está lista tu pantalla. No suma espera: la app carga debajo, y no vuelve a aparecer al navegar ni al recargar.
+- **Instalada en el celular, sin pantallazo negro ni blanco.** En Android el inicio del sistema usa el fondo de la app, y en el iPhone, desde la pantalla de inicio, aparece el mismo logo antes de que cargue la página.
+- Interno: las imágenes de inicio del iPhone se arman con `npm run splash-images` (`splash-images.mjs`, en `web/img/splash/`).
 
 ## 1.39.3
 

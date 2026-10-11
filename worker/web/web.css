@@ -1374,3 +1374,14 @@ html[data-text="lg"] { zoom: 1.12; }
 .probe-bar.wait > i { width: 30%; animation: probe-wait 1.4s ease-in-out infinite; }
 @keyframes probe-wait { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 @media (prefers-reduced-motion: reduce) { .probe-bar.wait > i { animation: none; width: 100%; opacity: .35; } }
+
+/* ---- Pantalla de inicio (index.html y ver.html; la saca ui/splash.ts) ---- */
+/* Tapa la app mientras abre, pero no frena nada: la app arma su pantalla debajo y los toques pasan. */
+.splash { position: fixed; inset: 0; z-index: var(--z-splash); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: var(--bg); pointer-events: none; transition: opacity var(--dur-3) var(--ease-out); }
+.splash svg { width: 104px; height: 104px; border-radius: 22.5%; box-shadow: var(--shadow-logo); transition: transform var(--dur-3) var(--ease-out); }
+.splash .wordmark { font-size: 30px; }
+@media (min-width: 900px) { .splash svg { width: 128px; height: 128px; } .splash .wordmark { font-size: 38px; } }
+.no-splash .splash { display: none; }
+.splash.out { opacity: 0; }
+.splash.out svg { transform: scale(1.06); }
+@media (prefers-reduced-motion: reduce) { .splash.out svg { transform: none; } }
