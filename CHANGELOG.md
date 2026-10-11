@@ -14,7 +14,7 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 ## 1.39.1
 
 - Interno: la programación que sube la corrida diaria a R2 va empacada: los ~17.500 archivos por canal pasan a 256 tandas y todo va en gzip (`tools/pack_schedule.py`). `ui/` baja de 203 MB a 76 MB y las escrituras diarias de unas 17.600 a unas 320.
-- Worker: lee cada canal de su tanda con dos lecturas por rango y lo sirve comprimido tal cual, igual que los índices por hora (`src/schedule.ts`); mientras no haya tandas, sigue leyendo los archivos de antes.
+- Worker: lee cada canal de su tanda con dos lecturas por rango y lo sirve comprimido tal cual, igual que los índices por hora (`src/schedule.ts`); mientras no haya tandas, sigue leyendo los archivos de antes. La corrida borra esos archivos viejos por canal después de subir las tandas.
 - Tests nuevos del empaque (`tests/test_pack_schedule.py`) y de la lectura en el Worker (`test/schedule.test.ts`).
 
 ## 1.39.0

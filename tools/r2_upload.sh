@@ -48,6 +48,9 @@ python tools/pack_schedule.py out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
   s3 sync out/schedule_r2/s "$BUCKET/ui/schedule/s" --content-type application/octet-stream
   [ -d out/schedule_r2/hour ] && s3 sync out/schedule_r2/hour "$BUCKET/ui/schedule/hour" --delete "${json[@]}" --content-encoding gzip
+  # Los archivos por canal de antes del empaque (ui/schedule/<archivo>.json), que ya no se usan.
+  # Solo los .json sueltos de ui/schedule/: ni las tandas ni las horas ni nada fuera de ui/schedule/.
+  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*'
 fi
 echo "✅ Subido a R2 ($BUCKET)"
 
