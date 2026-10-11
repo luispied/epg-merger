@@ -1024,6 +1024,58 @@ test('relay: cuando el proveedor bloquea al Worker, el relay baja la lista (al d
   }
 });
 
+test('prueba de canales: deja su avance para la franja de la web y «Detener» la corta después de la tanda en curso', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const channels = Array.from({ length: 120 }, (_, i) => ({ name: `Canal ${i}`, category: 'Aire', id: String(i), ext: 'ts', icon: '', epgId: null }));
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels }), uploaded: new Date() });
+  bucket.data.set(`healthreq/${t.cfgId}.json`, { value: JSON.stringify({ at: new Date().toISOString() }) });
+  t.env.RELAY_URL = 'https://relay.example';
+  t.env.RELAY_SECRET = 'r'.repeat(40);
+  const getHealth = async () => (await handle(req(`/api/cfg/${t.cfgId}/health`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as Promise<{ progress?: { done: number; total: number; down: number }; tested?: number; requested?: string }>;
+  const stop = (key?: string) => handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'DELETE', ...(key ? { key } : {}) }), t.env, t.ctx, t.cache);
+  const seen: unknown[] = [];
+  let probes = 0;
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.origin !== 'https://relay.example') return base(input, init);
+    const body = JSON.parse(String(init?.body)) as { channels?: { id: string }[] };
+    if (url.pathname === '/v1/account') return new Response(JSON.stringify({ server: S1, account: {} }));
+    probes++;
+    // Mientras prueba la primera tanda, la web ve el avance; en la segunda, alguien toca «Detener».
+    seen.push((await getHealth()).progress);
+    if (probes === 2) {
+      assert.equal((await stop()).status, 401);
+      assert.deepEqual(await (await stop(t.editKey)).json(), { stopped: true });
+    }
+    const results = Object.fromEntries((body.channels ?? []).map((c) => [c.id, 'down']));
+    return new Response(JSON.stringify({ server: S1, account: {}, results }));
+  }) as typeof fetch;
+  try {
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date()), true);
+    assert.equal(probes, 2); // la tercera tanda no se pidió
+    assert.deepEqual(seen.map((p) => { const { done, total, down } = p as { done: number; total: number; down: number }; return [done, total, down]; }),
+      [[0, 120, 0], [50, 120, 0]]);
+    const h = await getHealth();
+    assert.equal(h.tested, 100); // queda lo que alcanzó a probar
+    assert.equal(h.progress, undefined);
+    assert.equal(h.requested, undefined);
+    assert.ok(!bucket.data.has(`healthprog/${t.cfgId}.json`));
+    assert.ok(!bucket.data.has(`healthstop/${t.cfgId}.json`));
+    // Un «Detener» con la prueba sin arrancar solo saca el pedido: no corta la próxima.
+    bucket.data.set(`healthreq/${t.cfgId}.json`, { value: JSON.stringify({ at: new Date().toISOString() }) });
+    await stop(t.editKey);
+    assert.ok(!bucket.data.has(`healthreq/${t.cfgId}.json`));
+    assert.ok(!bucket.data.has(`healthstop/${t.cfgId}.json`));
+    // Un avance viejo (de una prueba que se cortó a la mitad) no se muestra.
+    bucket.data.set(`healthprog/${t.cfgId}.json`, { value: JSON.stringify({ done: 50, total: 120, down: 0, at: new Date(Date.now() - 3600_000).toISOString() }) });
+    assert.equal((await getHealth()).progress, undefined);
+  } finally {
+    globalThis.fetch = base;
+  }
+});
+
 test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el vencimiento de cada cuenta', async () => {
   const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: { Oculto: { hidden: true } } } as Partial<typeof CONFIG>);
   const ch = (id: string, name = `Canal ${id}`, category = 'Aire') => ({ name, category, id, ext: 'ts', icon: '', epgId: null });

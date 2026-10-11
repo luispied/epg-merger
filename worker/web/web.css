@@ -271,6 +271,12 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .toasts { align-items: stretch; }
 .toast { width: 100%; max-width: 640px; margin: 0 auto; box-sizing: border-box; }
 .toast .msg { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; }
+/* Con la píldora de «Sin conexión» a la vista, el aviso va debajo de ella. */
+body:has(#netPill:not([hidden])) .toasts { top: calc(56px + env(safe-area-inset-top, 0px)); }
+/* Escritorio: arriba a la derecha, angosto, como las notificaciones del sistema. */
+@media (min-width: 900px) and (hover: hover) {
+  .toasts, body:has(#netPill:not([hidden])) .toasts { top: 16px; left: auto; right: 16px; width: 400px; padding: 0; }
+}
 
 /* Crear categorías y secciones. */
 
@@ -687,8 +693,6 @@ body.selecting .tabbar { display: none; }
 .tab.active { color: var(--accent); }
 .tab-ico { position: relative; display: inline-flex; }
 #editor main { padding-bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
-body > .toasts { bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom, 0px)); }
-body.selecting > .toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 body.selecting #editor main { padding-bottom: 96px; }
 /* Monogramas neutros: un solo tono, las iniciales no compiten con los logos. */
 /* Vista detallada: una línea y barra fina del programa */
@@ -837,7 +841,6 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
 .tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
-body > .toasts { bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Lo que pasa por detrás de la cápsula se desvanece antes de llegar (no se lee a través de ella): un degradé del
    fondo, debajo de la cápsula y encima de la lista, la Guía y las páginas. */
@@ -859,7 +862,6 @@ body.has-dock::after { right: 440px; }
   body:not(.selecting) :is(#editor, #app > section:not(#guide)) { margin-left: var(--rail-w); }
   body:not(.selecting) #guide, body:not(.selecting) dialog.sheet.page { left: var(--rail-w); width: auto; }
   #editor main { padding-bottom: 32px; }
-  body > .toasts { bottom: 24px; }
   .gd-inner { margin-bottom: 24px; }
   .gd-up { padding-bottom: 32px; }
   dialog.sheet.page > .sheet-body { padding-bottom: 32px; }
@@ -1358,3 +1360,17 @@ html[data-text="lg"] { zoom: 1.12; }
   .tab-brand { display: block; flex: none; width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 10px; box-shadow: 0 0 0 .5px var(--hairline); }
 }
 .brand-foot + .vw-foot { margin-top: 6px; }
+
+/* Franja de la prueba de canales: fija arriba de la lista (en la barra de búsqueda y filtros) mientras se prueban. */
+.probe-strip { margin: -2px 0 -10px; font-size: 14px; }
+.probe-strip[hidden] { display: none; }
+.probe-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.probe-line .icon { color: var(--accent); }
+.probe-line b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.probe-line small { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.probe-line .probe-stop { flex: none; min-height: 32px; padding: 0 8px; margin-right: -8px; color: var(--accent); font-size: 14px; }
+.probe-bar { height: 3px; margin: 6px 0 0; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.probe-bar > i { display: block; height: 100%; width: var(--p, 0%); background: var(--accent); transition: width var(--dur-3) var(--ease-out); }
+.probe-bar.wait > i { width: 30%; animation: probe-wait 1.4s ease-in-out infinite; }
+@keyframes probe-wait { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .probe-bar.wait > i { animation: none; width: 100%; opacity: .35; } }

@@ -5,6 +5,8 @@
 // De paso, el relay mide la resolución real (ancho × alto del video) de los canales que andan, con el mismo pedido de la
 // prueba: cada canal una vez por semana (si no se pudo saber, se reintenta en la próxima prueba), hasta RES_PER_CHUNK por
 // tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
+// Mientras prueba, deja el avance en healthprog/<cfgId>.json después de cada tanda (la web muestra «Probando 50 de 180»
+// arriba de la lista) y mira healthstop/<cfgId>.json, que deja «Detener»: si está, corta y guarda lo que alcanzó a probar.
 import { decryptToken } from './crypto.ts';
 import { type Config, loadConfig } from './config.ts';
 import { accountTokens } from './devices.ts';
@@ -24,6 +26,16 @@ const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.
 const EVENT_RE = /ppv|event/i;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
+
+/** Fallas seguidas para contar un canal como caído (igual que la web). */
+const DOWN_AFTER = 2;
+export const progressKey = (cfgId: string) => `healthprog/${cfgId}.json`;
+export const stopKey = (cfgId: string) => `healthstop/${cfgId}.json`;
+/** El avance de la prueba en curso: cuántos lleva de cuántos y cuántos cayeron hasta ahora. */
+export interface Progress { started: string; done: number; total: number; down: number; at?: string }
+async function putProgress(env: Env, cfgId: string, p: Progress) {
+  await env.BUCKET.put(progressKey(cfgId), JSON.stringify({ ...p, at: new Date().toISOString() }), JSON_TYPE);
+}
 
 interface Entry { t: string; ok: boolean; fails: number }
 /** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta en la próxima prueba). */
@@ -129,7 +141,12 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         // la cuenta anterior no vale para esta: se empieza de cero.
         if (probedBy !== key) { seen = {}; probedBy = key; }
         const batch = pickBatch(channels, seen, CHUNK * MAX_CHUNKS);
+        // Un «Detener» de antes de empezar no vale para esta prueba.
+        await env.BUCKET.delete(stopKey(cfgId));
+        await putProgress(env, cfgId, { started: now.toISOString(), done: 0, total: batch.length, down: 0 });
+        let down = 0;
         for (let i = 0; i < batch.length; i += CHUNK) {
+          if (i && await env.BUCKET.head(stopKey(cfgId))) break;
           const chunk = batch.slice(i, i + CHUNK);
           const measure = needsRes(chunk, seen, res, now);
           const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
@@ -141,12 +158,16 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           for (const [id, r] of Object.entries(reply.results ?? {})) {
             const ok = r === 'up';
             seen[id] = { t: now.toISOString(), ok, fails: ok ? 0 : (seen[id]?.fails ?? 0) + 1 };
+            if (seen[id].fails >= DOWN_AFTER) down++;
             tested++;
           }
           for (const [id, v] of Object.entries(reply.res ?? {})) {
             if (!measure.has(id)) continue;
             const wh = size(v);
             res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1] } : { t: now.toISOString() };
+          }
+          if (i + CHUNK < batch.length) {
+            await putProgress(env, cfgId, { started: now.toISOString(), done: Math.min(i + CHUNK, batch.length), total: batch.length, down });
           }
         }
       } else {
@@ -166,6 +187,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   if (relayOk) out.relayOk = now.toISOString();
   else if (relayFail) out.relayFail = now.toISOString();
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);
+  await env.BUCKET.delete(progressKey(cfgId));
+  await env.BUCKET.delete(stopKey(cfgId));
   return true;
 }
 

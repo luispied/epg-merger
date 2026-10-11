@@ -78,6 +78,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (path === '/api/home' && method === 'POST') return json({ homeId: 'Hogar0123456789abcd', homeKey: 'Clave0123456789abcdefgh' });
     if (path.startsWith('/api/home/') && method === 'PUT') return json({});
     if (path === '/api/cfg/c1/health' && opts.health) return json(opts.health);
+    if (path === '/api/cfg/c1/health/run' && method === 'DELETE') return json({ stopped: true });
     if (path === '/api/cfg/c1/reports') return json({ items: fake.reports });
     const rp = path.match(/^\/api\/cfg\/c1\/reports\/(\w+)$/);
     if (rp && method === 'DELETE') {

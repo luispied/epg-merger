@@ -11,6 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.40.0
+
+- **Los avisos van arriba.** Ya no quedan tapados por la barra de abajo, por el pie de la revisión ni por una página abierta: en el celular aparecen debajo de la hora, centrados, y en la computadora arriba a la derecha. Siempre quedan por encima de todo.
+- **La prueba de canales caídos muestra su avance.** Mientras prueba, arriba de la lista de canales aparece una franja fija: «Probando 50 de 180 · 3 caídos», con su barra y **Detener**, que la corta y guarda lo que alcanzó a probar. Antes de arrancar dice que está en espera. Al terminar, un aviso dice cuántos quedaron caídos y **Ver** los muestra.
+- Worker: la prueba deja su avance en `healthprog/` después de cada tanda (lo devuelve `GET /health` como `progress`) y mira `healthstop/`, que deja `DELETE /health/run`.
+- Ayudas de Canales y de Perfil al día.
+- Tests nuevos: el avance y «Detener» en el Worker (`test/worker.test.ts`) y la franja en `e2e/prueba.spec.ts`.
+
 ## 1.39.1
 
 - Interno: la programación que sube la corrida diaria a R2 va empacada: los ~17.500 archivos por canal pasan a 256 tandas y todo va en gzip (`tools/pack_schedule.py`). `ui/` baja de 203 MB a 76 MB y las escrituras diarias de unas 17.600 a unas 320.

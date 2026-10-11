@@ -47,7 +47,7 @@ import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './p
 import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
-import { checkAllHealth, liveAccounts } from './streamcheck.ts';
+import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
@@ -453,6 +453,15 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       await env.BUCKET.put(`healthreq/${cfgId}.json`, JSON.stringify({ at: new Date(nowMs).toISOString() }), { httpMetadata: { contentType: 'application/json' } });
       return json({ started: true, requested: new Date(nowMs).toISOString() });
     }
+    if (action === 'health' && parts[4] === 'run' && method === 'DELETE') {
+      // «Detener»: si la prueba no arrancó, se saca el pedido; si está corriendo, corta después de la tanda en curso y
+      // guarda lo que alcanzó a probar (streamcheck.ts mira healthstop/).
+      await env.BUCKET.delete(`healthreq/${cfgId}.json`);
+      if (await env.BUCKET.head(progressKey(cfgId))) {
+        await env.BUCKET.put(stopKey(cfgId), JSON.stringify({ at: new Date().toISOString() }), { httpMetadata: { contentType: 'application/json' } });
+      }
+      return json({ stopped: true });
+    }
     if (action === 'health' && method === 'GET') {
       // Canales caídos: lo deja la prueba diaria del cron del Worker (streamcheck.ts). Sin prueba todavía, vacío.
       const saved = await env.BUCKET.get(`health/${cfgId}.json`);
@@ -468,8 +477,16 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         const rl = await env.BUCKET.get(`relaylist/${cfgId}.json`);
         if (rl) relayList = JSON.parse(await rl.text()) as Record<string, unknown>;
       } catch { /* ilegible: sin datos */ }
+      // El avance de la prueba en curso («Probando 50 de 180»). Uno de hace más de 10 minutos es de una prueba que se
+      // cortó a la mitad: no se muestra.
+      let progress: { at?: string } | null = null;
+      try {
+        const pr = await env.BUCKET.get(progressKey(cfgId));
+        if (pr) progress = JSON.parse(await pr.text()) as { at?: string };
+      } catch { /* ilegible: sin avance */ }
+      if (progress && !(Date.now() - (Date.parse(progress.at ?? '') || 0) < 10 * 60_000)) progress = null;
       return json({
-        ...data, ...(requested ? { requested: new Date(requested).toISOString() } : {}),
+        ...data, ...(requested ? { requested: new Date(requested).toISOString() } : {}), ...(progress ? { progress } : {}),
         ...(listHead?.uploaded ? { listAt: listHead.uploaded.toISOString() } : {}),
         ...(relayList.okAt ? { listOkAt: relayList.okAt } : {}), ...(relayList.failAt ? { listFailAt: relayList.failAt } : {}),
       }, 200, { 'Cache-Control': 'no-store' });
