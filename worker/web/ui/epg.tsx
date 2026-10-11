@@ -9,6 +9,7 @@ import {
   nowPlaying, remindKey, schedule, state, toggleReminder, type NowPlaying, type ScheduleEntry,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
+import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
 
 /** Sin imagen: las iniciales, en un tono neutro (no compiten con los logos). */
@@ -61,7 +62,7 @@ export function RowNow({ id }: { id: string }) {
   return (
     <div class="row-now"><span class={`epg-now${cur ? ' on-air' : ''}`}>
       {cur === undefined ? null : cur
-        ? <><span class="np-line"><span class="np-title">{cur.title}</span><span class="np-until">hasta {hhmm(cur.stop)}</span></span><span class="np-bar"><i style={`width:${pct}%`} /></span></>
+        ? <><span class="np-line"><span class="np-title">{cur.title}</span><span class="np-until">hasta {hhmm(cur.stop)}</span></span><Progress cls="np-bar" value={pct} /></>
         : <span class="np-line"><span class="np-title">Sin programación en este horario</span></span>}
     </span></div>
   );

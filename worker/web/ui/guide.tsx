@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './icon.tsx';
+import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
 
@@ -834,7 +835,7 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
         <p class="gd-sh-when">
           {live ? <b>En el aire</b> : <span>{dayLabel(p.s, now)}</span>} · {hm(p.s)} – {hm(p.e)}{live ? ` · ${left(p.e - now)}` : ''}
         </p>
-        {live && <div class="np-bar gd-sh-bar"><i style={{ width: `${Math.round(((now - p.s) / (p.e - p.s)) * 100)}%` }} /></div>}
+        {live && <Progress cls="np-bar gd-sh-bar" value={((now - p.s) / (p.e - p.s)) * 100} />}
         {entries === undefined ? <p class="gd-sh-desc muted">Cargando…</p> : mine?.[3] && <p class="gd-sh-desc">{mine[3]}</p>}
         {first && (
           <section class="gd-again" aria-label="Llegás desde el principio">

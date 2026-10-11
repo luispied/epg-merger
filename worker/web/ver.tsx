@@ -5,6 +5,8 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
+import { Progress } from './ui/kit.tsx';
+import { installSheets } from './ui/sheet.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
 declare global { interface Window { ICONS: Record<string, string> } }
@@ -110,7 +112,7 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
         {cur ? (
           <>
             <span class="vw-now">{cur.t}</span>
-            <span class="vw-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+            <Progress cls="vw-bar" value={pct} />
             <span class="vw-when vw-left">{left(cur.e - now)[0].toUpperCase() + left(cur.e - now).slice(1)} · hasta las {hm(cur.e)}</span>
             {info?.next && <span class="vw-when vw-next">Después: {info.next.t}</span>}
           </>
@@ -193,7 +195,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
             <p class="vw-k">Ahora</p>
             <h2 class="gd-sh-title">{cur[2]}</h2>
             <p class="gd-sh-when">{hm(cur[0])} – {hm(cur[1])} · {left(cur[1] - now)}</p>
-            <div class="np-bar gd-sh-bar"><i style={{ width: `${Math.round(((now - cur[0]) / (cur[1] - cur[0])) * 100)}%` }} /></div>
+            <Progress cls="np-bar gd-sh-bar" value={((now - cur[0]) / (cur[1] - cur[0])) * 100} />
             {cur[3] && <p class="gd-sh-desc">{cur[3]}</p>}
           </>
         )}
@@ -236,7 +238,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
-          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
+          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
           <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
         </details>
         <details>
@@ -409,4 +411,5 @@ function App() {
   );
 }
 
+installSheets();
 render(<App />, document.getElementById('app')!);

@@ -176,9 +176,24 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
 .help-sheet details { border-radius: var(--radius); }
 @media (max-width: 600px) {
   dialog.sheet { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  /* Manija de la hoja inferior. */
-  dialog.sheet > .sheet-body::before { content: ""; display: block; width: 32px; height: 4px; border-radius: 2px; background: var(--faint); opacity: .4; margin: -12px auto 16px; }
+  /* Manija de la hoja inferior: se arrastra (ella o el encabezado) para bajar la hoja (ui/sheet.ts). */
+  dialog.sheet > .sheet-body::before { content: ""; display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--faint); opacity: .5; margin: -12px auto 16px; }
+  dialog.sheet:not(.page) .title-row { touch-action: none; }
 }
+/* Salida de las hojas (ui/sheet.ts): más corta que la entrada. En el celular la hoja sube desde abajo y baja al cerrarse;
+   en pantallas grandes, un fundido corto. El arrastre mueve la hoja con translate (no pisa la animación). */
+dialog.sheet.closing { animation: sheet-out var(--dur-2) var(--ease-in) both; }
+dialog.sheet.closing::backdrop { animation: fade-out var(--dur-2) ease both; }
+dialog.sheet.settling { transition: translate var(--dur-2) var(--ease-out); }
+@keyframes sheet-out { to { opacity: 0; transform: translateY(16px); } }
+@keyframes fade-out { to { opacity: 0; } }
+@media (max-width: 600px) {
+  dialog.sheet:not(.page)[open] { animation: sheet-up var(--dur-3) var(--ease-out) both; }
+  dialog.sheet:not(.page).closing { animation: sheet-down var(--dur-2) var(--ease-in) both; }
+  dialog.sheet.dragging .sheet-body { user-select: none; }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-down { to { transform: translateY(100%); } }
 
 /* Snackbar. */
 .toast { background: color-mix(in srgb, var(--inverse-surface) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--inverse-text); border-radius: 18px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
