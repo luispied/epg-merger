@@ -18,6 +18,7 @@ import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
 import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
+import { installSheets } from './ui/sheet.ts';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
@@ -2897,6 +2898,7 @@ if ('serviceWorker' in navigator) {
 }
 void checkNovedades(__APP_VERSION__, new URLSearchParams(location.search).has('novedades'));
 hydrateIcons();
+installSheets();
 addSearchClear(document);
 for (const el of $$('[data-version]')) el.textContent = `Nowline ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');

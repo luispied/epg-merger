@@ -14,6 +14,7 @@ import {
 } from '../app.ts';
 import { Candidate, DayProgram, GuideSearch, Logo, NowLine } from './epg.tsx';
 import { Icon } from './icon.tsx';
+import { Progress } from './kit.tsx';
 import { toast } from './toast.tsx';
 
 const dialog = () => document.getElementById('channelDialog') as HTMLDialogElement;
@@ -92,7 +93,7 @@ function ChannelSheet({ i, seq: key }: { i: number; seq: number }) {
         <div class="rv-progress" id="channelProgress" hidden={!rp}>
           {rp && <>
             <span>Revisando · {pos + 1} de {sheetList.length} · quedan {rp.left}</span>
-            <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin={0} aria-valuemax={100} aria-valuenow={rp.pct}><i style={{ width: `${rp.pct}%` }} /></div>
+            <Progress cls="rv-bar" value={rp.pct} label="Progreso de la revisión" />
           </>}
         </div>
       </div>

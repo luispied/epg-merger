@@ -19,6 +19,14 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - El nombre arriba de la app va en minúscula, con el punto de la i en ámbar como el de la línea de «ahora».
 - Si ya la tenés en la pantalla de inicio: en Android el nombre y el ícono se actualizan solos; en iPhone y iPad se ven al quitarla y volver a agregarla desde Safari.
 
+## 1.36.7
+
+- **Las hojas se cierran con una animación.** Un canal, Configuración, la ayuda, el programa de la Guía y las demás hojas ya no desaparecen de golpe al tocar la ✕ o Esc: se van con un movimiento corto. En el celular suben desde abajo al abrirse y bajan al cerrarse.
+- **En el celular, bajá la hoja con el dedo para cerrarla.** Arrastrá hacia abajo la rayita de arriba o el título: si la soltás antes de la mitad del recorrido, vuelve a su lugar. La rayita es un poco más grande para que se note.
+- Con «reducir movimiento» del sistema, las hojas se cierran al instante, como antes.
+- Ayudas de Canales y del modo ver al día (cómo cerrar una hoja).
+- Interno: `worker/web/ui/sheet.ts` le da a todas las hojas la salida animada y el arrastre (la ✕, Esc, el gesto y también los cierres desde el código; si una hoja se vuelve a abrir mientras sale, se queda); `worker/web/ui/kit.tsx` con `<Progress>` para las barras de cuánto va. Tests nuevos en `e2e/hojas.spec.ts`.
+
 ## 1.36.6
 
 - **Lo que está en el aire, en verde.** En la Guía, la línea y la hora de ahora, el borde y la barra del programa que está dando, «En el aire» en la hoja del programa y la barra de cuánto va (también en Canales y en el modo ver) pasan del ámbar al verde. El ámbar queda solo para lo que se toca o se elige: la Guía pasa de ocho cosas en ámbar a dos.

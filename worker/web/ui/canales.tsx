@@ -13,6 +13,7 @@ import {
 } from '../app.ts';
 import { Logo, RowNow } from './epg.tsx';
 import { Icon } from './icon.tsx';
+import { Progress } from './kit.tsx';
 
 const box = () => document.getElementById('cards')!;
 
@@ -186,7 +187,7 @@ function ReviewCard({ left, base, done, pct, news, onNewFilter, onStart, onShowN
               <small>{done ? `${done} de ${base} revisados` : 'Tienen una guía dudosa o sin asignar'}</small></div>
             <button type="button" class="btn btn-primary" onClick={onStart}>Empezar</button>
           </div>
-          <div class="rv-bar" role="progressbar" aria-label="Progreso de la revisión" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>
+          <Progress cls="rv-bar" value={pct} label="Progreso de la revisión" />
         </>
       )}
       {news > 0 && (
