@@ -141,6 +141,10 @@
       <button data-filter="editados" data-label="Editados">Editados</button>
       <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
     </nav>
+    <div class="probe-strip" id="probeStrip" role="status" hidden>
+      <div class="probe-line"><span data-icon="loader-circle" class="spin"></span><b id="probeText">Prueba de canales en espera</b><small id="probeDown"></small><button type="button" class="btn btn-plain probe-stop" id="probeStop">Detener</button></div>
+      <div class="probe-bar" id="probeBar"><i></i></div>
+    </div>
   </div>
   <main>
     <div class="ptr" id="ptr" aria-hidden="true"><span data-icon="refresh-cw"></span></div>
@@ -349,7 +353,7 @@
 
     <details>
       <summary>Me equivoqué, ¿cómo deshago?<span data-icon="chevron-down"></span></summary>
-      <p>Después de cada cambio aparece un aviso abajo con <b>Deshacer</b> por unos segundos. Más tarde, cada cambio se revierte desde el mismo canal: <b>Automática</b> para la guía, dejar el nombre vacío, elegir su categoría original o prender <b>Visible en la playlist</b>. Con varios canales a la vez, desde la selección múltiple.</p>
+      <p>Después de cada cambio aparece un aviso arriba (en la computadora, arriba a la derecha) con <b>Deshacer</b> por unos segundos; la <b>X</b> lo cierra antes. Más tarde, cada cambio se revierte desde el mismo canal: <b>Automática</b> para la guía, dejar el nombre vacío, elegir su categoría original o prender <b>Visible en la playlist</b>. Con varios canales a la vez, desde la selección múltiple.</p>
     </details>
 
     <details>
@@ -476,7 +480,7 @@
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), Nowline prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Nowline solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), Nowline prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Mientras prueba, arriba de la lista de canales aparece una franja con cuántos lleva y cuántos cayeron hasta ahora (<b>Probando 50 de 180 · 3 caídos</b>); <b>Detener</b> la corta y guarda lo que alcanzó a probar. Al terminar, un aviso dice cuántos quedaron caídos y <b>Ver</b> los muestra. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Nowline solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
         <p>La prueba, la suscripción y la lista del proveedor pasan por un servicio aparte que habla con tu proveedor. Si deja de responder, la fila dice <b>«sin probar desde hace 3 días»</b> y arriba de los canales aparece un aviso («La lista del proveedor no se actualiza desde hace 5 h»): mientras tanto todo sigue andando con lo último que se bajó, pero los canales nuevos y los datos de la cuenta van a tardar en aparecer.</p>
       </details>
       <details>

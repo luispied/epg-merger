@@ -1,4 +1,4 @@
-// El aviso de abajo («Listo…», «No se pudo…»), en Preact: la primera pieza de la web hecha con
+// El aviso de arriba («Listo…», «No se pudo…»), en Preact: la primera pieza de la web hecha con
 // componentes (ver planes/react.md). Se ve y se comporta igual que el de antes.
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
@@ -45,6 +45,15 @@ export function toast(text: string, kind: Kind = 'info', ms = 3500, undo?: Actio
     box.className = 'toasts';
     box.setAttribute('aria-live', 'polite'); // dentro de una hoja también se anuncia
     host.appendChild(box);
+  }
+  // En la capa de arriba de todo (popover): así no lo tapa la página o la hoja que esté abierta ni la barra de abajo.
+  // Cerrarlo y abrirlo de nuevo lo pone encima de lo último que se abrió. Los navegadores sin popover lo dejan fijo, como antes.
+  if (typeof box.showPopover === 'function') {
+    box.setAttribute('popover', 'manual');
+    try {
+      if (box.matches(':popover-open')) box.hidePopover();
+      box.showPopover();
+    } catch { /* sin popover: queda fijo arriba igual */ }
   }
   // Un solo aviso a la vez: el nuevo reemplaza al anterior (no se apilan sobre la lista). La key
   // nueva hace que sea otro componente, con su propio tiempo.
