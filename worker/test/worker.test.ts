@@ -6,7 +6,7 @@ import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, isFeatureBump, notifyExpiry, notifyNewVersion, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
-import { handle, rateLimited } from '../src/index.ts';
+import { handle, rateLimited, routeKind } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
@@ -1663,4 +1663,17 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   assert.ok(bucket.data.has(`habits/${t.cfgId}.json`));
   await handle(req(`/api/cfg/${t.cfgId}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache);
   assert.ok(!bucket.data.has(`habits/${t.cfgId}.json`));
+});
+
+test('tipo de pedido para el registro: sin ids, códigos ni tokens', () => {
+  const id = 'abcdefghijklmnop1234';
+  const cases: [string, string][] = [
+    [`/p/${id}/TOKEN123/playlist.m3u8`, 'playlist'], [`/p/${id}/epg.xml.gz`, 'epg'], ['/l/codigo123.m3u8', 'playlist'],
+    ['/g/codigo123.xml.gz', 'epg'], [`/s/${id}/TOKEN/1.ts`, 'stream'], ['/s/codigo/1.ts', 'stream'], ['/logo/0123456789abcdef', 'logo'],
+    [`/api/cfg/${id}`, 'api/cfg'], [`/api/cfg/${id}/hour/2026101119.json`, 'api/cfg/hour'], ['/api/view/CODIGO/habits', 'api/view/habits'],
+    ['/api/ui/schedule/0123456789abcdef.json', 'api/ui/schedule'], ['/api/ui/again', 'api/ui/again'], ['/api/guide/index.json', 'api/guide'],
+    ['/algo', 'otro'],
+  ];
+  for (const [path, kind] of cases) assert.equal(routeKind(path), kind, path);
+  for (const [path] of cases) assert.ok(!/TOKEN|CODIGO|codigo|abcdef/.test(routeKind(path)), path);
 });
