@@ -37,7 +37,7 @@ test('muestra la guía, los avisos y la versión', async ({ page }) => {
   const avisos = s.locator('.menu-row', { hasText: 'Avisos' }).getByRole('switch');
   await expect(avisos).toBeDisabled();
   await expect(avisos).not.toBeChecked();
-  await expect(s.locator('.app-version')).toHaveText(/^Grilla \d+\.\d+\.\d+/);
+  await expect(s.locator('.app-version')).toHaveText(/^Nowline \d+\.\d+\.\d+/);
   // Sin datos de programación, la salud lo dice en vez de filtrar.
   await s.getByRole('button', { name: /Salud de la guía/ }).click();
   await expect(page.locator('.toast .msg')).toContainText('Todavía no hay datos de programación para comparar');

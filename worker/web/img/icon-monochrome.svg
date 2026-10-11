@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Nowline monocroma (íconos temáticos de Android y badge de los avisos): un solo color, la forma sale del alfa. -->
+  <defs><mask id="m"><rect width="512" height="512" fill="#fff"/><line x1="262" y1="132" x2="262" y2="384" stroke="#000" stroke-width="34" stroke-linecap="round"/><circle cx="262" cy="120" r="30" fill="#000"/></mask></defs>
+  <g fill="#fff" mask="url(#m)"><g fill-opacity=".38"><rect x="104" y="150" width="120" height="60" rx="16"/><rect x="104" y="226" width="76" height="60" rx="16"/><rect x="336" y="226" width="72" height="60" rx="16"/><rect x="288" y="302" width="120" height="60" rx="16"/></g><rect x="240" y="150" width="168" height="60" rx="16"/><rect x="196" y="226" width="124" height="60" rx="16"/><rect x="104" y="302" width="168" height="60" rx="16"/></g>
+  <line x1="262" y1="132" x2="262" y2="384" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="262" cy="120" r="22" fill="#fff"/>
+</svg>
