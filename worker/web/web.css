@@ -1164,8 +1164,10 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-plan-list::before { content: ""; position: absolute; left: 50px; top: 14px; bottom: 14px; width: 2px; border-radius: 1px; background: var(--hairline); }
 .gd-plan-slot { position: relative; display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--radius); padding: 4px 6px 4px 0; margin-bottom: 8px; }
 .gd-plan-slot::before { content: ""; position: absolute; left: -19px; top: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--faint); box-shadow: 0 0 0 4px var(--bg); }
-.gd-plan-slot.live { box-shadow: inset 3px 0 0 var(--green); }
-.gd-plan-slot.live::before { background: var(--green); }
+/* El programa en el aire: la tarjeta con un tinte verde suave (sin la raya del costado) y su punto en la línea, verde. */
+.gd-plan-slot.live { background: color-mix(in srgb, var(--live) 12%, var(--surface)); }
+.gd-plan-slot.live::before { background: var(--live); }
+.gd-plan-slot.live .meta { color: var(--live); font-weight: 600; }
 .gd-plan-time { position: absolute; left: -64px; top: 14px; width: 40px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .gd-plan-card { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 4px 8px 12px; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .gd-plan-card .logo { width: 40px; height: 40px; flex: none; }

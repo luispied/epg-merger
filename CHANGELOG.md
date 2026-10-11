@@ -19,7 +19,8 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - En Próximos y Tu noche las horas van en el color del texto, y la línea del plan es una guía fina en lugar de ámbar.
 - Perfil: el perfil en uso, «En uso» y los «Agregar…» con menos ámbar.
 - Los rótulos de sección en mayúsculas («DEPORTES», «GUÍA ASIGNADA», «MI PROVEEDOR») tienen todos el mismo tamaño y color.
-- El botón de ayuda (?) va sin círculo en todas las pantallas; el círculo queda para cerrar, volver, anterior y siguiente.
+- El botón de ayuda (?) va siempre al lado del título y sin círculo, en todas las pantallas (en Canales y en el modo ver estaba a la derecha). La derecha queda para las acciones y para cerrar.
+- Tu noche: el programa que está en el aire se destaca con un tinte verde suave en la tarjeta y «quedan…» en verde, en lugar de la raya verde del costado.
 - Ayudas de la Guía y del modo ver al día (el verde es lo que está en el aire).
 
 ## 1.36.5

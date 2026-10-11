@@ -284,10 +284,12 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
     <>
       <header class="app-header vw-head">
         <div class="title-row">
-          <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark">Grilla</span></h1>
+          <span class="title-left">
+            <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark">Grilla</span></h1>
+            <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
+          </span>
           <span class="vw-head-r">
             <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
-            <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
         </div>
       </header>
