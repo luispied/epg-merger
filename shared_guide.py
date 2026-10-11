@@ -12,7 +12,7 @@ corrida diaria, en `out/shared/`, para subirlo a Cloudflare R2 (ver `tools/r2_up
   programa, privados, para que el Worker las sirva sin mostrar el sitio.
 
 La programación por canal (`out/schedule/`) ya la escribe `generate_playlist.py`; el script de
-subida la manda tal cual.
+subida la empaca (`tools/pack_schedule.py`). Todo sube en gzip y solo si cambió (`tools/r2_sync.py`).
 
 Uso: `python shared_guide.py [--merged merged.xml.gz] [--out out/shared]`.
 """

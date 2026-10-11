@@ -51,7 +51,7 @@ import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamchec
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
-import { readHour, scheduleReader } from './schedule.ts';
+import { type Raw, readStored, scheduleReader } from './schedule.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -305,6 +305,14 @@ async function serveStream(cfgId: string, token: string, file: string, env: Env,
   const server = await healthyServer(stored.config.provider.servers.map(normalizeServer), creds.u, creds.p, cache,
     (p) => ctx.waitUntil(p));
   return new Response(null, { status: 302, headers: { Location: streamUrl(server, creds.u, creds.p, m[1], m[2]), 'Cache-Control': 'no-store' } });
+}
+
+/** JSON de R2 que la corrida puede guardar en gzip: viaja así, sin descomprimirlo acá (src/schedule.ts). */
+function storedResponse(raw: Raw | null, maxAge: number): Response {
+  if (!raw) return fail(404, 'no encontrado');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${maxAge}`, ...CORS };
+  if (raw.gz) headers['Content-Encoding'] = 'gzip';
+  return new Response(raw.bytes, { headers, encodeBody: 'manual' } as ResponseInit);
 }
 
 async function serveR2(env: Env, key: string, contentType: string, maxAge: number): Promise<Response> {
@@ -833,7 +841,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return json({ ok: true });
   }
   if (section === 'guide' && cfgId === 'index.json' && method === 'GET') {
-    return serveR2(env, 'guide/index.json', 'application/json', 3600);
+    return storedResponse(await readStored(env.BUCKET, 'guide/index.json'), 3600);
   }
   if (section === 'ui' && cfgId === 'again' && method === 'POST') {
     const body = await readJson(request, 32 * 1024) as Record<string, unknown>;
@@ -855,12 +863,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path);
     const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
     if (!hour && !channel) return fail(404, 'no encontrado');
-    // La corrida los guarda en gzip: viajan así, sin descomprimirlos acá (src/schedule.ts).
-    const raw = hour ? await readHour(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!);
-    if (!raw) return fail(404, 'no encontrado');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900', ...CORS };
-    if (raw.gz) headers['Content-Encoding'] = 'gzip';
-    return new Response(raw.bytes, { headers, encodeBody: 'manual' } as ResponseInit);
+    return storedResponse(hour ? await readStored(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!), 900);
   }
   return fail(404, 'no encontrado');
 }
