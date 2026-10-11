@@ -915,6 +915,12 @@ async function loadStreamHealth() {
   }
   render();
   renderProfileNotice();
+  // Con la Guía abierta, que tome las etiquetas de resolución recién llegadas.
+  const guide = document.getElementById('guide');
+  if (guide && !guide.hidden) {
+    infoMemo = new Map();
+    try { showGuide(guide, guideHost); } finally { infoMemo = null; }
+  }
 }
 
 // ------------------------------------------------------------------ salud de la guía

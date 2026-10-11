@@ -2,8 +2,9 @@
 // (cada 30 minutos): una vez por día por configuración, o cuando alguien tocó «Probar ahora» (health/run deja un pedido
 // en healthreq/). El resultado queda en health/<cfgId>.json. Los canales los prueba el perfil activo de la configuración
 // (`activeAccount`); de las demás cuentas solo se traen sus datos.
-// De paso, el relay mide la resolución real (ancho × alto del video) de unos pocos canales que andan: cada canal una vez
-// por semana, pocos por tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
+// De paso, el relay mide la resolución real (ancho × alto del video) de los canales que andan, con el mismo pedido de la
+// prueba: cada canal una vez por semana (si no se pudo saber, se reintenta en la próxima prueba), hasta RES_PER_CHUNK por
+// tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
 import { decryptToken } from './crypto.ts';
 import { type Config, loadConfig } from './config.ts';
 import { accountTokens } from './devices.ts';
@@ -18,14 +19,14 @@ export const CHUNK = 50; // canales por pedido al relay
 export const MAX_CHUNKS = 4; // 200 canales por corrida
 const MAX_CONFIGS_PER_TICK = 5;
 export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
-export const RES_PER_CHUNK = 8; // ~32 por día: unos segundos cada una, dentro del tope de tiempo de cada pedido al relay
+export const RES_PER_CHUNK = 25; // ~100 por día: va en el mismo pedido de la prueba; el relay deja de medir si se queda sin tiempo
 const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.
 const EVENT_RE = /ppv|event/i;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 
 interface Entry { t: string; ok: boolean; fails: number }
-/** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta a la semana). */
+/** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta en la próxima prueba). */
 export interface Res { t: string; w?: number; h?: number }
 export interface HealthState {
   checked?: string;
@@ -72,9 +73,10 @@ async function readJson<T>(env: Env, key: string): Promise<T | null> {
   }
 }
 
-/** Los canales de la tanda a los que toca medirles la resolución: los que no están caídos y no se midieron en la semana. */
+/** Los canales de la tanda a los que toca medirles la resolución: los que no están caídos y no se midieron en la semana
+ *  (o no se pudo saber en la última prueba). */
 export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, now: Date, n = RES_PER_CHUNK): Set<string> {
-  const due = (id: string) => !res[id] || now.getTime() - (Date.parse(res[id].t) || 0) >= RES_EVERY_MS;
+  const due = (id: string) => !res[id] || now.getTime() - (Date.parse(res[id].t) || 0) >= (res[id].w ? RES_EVERY_MS : CHECK_EVERY_MS);
   return new Set(chunk.filter((c) => seen[c.id]?.ok !== false && due(c.id)).slice(0, n).map((c) => c.id));
 }
 
