@@ -200,11 +200,11 @@ test('lista del proveedor de paso, y guía/interfaz desde R2', async () => {
   assert.equal(t.env.BUCKET instanceof Object && (t.env.BUCKET as unknown as { data: Map<string, unknown> }).data.size, 0, 'no guarda nada');
 
   await t.env.BUCKET.put('guide/index.json', '{"channels":[]}');
-  await t.env.BUCKET.put('ui/schedule/abc.json', '[]');
+  await t.env.BUCKET.put('ui/schedule/0123456789abcdef.json', '[]');
   const guide = await handle(req('/api/guide/index.json'), t.env, t.ctx, t.cache);
   assert.equal(guide.headers.get('Access-Control-Allow-Origin'), '*');
   assert.equal(await guide.text(), '{"channels":[]}');
-  assert.equal((await handle(req('/api/ui/schedule/abc.json'), t.env, t.ctx, t.cache)).status, 200);
+  assert.equal((await handle(req('/api/ui/schedule/0123456789abcdef.json'), t.env, t.ctx, t.cache)).status, 200);
   assert.equal((await handle(req('/api/ui/../cfg/x.json'), t.env, t.ctx, t.cache)).status, 404);
   // Lo viejo de ui/ que nombra las fuentes ya no se sirve.
   await t.env.BUCKET.put('ui/sources_report.json', '{}');

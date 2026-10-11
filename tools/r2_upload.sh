@@ -7,7 +7,8 @@
 #
 # Estructura en el bucket:
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
-#   ui/schedule/…              programación por canal y por hora
+#   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
+#   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
 #   logo/map/<x>.json         {clave: url} de los logos de canal (privado; el Worker los sirve por /logo/<clave>
 #                              y guarda cada uno en logo/img/<clave> la primera vez)
 #   img/map/<xx>.json          lo mismo para las imágenes de programa (/img/<clave>, sin guardarlas)
@@ -40,8 +41,17 @@ for kind in logo img; do
 done
 # Las copias viejas de lo que ya no se publica.
 for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/ui/$f"; done
-# --delete: los canales que ya no tienen programación dejan de estar.
-[ -d out/schedule ] && s3 sync out/schedule "$BUCKET/ui/schedule" --delete "${json[@]}"
+# Programación empacada (tools/pack_schedule.py): 256 tandas con los canales y los índices por hora
+# en gzip, unas 320 escrituras por día en vez de un archivo por canal (~17.500). --delete: la hora
+# que ya pasó deja de estar.
+python tools/pack_schedule.py out/schedule out/schedule_r2
+if [ -d out/schedule_r2/s ]; then
+  s3 sync out/schedule_r2/s "$BUCKET/ui/schedule/s" --content-type application/octet-stream
+  [ -d out/schedule_r2/hour ] && s3 sync out/schedule_r2/hour "$BUCKET/ui/schedule/hour" --delete "${json[@]}" --content-encoding gzip
+  # Los archivos por canal de antes del empaque (ui/schedule/<archivo>.json), que ya no se usan.
+  # Solo los .json sueltos de ui/schedule/: ni las tandas ni las horas ni nada fuera de ui/schedule/.
+  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*'
+fi
 echo "✅ Subido a R2 ($BUCKET)"
 
 # Guía de cada configuración: se bajan las configuraciones (sin credenciales), se arman todas

@@ -1,8 +1,9 @@
 // «Llegás desde el principio»: para lo que está en el aire (o por empezar) en los canales de una
 // configuración, cuándo vuelve a empezar el mismo programa, en ese canal o en otro de la lista.
-// Lee los archivos por canal que deja la corrida diaria (ui/schedule/<sha1 del id, 16>.json:
-// [inicio, fin, título, descripción?]) y compara título, duración y descripción.
+// Lee la programación por canal que deja la corrida diaria (src/schedule.ts: [inicio, fin, título,
+// descripción?]) y compara título, duración y descripción.
 import type { R2Bucket } from './env.ts';
+import { type Entry, readEntries, scheduleReader } from './schedule.ts';
 
 export const MAX_AGAIN_IDS = 400;
 const ALIAS_RE = /^g[0-9a-f]{14}(\.[a-z]{2})?$/;
@@ -14,7 +15,6 @@ const SYNOPSIS = 40;         // desde este largo, la descripción distingue un c
 export const GENERIC = new Set(['paid programming', 'programa pagado', 'programación pagada', 'no data', 'sin información',
   'movie', 'película', 'pelicula', 'to be announced', 'tba', 'off air', 'fuera del aire', 'programación', 'programacion']);
 
-type Entry = [number, number, string, string?];
 interface Airing { i: number; s: number; e: number; d?: string }
 /** Para cada emisión con repetición: [índice del canal, inicio, [[índice del canal, inicio], …]]. */
 export type Again = [number, number, [number, number][]][];
@@ -76,18 +76,10 @@ export function findAgain(schedules: (Entry[] | null)[], now: number): Again {
 
 /** Lee la programación de cada canal (de a tandas, para no abrir cientos de lecturas juntas). */
 export async function againFor(bucket: R2Bucket, ids: string[], now: number): Promise<Again> {
+  const read = scheduleReader(bucket);
   const schedules: (Entry[] | null)[] = [];
   for (let k = 0; k < ids.length; k += 25) {
-    schedules.push(...await Promise.all(ids.slice(k, k + 25).map(async (id) => {
-      const obj = await bucket.get(`ui/schedule/${await scheduleFile(id)}.json`);
-      if (!obj) return null;
-      try {
-        const data = JSON.parse(await obj.text());
-        return Array.isArray(data) ? data as Entry[] : null;
-      } catch {
-        return null;
-      }
-    })));
+    schedules.push(...await Promise.all(ids.slice(k, k + 25).map(async (id) => readEntries(read, await scheduleFile(id)))));
   }
   return findAgain(schedules, now);
 }

@@ -4,6 +4,7 @@
 // Solo canales con guía: la clave es su epg y el título sale de la programación de ese momento (ui/schedule/).
 import type { R2Bucket } from './env.ts';
 import { GENERIC, norm, scheduleFile } from './again.ts';
+import { readEntries, scheduleReader } from './schedule.ts';
 
 export interface ChannelHabit { n: number; h: number[]; at: string }
 export interface TitleHabit { n: number; title: string; at: string; s?: number }
@@ -17,7 +18,6 @@ export interface Habits {
   more: Record<string, string>;
 }
 type Store = Record<string, Habits>;
-type Entry = [number, number, string, string?];
 
 const MAX_CH = 300;
 const MAX_T = 500;
@@ -74,9 +74,7 @@ export async function readHabits(bucket: R2Bucket, cfgId: string, profile?: stri
 /** El título que pasaba en un canal (por su epg) en un momento, si no es genérico. */
 async function titleAt(bucket: R2Bucket, epg: string, t: number): Promise<{ title: string; s: number } | null> {
   try {
-    const obj = await bucket.get(`ui/schedule/${await scheduleFile(epg)}.json`);
-    if (!obj) return null;
-    const e = (JSON.parse(await obj.text()) as Entry[]).find(([s, end]) => s <= t && t < end);
+    const e = (await readEntries(scheduleReader(bucket), await scheduleFile(epg)))?.find(([s, end]) => s <= t && t < end);
     return e && e[2] && !GENERIC.has(norm(e[2])) ? { title: e[2], s: e[0] } : null;
   } catch {
     return null;

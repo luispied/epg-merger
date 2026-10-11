@@ -401,7 +401,8 @@ viajan solo dentro del token cifrado.
 
 La corrida diaria sube a un bucket de R2 lo que Grilla web va a leer: el índice de la guía
 para `@grilla/core` (`shared_guide.py` → `guide/index.json`) y la programación de la interfaz
-(`ui/schedule/`). Las fuentes de EPG no se nombran en nada de lo que sale del repo: en la guía y en
+(`ui/schedule/`: los canales en 256 tandas y los índices por hora en gzip, ver `tools/pack_schedule.py`,
+unas 320 escrituras por día). Las fuentes de EPG no se nombran en nada de lo que sale del repo: en la guía y en
 el XML de cada configuración van con un alias opaco (`source_alias.py`, `worker/src/crypto.ts`).
 Es una regla genérica (`scrub_element` en `source_alias.py`), para cualquier fuente: las imágenes se
 piden al Worker (logos de canal en `/logo/<clave>`, guardados en R2 la primera vez; imágenes de

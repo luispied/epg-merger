@@ -3,18 +3,31 @@ import type { Ctx, Env, R2Bucket, R2ObjectBody, SimpleCache } from '../src/env.t
 import { b64urlEncode } from '../src/crypto.ts';
 
 export class MemoryBucket implements R2Bucket {
-  data = new Map<string, { value: string; meta?: Record<string, string>; uploaded?: Date }>();
+  data = new Map<string, { value: string; bytes?: Uint8Array; meta?: Record<string, string>; encoding?: string; uploaded?: Date }>();
   async head(key: string) {
     const item = this.data.get(key);
     return item ? { uploaded: item.uploaded ?? new Date(0) } : null;
   }
-  async get(key: string): Promise<R2ObjectBody | null> {
+  async get(key: string, options?: { range?: { offset: number; length: number } }): Promise<R2ObjectBody | null> {
     const item = this.data.get(key);
     if (!item) return null;
-    return { body: new Response(item.value).body as ReadableStream, text: async () => item.value, customMetadata: item.meta };
+    let bytes = item.bytes ?? new TextEncoder().encode(item.value);
+    if (options?.range) bytes = bytes.slice(options.range.offset, options.range.offset + options.range.length);
+    return {
+      body: new Response(bytes).body as ReadableStream,
+      text: async () => new TextDecoder().decode(bytes),
+      arrayBuffer: async () => bytes.slice().buffer,
+      customMetadata: item.meta,
+      httpMetadata: item.encoding ? { contentEncoding: item.encoding } : undefined,
+    };
   }
-  async put(key: string, value: string | ArrayBuffer | ReadableStream, options?: { customMetadata?: Record<string, string> }) {
-    this.data.set(key, { value: typeof value === 'string' ? value : await new Response(value).text(), meta: options?.customMetadata, uploaded: new Date() });
+  async put(key: string, value: string | ArrayBuffer | Uint8Array | ReadableStream,
+    options?: { customMetadata?: Record<string, string>; httpMetadata?: { contentEncoding?: string } }) {
+    const bytes = typeof value === 'string' ? undefined : new Uint8Array(await new Response(value).arrayBuffer());
+    this.data.set(key, {
+      value: typeof value === 'string' ? value : new TextDecoder().decode(bytes), bytes,
+      meta: options?.customMetadata, encoding: options?.httpMetadata?.contentEncoding, uploaded: new Date(),
+    });
   }
   async delete(key: string) {
     this.data.delete(key);
