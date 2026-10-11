@@ -10,7 +10,7 @@ Se autentica con un secret compartido con el Worker (RELAY_SECRET, mínimo 32 ca
   POST /v1/list     {servers, username, password}            -> {server, channels}
   POST /v1/account  {servers, username, password}            -> {server, account}
   POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, res, aborted}
-                    (los canales con "res": true que anden también se miden: res[id] = [ancho, alto] o null)
+                    (los canales con "res": true que anden también se miden, con el mismo pedido: res[id] = [ancho, alto] o null)
   GET  /health                                              -> {ok: true}   (sin autenticar)
 
 Cuidados:
@@ -135,14 +135,20 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, measurer
     info = do_account(servers, user, password, pick)
     session = requests.Session()
     prober = prober or (lambda url: probe(session, url))
-    measurer = measurer or (lambda url: video_res.measure(session, url))
+    # Probar y medir con un solo pedido: una segunda conexión enseguida puede rebotar por el límite de conexiones.
+    measurer = measurer or (lambda url: probe(session, url, lambda r, head: video_res.measure(session, url, first=(r, head))))
     results, res, rejects, started = {}, {}, 0, clock()
     aborted = False
     for cid, ext, want_res in items:
         if clock() - started > budget_s:
             break
         url = build_stream_url(info['server'], user, password, cid, ext)
-        result = prober(url)
+        wh = None
+        measuring = want_res and budget_s - (clock() - started) > MEASURE_RESERVE_S
+        if measuring:
+            result, wh = measurer(url)
+        else:
+            result = prober(url)
         if result == 'rejected':
             rejects += 1
             if rejects >= REJECTS_TO_ABORT:
@@ -152,8 +158,7 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, measurer
             continue
         rejects = 0
         results[cid] = result
-        if want_res and result == 'up' and budget_s - (clock() - started) > MEASURE_RESERVE_S:
-            wh = measurer(url)
+        if measuring and result == 'up':
             res[cid] = list(wh) if wh else None
     return {**info, 'results': results, 'res': {} if aborted else res, 'aborted': aborted}
 

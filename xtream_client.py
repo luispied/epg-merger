@@ -138,15 +138,23 @@ def pick_server(servers, username, password):
     return None, None
 
 
-def probe(session, url):
-    """'up', 'down' o 'rejected' (la cuenta, no el canal: usuario, límite de conexiones, bloqueo)."""
+REJECT_STATUS = (401, 403, 407, 429, 458, 884)
+
+
+def probe(session, url, measure=None):
+    """'up', 'down' o 'rejected' (la cuenta, no el canal: usuario, límite de conexiones, bloqueo).
+
+    Con `measure(response, head)`, si el canal anda se le pasa la misma conexión abierta y devuelve (resultado, medida)."""
     try:
         with session.get(url, stream=True, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), allow_redirects=True) as r:
-            if r.status_code in (401, 403, 429, 458, 884) or r.status_code == 407:
-                return 'rejected'
+            if r.status_code in REJECT_STATUS:
+                return ('rejected', None) if measure else 'rejected'
             if r.status_code != 200:
-                return 'down'
-            head = next(r.iter_content(1024), b'')
-            return 'up' if (b'#EXTM3U' in head or head[:1] == b'\x47') else 'down'
+                return ('down', None) if measure else 'down'
+            head = next(r.iter_content(4096 if measure else 1024), b'')
+            up = b'#EXTM3U' in head or head[:1] == b'\x47'
+            if not measure:
+                return 'up' if up else 'down'
+            return ('up', measure(r, head)) if up else ('down', None)
     except requests.RequestException:
-        return 'down'
+        return ('down', None) if measure else 'down'

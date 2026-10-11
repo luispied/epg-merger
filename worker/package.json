@@ -1,7 +1,7 @@
 {
   "name": "grilla-worker",
   "private": true,
-  "version": "1.36.3",
+  "version": "1.36.4",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

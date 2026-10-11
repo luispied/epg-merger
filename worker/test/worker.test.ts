@@ -1083,7 +1083,8 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     bucket.data.set(`healthreq/${t.cfgId}.json`, { value: JSON.stringify({ at: new Date(now.getTime() + 7200_000).toISOString() }) });
     assert.equal(await checkAllHealth(t.env, new Date(now.getTime() + 9000_000)), 1);
     assert.equal(health().channels['2'].fails, 2);
-    // Al día siguiente ya no se mide nada (1 y 3 son de esta semana; 2 está caído).
+    // En la prueba a mano de un rato después no se mide nada (1 es de esta semana, 3 se reintenta en la próxima prueba
+    // diaria, 2 está caído).
     assert.ok(calls.filter((c) => c.path === '/v1/probe').slice(1).every((c) => c.body.channels!.every((x) => !x.res)));
     assert.equal(health().res['1'].w, 1920);
     // Si la cuenta rechaza, no se anota nada de los canales y no se insiste hasta el día siguiente.
@@ -1124,9 +1125,11 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
   assert.deepEqual(pickBatch([ch('b'), ch('a'), ch('c')], { a: old('2026-01-02'), c: old('2026-01-01') }, 2).map((c) => c.id), ['b', 'c']);
   assert.deepEqual(visibleChannels(channels, parseConfig({ provider: { type: 'xtream', servers: [S1] }, channels: { Canal_: {} }, groups: { hidden: ['Aire'] } })).length, 0);
   assert.equal(isDue(null, undefined, now), true);
-  const week = (ms: number) => ({ t: new Date(now.getTime() - ms).toISOString() });
+  const week = (ms: number) => ({ t: new Date(now.getTime() - ms).toISOString(), w: 1280, h: 720 });
   assert.deepEqual([...needsRes([ch('a'), ch('b'), ch('c'), ch('d')], { b: { t: '', ok: false, fails: 1 } }, { c: week(RES_EVERY_MS - 1000), d: week(RES_EVERY_MS) }, now)], ['a', 'd']);
-  assert.equal(needsRes(Array.from({ length: 20 }, (_, k) => ch(String(k))), {}, {}, now).size, 8);
+  assert.equal(needsRes(Array.from({ length: 40 }, (_, k) => ch(String(k))), {}, {}, now).size, 25);
+  // Lo que no se pudo saber se reintenta en la próxima prueba diaria, no a la semana.
+  assert.deepEqual([...needsRes([ch('x'), ch('y')], {}, { x: { t: new Date(now.getTime() - 21 * 3600_000).toISOString() }, y: { t: new Date(now.getTime() - 19 * 3600_000).toISOString() } }, now)], ['x']);
   assert.equal(isDue({ checked: now.toISOString() }, undefined, new Date(now.getTime() + 19 * 3600_000)), false);
   assert.equal(isDue({ checked: now.toISOString() }, new Date(now.getTime() + 1000).toISOString(), new Date(now.getTime() + 2000)), true);
 });

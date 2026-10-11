@@ -77,3 +77,19 @@ def test_si_no_se_puede_saber_devuelve_none():
         def get(self, *a, **k):
             raise OSError('cortado')
     assert video_res.measure(Boom(), 'http://p/x.ts') is None
+
+
+def test_probar_y_medir_usa_un_solo_pedido():
+    import xtream_client
+    s = Session({'http://p/1.ts': (200, ts('h264_1080'))})
+    measure = lambda r, head: video_res.measure(s, 'http://p/1.ts', first=(r, head))  # noqa: E731
+    assert xtream_client.probe(s, 'http://p/1.ts', measure) == ('up', (1920, 1080))
+    assert s.asked == ['http://p/1.ts']
+    media = b'#EXTM3U\n#EXTINF:10,\nseg/1.ts\n'
+    s = Session({'http://p/2.m3u8': (200, media), 'http://p/seg/1.ts': (200, ts('h264_720'))})
+    measure = lambda r, head: video_res.measure(s, 'http://p/2.m3u8', first=(r, head))  # noqa: E731
+    assert xtream_client.probe(s, 'http://p/2.m3u8', measure) == ('up', (1280, 720))
+    assert s.asked == ['http://p/2.m3u8', 'http://p/seg/1.ts']
+    assert xtream_client.probe(Session({}), 'http://p/3.ts', measure) == ('down', None)
+    assert xtream_client.probe(Session({'http://p/1.ts': (403, b'')}), 'http://p/1.ts', measure) == ('rejected', None)
+    assert xtream_client.probe(Session({'http://p/1.ts': (200, ts('h264_720'))}), 'http://p/1.ts') == 'up'

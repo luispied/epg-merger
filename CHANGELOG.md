@@ -11,7 +11,7 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
-## 1.36.3
+## 1.36.4
 
 - La **barra de abajo** ya no deja leer lo que pasa por detrás: es más sólida y la lista se desvanece antes de llegar a ella.
 - En la **Guía**, la hora actual ya no tapa la marca de la media hora, y los programas muy cortos se ven como una franja sin texto (tocala para ver cuál es) en vez de letras sueltas.
@@ -22,6 +22,12 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - Con «reducir movimiento» activado, el círculo de «cargando» sigue girando (más lento) y no parece colgado.
 - Los avisos que aparecen dentro de una hoja también los lee el lector de pantalla.
 - Interno: estilos sin uso borrados, el hover de todo `web.css` solo con mouse (`@media (hover: hover)`), `ui/mono.ts` con las iniciales compartidas. Tests nuevos en `e2e/guide.spec.ts` y `e2e/ver.spec.ts`.
+
+## 1.36.3
+
+- Las etiquetas de resolución (SD, HD, FHD, 4K) se completan mucho más rápido: unos 100 canales por día en vez de 32, y si un canal no se pudo medir se vuelve a intentar al día siguiente en vez de a la semana.
+- Con la Guía abierta, las etiquetas aparecen apenas llegan, sin tener que cambiar de pestaña.
+- Interno: el relay prueba y mide cada canal con un solo pedido. Antes abría una segunda conexión enseguida, y con cuentas de pocas conexiones el proveedor podía rebotarla y la medición quedaba vacía por una semana.
 
 ## 1.36.2
 
