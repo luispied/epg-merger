@@ -16,6 +16,7 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - **Nowline abre con su logo, como las apps del celular.** Al abrir la app (y el modo ver) se ve el ícono con «nowline» en el centro, en claro u oscuro según tu tema, y se va con un fundido apenas está lista tu pantalla. No suma espera: la app carga debajo, y no vuelve a aparecer al navegar ni al recargar.
 - **Instalada en el celular, sin pantallazo negro ni blanco.** En Android el inicio del sistema usa el fondo de la app, y en el iPhone, desde la pantalla de inicio, aparece el mismo logo antes de que cargue la página.
 - Interno: las imágenes de inicio del iPhone se arman con `npm run splash-images` (`splash-images.mjs`, en `web/img/splash/`).
+
 ## 1.39.2
 
 - Interno: la corrida sube a R2 solo los archivos que cambiaron: compara cada uno con el que ya está (`tools/r2_sync.py`) en vez de volver a subir todo. Lo mismo al armar la guía de una configuración nueva entre corridas, que antes volvía a subir los ~270 mapas de imágenes cada vez.
