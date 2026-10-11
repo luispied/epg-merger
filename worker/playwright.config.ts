@@ -6,6 +6,8 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   reporter: process.env.CI ? 'github' : 'list',
+  // La prueba de capturas (e2e/visual.spec.ts) guarda en SNAP_DIR, si está, para comparar main con un PR en el CI.
+  ...(process.env.SNAP_DIR ? { snapshotPathTemplate: `${process.env.SNAP_DIR}/{projectName}/{arg}{ext}` } : {}),
   use: { baseURL: 'http://127.0.0.1:4173', serviceWorkers: 'block', locale: 'es-UY' },
   projects: [
     { name: 'iphone', use: { ...devices['iPhone 13'], browserName: 'chromium' } },

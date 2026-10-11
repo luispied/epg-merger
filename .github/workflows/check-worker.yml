@@ -36,3 +36,51 @@ jobs:
       run: |
         npx playwright install --with-deps chromium
         npx playwright test
+
+  # Prueba de capturas (worker/e2e/visual.spec.ts): las pantallas principales de main y del PR, sacadas en esta misma
+  # máquina con la misma prueba (la del PR), y comparadas. No hay capturas guardadas en el repo. Es informativa: no
+  # frena el PR; si algo cambió a la vista, el resumen lo dice y las diferencias quedan en el artifact «capturas».
+  visual:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.base.sha }}
+        path: base
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Capturas de main (con la prueba del PR)
+      working-directory: base/worker
+      run: |
+        cp ../../worker/playwright.config.ts .
+        cp ../../worker/e2e/visual.spec.ts ../../worker/e2e/fake-worker.ts ../../worker/e2e/serve.mjs e2e/
+        npm ci --no-audit --no-fund
+        node build.mjs
+        npx playwright install --with-deps chromium
+        VISUAL=1 SNAP_DIR="$RUNNER_TEMP/snap" npx playwright test e2e/visual.spec.ts --update-snapshots --reporter=line
+    - name: Capturas del PR, comparadas
+      working-directory: worker
+      run: |
+        npm ci --no-audit --no-fund
+        node build.mjs
+        code=0
+        VISUAL=1 SNAP_DIR="$RUNNER_TEMP/snap" npx playwright test e2e/visual.spec.ts --reporter=line || code=$?
+        n=$(find test-results -name '*-diff.png' 2>/dev/null | wc -l)
+        {
+          echo "## Prueba de capturas"
+          if [ "$n" -eq 0 ] && [ "$code" -eq 0 ]; then echo "Ninguna pantalla cambió a la vista respecto de main."
+          elif [ "$n" -eq 0 ]; then echo "La prueba falló antes de comparar (una pantalla no llegó a abrirse): ver el log de este paso."
+          else
+            echo "**$n capturas cambiaron** respecto de main (las diferencias, en el artifact «capturas»):"
+            find test-results -name '*-diff.png' | sed -E 's|.*-(iphone\|escritorio)/(.*)-diff\.png|- \2 (\1)|' | sort
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: capturas
+        path: worker/test-results/**/*.png
+        if-no-files-found: ignore
