@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.39.3
+
+- **La Guía gasta mucho menos datos.** Baja la programación de cada hora solo de tus canales, unos 27 KB en vez de unos 400 KB de toda la guía. Lo mismo en el modo ver y en el chequeo de qué canales dan programación.
+- Interno: la corrida y la guía de una configuración nueva arman ese índice por configuración (`tools/pack_schedule.py --configs`, `ui/schedule/cfg/<cfgId>`). Mientras no está al día con la configuración, el Worker entrega el de toda la guía.
+- Worker: `GET /api/cfg/<id>/hour/<hora>.json` y `GET /api/view/<código>/hour/<hora>.json`.
+- Tests del índice por configuración (Python y Worker); los tests de pantalla aceptan las dos rutas.
+
 ## 1.39.2
 
 - Interno: la corrida sube a R2 solo los archivos que cambiaron: compara cada uno con el que ya está (`tools/r2_sync.py`) en vez de volver a subir todo. Lo mismo al armar la guía de una configuración nueva entre corridas, que antes volvía a subir los ~270 mapas de imágenes cada vez.

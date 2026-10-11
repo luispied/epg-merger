@@ -23,6 +23,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config_epgs  # noqa: E402
+import pack_schedule  # noqa: E402
 import r2_sync  # noqa: E402
 import shared_guide  # noqa: E402
 
@@ -75,6 +76,20 @@ def upload_media_maps(client, bucket, merged, tmp):
     return count
 
 
+def upload_hour_packs(client, bucket, merged, configs, tmp):
+    """El índice por hora de cada configuración (ui/schedule/cfg/<cfgId>, tools/pack_schedule.py). Mientras no
+    está al día, el Worker entrega el de toda la guía: esto solo lo achica antes de la corrida diaria."""
+    if not configs:
+        return 0
+    src = pack_schedule.hours_from_merged(merged, os.path.join(tmp, 'schedule'))
+    dst = os.path.join(tmp, 'schedule_cfg')
+    pack_schedule.pack_configs(configs, src, dst)
+    for cfg_id in configs:
+        client.upload_file(os.path.join(dst, cfg_id), bucket, f'ui/schedule/cfg/{cfg_id}',
+                           ExtraArgs={'ContentType': 'application/octet-stream'})
+    return len(configs)
+
+
 def stale(configs, epgs):
     """Configuraciones sin guía o con una guía más vieja que la configuración."""
     return sorted(c for c, modified in configs.items() if c not in epgs or epgs[c] < modified)
@@ -109,11 +124,13 @@ def main():
         for cfg_id in todo:
             client.download_file(bucket, f'cfg/{cfg_id}.json', os.path.join(cfg_dir, f'{cfg_id}.json'))
         out_dir = os.path.join(tmp, 'epg')
-        config_epgs.build(config_epgs.load_configs(cfg_dir), merged, out_dir)
+        configs = config_epgs.load_configs(cfg_dir)
+        config_epgs.build(configs, merged, out_dir)
         for cfg_id in todo:
             path = os.path.join(out_dir, f'{cfg_id}.xml.gz')
             if os.path.exists(path):
                 client.upload_file(path, bucket, f'epg/{cfg_id}.xml.gz', ExtraArgs={'ContentType': 'application/gzip'})
+        upload_hour_packs(client, bucket, merged, {c: configs[c] for c in todo if c in configs}, tmp)
     print(f'✅ Guía armada para {len(todo)} configuración(es)')
     return 0
 

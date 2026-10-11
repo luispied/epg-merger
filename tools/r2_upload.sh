@@ -9,6 +9,7 @@
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
 #   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
 #   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
+#   ui/schedule/cfg/<cfgId>    la de cada hora con solo los canales de esa configuración
 #   logo/map/<x>.json         {clave: url} de los logos de canal, en gzip como el índice y img/map (privado; el Worker los sirve por /logo/<clave>
 #                              y guarda cada uno en logo/img/<clave> la primera vez)
 #   img/map/<xx>.json          lo mismo para las imágenes de programa (/img/<clave>, sin guardarlas)
@@ -62,6 +63,9 @@ echo "✅ Subido a R2 ($BUCKET)"
 rm -rf out/cfgs out/cfg_epg
 s3 sync "$BUCKET/cfg" out/cfgs --exclude '*' --include '*.json'
 python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg
+# El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular.
+python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
+[ -d out/schedule_cfg ] && sync out/schedule_cfg ui/schedule/cfg --delete
 if [ -d out/cfg_epg ]; then
   sync out/cfg_epg epg --delete --type application/gzip
   echo "✅ Guías de Grilla web subidas"
