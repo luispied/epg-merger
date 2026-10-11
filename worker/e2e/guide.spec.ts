@@ -149,7 +149,7 @@ test('Próximos: lo que viene y «Tengo tiempo»', async ({ page }) => {
 
 test('Tu mañana/tarde/noche: arma el plan con la programación de los canales', async ({ page }) => {
   await page.locator('#tabGuide').click();
-  const tab = page.getByRole('radio', { name: /^Tu (mañana|tarde|noche|madrugada)$/ });
+  const tab = page.getByRole('radio', { name: 'Tu plan' });
   await tab.click();
   await expect(tab).toHaveAttribute('aria-checked', 'true');
   const slot = page.locator('.gd-plan-slot', { hasText: 'Película de la noche' });
@@ -169,4 +169,14 @@ test('el ? de la Guía abre su ayuda', async ({ page }, info) => {
   await expect(help.locator('.help-topic[data-topic="main"]')).toBeHidden();
   await expect(help).toContainText('Próximos y Tengo tiempo');
   await page.screenshot({ path: `test-results/ayuda-guia-${info.project.name}.png`, animations: 'disabled' });
+});
+
+test('abierta pasada la media hora, el esqueleto se va cuando llegan los programas', async ({ page }) => {
+  // A las y 40 la grilla arranca en una media hora (hace una hora, redondeado a 30 min): el esqueleto tiene que buscar
+  // la hora entera que la contiene, si no se queda tapando los programas para siempre.
+  await page.clock.setFixedTime(new Date((H + 40 * 60) * 1000));
+  await page.reload();
+  await page.locator('#tabGuide').click();
+  await expect(page.locator('#guide .gd-cell:not(.skel)', { hasText: 'Noticiero central' })).toBeVisible();
+  await expect(page.locator('#guide .gd-cell.skel')).toHaveCount(0);
 });

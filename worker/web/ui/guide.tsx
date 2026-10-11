@@ -259,8 +259,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
 
   // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
   // lugar, en vez de quedar vacía.
+  // Las claves de `hours` son horas enteras; t0 puede caer en una media hora, así que se parte de la hora que lo contiene.
   const pendingHours: number[] = [];
-  for (let h = Math.max(t0, Math.floor(visFrom / HOUR) * HOUR); h < Math.min(t1, visTo); h += HOUR) {
+  for (let h = Math.floor(Math.max(t0, visFrom) / HOUR) * HOUR; h < Math.min(t1, visTo); h += HOUR) {
     const v = hours.get(h);
     if (v === undefined || v === 'loading') pendingHours.push(h);
   }
@@ -359,9 +360,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
         </div>
         <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
-          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', `Tu ${partOfDay(now).name}`]] as [Mode, string][]).map(([m, label]) => (
+          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', 'Tu plan']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>
-              {mode === m && <Icon name="check" class="sm" />}{label}
+              {label}
             </button>
           ))}
         </div>
@@ -422,7 +423,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                   {r.ch.epg
                     ? [...progsOf(r.ch.epg).filter((p) => p.e > visFrom && p.s < visTo).map((p) => cell(r.ch, p)),
                       ...pendingHours.map((h) => <span key={`s${h}`} class="gd-cell skel" aria-hidden="true"
-                        style={{ left: `${x(h) + 2}px`, width: `${(HOUR / 60) * PX - 4}px` }} />)]
+                        style={{ left: `${x(Math.max(h, t0)) + 2}px`, width: `${((Math.min(h + HOUR, t1) - Math.max(h, t0)) / 60) * PX - 4}px` }} />)]
                     : (
                       <button type="button" class={`gd-cell gap${r.ch.quiet ? ' quiet' : ''}`} style={{ left: `${Math.max(lx, 0) + 2}px`, width: `${view.w - CHW - 4}px` }}
                         onClick={() => host.openChannel(r.ch.i)}>
@@ -572,7 +573,7 @@ export function partOfDay(t: number): Part {
   return cur.end - t < 90 * 60 ? at((i < 0 ? 0 : i) + 1) : cur;
 }
 
-const FILLER = /paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
+const FILLER = /canal no disponible|se[ñn]al no disponible|paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
 const LIVE = /\b(en vivo|vivo|live|vs\.?|final|semifinal|cl[aá]sico|gran premio|grand prix)\b/i;
 const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
 const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
@@ -890,7 +891,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
       return;
     }
     if (quiet) return;
-    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu noche.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
+    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu plan.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
@@ -900,7 +901,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
     </button>
   );
   return (
-    <div class="gd-taste" role="group" aria-label="Para Tu noche">
+    <div class="gd-taste" role="group" aria-label="Para Tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
     </div>
