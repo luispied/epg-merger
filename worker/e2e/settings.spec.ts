@@ -34,8 +34,9 @@ test('muestra la guía, los avisos y la versión', async ({ page }) => {
   await expect(s.getByRole('button', { name: /Salud de la guía/ })).toContainText('Todavía no hay datos de programación');
   // El Worker tiene avisos: aparece el interruptor (Chromium sin pantalla los da por bloqueados).
   await expect(s.locator('.menu-row', { hasText: 'Avisos' })).toContainText('Bloqueados: activalos en los ajustes del sitio del navegador');
-  await expect(s.getByRole('switch')).toBeDisabled();
-  await expect(s.getByRole('switch')).not.toBeChecked();
+  const avisos = s.locator('.menu-row', { hasText: 'Avisos' }).getByRole('switch');
+  await expect(avisos).toBeDisabled();
+  await expect(avisos).not.toBeChecked();
   await expect(s.locator('.app-version')).toHaveText(/^Grilla \d+\.\d+\.\d+/);
   // Sin datos de programación, la salud lo dice en vez de filtrar.
   await s.getByRole('button', { name: /Salud de la guía/ }).click();
@@ -77,4 +78,19 @@ test('usar en otro dispositivo abre Perfil en esa página', async ({ page }) => 
   await expect(sheet(page)).toBeHidden();
   await expect(page.locator('#linksDialog')).toBeVisible();
   await expect(page.locator('#linksTitle')).toHaveText('Otro dispositivo');
+});
+
+test('letra grande agranda toda la app y queda elegida en este dispositivo', async ({ page }) => {
+  await openSettings(page);
+  const big = sheet(page).locator('.menu-row', { hasText: 'Letra grande' }).getByRole('switch');
+  await expect(big).not.toBeChecked();
+  await expect(page.locator('html')).not.toHaveAttribute('data-text', 'lg');
+  await big.check();
+  await expect(page.locator('html')).toHaveAttribute('data-text', 'lg');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).zoom)).toBe('1.12');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-text', 'lg');
+  await openSettings(page);
+  await sheet(page).locator('.menu-row', { hasText: 'Letra grande' }).getByRole('switch').uncheck();
+  await expect(page.locator('html')).not.toHaveAttribute('data-text', 'lg');
 });

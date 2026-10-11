@@ -116,6 +116,7 @@ function Settings({ summary }: { summary: string }) {
   const [logos, setLogos] = useState(logosOn);
   const [startFilter, setStartFilter] = useState(() => pref('grilla_start_filter', 'last'));
   const [theme, setTheme] = useState(savedTheme);
+  const [bigText, setBigText] = useState(() => document.documentElement.dataset.text === 'lg');
 
   useEffect(() => {
     void loadHealth().then(() => setHealth(healthText()));
@@ -201,6 +202,17 @@ function Settings({ summary }: { summary: string }) {
               onChange={(ev) => { void setPush(ev.currentTarget.checked).then(refreshPush); }} />
           </label>
         )}
+        <label class="menu-row static">
+          <span class="menu-icon"><Icon name="a-large-small" /></span>
+          <span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span>
+          <input type="checkbox" class="switch" role="switch" checked={bigText} onChange={(ev) => {
+            const on = ev.currentTarget.checked;
+            setBigText(on);
+            setPref('grilla_text', on ? 'lg' : '');
+            if (on) document.documentElement.dataset.text = 'lg';
+            else delete document.documentElement.dataset.text;
+          }} />
+        </label>
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="image" /></span>
           <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos</small></span>

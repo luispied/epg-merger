@@ -27,6 +27,16 @@
   --accent-soft: light-dark(#ffe3b8, #3d2d09);
   --on-accent-soft: light-dark(#3b2400, #ffd98a);
 
+  /* El botón principal: el mismo ámbar en los dos temas (con texto casi negro) */
+  --amber: #ffb224;
+  --on-amber: #1d1300;
+
+  /* Fondos fijos: el recuadro de los logos con imagen (claro también en el tema oscuro, porque las fuentes traen logos
+     oscuros y claros) y el del código QR (siempre blanco, para que lo lea cualquier cámara) */
+  --logo-tile: light-dark(#f2f2f7, #e5e5ea);
+  --logo-ink: light-dark(#aeaeb2, #8e8e93);
+  --qr-bg: #ffffff;
+
   /* Estados */
   --green: light-dark(#17683a, #52d49a);
   --live: var(--green); /* lo que pasa ahora (en el aire, en vivo): siempre verde, nunca ámbar */
@@ -55,6 +65,7 @@
   /* Medidas de la app */
   --gutter: calc(16px + env(safe-area-inset-left, 0px));
   --tab-h: 56px;
+  --rail-w: 92px; /* barra lateral de las pestañas en el escritorio ancho */
 
   /* Escalas (las pantallas las van adoptando; ver planes/auditoria-diseno.md) */
   --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 28px;
