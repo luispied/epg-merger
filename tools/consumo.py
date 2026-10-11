@@ -132,7 +132,9 @@ def fly(token, day, get=requests.get):
     end = datetime.datetime.combine(day + datetime.timedelta(days=1), datetime.time(), datetime.timezone.utc)
     month_h = max(1, int((end - end.replace(day=1)).total_seconds() // 3600))
     base = f'https://api.fly.io/prometheus/{FLY_ORG}/api/v1/query'
-    headers = {'Authorization': f'Bearer {token}'}
+    # Los tokens de Fly vienen como «FlyV1 fm2_…» y van tal cual en el encabezado; los viejos, sin prefijo, con Bearer.
+    token = token.strip()
+    headers = {'Authorization': token if token.startswith('FlyV1 ') else f'Bearer {token}'}
 
     def q(expr):
         r = get(base, params={'query': expr, 'time': end.timestamp()}, headers=headers, timeout=TIMEOUT)
