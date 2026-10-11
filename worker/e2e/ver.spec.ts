@@ -138,7 +138,7 @@ test('un link quitado o sin código dice qué hacer', async ({ page }, info) => 
   await expect(page.locator('.vw-problem')).toContainText('Falta el código');
 });
 
-test('pegar el código para ver al abrir Grilla deja el dispositivo en modo ver, hasta salir', async ({ page }) => {
+test('pegar el código para ver al abrir Nowline deja el dispositivo en modo ver, hasta salir', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#onboarding')).toBeVisible();
   await page.locator('#homeLink').click();
@@ -146,7 +146,7 @@ test('pegar el código para ver al abrir Grilla deja el dispositivo en modo ver,
   await page.locator('#askCheck').click();
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-row')).toHaveCount(4);
-  // Abrir Grilla otra vez (el ícono de inicio) vuelve al modo ver.
+  // Abrir Nowline otra vez (el ícono de inicio) vuelve al modo ver.
   await page.goto('/');
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-who')).toContainText('Abuela');

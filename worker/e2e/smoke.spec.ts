@@ -19,8 +19,8 @@ test.afterEach(() => {
 
 test('arranca en la bienvenida', async ({ page }) => {
   await expect(page.locator('#onboarding')).toBeVisible();
-  await expect(page.locator('#onboarding .wordmark')).toHaveText('Grilla');
-  await expect(page.locator('#onboarding [data-version]')).toContainText('Grilla 1.');
+  await expect(page.locator('#onboarding .wordmark')).toContainText('Nowline');
+  await expect(page.locator('#onboarding [data-version]')).toContainText('Nowline 1.');
   // Los íconos se dibujan (hydrateIcons).
   await expect(page.locator('#demoBtn svg.icon')).toHaveCount(1);
 });

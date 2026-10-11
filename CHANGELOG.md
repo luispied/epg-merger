@@ -1,4 +1,4 @@
-# Cambios de Grilla web
+# Cambios de Nowline web
 
 La versión sigue [SemVer](https://semver.org/lang/es/) y vive en `worker/package.json`; se ve al pie de
 Configuración. Cada PR que cambia la web sube la versión y agrega una entrada acá:
@@ -10,6 +10,14 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 Lo que va acá también se muestra en la app («Novedades»), así que conviene escribirlo para quien la usa. No se muestran
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
+
+## 1.37.0
+
+- **Grilla ahora se llama Nowline.** Es el nombre con el que la app va a estar en el App Store y en Google Play. Tus canales, links, perfiles y códigos siguen igual: no hay que cambiar nada en el reproductor.
+- **Ícono nuevo**, con los colores de la app: la grilla de programación con la línea ámbar de «ahora» cruzando lo que se está dando. Se lee mejor en tamaños chicos, como la pestaña del navegador.
+- En Android, el ícono también tiene versión de un solo color para los íconos temáticos, y los avisos usan esa silueta.
+- El nombre arriba de la app va en minúscula, con el punto de la i en ámbar como el de la línea de «ahora».
+- Si ya la tenés en la pantalla de inicio: en Android el nombre y el ícono se actualizan solos; en iPhone y iPad se ven al quitarla y volver a agregarla desde Safari.
 
 ## 1.36.3
 

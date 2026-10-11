@@ -36,7 +36,7 @@ test('muestra la guía, los avisos y la versión', async ({ page }) => {
   await expect(s.locator('.menu-row', { hasText: 'Avisos' })).toContainText('Bloqueados: activalos en los ajustes del sitio del navegador');
   await expect(s.getByRole('switch')).toBeDisabled();
   await expect(s.getByRole('switch')).not.toBeChecked();
-  await expect(s.locator('.app-version')).toHaveText(/^Grilla \d+\.\d+\.\d+/);
+  await expect(s.locator('.app-version')).toHaveText(/^Nowline \d+\.\d+\.\d+/);
   // Sin datos de programación, la salud lo dice en vez de filtrar.
   await s.getByRole('button', { name: /Salud de la guía/ }).click();
   await expect(page.locator('.toast .msg')).toContainText('Todavía no hay datos de programación para comparar');

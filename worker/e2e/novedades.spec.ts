@@ -20,12 +20,12 @@ test('primera vez: no aparece, y queda anotada la versión', async ({ page }) =>
   expect(await page.evaluate(() => localStorage.getItem('grilla_seen_version'))).toMatch(/^\d+\.\d+\.\d+$/);
 });
 
-test('después de actualizar: «Grilla se actualizó» con lo nuevo, y no vuelve a aparecer', async ({ page }, info) => {
+test('después de actualizar: «Nowline se actualizó» con lo nuevo, y no vuelve a aparecer', async ({ page }, info) => {
   await page.addInitScript(() => { if (!sessionStorage.getItem('nv')) { sessionStorage.setItem('nv', '1'); localStorage.setItem('grilla_seen_version', '1.33.0'); } });
   await fakeWorker(page);
   await page.goto('/');
   await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page).locator('#nvTitle')).toHaveText('Grilla se actualizó');
+  await expect(sheet(page).locator('#nvTitle')).toHaveText('Nowline se actualizó');
   await expect(sheet(page).locator('.nv-ver h3').first()).toHaveText(/^Versión \d+\.\d+\.\d+$/);
   await expect(sheet(page).locator('.nv-ver h3')).not.toContainText(['Versión 1.33.0']);
   await expect(sheet(page).locator('.nv-list li').first()).not.toContainText('`');

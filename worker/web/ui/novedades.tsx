@@ -1,6 +1,6 @@
-// Novedades: al abrir Grilla después de una actualización, una hoja con lo nuevo de cada versión desde la última que
+// Novedades: al abrir Nowline después de una actualización, una hoja con lo nuevo de cada versión desde la última que
 // se vio en este navegador (sale de public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez
-// que se abre Grilla no se muestra nada: solo se anota la versión. También se abre desde Configuración.
+// que se abre Nowline no se muestra nada: solo se anota la versión. También se abre desde Configuración.
 import { render } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './icon.tsx';
@@ -95,7 +95,7 @@ function Sheet({ list, current, updated, close }: { list: Novedad[]; current: st
     <dialog class="sheet settings-sheet nv-sheet" ref={dlg} onClose={close} aria-labelledby="nvTitle">
       <div class="sheet-body">
         <div class="title-row">
-          <h2 id="nvTitle">{updated ? 'Grilla se actualizó' : 'Novedades'}</h2>
+          <h2 id="nvTitle">{updated ? 'Nowline se actualizó' : 'Novedades'}</h2>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
         {updated && <p class="nv-lead"><Icon name="sparkles" />Ya tenés la versión {current}. Esto es lo nuevo:</p>}
