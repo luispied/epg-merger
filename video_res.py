@@ -240,31 +240,41 @@ def _first_segment(text, base):
     return None
 
 
-def measure(session, url, clock=time.monotonic):
-    """(ancho, alto) del video del canal, o None si no se pudo saber (caído, otro códec, sin SPS en lo leído)."""
+def _from_response(session, r, head, clock, deadline):
+    """Sigue desde una respuesta ya abierta (con sus primeros bytes leídos): ((ancho, alto) o None, URL siguiente o None)."""
+    if head[:1] == b'\x47':
+        demux = TsDemuxer()
+        demux.feed(head)
+        return demux.result() or _read_ts(r, clock, deadline), None
+    if b'#EXTM3U' not in head:
+        return None, None
+    text = head + b''.join(r.iter_content(16 * 1024)) if len(head) == 4096 else head
+    text = text[:256 * 1024]
+    sizes = [(int(w), int(h)) for w, h in _RESOLUTION_RE.findall(text)]
+    if sizes:
+        return max(sizes, key=lambda wh: wh[1]), None
+    nxt = _first_segment(text.decode('utf-8', 'replace'), r.url)
+    return None, (nxt if clock() <= deadline else None)
+
+
+def measure(session, url, clock=time.monotonic, first=None):
+    """(ancho, alto) del video del canal, o None si no se pudo saber (caído, otro códec, sin SPS en lo leído).
+
+    `first`: (respuesta, primeros bytes) de un pedido ya abierto al canal, para no abrir otra conexión (el proveedor
+    cuenta las conexiones y una segunda enseguida puede rebotar)."""
     deadline = clock() + DEADLINE_S
     try:
+        if first is not None:
+            found, url = _from_response(session, first[0], first[1], clock, deadline)
+            if found or not url:
+                return found
         for _ in range(3):  # stream → playlist (maestro o de medios) → segmento
             with session.get(url, stream=True, timeout=TIMEOUT, allow_redirects=True) as r:
                 if r.status_code != 200:
                     return None
-                head = next(r.iter_content(4096), b'')
-                if head[:1] == b'\x47':
-                    demux = TsDemuxer()
-                    demux.feed(head)
-                    found = demux.result()
-                    return found or _read_ts(r, clock, deadline)
-                if b'#EXTM3U' not in head:
-                    return None
-                text = head + b''.join(r.iter_content(16 * 1024)) if len(head) == 4096 else head
-                text = text[:256 * 1024]
-                sizes = [(int(w), int(h)) for w, h in _RESOLUTION_RE.findall(text)]
-                if sizes:
-                    return max(sizes, key=lambda wh: wh[1])
-                url = _first_segment(text.decode('utf-8', 'replace'), r.url)
-                if not url or clock() > deadline:
-                    return None
+                found, url = _from_response(session, r, next(r.iter_content(4096), b''), clock, deadline)
+                if found or not url:
+                    return found
         return None
     except Exception:  # noqa: BLE001 — cualquier cosa rara del proveedor: no se sabe
         return None
-

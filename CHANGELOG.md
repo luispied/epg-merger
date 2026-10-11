@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.3
+
+- Las etiquetas de resolución (SD, HD, FHD, 4K) se completan mucho más rápido: unos 100 canales por día en vez de 32, y si un canal no se pudo medir se vuelve a intentar al día siguiente en vez de a la semana.
+- Con la Guía abierta, las etiquetas aparecen apenas llegan, sin tener que cambiar de pestaña.
+- Interno: el relay prueba y mide cada canal con un solo pedido. Antes abría una segunda conexión enseguida, y con cuentas de pocas conexiones el proveedor podía rebotarla y la medición quedaba vacía por una semana.
+
 ## 1.36.2
 
 - En la Guía, el **↻** de un programa que vuelve a empezar muestra la repetición más cercana. Cuando un programa repetía varias veces, a veces mostraba la de mañana y no la de hoy, y en la hoja del programa faltaban repeticiones.

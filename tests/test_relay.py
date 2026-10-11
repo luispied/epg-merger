@@ -175,19 +175,27 @@ def test_datos_de_la_cuenta_traen_la_zona_horaria_del_panel():
 def test_probe_mide_la_resolucion_solo_de_lo_pedido_y_que_anda():
     measured = []
 
-    def measurer(url):
+    probed = []
+
+    def prober(url):
+        probed.append(url.rsplit('/', 1)[1])
+        return 'up'
+
+    def measurer(url):  # prueba y mide con un solo pedido
         measured.append(url.rsplit('/', 1)[1])
-        return (1920, 1080) if '1.' in url else None
+        if '4.' in url:
+            return 'down', None
+        return 'up', ((1920, 1080) if '1.' in url else None)
     chans = [{'id': '1', 'ext': 'ts', 'res': True}, {'id': '2', 'ext': 'ts', 'res': True}, {'id': '3', 'ext': 'ts'},
              {'id': '4', 'ext': 'ts', 'res': True}]
-    out = server.do_probe(['http://s1'], 'u', 'p', chans, pick=lambda *a: ('http://s1', None),
-                          prober=lambda u: 'down' if '4.' in u else 'up', measurer=measurer)
-    assert measured == ['1.ts', '2.ts']
+    out = server.do_probe(['http://s1'], 'u', 'p', chans, pick=lambda *a: ('http://s1', None), prober=prober, measurer=measurer)
+    assert measured == ['1.ts', '2.ts', '4.ts'] and probed == ['3.ts']
+    assert out['results'] == {'1': 'up', '2': 'up', '3': 'up', '4': 'down'}
     assert out['res'] == {'1': [1920, 1080], '2': None}
 
 
 def test_probe_no_mide_si_queda_poco_tiempo():
     ticks = iter([0, 0, 40, 40, 40])
     out = server.do_probe(['http://s1'], 'u', 'p', [{'id': '1', 'ext': 'ts', 'res': True}], pick=lambda *a: ('http://s1', None),
-                          prober=lambda u: 'up', measurer=lambda u: (1, 1), clock=lambda: next(ticks), budget_s=45)
+                          prober=lambda u: 'up', measurer=lambda u: ('up', (1, 1)), clock=lambda: next(ticks), budget_s=45)
     assert out['results'] == {'1': 'up'} and out['res'] == {}
