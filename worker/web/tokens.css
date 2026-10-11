@@ -1,4 +1,4 @@
-/* Tokens de Grilla web: el único lugar que define colores, sombras, radios y escalas. El resto de los estilos (base.css
+/* Tokens de Nowline web: el único lugar que define colores, sombras, radios y escalas. El resto de los estilos (base.css
    y web.css) solo piden tokens con var(). Paleta «Guía de TV»: oscuro con acento ámbar por defecto; el claro es cálido
    (papel y ámbar oscuro). Colores por rol, al estilo Material 3: los componentes piden un rol, no un color.
 

@@ -1,6 +1,6 @@
 {
-  "name": "Grilla — Guía de canales",
-  "short_name": "Grilla",
+  "name": "Nowline — Guía de canales",
+  "short_name": "Nowline",
   "description": "Corregí el EPG, los nombres, las categorías y la visibilidad de los canales de tu playlist.",
   "lang": "es",
   "start_url": "./",
@@ -29,6 +29,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "img/icon-monochrome-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
     }
   ]
 }

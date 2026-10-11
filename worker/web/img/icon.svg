@@ -1,15 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c2e"/><stop offset="1" stop-color="#000"/></linearGradient></defs>
+  <!-- Nowline: la grilla de programación con la línea de «ahora». Los bloques claros son lo que está al aire. -->
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22252d"/><stop offset="1" stop-color="#0c0d10"/></linearGradient>
+    <mask id="m"><rect width="512" height="512" fill="#fff"/><line x1="262" y1="132" x2="262" y2="384" stroke="#000" stroke-width="34" stroke-linecap="round"/><circle cx="262" cy="120" r="30" fill="#000"/></mask></defs>
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <rect x="96" y="142" width="150" height="48" rx="12" fill="#f2f2f7"/>
-  <rect x="258" y="142" width="158" height="48" rx="12" fill="#c7c7cc"/>
-  <rect x="96" y="206" width="92" height="48" rx="12" fill="#8e8e93"/>
-  <rect x="200" y="206" width="118" height="48" rx="12" fill="#636366"/>
-  <rect x="330" y="206" width="86" height="48" rx="12" fill="#8e8e93"/>
-  <rect x="96" y="270" width="196" height="48" rx="12" fill="#c7c7cc"/>
-  <rect x="304" y="270" width="112" height="48" rx="12" fill="#f2f2f7"/>
-  <rect x="96" y="334" width="124" height="48" rx="12" fill="#636366"/>
-  <rect x="232" y="334" width="184" height="48" rx="12" fill="#8e8e93"/>
-  <line x1="244" y1="122" x2="244" y2="398" stroke="#ff9f0a" stroke-width="10" stroke-linecap="round"/>
-  <circle cx="244" cy="118" r="14" fill="#ff9f0a"/>
+  <g mask="url(#m)"><g fill="#3a3f4a"><rect x="104" y="150" width="120" height="60" rx="16"/><rect x="104" y="226" width="76" height="60" rx="16"/><rect x="336" y="226" width="72" height="60" rx="16"/><rect x="288" y="302" width="120" height="60" rx="16"/></g>
+  <g fill="#eceef2"><rect x="240" y="150" width="168" height="60" rx="16"/><rect x="196" y="226" width="124" height="60" rx="16"/><rect x="104" y="302" width="168" height="60" rx="16"/></g></g>
+  <line x1="262" y1="132" x2="262" y2="384" stroke="#ffb224" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="262" cy="120" r="22" fill="#ffb224"/>
 </svg>

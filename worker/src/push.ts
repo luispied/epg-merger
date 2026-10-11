@@ -291,7 +291,7 @@ export async function notifyNewVersion(env: Env): Promise<number> {
   if (!prev.notified || !isFeatureBump(prev.notified, cur.version)) return 0;
   const first = (cur.items[0] ?? '').replace(/\*\*/g, '');
   const body = first.length > 140 ? `${first.slice(0, 137).replace(/\s+\S*$/, '')}…` : first;
-  const message = { title: `Grilla se actualizó a ${cur.version}`, body: body || 'Tocá para ver lo nuevo', url: '/?novedades' };
+  const message = { title: `Nowline se actualizó a ${cur.version}`, body: body || 'Tocá para ver lo nuevo', url: '/?novedades' };
   const done = new Set<string>();
   let sent = 0;
   let cursor: string | undefined;

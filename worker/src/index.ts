@@ -170,7 +170,7 @@ async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: 
 /** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
  *  casi nunca llega a la pantalla). La guía y los streams siguen respondiendo 403. */
 function disabledPlaylist(origin: string, code: string): Response {
-  const text = `#EXTM3U\n#EXTINF:-1 tvg-id="" group-title="Grilla",⚠ Link desactivado: reactivalo en Grilla\n${origin}/s/${code}/desactivado.ts\n`;
+  const text = `#EXTM3U\n#EXTINF:-1 tvg-id="" group-title="Nowline",⚠ Link desactivado: reactivalo en Nowline\n${origin}/s/${code}/desactivado.ts\n`;
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
@@ -853,7 +853,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
     if (parts[0] === 'api') return await api(request, parts, env, ip, ctx, cache);
     // Lo que apunta el canal de aviso de un separador: no hay nada para reproducir.
     if (request.method === 'GET' && parts.length === 1 && parts[0] === 'sep') {
-      return new Response('Separador de sección de Grilla: no es un canal.\n', {
+      return new Response('Separador de sección de Nowline: no es un canal.\n', {
         headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     }
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {

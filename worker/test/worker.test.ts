@@ -493,7 +493,7 @@ test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo cor
   const offList = await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache);
   assert.equal(offList.status, 200);
   const offText = await offList.text();
-  assert.match(offText, /Link desactivado: reactivalo en Grilla/);
+  assert.match(offText, /Link desactivado: reactivalo en Nowline/);
   assert.equal(offText.match(/#EXTINF/g)?.length, 1);
   assert.equal((await handle(new Request(living.epgUrl), t.env, t.ctx, t.cache)).status, 403);
   assert.equal((await handle(new Request(`${BASE}/s/${living.code}/desactivado.ts`), t.env, t.ctx, t.cache)).status, 403);
@@ -1556,7 +1556,7 @@ test('versión nueva: la primera vez se anota, avisa solo cuando sube la versió
     novedades = [{ version: '1.35.0', items: ['**Novedades al actualizar.** Grilla cuenta qué cambió.'] }, ...novedades];
     assert.equal(await notifyNewVersion(t.env), 1);
     const msg = JSON.parse(await decryptPush(pushed[0], ua.privateKey, uaPublic, auth)) as { title: string; body: string; url: string };
-    assert.deepEqual(msg, { title: 'Grilla se actualizó a 1.35.0', body: 'Novedades al actualizar. Grilla cuenta qué cambió.', url: '/?novedades' });
+    assert.deepEqual(msg, { title: 'Nowline se actualizó a 1.35.0', body: 'Novedades al actualizar. Grilla cuenta qué cambió.', url: '/?novedades' });
     // La misma versión no se avisa dos veces.
     assert.equal(await notifyNewVersion(t.env), 0);
     assert.equal(pushed.length, 1);

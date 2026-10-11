@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c0d10" media="(prefers-color-scheme: dark)">
-<title>Grilla</title>
+<title>Nowline</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Grilla">
+<meta name="apple-mobile-web-app-title" content="Nowline">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest?v=__VERSION__">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
@@ -30,14 +30,14 @@
 <!-- Primera vez: conectar el proveedor. -->
 <section id="onboarding" hidden>
   <header class="app-header">
-    <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark">Grilla</span></h1></div>
+    <div class="title-row"><h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1></div>
     <p class="hero">Tu lista IPTV, con la guía bien puesta</p>
     <p class="lead">Ordená tus canales, asignales la guía de programación y copiá dos links para tu reproductor. Sin registrarte: queda guardado en este navegador.</p>
     <details class="how-wrap">
       <summary>Cómo funciona</summary>
       <ol class="how">
         <li><span class="how-n">1</span><span><b>Conectá tu lista</b><small>Tu proveedor (Xtream) o la dirección de tu lista M3U.</small></span></li>
-        <li><span class="how-n">2</span><span><b>Revisá y ordená</b><small>Grilla busca la guía de cada canal; vos corregís, renombrás y ordenás.</small></span></li>
+        <li><span class="how-n">2</span><span><b>Revisá y ordená</b><small>Nowline busca la guía de cada canal; vos corregís, renombrás y ordenás.</small></span></li>
         <li><span class="how-n">3</span><span><b>Copiá tus links</b><small>Una playlist y una guía que se actualizan solas.</small></span></li>
       </ol>
     </details>
@@ -82,9 +82,9 @@
       <div class="status-bar" id="onboardStatus" hidden></div>
       <p class="help">Usuario y contraseña se guardan solo cifrados, junto a tus links de reproducción:
         no van en tu configuración ni en el respaldo.</p>
-      <p class="help">¿Ya usás Grilla en otro dispositivo o te pasaron un código para ver? <a href="#" id="homeLink">Pegá el código</a> o <a href="#" id="restoreLink">importá un respaldo</a>.</p>
+      <p class="help">¿Ya usás Nowline en otro dispositivo o te pasaron un código para ver? <a href="#" id="homeLink">Pegá el código</a> o <a href="#" id="restoreLink">importá un respaldo</a>.</p>
     </div>
-    <p class="help legal">Grilla no ofrece canales ni listas: organiza la lista que ya tenés. Las guías de programación vienen de fuentes públicas.</p>
+    <p class="help legal">Nowline no ofrece canales ni listas: organiza la lista que ya tenés. Las guías de programación vienen de fuentes públicas.</p>
     <p class="app-version" data-version></p>
   </main>
 </section>
@@ -94,7 +94,7 @@
   <header class="app-header">
     <div class="title-row">
       <span class="title-left">
-        <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark">Grilla</span></h1>
+        <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44"><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1>
         <button class="icon-btn help-btn" id="helpTopBtn" title="Ayuda" aria-label="Ayuda"><span data-icon="circle-help"></span></button>
       </span>
       <div class="header-actions">
@@ -226,15 +226,15 @@
     <div class="title-row">
       <span class="title-left">
         <button type="button" class="icon-btn" id="helpBack" aria-label="Volver" title="Volver" hidden><span data-icon="chevron-left"></span></button>
-        <h2 id="helpTitle">Cómo usar Grilla</h2>
+        <h2 id="helpTitle">Cómo usar Nowline</h2>
       </span>
       <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
 <div class="help-topic" data-topic="main">
-    <p>Grilla ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo (en una pantalla grande, a la izquierda) tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span>; esta es la de Canales.</p>
+    <p>Nowline ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo (en una pantalla grande, a la izquierda) tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span>; esta es la de Canales.</p>
 
     <details open>
-      <summary>¿Cómo pongo Grilla en mi reproductor?<span data-icon="chevron-down"></span></summary>
+      <summary>¿Cómo pongo Nowline en mi reproductor?<span data-icon="chevron-down"></span></summary>
       <p>En <b>Perfil</b> tocá un perfil (cuelga de su cuenta) y después <b>Agregar link</b>, con un nombre como «TV del living». Cada link son dos direcciones: la <b>playlist</b> y la <b>guía</b>. En TiviMate, IPTV Smarters o similar agregá una lista <i>M3U</i> con la primera y una guía <i>EPG</i> con la segunda. Con <b>Copiar o compartir</b> las copiás, te las mandás por WhatsApp o mail, o escaneás el código QR desde la tele.</p>
       <p>Un mismo link sirve para varios dispositivos: cargalo en cada uno. Los links <b>no cambian</b> aunque edites canales, perfiles o cuentas, así que el reproductor se carga una sola vez.</p>
     </details>
@@ -261,15 +261,15 @@
 
     <details>
       <summary>¿Cómo reviso los canales dudosos?<span data-icon="chevron-down"></span></summary>
-      <p>Cuando hay canales con una guía dudosa o ninguna (pero sí una sugerencia), arriba de la grilla aparece una tarjeta con cuántos son. Tocá <b>Empezar</b> y Grilla te los muestra de a uno, con una barra de progreso. También los ves todos juntos con el filtro <b>A revisar</b>.</p>
+      <p>Cuando hay canales con una guía dudosa o ninguna (pero sí una sugerencia), arriba de la grilla aparece una tarjeta con cuántos son. Tocá <b>Empezar</b> y Nowline te los muestra de a uno, con una barra de progreso. También los ves todos juntos con el filtro <b>A revisar</b>.</p>
       <p>En cada canal el pie tiene las decisiones: <b>Usar sugerencia</b> (o <b>Está bien</b> si la guía asignada es la correcta), <b>Sin guía</b> para dejarlo así a propósito y <b>Saltar</b> para verlo después. Cada respuesta pasa sola al canal siguiente. Si ninguna opción sirve, buscá otra guía en la misma hoja.</p>
     </details>
 
     <details>
       <summary>¿Cómo cambio la guía (EPG) de un canal?<span data-icon="chevron-down"></span></summary>
-      <p>Tocá el canal. Arriba está la <b>guía asignada</b>, con lo que está dando ahora y <b>Ver programación de hoy</b> (tocando un programa ves la descripción). Debajo, en <b>Otras opciones</b>, aparecen las alternativas que encontró Grilla con su porcentaje: <b>tocá una y queda elegida</b>.</p>
-      <p>Para otra guía, <b>buscá en toda la guía</b> por nombre del canal o por el programa que está dando: si ves un partido, buscá el partido. <b>Automática</b> vuelve a la guía que eligió Grilla y <b>Sin guía</b> lo deja así a propósito (mejor sin EPG que con uno equivocado). Con las flechas ‹ › de arriba pasás al canal anterior o siguiente de la lista que estabas viendo, sin cerrar la hoja.</p>
-      <p><b>Corregís una vez y alcanza:</b> si elegís o confirmás la guía de un canal, Grilla la repite en sus <b>variantes</b> (por ejemplo, el mismo canal en HD, FHD y 4K, del mismo país) que todavía tenían una guía dudosa o ninguna. El aviso dice en cuántas la aplicó y tiene «Deshacer». Las que ya elegiste vos no se tocan.</p>
+      <p>Tocá el canal. Arriba está la <b>guía asignada</b>, con lo que está dando ahora y <b>Ver programación de hoy</b> (tocando un programa ves la descripción). Debajo, en <b>Otras opciones</b>, aparecen las alternativas que encontró Nowline con su porcentaje: <b>tocá una y queda elegida</b>.</p>
+      <p>Para otra guía, <b>buscá en toda la guía</b> por nombre del canal o por el programa que está dando: si ves un partido, buscá el partido. <b>Automática</b> vuelve a la guía que eligió Nowline y <b>Sin guía</b> lo deja así a propósito (mejor sin EPG que con uno equivocado). Con las flechas ‹ › de arriba pasás al canal anterior o siguiente de la lista que estabas viendo, sin cerrar la hoja.</p>
+      <p><b>Corregís una vez y alcanza:</b> si elegís o confirmás la guía de un canal, Nowline la repite en sus <b>variantes</b> (por ejemplo, el mismo canal en HD, FHD y 4K, del mismo país) que todavía tenían una guía dudosa o ninguna. El aviso dice en cuántas la aplicó y tiene «Deshacer». Las que ya elegiste vos no se tocan.</p>
     </details>
 
     <details class="help-more"><summary class="help-more-sum">Más preguntas<span data-icon="chevron-down"></span></summary>
@@ -280,7 +280,7 @@
 
     <details>
       <summary>¿Qué son SD, HD, FHD y 4K?<span data-icon="chevron-down"></span></summary>
-      <p>Es la <b>resolución real</b> del canal, junto a su guía en Canales y en la Guía: <b>SD</b> (menos de 720 líneas), <b>HD</b> (720), <b>FHD</b> (1080) y <b>4K</b>. No sale del nombre del canal: Grilla la mide en el video que manda el proveedor, junto con la prueba de canales caídos: cada canal que anda una vez por semana, de a unos 100 canales por día, así que en una lista grande las etiquetas van apareciendo de a poco. Un canal nuevo, caído o que todavía no se midió no lleva etiqueta. Con el mouse encima ves el ancho × alto exacto.</p>
+      <p>Es la <b>resolución real</b> del canal, junto a su guía en Canales y en la Guía: <b>SD</b> (menos de 720 líneas), <b>HD</b> (720), <b>FHD</b> (1080) y <b>4K</b>. No sale del nombre del canal: Nowline la mide en el video que manda el proveedor, junto con la prueba de canales caídos: cada canal que anda una vez por semana, de a unos 100 canales por día, así que en una lista grande las etiquetas van apareciendo de a poco. Un canal nuevo, caído o que todavía no se midió no lleva etiqueta. Con el mouse encima ves el ancho × alto exacto.</p>
     </details>
 
     <details>
@@ -317,12 +317,12 @@
     <details>
       <summary>¿Cuándo se ven los cambios en el reproductor?<span data-icon="chevron-down"></span></summary>
       <p>Cada cambio se guarda solo. La <b>playlist</b> los tiene al instante. La <b>guía</b> se vuelve a armar en unos minutos: un aviso te dice cuándo está lista, y en <b>Configuración → Actualizar la guía ahora</b> (si está disponible) la pedís en el momento. Después, en el reproductor, actualizá la lista y la guía (o esperá a que lo haga solo).</p>
-      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): cada vez que tu reproductor pide la playlist y la lista guardada tiene más de 10 minutos, Grilla baja una nueva. Ese pedido sale con lo que había y el siguiente ya trae el canal: actualizá la lista en el reproductor.</p>
+      <p><b>Canales nuevos del proveedor</b> (por ejemplo, un partido que aparece en PPV): cada vez que tu reproductor pide la playlist y la lista guardada tiene más de 10 minutos, Nowline baja una nueva. Ese pedido sale con lo que había y el siguiente ya trae el canal: actualizá la lista en el reproductor.</p>
     </details>
 
     <details>
       <summary>La grilla no carga<span data-icon="chevron-down"></span></summary>
-      <p>Con datos móviles un pedido a veces se corta: Grilla lo reintenta solo. Si igual no carga, el aviso trae <b>Reintentar</b>, o tirá hacia abajo la grilla. Sin conexión seguís editando: tus cambios quedan en este dispositivo y se envían cuando vuelve la red.</p>
+      <p>Con datos móviles un pedido a veces se corta: Nowline lo reintenta solo. Si igual no carga, el aviso trae <b>Reintentar</b>, o tirá hacia abajo la grilla. Sin conexión seguís editando: tus cambios quedan en este dispositivo y se envían cuando vuelve la red.</p>
     </details>
 
     <details>
@@ -357,13 +357,13 @@
       </details>
       <details>
         <summary>Aprende lo que mirás<span data-icon="chevron-down"></span></summary>
-        <p>Cada vez que abrís un canal con un link de Grilla anotamos el canal, la hora y el programa que pasaba, y Tu noche sube lo de siempre: lo que mirás seguido, tus canales a esa hora y lo que tiene la campana. Debajo de cada sugerencia dice por qué está ahí («Lo mirás seguido», «Tu canal a esta hora»…).</p>
+        <p>Cada vez que abrís un canal con un link de Nowline anotamos el canal, la hora y el programa que pasaba, y Tu noche sube lo de siempre: lo que mirás seguido, tus canales a esa hora y lo que tiene la campana. Debajo de cada sugerencia dice por qué está ahí («Lo mirás seguido», «Tu canal a esta hora»…).</p>
         <p>Tocá un programa y elegí <b>No me interesa</b> para que no aparezca más en Tu noche, o <b>Más como esto</b> para que te lo sugiera más. Las dos se deshacen tocándolas otra vez. Cada perfil tiene sus gustos, también en el modo ver.</p>
       </details>
       <details>
         <summary>Elegir categorías<span data-icon="chevron-down"></span></summary>
         <p>Debajo de los modos, tocá una o varias categorías para ver solo esas (otra vez para sacarla; <b>Todas</b> vuelve a mostrar todo). Valen para Grilla, Próximos y Tu noche, y quedan elegidas en este dispositivo. Si tu lista tiene muchas, la fila muestra las elegidas y, después de la raya, las que tienen más canales con guía; <b>Más</b> abre todas, con buscador.</p>
-        <p>Si con las elegidas no alcanza para armar tu noche, Grilla dice desde qué hora no encontró nada y te ofrece <b>Sumar</b> otra o <b>Elegir otras</b>.</p>
+        <p>Si con las elegidas no alcanza para armar tu noche, Nowline dice desde qué hora no encontró nada y te ofrece <b>Sumar</b> otra o <b>Elegir otras</b>.</p>
       </details>
       <details>
         <summary>La hoja de un programa<span data-icon="chevron-down"></span></summary>
@@ -372,7 +372,7 @@
       </details>
     </div>
     <div class="help-topic" data-topic="settings" hidden>
-      <p>Acá se ajusta Grilla en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista) está en la pestaña <b>Perfil</b>.</p>
+      <p>Acá se ajusta Nowline en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista) está en la pestaña <b>Perfil</b>.</p>
       <details open>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
         <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una guía vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
@@ -391,11 +391,11 @@
       </details>
       <details>
         <summary>Tema, avisos, letra grande, logos y filtro al abrir<span data-icon="chevron-down"></span></summary>
-        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Avisos</b>: notificaciones cuando aparecen canales nuevos en tu lista, cuando se acerca el vencimiento de una cuenta, cuando Grilla suma una función nueva y para los programas que marcaste con la campana (solo si el servidor los tiene activados; en iPhone hay que instalar la app primero). <b>Letra grande</b>: agranda toda la app (letras, botones y filas) en este dispositivo. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
+        <p><b>Tema</b>: seguir al sistema, claro u oscuro. <b>Avisos</b>: notificaciones cuando aparecen canales nuevos en tu lista, cuando se acerca el vencimiento de una cuenta, cuando Nowline suma una función nueva y para los programas que marcaste con la campana (solo si el servidor los tiene activados; en iPhone hay que instalar la app primero). <b>Letra grande</b>: agranda toda la app (letras, botones y filas) en este dispositivo. <b>Mostrar logos</b>: apagalos para ahorrar datos (los canales muestran sus iniciales). <b>Filtro al abrir</b>: con qué filtro arranca la lista (por defecto, el último que usaste).</p>
       </details>
       <details>
         <summary>Novedades y versiones nuevas<span data-icon="chevron-down"></span></summary>
-        <p>Grilla se actualiza sola. Si sale una versión nueva con la app abierta, aparece <b>Hay una versión nueva de Grilla</b> con el botón <b>Actualizar</b>; al volver a abrirla, la hoja <b>Grilla se actualizó</b> cuenta qué cambió (tocá cada novedad para ver el detalle). Con los avisos activados, también te llega una notificación cuando hay una función nueva. Las novedades de las últimas versiones están siempre en <b>Ver novedades</b>, al pie de Configuración.</p>
+        <p>Nowline se actualiza sola. Si sale una versión nueva con la app abierta, aparece <b>Hay una versión nueva de Nowline</b> con el botón <b>Actualizar</b>; al volver a abrirla, la hoja <b>Nowline se actualizó</b> cuenta qué cambió (tocá cada novedad para ver el detalle). Con los avisos activados, también te llega una notificación cuando hay una función nueva. Las novedades de las últimas versiones están siempre en <b>Ver novedades</b>, al pie de Configuración.</p>
       </details>
       <details>
         <summary>¿Dónde quedan mi usuario y contraseña?<span data-icon="chevron-down"></span></summary>
@@ -427,7 +427,7 @@
         <summary>Cuentas: tu usuario y contraseña del proveedor<span data-icon="chevron-down"></span></summary>
         <p>Cada <b>cuenta</b> (la tuya o la de un familiar) muestra los días de suscripción y las <b>conexiones en uso</b> en este momento. La cuenta <b>en uso</b> lleva su inicial en la pestaña <b>Perfil</b> y es la que baja la lista y prueba los canales caídos. <b>Mantené apretada la pestaña</b> (o clic derecho) para cambiar de cuenta sin entrar.</p>
         <p>En su página están «Usar esta cuenta», sus perfiles, su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Si la cuenta en uso vence en 7 días o menos o tiene las conexiones llenas, aparece un aviso arriba de los canales.</p>
-        <p>Tocá <b>Conexiones en uso</b> para ver qué links están <b>mirando ahora</b> y qué canal abrió cada uno. El proveedor dice cuántas conexiones hay, no cuáles: Grilla ve cuándo un link abre un canal, no cuándo lo deja, así que un link figura mirando hasta 3 horas después. Si una conexión no aparece, puede ser otra app o dispositivo con la misma cuenta.</p>
+        <p>Tocá <b>Conexiones en uso</b> para ver qué links están <b>mirando ahora</b> y qué canal abrió cada uno. El proveedor dice cuántas conexiones hay, no cuáles: Nowline ve cuándo un link abre un canal, no cuándo lo deja, así que un link figura mirando hasta 3 horas después. Si una conexión no aparece, puede ser otra app o dispositivo con la misma cuenta.</p>
       </details>
       <details open>
         <summary>Perfiles: qué se ve, dentro de una cuenta<span data-icon="chevron-down"></span></summary>
@@ -445,7 +445,7 @@
       </details>
       <details>
         <summary>Modo ver: para alguien que solo mira<span data-icon="chevron-down"></span></summary>
-        <p>En la página de un perfil, <b>Compartir para ver</b> crea un <b>código para ver</b> (también está en <b>Usar en otro dispositivo → Ver tu código</b>). Quien lo pega al abrir Grilla, donde va el código de otro dispositivo, o abre el link directo o el QR, queda en modo «solo ver»: los canales de ese perfil con lo que dan ahora, letra grande, la Guía y las <b>conexiones en uso</b> de la cuenta. No puede cambiar nada ni ver tus cuentas ni tus links, y la app vuelve a abrir así hasta que toque <b>Salir del modo ver</b>.</p>
+        <p>En la página de un perfil, <b>Compartir para ver</b> crea un <b>código para ver</b> (también está en <b>Usar en otro dispositivo → Ver tu código</b>). Quien lo pega al abrir Nowline, donde va el código de otro dispositivo, o abre el link directo o el QR, queda en modo «solo ver»: los canales de ese perfil con lo que dan ahora, letra grande, la Guía y las <b>conexiones en uso</b> de la cuenta. No puede cambiar nada ni ver tus cuentas ni tus links, y la app vuelve a abrir así hasta que toque <b>Salir del modo ver</b>.</p>
         <p>Si en su tele dan otra cosa, en la hoja del canal toca <b>Lo que dan en la tele no es esto</b> y a vos te aparece el aviso «La guía de … no coincide» arriba de los canales, con <b>Cambiar guía</b> y <b>Resuelto</b>. <b>Hacer un código nuevo</b> o <b>Quitar el acceso</b> dejan sin efecto el código de antes; los links de reproducción no cambian.</p>
       </details>
       <details>
@@ -454,12 +454,12 @@
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), Grilla prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Grilla solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), Nowline prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: Nowline solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
         <p>La prueba, la suscripción y la lista del proveedor pasan por un servicio aparte que habla con tu proveedor. Si deja de responder, la fila dice <b>«sin probar desde hace 3 días»</b> y arriba de los canales aparece un aviso («La lista del proveedor no se actualiza desde hace 5 h»): mientras tanto todo sigue andando con lo último que se bajó, pero los canales nuevos y los datos de la cuenta van a tardar en aparecer.</p>
       </details>
       <details>
         <summary>Vencimiento y conexiones<span data-icon="chevron-down"></span></summary>
-        <p>Grilla lee del proveedor cuándo vence cada cuenta y cuántas conexiones permite (nunca muestra tu usuario ni tu contraseña). Las <b>conexiones en uso</b> se piden al momento cada vez que abrís Perfil. Con los avisos activados, Grilla te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan estos datos.</p>
+        <p>Nowline lee del proveedor cuándo vence cada cuenta y cuántas conexiones permite (nunca muestra tu usuario ni tu contraseña). Las <b>conexiones en uso</b> se piden al momento cada vez que abrís Perfil. Con los avisos activados, Nowline te avisa al cruzar los <b>7, 3 y 1 día</b> y el día que vence; si renovás, vuelve a avisar la próxima vez. No todos los proveedores informan estos datos.</p>
       </details>
       <details>
         <summary>¿Cambió la dirección del servicio de IPTV?<span data-icon="chevron-down"></span></summary>

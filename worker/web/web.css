@@ -620,7 +620,10 @@ body.selecting .row-in { padding-left: 12px; }
 
 /* ---- Etapa 1: alta con marca y camino a los links ---- */
 .app-header h1.brand { gap: 10px; }
-.wordmark { font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1; color: var(--text); }
+.wordmark { font-size: 24px; font-weight: 800; letter-spacing: -.035em; line-height: 1; color: var(--text); }
+/* El punto de la i es el de la línea de «ahora» del ícono: ámbar. */
+.wordmark .wm-i { position: relative; }
+.wordmark .wm-i::after { content: ""; position: absolute; left: 50%; top: .02em; width: .21em; height: .21em; margin-left: -.105em; border-radius: 50%; background: var(--accent); }
 .hero { margin: 16px 0 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; max-width: 640px; }
 #onboarding .app-header .lead { margin-top: 10px; }
 .hero-actions { margin: 4px 0 16px; display: flex; flex-direction: column; gap: 6px; }

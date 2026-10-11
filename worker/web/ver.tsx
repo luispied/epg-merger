@@ -256,7 +256,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>Grilla abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
+          <p>Nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
         </details>
       </div>
     </dialog>
@@ -287,7 +287,7 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
       <header class="app-header vw-head">
         <div class="title-row">
           <span class="title-left">
-            <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark">Grilla</span></h1>
+            <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1>
             <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
           <span class="vw-head-r">
@@ -305,20 +305,20 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
       <main class="vw-list">
         {!q.trim() && <Connections code={code} />}
         {out.length ? out : <div class="empty"><Icon name="inbox" class="lg" /><strong>Nada por acá</strong>{q ? `Nada coincide con “${q}”.` : 'Este perfil no tiene canales.'}</div>}
-        <p class="vw-foot">Grilla en modo «solo ver»: acá no se puede cambiar nada.
+        <p class="vw-foot">Nowline en modo «solo ver»: acá no se puede cambiar nada.
           <button type="button" class="link-btn" onClick={leave}>Salir del modo ver</button></p>
       </main>
     </>
   );
 }
 
-/** Salir del modo ver: este dispositivo deja de abrir Grilla así (para usarla con una configuración propia). */
+/** Salir del modo ver: este dispositivo deja de abrir Nowline así (para usarla con una configuración propia). */
 function leave() {
   if (!confirm('¿Salir del modo «solo ver» en este dispositivo? Para volver vas a necesitar el código otra vez.')) return;
   restart();
 }
 
-/** Volver al inicio de Grilla sin el código guardado (para pegar otro). */
+/** Volver al inicio de Nowline sin el código guardado (para pegar otro). */
 function restart() {
   try { localStorage.removeItem(CODE_KEY); } catch { /* sin storage */ }
   location.href = '/';
@@ -387,7 +387,7 @@ function App() {
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
 
-  if (!code) return <Problem title="Falta el código" text="Abrí Grilla y tocá «Pegá el código» con el que te pasaron." other />;
+  if (!code) return <Problem title="Falta el código" text="Abrí Nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
   if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
