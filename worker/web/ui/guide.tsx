@@ -95,7 +95,13 @@ function loadAgain(epgs: string[]): Promise<AgainMap> {
     .then((r) => (r.ok ? r.json() : null))
     .then((res: { ids: string[]; r: [number, number, [number, number][]][] } | null) => {
       const map: AgainMap = new Map();
-      for (const [i, s, later] of res?.r ?? []) map.set(`${res!.ids[i]}|${s}`, later.map(([j, s2]) => ({ epg: res!.ids[j], s: s2 })));
+      // Una misma emisión puede venir más de una vez (la guía trae dos títulos a la misma hora): se juntan, sin repetir,
+      // y quedan en orden para que el ↻ muestre la repetición más cercana.
+      for (const [i, s, later] of res?.r ?? []) {
+        const key = `${res!.ids[i]}|${s}`;
+        const all = [...map.get(key) ?? [], ...later.map(([j, s2]) => ({ epg: res!.ids[j], s: s2 }))];
+        map.set(key, all.filter((a, k) => all.findIndex((b) => b.epg === a.epg && b.s === a.s) === k).sort((a, b) => a.s - b.s));
+      }
       return map;
     })
     .catch(() => new Map());
