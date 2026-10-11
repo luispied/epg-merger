@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
-import { Progress } from './ui/kit.tsx';
+import { BrandFoot, Progress } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
@@ -287,7 +287,7 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
       <header class="app-header vw-head">
         <div class="title-row">
           <span class="title-left">
-            <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1>
+            <h1>Canales</h1>
             <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
           <span class="vw-head-r">
@@ -305,7 +305,8 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
       <main class="vw-list">
         {!q.trim() && <Connections code={code} />}
         {out.length ? out : <div class="empty"><Icon name="inbox" class="lg" /><strong>Nada por acá</strong>{q ? `Nada coincide con “${q}”.` : 'Este perfil no tiene canales.'}</div>}
-        <p class="vw-foot">Nowline en modo «solo ver»: acá no se puede cambiar nada.
+        <BrandFoot />
+        <p class="vw-foot">Modo «solo ver»: acá no se puede cambiar nada.
           <button type="button" class="link-btn" onClick={leave}>Salir del modo ver</button></p>
       </main>
     </>
@@ -398,6 +399,7 @@ function App() {
       <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
+        <img class="tab-brand" src="img/icon.svg" alt="Nowline" width="40" height="40" />
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
           <Icon name="tv" /><span>Canales</span>
         </button>

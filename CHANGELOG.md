@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.38.2
+
+- **Todas las pestañas abren igual: con su nombre como título.** Canales ahora dice «Canales» arriba, del mismo tamaño y a la misma altura que Guía, Categorías y Perfiles (antes era la única que mostraba el nombre de la app). En el modo ver, lo mismo.
+- En una pantalla grande, el ícono de Nowline queda arriba de la barra lateral.
+- El nombre de la app aparece al pie de Configuración, arriba de la versión, y al final de la lista del modo ver.
+- Test de Configuración al día con el pie nuevo («Versión 1.38.2»).
+
 ## 1.38.1
 
 - **La Guía ya no se queda mostrando celdas grises.** Si la abrías pasada la media hora, los bloques de «cargando» de la primera hora no se iban nunca y tapaban los programas.
