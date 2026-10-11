@@ -46,8 +46,9 @@ test.beforeEach(async ({ page }) => {
     if (path.startsWith('/api/ui/schedule/')) {
       return r.fulfill({ json: [[H - 3600, H + 3600, 'Noticiero central', 'Las noticias del día.'], [H + 3600, H + 7200, 'Película de la noche']] });
     }
-    // El noticiero vuelve a empezar después de la película.
-    if (path === '/api/ui/again') return r.fulfill({ json: { ids: ['g0123456789abcd.uy'], r: [[0, H - 3600, [[0, H + 7200]]]] } });
+    // El noticiero vuelve a empezar después de la película, y otra vez mañana. La misma emisión viene dos veces (la
+    // guía trae dos títulos a esa hora), con la repetición de mañana en la segunda: el ↻ muestra la más cercana.
+    if (path === '/api/ui/again') return r.fulfill({ json: { ids: ['g0123456789abcd.uy'], r: [[0, H - 3600, [[0, H + 7200]]], [0, H - 3600, [[0, H + 86400]]]] } });
     if (r.request().method() !== 'GET') return r.fulfill({ json: {} });
     return r.fulfill({ status: 404, json: { error: 'sin red en el test' } });
   });
@@ -76,7 +77,8 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   const live = page.locator('.gd-cell.live');
   await expect(live).toHaveCount(1);
   await expect(live).toContainText('Noticiero central');
-  await expect(live.locator('.rp')).toContainText('↻');
+  const soon = await page.evaluate((t) => new Date(t * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }), H + 7200);
+  await expect(live.locator('.rp')).toHaveText(`↻ ${soon} · `);
   await expect(page.locator('.gd-nowline')).toHaveCount(1);
   // El canal sin guía se ve como hueco para corregir.
   await expect(page.locator('.gd-cell.gap.quiet')).toContainText('Sin guía');
@@ -87,6 +89,7 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   await expect(sheet).toContainText('Las noticias del día.');
   await expect(sheet.locator('.gd-again')).toContainText('Vuelve a empezar');
   await expect(sheet.locator('.gd-again')).toContainText('En este canal');
+  await expect(sheet.locator('.gd-again .also')).toHaveCount(1);
   await expect(sheet).toContainText('Película de la noche');
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
