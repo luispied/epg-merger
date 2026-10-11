@@ -13,11 +13,25 @@
 <link rel="manifest" href="manifest.webmanifest?v=__VERSION__">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png?v=__VERSION__">
+<!-- Lo que muestra el iPhone al abrir desde la pantalla de inicio, antes de la página: la misma pantalla de inicio (splash-images.mjs). -->
+<link rel="apple-touch-startup-image" href="img/splash/splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="img/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
 <script>
   try {
     var t = localStorage.getItem('grilla_theme') || 'dark';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     if (localStorage.getItem('grilla_text') === 'lg') document.documentElement.dataset.text = 'lg';
+    if (sessionStorage.getItem('nowline_splash') || navigator.webdriver) document.documentElement.classList.add('no-splash');
+    else sessionStorage.setItem('nowline_splash', '1');
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
 <link rel="stylesheet" href="app.css?v=__VERSION__">
@@ -26,6 +40,13 @@
 <script type="module" src="app.js?v=__VERSION__"></script>
 </head>
 <body>
+
+<!-- Pantalla de inicio: el logo mientras abre la app, como en las apps del celular. Viene con el HTML (se ve antes que
+     el JS) y la saca hideSplash() (ui/splash.ts) apenas la app dibuja. Solo al abrir: no al recargar en la misma sesión. -->
+<div id="splash" class="splash" aria-hidden="true">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="104" height="104"> <defs><linearGradient id="spl-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22252d"/><stop offset="1" stop-color="#0c0d10"/></linearGradient> <mask id="spl-m"><rect width="512" height="512" fill="#fff"/><line x1="262" y1="132" x2="262" y2="384" stroke="#000" stroke-width="34" stroke-linecap="round"/><circle cx="262" cy="120" r="30" fill="#000"/></mask></defs> <rect width="512" height="512" rx="112" fill="url(#spl-g)"/> <g mask="url(#spl-m)"><g fill="#3a3f4a"><rect x="104" y="150" width="120" height="60" rx="16"/><rect x="104" y="226" width="76" height="60" rx="16"/><rect x="336" y="226" width="72" height="60" rx="16"/><rect x="288" y="302" width="120" height="60" rx="16"/></g> <g fill="#eceef2"><rect x="240" y="150" width="168" height="60" rx="16"/><rect x="196" y="226" width="124" height="60" rx="16"/><rect x="104" y="302" width="168" height="60" rx="16"/></g></g> <line x1="262" y1="132" x2="262" y2="384" stroke="#ffb224" stroke-width="16" stroke-linecap="round"/> <circle cx="262" cy="120" r="22" fill="#ffb224"/> </svg>
+  <span class="wordmark">nowl<span class="wm-i">ı</span>ne</span>
+</div>
 
 <!-- Primera vez: conectar el proveedor. -->
 <section id="onboarding" hidden>
@@ -232,7 +253,7 @@
       <button type="button" class="icon-btn" id="helpClose" aria-label="Cerrar" title="Cerrar"><span data-icon="x"></span></button>
     </div>
 <div class="help-topic" data-topic="main">
-    <p>Nowline ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo (en una pantalla grande, a la izquierda) tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una abre con su nombre como título y tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span> de al lado; esta es la de Canales.</p>
+    <p>Nowline ordena la lista de canales de tu proveedor, le asigna a cada canal su guía de programación (EPG) y te da links para tu reproductor. Abajo (en una pantalla grande, a la izquierda) tenés cuatro pestañas: <b>Canales</b> (la grilla), <b>Guía</b> (qué dan en cada canal, hora por hora), <b>Categorías</b> y <b>Perfil</b> (tus cuentas, perfiles y links). Cada una abre con su nombre como título y tiene su ayuda en el <span class="inline-icon" data-icon="circle-help"></span> de al lado; esta es la de Canales. Al abrir la app, el logo se ve un instante mientras carga (no aparece al navegar ni al recargar).</p>
 
     <details open>
       <summary>¿Cómo pongo Nowline en mi reproductor?<span data-icon="chevron-down"></span></summary>

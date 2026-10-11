@@ -1358,3 +1358,14 @@ html[data-text="lg"] { zoom: 1.12; }
   .tab-brand { display: block; flex: none; width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 10px; box-shadow: 0 0 0 .5px var(--hairline); }
 }
 .brand-foot + .vw-foot { margin-top: 6px; }
+
+/* ---- Pantalla de inicio (index.html y ver.html; la saca ui/splash.ts) ---- */
+/* Tapa la app mientras abre, pero no frena nada: la app arma su pantalla debajo y los toques pasan. */
+.splash { position: fixed; inset: 0; z-index: var(--z-splash); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: var(--bg); pointer-events: none; transition: opacity var(--dur-3) var(--ease-out); }
+.splash svg { width: 104px; height: 104px; border-radius: 22.5%; box-shadow: var(--shadow-logo); transition: transform var(--dur-3) var(--ease-out); }
+.splash .wordmark { font-size: 30px; }
+@media (min-width: 900px) { .splash svg { width: 128px; height: 128px; } .splash .wordmark { font-size: 38px; } }
+.no-splash .splash { display: none; }
+.splash.out { opacity: 0; }
+.splash.out svg { transform: scale(1.06); }
+@media (prefers-reduced-motion: reduce) { .splash.out svg { transform: none; } }

@@ -1,14 +1,15 @@
 {
   "name": "grilla-worker",
   "private": true,
-  "version": "1.39.4",
+  "version": "1.40.1",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "check": "npx --yes -p typescript@5.9 tsc -p . --noEmit && npx --yes -p typescript@5.9 tsc -p web --noEmit",
     "test": "node --test test/*.test.ts",
     "deploy": "wrangler deploy",
-    "e2e": "node build.mjs && playwright test"
+    "e2e": "node build.mjs && playwright test",
+    "splash-images": "node build.mjs && node splash-images.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",

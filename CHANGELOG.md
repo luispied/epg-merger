@@ -11,10 +11,16 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
-## 1.39.4
+## 1.40.1
 
 - Worker: anota en su registro (Workers Logs) el tipo de cada pedido (`playlist`, `epg`, `stream`, `api/cfg`…), sin ids, códigos ni tokens, para saber qué gasta más CPU. No cambia ninguna respuesta.
 - Interno: el registro de consumo (`tools/consumo.py`) suma la CPU p99 por tipo de pedido. Necesita que el token de analíticas tenga además el permiso «Workers Observability»; sin él, lo dice en el issue.
+
+## 1.40.0
+
+- **Nowline abre con su logo, como las apps del celular.** Al abrir la app (y el modo ver) se ve el ícono con «nowline» en el centro, en claro u oscuro según tu tema, y se va con un fundido apenas está lista tu pantalla. No suma espera: la app carga debajo, y no vuelve a aparecer al navegar ni al recargar.
+- **Instalada en el celular, sin pantallazo negro ni blanco.** En Android el inicio del sistema usa el fondo de la app, y en el iPhone, desde la pantalla de inicio, aparece el mismo logo antes de que cargue la página.
+- Interno: las imágenes de inicio del iPhone se arman con `npm run splash-images` (`splash-images.mjs`, en `web/img/splash/`).
 
 ## 1.39.3
 

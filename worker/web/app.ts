@@ -26,6 +26,7 @@ import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
+import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
@@ -2943,9 +2944,14 @@ setupEditor();
 // Un dispositivo que entró con un código para ver (y no tiene configuración propia) abre siempre en ese modo.
 let viewOnly: string | null = null;
 try { viewOnly = state.local ? null : localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
-if (viewOnly) location.replace(`/ver#${viewOnly}`);
-else if (state.local) openSaved();
-else showOnboarding();
+if (viewOnly) {
+  try { sessionStorage.removeItem('nowline_splash'); } catch { /* sin storage */ } // que el logo siga en /ver
+  location.replace(`/ver#${viewOnly}`);
+} else {
+  if (state.local) openSaved();
+  else showOnboarding();
+  hideSplash();
+}
 
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa
 // se muda a su propio módulo y sale de esta lista.
