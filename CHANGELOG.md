@@ -11,10 +11,18 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
-## 1.40.1
+## 1.41.1
 
 - Worker: anota en su registro (Workers Logs) el tipo de cada pedido (`playlist`, `epg`, `stream`, `api/cfg`…), sin ids, códigos ni tokens, para saber qué gasta más CPU. No cambia ninguna respuesta.
 - Interno: el registro de consumo (`tools/consumo.py`) suma la CPU p99 por tipo de pedido. Necesita que el token de analíticas tenga además el permiso «Workers Observability»; sin él, lo dice en el issue.
+
+## 1.41.0
+
+- **Los avisos van arriba.** Ya no quedan tapados por la barra de abajo, por el pie de la revisión ni por una página abierta: en el celular aparecen debajo de la hora, centrados, y en la computadora arriba a la derecha. Siempre quedan por encima de todo.
+- **La prueba de canales caídos muestra su avance.** Mientras prueba, arriba de la lista de canales aparece una franja fija: «Probando 50 de 180 · 3 caídos», con su barra y **Detener**, que la corta y guarda lo que alcanzó a probar. Antes de arrancar dice que está en espera. Al terminar, un aviso dice cuántos quedaron caídos y **Ver** los muestra.
+- Worker: la prueba deja su avance en `healthprog/` después de cada tanda (lo devuelve `GET /health` como `progress`) y mira `healthstop/`, que deja `DELETE /health/run`.
+- Ayudas de Canales y de Perfil al día.
+- Tests nuevos: el avance y «Detener» en el Worker (`test/worker.test.ts`) y la franja en `e2e/prueba.spec.ts`.
 
 ## 1.40.0
 

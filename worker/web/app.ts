@@ -871,7 +871,7 @@ function computeInfo(ch: Channel) {
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }> }
+interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }>; progress?: { done: number; total: number; down: number } }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 
@@ -917,6 +917,7 @@ async function loadStreamHealth() {
   }
   render();
   renderProfileNotice();
+  renderProbeStrip();
   // Con la Guía abierta, que tome las etiquetas de resolución recién llegadas.
   const guide = document.getElementById('guide');
   if (guide && !guide.hidden) {
@@ -2570,23 +2571,87 @@ function checkWaitHours(): number {
   const last = Math.max(Date.parse(streamHealth?.checked ?? '') || 0, Date.parse(streamHealth?.requested ?? '') || 0);
   return last ? Math.max(0, CHECK_EVERY_H - (Date.now() - last) / 3600_000) : 0;
 }
+/** ¿Hay una prueba de canales en curso? Se pidió y todavía no terminó (el cron la toma en hasta 30 minutos), o el Worker
+ *  está dejando su avance (también la de la madrugada). */
+function probeRunning(): boolean {
+  const requested = Date.parse(streamHealth?.requested ?? '') || 0;
+  const checked = Date.parse(streamHealth?.checked ?? '') || 0;
+  return !!streamHealth?.progress || (requested > checked && Date.now() - requested < 30 * 60_000);
+}
+
+let probeWasRunning = false;
+let probeTimer = 0;
+/** La franja fija arriba de la lista mientras se prueban los canales: «Probando 50 de 180 · 3 caídos hasta ahora» con su
+ *  barra y «Detener». Mientras corre, vuelve a preguntar cada 15 s; al terminar se va y deja un aviso con el resultado. */
+function renderProbeStrip() {
+  const strip = document.querySelector<HTMLElement>('#probeStrip');
+  if (!strip) return;
+  clearTimeout(probeTimer);
+  const running = probeRunning();
+  strip.hidden = !running;
+  if (running) {
+    const p = streamHealth?.progress;
+    $('#probeText').textContent = p ? `Probando ${p.done} de ${p.total}` : 'Prueba de canales en espera';
+    $('#probeDown').textContent = !p ? 'arranca en unos minutos' : p.down ? plural(p.down, 'caído', 'caídos') : 'ninguno caído';
+    const bar = $('#probeBar');
+    bar.classList.toggle('wait', !p?.total);
+    bar.style.setProperty('--p', p?.total ? `${Math.round((p.done / p.total) * 100)}%` : '0%');
+    probeTimer = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') void loadStreamHealth().then(renderDownRow);
+      else renderProbeStrip();
+    }, 15_000);
+  } else if (probeWasRunning && streamHealth?.checked) {
+    const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
+    const tested = streamHealth.tested ?? 0;
+    const text = `Listo: ${down ? plural(down, 'canal caído', 'canales caídos') : 'ningún canal caído'}${tested ? ` entre ${tested} probados` : ''}`;
+    toast(text, 'ok', 7000, down ? { label: 'Ver', run: showDownChannels } : undefined);
+  }
+  probeWasRunning = running;
+}
+
+/** Lleva a Canales con el filtro «Caídos». */
+function showDownChannels() {
+  closePages();
+  setGuide(false);
+  state.filter = 'caidos';
+  state.shown = PAGE;
+  render();
+  window.scrollTo(0, 0);
+}
+
+/** «Detener»: saca el pedido o corta la prueba después de la tanda en curso (queda lo que alcanzó a probar). */
+async function stopProbe() {
+  const btn = $<HTMLButtonElement>('#probeStop');
+  btn.disabled = true;
+  try {
+    await api(`/api/cfg/${state.local!.cfgId}/health/run`, { method: 'DELETE' });
+    probeWasRunning = false; // el aviso es este, no el de «Listo»
+    toast(streamHealth?.progress ? 'Prueba detenida: queda lo que alcanzó a probar' : 'Prueba cancelada', 'info');
+    if (streamHealth) { delete streamHealth.requested; delete streamHealth.progress; }
+    renderProbeStrip();
+    renderDownRow();
+  } catch (e) {
+    toast((e as Error).message, 'bad', 6000);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /** Una sola fila «Canales caídos»: el resultado de las pruebas hechas y, al costado, el botón para probar ahora. */
 function renderDownRow() {
   const sub = document.querySelector<HTMLElement>('#downSub');
   if (!sub) return; // la fila está en la página del perfil en uso
   const wait = checkWaitHours();
-  const requested = Date.parse(streamHealth?.requested ?? '') || 0;
-  const checked = Date.parse(streamHealth?.checked ?? '') || 0;
-  const running = requested > checked && Date.now() - requested < 30 * 60_000;
+  const running = probeRunning();
   const parts: string[] = [];
-  if (!checked) parts.push('Todavía no se probó ningún canal');
+  if (!streamHealth?.checked) parts.push('Todavía no se probó ningún canal');
   else {
     const tested = Object.keys(streamHealth!.channels).length;
     const down = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
     parts.push(`${down ? plural(down, 'canal caído', 'canales caídos') : 'Ninguno caído'} · ${tested} de ${streamHealth!.total ?? '?'} probados`);
   }
   const trouble = relayTrouble();
-  if (running) parts.push('probando ahora: los resultados llegan en unos minutos');
+  if (running) parts.push(streamHealth?.progress ? `probando ahora: ${streamHealth.progress.done} de ${streamHealth.progress.total}` : 'probando ahora: arranca en unos minutos');
   else if (trouble && 'probe' in trouble) {
     parts.push(`${trouble.probe ? `sin probar desde ${trouble.probe}` : 'no se pudo probar'}: el servicio que prueba no responde`);
   } else if (wait > 0) parts.push(`próxima prueba en ${Math.ceil(wait)} h`);
@@ -2612,7 +2677,8 @@ function wireDownRow() {
       if (r.started) {
         streamHealth = { channels: {}, ...(streamHealth ?? {}), requested: r.requested };
         renderDownRow();
-        toast('Prueba lanzada: en unos minutos aparecen los resultados (volvé a abrir la cuenta)', 'ok', 6000);
+        renderProbeStrip();
+        toast('Prueba lanzada: arranca en unos minutos y el avance se ve arriba de la lista de canales', 'ok', 6000);
       } else if (r.reason === 'recent') {
         toast('Ya se probó hoy: se puede volver a lanzar mañana', 'info', 5000);
         await loadStreamHealth();
@@ -2807,6 +2873,7 @@ function setupEditor() {
   wirePullToRefresh();
   // Barra inferior: Canales (volver arriba), Guía, Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
   $('#helpTopBtn').onclick = () => openHelp('main');
+  $('#probeStop').onclick = () => void stopProbe();
   $('#tabHome').onclick = () => {
     if (currentTab() !== 'home') {
       closePages();
