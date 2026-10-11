@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.5
+
+- Interno: auditoría de diseño, paso 2. Los colores, sombras y radios se definen en un solo lugar (`worker/web/tokens.css`), con el claro y el oscuro de cada token juntos en `light-dark(claro, oscuro)`; `build.mjs` lo expande en los bloques de siempre (anda en cualquier navegador). Antes `--accent` se definía en 5 lugares y había 21 bloques `:root`. Suma las escalas de letra, espacio, z-index y tiempos, y `--live` para lo que está en el aire, que las pantallas van a ir adoptando.
+- Interno: se borran 171 declaraciones de `base.css` que `web.css` ya pisaba enteras (y 28 reglas que quedaron vacías). La prueba de capturas da 0 diferencias en las 48 pantallas: nada cambia a la vista.
+
 ## 1.36.4
 
 - La **barra de abajo** ya no deja leer lo que pasa por detrás: es más sólida y la lista se desvanece antes de llegar a ella.

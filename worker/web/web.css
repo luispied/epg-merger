@@ -50,40 +50,8 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 
 /* ==================================================================================
    Material 3: la web nueva sigue sus lineamientos (color por roles, formas, estados,
-   campos delineados, chips, switch, hojas y snackbar). Pisa lo de base.css, que no se toca.
+   campos delineados, chips, switch, hojas y snackbar). Pisa lo de base.css; los colores vienen de tokens.css.
    ================================================================================== */
-/* "Guía de TV": oscuro con acento ámbar por defecto; el claro es cálido (papel y ámbar oscuro). */
-:root {
-  --bg: #f5f2ec; --surface: #ffffff; --surface-2: #efebe3; --fill: #e4dfd4;
-  --text: #1c1a15; --muted: #4d4a40; --faint: #8a8579; --hairline: #d9d3c6;
-  --accent: #a35f00; --on-accent: #ffffff; --accent-soft: #ffe3b8; --on-accent-soft: #3b2400;
-  --green: #1e7a43; --orange: #b34a12; --red: #b3261e; --on-danger: #ffffff; --blue: #1d5fb8; --gray: #6a665b;
-  --inverse-surface: #2b2820; --inverse-text: #f1ede3; --inverse-accent: #ffc15c;
-  --toolbar-bg: rgba(245, 242, 236, .92);
-  --shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 1px 3px 1px rgba(0, 0, 0, .05);
-  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .18);
-  --radius: 12px; --radius-sm: 8px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0c0d10; --surface: #15171c; --surface-2: #1d2026; --fill: #272b33;
-    --text: #eceef2; --muted: #b4bac6; --faint: #767d8b; --hairline: #2a2e37;
-    --accent: #ffb224; --on-accent: #1d1300; --accent-soft: #3d2d09; --on-accent-soft: #ffd98a;
-    --green: #52d49a; --orange: #ff9a66; --red: #ff7b72; --on-danger: #3c0a07; --blue: #7fb2ff; --gray: #98a0ae;
-    --inverse-surface: #2d3139; --inverse-text: #eceef2; --inverse-accent: #ffb224;
-    --toolbar-bg: rgba(12, 13, 16, .92);
-    --shadow: 0 1px 3px rgba(0, 0, 0, .5); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0c0d10; --surface: #15171c; --surface-2: #1d2026; --fill: #272b33;
-  --text: #eceef2; --muted: #b4bac6; --faint: #767d8b; --hairline: #2a2e37;
-  --accent: #ffb224; --on-accent: #1d1300; --accent-soft: #3d2d09; --on-accent-soft: #ffd98a;
-  --green: #52d49a; --orange: #ff9a66; --red: #ff7b72; --on-danger: #3c0a07; --blue: #7fb2ff; --gray: #98a0ae;
-  --inverse-surface: #2d3139; --inverse-text: #eceef2; --inverse-accent: #ffb224;
-  --toolbar-bg: rgba(12, 13, 16, .92);
-  --shadow: 0 1px 3px rgba(0, 0, 0, .5); --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
-}
 body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
 
 /* Escritorio: encabezado y barra alineados con el contenido (no pegados a los bordes). */
@@ -447,9 +415,6 @@ dialog:focus, dialog:focus-visible { outline: none; }
 .drag-handle { width: 44px; height: 44px; margin: -8px -6px -8px -12px; }
 /* El "ahora" deja de ser ámbar: el ámbar queda para lo que se toca; lo dudoso va en naranja rojizo. */
 .epg-now.on-air .icon, .epg-now .note { color: var(--muted); }
-:root { --orange: #b03a10; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --orange: #ff8566; } }
-:root[data-theme="dark"] { --orange: #ff8566; }
 /* Alternativas: porcentaje en una sola línea y filas más bajas. */
 .pct, .tag { white-space: nowrap; }
 
@@ -467,11 +432,6 @@ dialog:focus, dialog:focus-visible { outline: none; }
 .segmented button, .btn.sm { position: relative; }
 .segmented button::after, .btn.sm::after { content: ""; position: absolute; inset: -6px 0; }
 .icon-btn.day-btn { width: 44px; height: 44px; }
-/* Contraste del tema claro (4,5:1 mínimo). */
-:root { --green: #17683a; }
-:root:not([data-theme="dark"]) { --accent: #8f5200; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --green: #52d49a; --accent: #ffb224; } }
-:root[data-theme="dark"] { --green: #52d49a; --accent: #ffb224; }
 /* Alternativas: la línea "Ahora" se corta con puntos suspensivos en vez de salirse de la hoja. */
 
 .empty .btn { margin-top: 16px; }
@@ -647,10 +607,6 @@ body.selecting .row-in { padding-left: 12px; }
 /* Títulos de hoja con peso 600 (el nombre del canal pesaba más que el título). */
 .sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-weight: 600; }
 .pct, .count, .tag, .opt-top .pct, .meta-line { font-variant-numeric: tabular-nums; }
-/* Texto terciario con más contraste. */
-:root { --faint: #6f6a5f; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --faint: #8a91a0; } }
-:root[data-theme="dark"] { --faint: #8a91a0; }
 
 /* ---- Etapa 1: alta con marca y camino a los links ---- */
 .app-header h1.brand { gap: 10px; }
@@ -707,7 +663,6 @@ body.onboard-busy #onboarding button[type=submit], body.onboard-busy #onboarding
 .rv-actions:has(> .btn-gray + .btn-gray) .btn-primary { min-width: 0; padding: 0 12px; white-space: nowrap; }
 
 /* ---- Etapa 3: barra inferior y detalles ---- */
-:root { --tab-h: 60px; }
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; justify-content: center;
   background: color-mix(in srgb, var(--bg) 94%, transparent); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
   border-top: 1px solid var(--hairline); padding: 0 max(8px, calc((100% - 728px) / 2)) env(safe-area-inset-bottom, 0px); }
@@ -734,8 +689,7 @@ body.selecting #editor main { padding-bottom: 96px; }
 .row-now .np-bar > i { display: block; height: 100%; background: var(--accent); }
 .row-now .epg-now { display: block; -webkit-line-clamp: unset; white-space: normal; overflow: visible; }
 
-/* ---- Etapa 4: radios (tres) y tipografía ---- */
-:root { --radius-sm: 10px; --radius: 14px; --radius-lg: 20px; }
+/* ---- Etapa 4: radios (los tres de tokens.css) y tipografía ---- */
 .seg { border-radius: 999px; }
 .logo, .logo.lg { border-radius: var(--radius-sm); }
 
@@ -864,7 +818,6 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .ch-head > .rv-progress { flex: 1 0 100%; order: 3; margin: 0; padding: 4px 8px 0; }
 
 /* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
-:root { --tab-h: 56px; }
 /* La cápsula queda a 1rem del borde en todos los equipos (en iPhone, justo arriba de la rayita de inicio). */
 .tabbar { left: 12px; right: 12px; bottom: 1rem; max-width: 520px; margin: 0 auto;
   padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);

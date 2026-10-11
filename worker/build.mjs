@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { expandTokens } from './tokens.mjs';
 
 const here = (p) => new URL(p, import.meta.url);
 mkdirSync(here('./public'), { recursive: true });
@@ -29,8 +30,10 @@ const common = {
 };
 await build({ ...common, entryPoints: [here('./web/app.ts').pathname], outfile: here('./public/app.js').pathname });
 await build({ ...common, entryPoints: [here('./web/ver.tsx').pathname], outfile: here('./public/ver.js').pathname });
-// Un solo CSS: los estilos base (web/base.css) y los de la web (web/web.css, que van después y mandan).
-writeFileSync(here('./public/app.css'), `${readFileSync(here('./web/base.css'), 'utf-8')}\n${readFileSync(here('./web/web.css'), 'utf-8')}`);
+// Un solo CSS: los tokens (web/tokens.css, con el claro y el oscuro expandidos), los estilos base (web/base.css) y los de
+// la web (web/web.css, que van después y mandan).
+const css = (f) => readFileSync(here(`./web/${f}`), 'utf-8');
+writeFileSync(here('./public/app.css'), [expandTokens(css('tokens.css')), css('base.css'), css('web.css')].join('\n'));
 mkdirSync(here('./public/fonts'), { recursive: true });
 cpSync(here('./web/fonts'), here('./public/fonts'), { recursive: true });
 cpSync(here('./web/icons.js'), here('./public/icons.js'));
