@@ -55,7 +55,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
+@media (hover: hover) { a:hover { text-decoration: underline; } }
 
 /* App instalada en iPhone (status bar translúcida): una franja del color de la barra fija
    tapa la zona de la hora/batería para que el contenido no pase por debajo al hacer scroll. */
@@ -165,7 +165,8 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
   transition: opacity .2s ease;
 }
 .card.is-hidden { opacity: .5; }
-.card.is-hidden:focus-within, .card.is-hidden:hover { opacity: 1; }
+.card.is-hidden:focus-within { opacity: 1; }
+@media (hover: hover) { .card.is-hidden:hover { opacity: 1; } }
 .card-title { flex: 1; min-width: 0; }
 .card-name { font-size: 17px; font-weight: 600; line-height: 1.25; word-break: break-word; }
 .card-sub { color: var(--muted); font-size: 13px; margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -192,7 +193,6 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
 .epg-now.on-air { color: var(--text); }
 .epg-now.on-air .icon { color: var(--accent); }
 .epg-now .note { color: var(--accent); }
-.epg-now:has(.now-btn) { display: block; }
 
 .list {
   background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; margin: 6px 0 14px;
@@ -258,7 +258,6 @@ main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
 .toast.info .icon { color: var(--accent); }
 .toast .btn { min-height: 34px; padding: 0 10px; font-size: 14px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(16px) scale(.96); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(10px) scale(.98); } }
 
 /* ------------------------------------------------------------------ diálogos (hojas) */
 dialog.sheet {
@@ -285,10 +284,11 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .35); animation: fade-in .2s 
 @keyframes slide-down { from { opacity: 0; transform: translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  /* Lo que gira avisa que algo está cargando: gira más lento, pero no se frena. */
+  .spin, body.refreshing .ptr .icon { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
 }
 @media (max-width: 480px) {
   .wide { display: none; }
-  #runWorkflowBtn { padding: 0 12px; gap: 4px; }
 }
 
 /* ------------------------------------------------------------------ ayuda */

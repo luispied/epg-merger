@@ -9,15 +9,13 @@ import {
   nowPlaying, remindKey, schedule, state, toggleReminder, type NowPlaying, type ScheduleEntry,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
+import { initials } from './mono.ts';
 
-/** Sin imagen: iniciales sobre un color que sale del nombre (se distingue una fila de otra). */
+/** Sin imagen: las iniciales, en un tono neutro (no compiten con los logos). */
 function Mono({ label }: { label: string }) {
-  const words = label.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
-  if (!words.length) return <Icon name="tv" />;
-  const ini = (words[0][0] + (words.length > 1 ? words[1][0] : (words[0][1] ?? ''))).toUpperCase();
-  let h = 0;
-  for (const c of words.join(' ')) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return <span class="mono" style={`--h:${h}`} aria-hidden="true">{ini}</span>;
+  const ini = initials(label);
+  if (!ini) return <Icon name="tv" />;
+  return <span class="mono" aria-hidden="true">{ini}</span>;
 }
 
 /** El logo del canal (el propio, o el de la guía), sobre las iniciales mientras carga o si no hay. */

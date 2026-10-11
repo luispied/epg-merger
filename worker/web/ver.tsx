@@ -111,7 +111,7 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
           <>
             <span class="vw-now">{cur.t}</span>
             <span class="vw-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-            <span class="vw-when">Hasta las {hm(cur.e)} · {left(cur.e - now)}</span>
+            <span class="vw-when vw-left">{left(cur.e - now)[0].toUpperCase() + left(cur.e - now).slice(1)} · hasta las {hm(cur.e)}</span>
             {info?.next && <span class="vw-when vw-next">Después: {info.next.t}</span>}
           </>
         ) : (
@@ -236,7 +236,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
-          <p>Cada canal muestra lo que dan <b>ahora</b>, hasta qué hora y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
+          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora, y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
           <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
         </details>
         <details>

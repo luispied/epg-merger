@@ -11,6 +11,18 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.3
+
+- La **barra de abajo** ya no deja leer lo que pasa por detrás: es más sólida y la lista se desvanece antes de llegar a ella.
+- En la **Guía**, la hora actual ya no tapa la marca de la media hora, y los programas muy cortos se ven como una franja sin texto (tocala para ver cuál es) en vez de letras sueltas.
+- En el **modo ver**, cada canal dice primero cuánto le queda («Quedan 42 min · hasta las 23:45») y no se corta.
+- En la computadora, con la hoja de un canal abierta a la derecha, la barra de búsqueda y filtros también se corre y no queda tapada.
+- En el celular, los botones y las filas ya no quedan resaltados después de tocarlos.
+- Los canales sin logo muestran las mismas iniciales en Canales y en la Guía.
+- Con «reducir movimiento» activado, el círculo de «cargando» sigue girando (más lento) y no parece colgado.
+- Los avisos que aparecen dentro de una hoja también los lee el lector de pantalla.
+- Interno: estilos sin uso borrados, el hover de todo `web.css` solo con mouse (`@media (hover: hover)`), `ui/mono.ts` con las iniciales compartidas. Tests nuevos en `e2e/guide.spec.ts` y `e2e/ver.spec.ts`.
+
 ## 1.36.2
 
 - En la Guía, el **↻** de un programa que vuelve a empezar muestra la repetición más cercana. Cuando un programa repetía varias veces, a veces mostraba la de mañana y no la de hoy, y en la hoja del programa faltaban repeticiones.

@@ -8,7 +8,8 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .card .help { margin-top: 12px; }
 .header-actions .btn { min-height: 38px; }
 .pick-row { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.pick-row:active, .pick-row:hover { background: var(--fill); }
+.pick-row:active { background: var(--fill); }
+@media (hover: hover) { .pick-row:hover { background: var(--fill); } }
 #channelBody .row-actions { margin-top: 10px; }
 .cat-row { gap: 6px; }
 .cat-row .icon-btn[disabled] { opacity: .3; }
@@ -93,24 +94,24 @@ body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystem
 /* Botones: píldora de 40 px, etiqueta 14/500, capa de estado al pasar y al tocar. */
 .btn { border-radius: var(--radius-sm); padding: 0 24px; font-size: 14px; font-weight: 500; letter-spacing: .01em; transition: background-color .15s ease, box-shadow .15s ease, color .15s ease; }
 .btn:active { transform: none; }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 92%, var(--on-accent)); box-shadow: var(--shadow); }
+@media (hover: hover) { .btn-primary:hover { background: color-mix(in srgb, var(--accent) 92%, var(--on-accent)); box-shadow: var(--shadow); } }
 .btn-primary:active { background: color-mix(in srgb, var(--accent) 88%, var(--on-accent)); box-shadow: none; }
 .btn-tonal { background: var(--accent-soft); color: var(--on-accent-soft); }
-.btn-tonal:hover { background: color-mix(in srgb, var(--accent-soft) 92%, var(--on-accent-soft)); }
+@media (hover: hover) { .btn-tonal:hover { background: color-mix(in srgb, var(--accent-soft) 92%, var(--on-accent-soft)); } }
 .btn-gray { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--faint); }
-.btn-gray:hover, .btn-plain:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+@media (hover: hover) { .btn-gray:hover, .btn-plain:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); } }
 .btn-gray:active, .btn-plain:active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .btn-plain { padding: 0 12px; }
 .btn-danger { padding: 0 12px; }
-.btn-danger:hover { background: color-mix(in srgb, var(--red) 8%, transparent); }
+@media (hover: hover) { .btn-danger:hover { background: color-mix(in srgb, var(--red) 8%, transparent); } }
 .btn.sm { min-height: 32px; padding: 0 16px; font-size: 13px; }
 .header-actions .btn { min-height: 40px; }
 .icon-btn { background: transparent; color: var(--muted); transition: background-color .15s ease; }
 .icon-btn:active { transform: none; }
-.icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .icon-btn:active { background: color-mix(in srgb, var(--text) 12%, transparent); }
 .icon-btn.filled { background: var(--accent-soft); color: var(--on-accent-soft); }
-.icon-btn.filled:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); }
+@media (hover: hover) { .icon-btn.filled:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); } }
 #selectBtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -118,7 +119,7 @@ body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystem
 /* Campos delineados, etiqueta arriba sin mayúsculas; separación en múltiplos de 8. */
 .input, .select { height: 48px; border-radius: 4px; background-color: transparent; box-shadow: inset 0 0 0 1px var(--faint); padding: 0 14px; transition: box-shadow .15s ease; }
 textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; }
-.input:hover, .select:hover { box-shadow: inset 0 0 0 1px var(--text); }
+@media (hover: hover) { .input:hover, .select:hover { box-shadow: inset 0 0 0 1px var(--text); } }
 .input:focus, .select:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .input[readonly] { background-color: var(--surface-2); box-shadow: none; }
 .select.compact { height: 40px; }
@@ -139,10 +140,10 @@ dialog .search-field { background: var(--surface-2); }
 /* Chips de filtro (arriba) y de estado ("Sin guía"). */
 .segmented { gap: 8px; }
 .segmented button { height: 32px; padding: 0 12px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--hairline); font-weight: 500; }
-.segmented button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .segmented button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; }
 .chip-btn { min-height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--hairline); font-weight: 500; padding: 0 12px; }
-.chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .chip-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; }
 .cat-row .chip-btn { min-height: 28px; }
 
@@ -150,7 +151,7 @@ dialog .search-field { background: var(--surface-2); }
 .seg { background: transparent; border-radius: var(--radius-sm); padding: 0; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; }
 .seg button { height: 36px; padding: 0 14px; border-radius: 0; color: var(--text); font-weight: 500; font-size: 13.5px; }
 .seg button + button { box-shadow: inset 1px 0 0 var(--faint); }
-.seg button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .seg button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--on-accent-soft); box-shadow: none; font-weight: 600; }
 .seg button[aria-checked="true"] + button { box-shadow: inset 1px 0 0 var(--faint); }
 #providerSeg { display: flex; }
@@ -165,11 +166,11 @@ dialog .search-field { background: var(--surface-2); }
 
 /* Tarjetas y listas. */
 .card { border-radius: var(--radius); padding: 16px; transition: background-color .15s ease, opacity .2s ease; }
-.card:hover { background: color-mix(in srgb, var(--surface) 96%, var(--text)); }
+@media (hover: hover) { .card:hover { background: color-mix(in srgb, var(--surface) 96%, var(--text)); } }
 .card-name { font-size: 16px; font-weight: 500; }
 .cards { gap: 12px; }
 .card.section-card { display: flex; align-items: center; gap: 12px; padding: 16px 4px 4px 4px; background: transparent; box-shadow: none; animation: none; }
-.card.section-card:hover { background: transparent; }
+@media (hover: hover) { .card.section-card:hover { background: transparent; } }
 .card.section-card .section-name { font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 .card.section-card .card-sub { margin-top: 0; }
 
@@ -181,7 +182,7 @@ dialog .search-field { background: var(--surface-2); }
 .list { border-radius: var(--radius); margin: 0 0 8px; }
 .menu { border-radius: var(--radius); margin-top: 16px; }
 .menu-row { min-height: 56px; padding: 8px 16px; gap: 16px; transition: background-color .15s ease; }
-.menu-row:not(.static):hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+@media (hover: hover) { .menu-row:not(.static):hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
 .menu-row:not(.static):active { background: color-mix(in srgb, var(--surface-2) 88%, var(--text)); }
 .menu-icon { background: transparent; color: var(--muted); width: 24px; height: 24px; border-radius: 0; }
 .menu-icon .icon { width: 22px; height: 22px; }
@@ -189,7 +190,7 @@ dialog .search-field { background: var(--surface-2); }
 .menu-text small { font-size: 13px; line-height: 1.4; }
 .cat-row.section-row { background: transparent; }
 .section-row .section-name { color: var(--accent); }
-.pick-row:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+@media (hover: hover) { .pick-row:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
 
 /* Logos: el recuadro claro solo detrás de un logo real; sin logo, un recuadro del tema. */
 html:root .logo:not(.has-img) { background: var(--surface-2); color: var(--faint); }
@@ -217,7 +218,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
 .toast { background: color-mix(in srgb, var(--inverse-surface) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--inverse-text); border-radius: 18px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
 .toast .icon, .toast.ok .icon, .toast.bad .icon, .toast.info .icon { color: var(--inverse-accent); }
 .toast .btn, .toast .btn-plain { color: var(--inverse-accent); background: transparent; }
-.toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); }
+@media (hover: hover) { .toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); } }
 
 /* Barra de selección múltiple (barra inferior). */
 .bulk-bar { background: var(--surface-2); box-shadow: var(--shadow-lg); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
@@ -235,7 +236,7 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
   flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%;
   background: transparent; color: var(--muted); cursor: pointer;
 }
-.search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .search-clear[hidden] { display: none; }
 /* Canales nuevos, programación del día, logo propio, compartir. */
 .day-btn { margin-top: 12px; }
@@ -243,7 +244,7 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 .day-head { font-size: 13px; font-weight: 500; color: var(--accent); padding: 12px 16px 4px; text-transform: capitalize; }
 .day-item summary { list-style: none; display: flex; gap: 12px; padding: 8px 16px; cursor: pointer; font-size: 14px; }
 .day-item summary::-webkit-details-marker { display: none; }
-.day-item summary:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+@media (hover: hover) { .day-item summary:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
 .day-item.live summary { font-weight: 500; }
 .day-time { flex: none; width: 64px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .day-title { flex: 1; min-width: 0; }
@@ -358,14 +359,14 @@ dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 .tag { font-weight: 600; letter-spacing: -.01em; }
 .app-header h1.brand img { border-radius: var(--radius-sm); }
 .card { box-shadow: none; box-shadow: inset 0 0 0 1px var(--hairline); }
-.card:hover { background: var(--surface-2); }
+@media (hover: hover) { .card:hover { background: var(--surface-2); } }
 .cards { gap: 8px; }
 
 /* Fila compacta (modo por defecto): logo chico, nombre, programa en el aire y estado. */
 .cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: clip; }
 .cards.rows .card.row-card { border-radius: 0; box-shadow: none; background: transparent; padding: 8px 4px 8px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); min-height: 56px; }
 .cards.rows .card.row-card:first-child { border-top: 0; }
-.cards.rows .card.row-card:hover { background: var(--surface-2); }
+@media (hover: hover) { .cards.rows .card.row-card:hover { background: var(--surface-2); } }
 .cards.rows .card.row-card .logo { width: 36px; height: 36px; flex: none; }
 .cards.rows .card.row-card .card-title { flex: 1; min-width: 0; }
 .cards.rows .card.row-card .card-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -478,11 +479,11 @@ body { overflow-anchor: none; }
 
 /* ---- Filas rediseñadas: la guía asignada a la vista, estado por excepción, gestos ---- */
 .cards.rows .card.row-card { position: relative; display: block; padding: 0; background: transparent; touch-action: pan-y; overflow: hidden; }
-.cards.rows .card.row-card:hover { background: transparent; }
+@media (hover: hover) { .cards.rows .card.row-card:hover { background: transparent; } }
 .cards.rows .card.row-card:focus-visible, .cards.rows .card.section-card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .row-in { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 12px; background: var(--surface); transform: translateX(var(--sx, 0px)); transition: transform .16s ease; position: relative; }
 .card.row-card.swiping .row-in { transition: none; }
-.cards.rows .card.row-card:hover .row-in { background: var(--surface-2); }
+@media (hover: hover) { .cards.rows .card.row-card:hover .row-in { background: var(--surface-2); } }
 .cards.rows .card.row-card.selected .row-in { background: var(--accent-soft); }
 .cards.rows .card.row-card.is-hidden .row-in > * { opacity: .5; }
 .cards.rows .card.row-card.is-hidden { opacity: 1; }
@@ -534,7 +535,7 @@ body.selecting .row-in { padding-left: 12px; }
 /* ---- Hoja del canal rediseñada ---- */
 .ch-head { gap: 4px; }
 .ch-name { flex: 1; min-width: 0; height: 44px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 20px; font-weight: 600; padding: 0 8px; text-overflow: ellipsis; }
-.ch-name:hover { background: var(--surface-2); }
+@media (hover: hover) { .ch-name:hover { background: var(--surface-2); } }
 .ch-name:focus { outline: none; background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--accent); }
 .ch-head .icon-btn[disabled] { opacity: .3; }
 .ch-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-width: 0; }
@@ -571,7 +572,7 @@ body.selecting .row-in { padding-left: 12px; }
 .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--hairline); }
 .opts .opt:first-child { border-top: 0; }
 .opt .radio { flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--faint); }
-.opt:hover .radio { box-shadow: inset 0 0 0 2px var(--accent); }
+@media (hover: hover) { .opt:hover .radio { box-shadow: inset 0 0 0 2px var(--accent); } }
 .opt-body { flex: 1; min-width: 0; }
 .opt-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .opt-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -650,13 +651,6 @@ body.selecting .row-in { padding-left: 12px; }
 :root { --faint: #6f6a5f; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --faint: #8a91a0; } }
 :root[data-theme="dark"] { --faint: #8a91a0; }
-/* Sin mouse (táctil), el hover no se queda pegado después de tocar. */
-@media (hover: none) {
-  .cards.rows .card.row-card:hover .row-in { background: var(--surface); }
-  .cards.rows .card.row-card.selected:hover .row-in { background: var(--accent-soft); }
-  .menu-row:not(.static):hover, .pick-row:hover, .opt:hover, .day-item summary:hover, .ch-name:hover { background: transparent; }
-  .opt:hover .radio { box-shadow: inset 0 0 0 2px var(--faint); }
-}
 
 /* ---- Etapa 1: alta con marca y camino a los links ---- */
 .app-header h1.brand { gap: 10px; }
@@ -772,7 +766,9 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
     box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
   }
   dialog.sheet.docked .sheet-body { max-height: 100dvh; height: 100%; }
-  body.has-dock main, body.has-dock .app-header { margin-right: 440px; }
+  body.has-dock main, body.has-dock .app-header, body.has-dock .toolbar { margin-right: 440px; }
+  /* Alineados con la lista, que queda pegada al panel (760 px de ancho, a 440 px del borde). */
+  body.has-dock .app-header, body.has-dock .toolbar { padding-left: max(var(--gutter), calc(100% - 440px - 744px)); padding-right: var(--gutter); }
   html:has(dialog.docked[open]) { overflow: auto; }
 }
 
@@ -796,7 +792,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 
 /* Botón principal: ámbar con texto oscuro también en el tema claro (11:1); el marrón queda solo para texto y enlaces. */
 .btn-primary { background: #ffb224; color: #1d1300; }
-.btn-primary:hover { background: color-mix(in srgb, #ffb224 92%, #1d1300); }
+@media (hover: hover) { .btn-primary:hover { background: color-mix(in srgb, #ffb224 92%, #1d1300); } }
 .btn-primary:active { background: color-mix(in srgb, #ffb224 86%, #1d1300); }
 
 /* Opciones de guía: la etiqueta de país resalta cuando es el de la categoría. */
@@ -813,13 +809,14 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .cards.grid .row-more { display: none !important; }
 .row-menu { position: fixed; z-index: 200; min-width: 200px; padding: 6px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline); display: flex; flex-direction: column; }
 .row-menu button { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
-.row-menu button:hover, .row-menu button:focus-visible { background: var(--surface-2); }
+.row-menu button:focus-visible { background: var(--surface-2); }
+@media (hover: hover) { .row-menu button:hover { background: var(--surface-2); } }
 
 /* Un solo ámbar protagonista por pantalla: el botón principal y la pestaña activa.
    Filtros elegidos, botones secundarios y la tarjeta de links pasan a neutros. */
 .segmented button[aria-pressed="true"], .chip-btn[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--fill); color: var(--text); font-weight: 600; }
 .btn-tonal { background: var(--fill); color: var(--text); }
-.btn-tonal:hover { background: color-mix(in srgb, var(--fill) 88%, var(--text)); }
+@media (hover: hover) { .btn-tonal:hover { background: color-mix(in srgb, var(--fill) 88%, var(--text)); } }
 .links-card { background: var(--surface-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .lc-head .icon-btn, .links-card .link-btn { color: var(--text); }
 .links-card .btn-tonal { background: var(--fill); color: var(--text); }
@@ -871,13 +868,20 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 /* La cápsula queda a 1rem del borde en todos los equipos (en iPhone, justo arriba de la rayita de inicio). */
 .tabbar { left: 12px; right: 12px; bottom: 1rem; max-width: 520px; margin: 0 auto;
   padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
-  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
 .tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
 .tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
 body > .toasts { bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
+/* Lo que pasa por detrás de la cápsula se desvanece antes de llegar (no se lee a través de ella): un degradé del
+   fondo, debajo de la cápsula y encima de la lista, la Guía y las páginas. */
+.tabbar { z-index: 9; }
+body:has(.tabbar)::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; pointer-events: none;
+  height: calc(var(--tab-h) + 1rem + 36px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg) 50%, transparent); }
+body:has(#editor[hidden])::after, body.selecting::after { display: none; }
+body.has-dock::after { right: 440px; }
 .menu-row .select.compact { max-width: 150px; }
 
 /* Guía asignada: tarjeta neutra (sin ámbar) con el estado en un chip. */
@@ -902,12 +906,12 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Recordatorios de programas («Avisarme») */
 .day-item summary { align-items: center; }
 .remind-btn { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 999px; color: var(--muted); background: transparent; border: 0; padding: 0; cursor: pointer; }
-.remind-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .remind-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .remind-btn.on { color: var(--accent); background: var(--accent-soft); }
 
 /* Aviso con botón para cerrarlo */
 .toast .toast-close { flex: none; width: 36px; height: 36px; margin: 0 0 0 -4px; color: var(--inverse-text); opacity: .8; background: transparent; }
-.toast .toast-close:hover { opacity: 1; background: color-mix(in srgb, var(--inverse-text) 12%, transparent); }
+@media (hover: hover) { .toast .toast-close:hover { opacity: 1; background: color-mix(in srgb, var(--inverse-text) 12%, transparent); } }
 
 /* Canales caídos: fila con el botón «Probar ahora» al costado */
 #downRow { cursor: pointer; }
@@ -942,7 +946,7 @@ body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 .pc-stat b.ok { color: var(--green); } .pc-stat b.warn { color: var(--orange); } .pc-stat b.bad { color: var(--red); }
 .pc-stat small { font-size: 12px; color: var(--muted); }
 button.pc-link { position: relative; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-right: 26px; }
-button.pc-link:hover { background: var(--surface-3, var(--surface-2)); }
+@media (hover: hover) { button.pc-link:hover { background: var(--surface-3, var(--surface-2)); } }
 button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -50%; color: var(--muted); }
 .conn-row { flex-wrap: nowrap; gap: 12px; }
 .conn-row .device-info { flex: 1; }
@@ -1040,7 +1044,7 @@ body.guide-open { overflow: hidden; }
 .gd-ch .qtag { position: absolute; top: 3px; right: 3px; font-size: 9px; line-height: 13px; padding: 0 3px; }
 .gd-track { position: relative; flex: none; }
 .gd-cell { position: absolute; top: 3px; bottom: 3px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline); padding: 6px 8px; overflow: hidden; display: flex; align-items: center; text-align: left; color: inherit; font: inherit; cursor: pointer; }
-.gd-cell:hover { background: var(--surface-2); }
+@media (hover: hover) { .gd-cell:hover { background: var(--surface-2); } }
 .gd-in { display: flex; flex-direction: column; gap: 1px; min-width: 0; width: 100%; box-sizing: border-box; }
 .gd-cell .tt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gd-cell .hh { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
@@ -1050,6 +1054,7 @@ body.guide-open { overflow: hidden; }
 .gd-cell.live { background: var(--surface-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .gd-cell.live::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--accent); }
 .gd-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.gd-cell.tiny { padding: 0; }
 .gd-cell.gap { background: repeating-linear-gradient(-45deg, transparent 0 6px, color-mix(in srgb, var(--orange) 10%, transparent) 6px 12px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 40%, transparent); }
 .gd-cell.gap .tt { color: var(--orange); }
 .gd-cell.gap.quiet { background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }
@@ -1117,6 +1122,7 @@ body.viewer { font-size: 17px; }
 .vw-name { font-size: 19px; font-weight: 700; line-height: 1.25; }
 .vw-now { font-size: 17px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .vw-when { font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-when.vw-left { white-space: normal; }
 .vw-bar { display: block; height: 5px; margin: 3px 0 2px; border-radius: 3px; background: var(--fill); overflow: hidden; }
 .vw-bar > i { display: block; height: 100%; background: var(--accent); }
 .vw-chev { flex: none; color: var(--faint); }
@@ -1169,7 +1175,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-modes { display: flex; margin-top: 12px; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; max-width: 480px; }
 .gd-modes button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .gd-modes button + button { box-shadow: inset 1px 0 0 var(--faint); }
-.gd-modes button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+@media (hover: hover) { .gd-modes button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .gd-modes button[aria-checked="true"] { background: var(--accent-soft); color: var(--on-accent-soft); }
 .gd-modes .icon.sm { width: 18px; height: 18px; }
 .gd-time-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
@@ -1182,7 +1188,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-up-list { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
 .gd-up-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .gd-up-row + .gd-up-row { box-shadow: inset 0 1px 0 var(--hairline); }
-.gd-up-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+@media (hover: hover) { .gd-up-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); } }
 .gd-up-row.dim { opacity: .45; }
 .gd-up-time { flex: none; width: 52px; font-size: 17px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
 .gd-up-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -1222,7 +1228,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-plan-hop .icon.sm { width: 14px; height: 14px; }
 .gd-plan-alt { display: block; width: 100%; margin: -2px 0 12px; padding: 0 0 0 12px; background: none; border: 0; font: inherit; font-size: 12.5px; color: var(--faint); text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gd-plan-alt b { color: var(--muted); font-weight: 500; }
-.gd-plan-alt:hover b { color: var(--accent); text-decoration: underline; }
+@media (hover: hover) { .gd-plan-alt:hover b { color: var(--accent); text-decoration: underline; } }
 .gd-plan-why { display: flex; align-items: center; gap: 5px; margin: -4px 0 10px 12px; font-size: 12.5px; color: var(--muted); }
 .gd-plan-why .icon.sm { width: 13px; height: 13px; color: var(--accent); }
 .gd-plan-why + .gd-plan-alt { margin-top: -6px; }
@@ -1283,7 +1289,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 /* Botones del encabezado de las hojas (cerrar, volver, anterior, siguiente): con fondo propio, para que se vean como
    botones también en el celular, donde no hay :hover. Ver planes/botones-de-las-hojas.md. */
 dialog .title-row .icon-btn { background: var(--fill); color: var(--text); }
-dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); }
+@media (hover: hover) { dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); } }
 dialog .title-row .icon-btn:active { background: color-mix(in srgb, var(--fill) 70%, var(--text)); transform: scale(.94); }
 dialog .title-row .icon-btn:disabled { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 1; cursor: default; transform: none; }
 

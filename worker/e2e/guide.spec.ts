@@ -66,6 +66,29 @@ test('la resolución medida sale como etiqueta en Canales y en la Guía', async 
   await expect(tag).toHaveAttribute('title', 'Resolución: 1920 × 1080');
 });
 
+test('un programa muy corto va sin texto y la hora actual no tapa la marca de la regla', async ({ page }) => {
+  // Un programa de 4 minutos justo después del que está en el aire.
+  await page.route(/\/api\/ui\/schedule\/hour\/\d{10}\.json$/, (r) => {
+    const k = new URL(r.request().url()).pathname.match(/(\d{10})\.json$/)![1];
+    if (k !== hourKey(H)) return r.fallback();
+    return r.fulfill({ json: { h: H, t: ['Noticiero central', 'Avance'], c: { 'g0123456789abcd.uy': [[-60, 50, 0], [50, 4, 1]] } } });
+  });
+  await page.goto('/');
+  await page.locator('#tabGuide').click();
+  const tiny = page.locator('.gd-cell.tiny[aria-label*="Avance"]');
+  await expect(tiny).toHaveCount(1);
+  await expect(tiny).toHaveText('');
+  await expect(tiny).toHaveAttribute('title', /Avance, de/);
+  // El rótulo de una marca cerca de la píldora de la hora queda vacío; la píldora se ve.
+  const pill = await page.locator('.gd-now-pill').boundingBox();
+  for (const tick of await page.locator('.gd-tick').all()) {
+    if (!(await tick.textContent())) continue;
+    const b = (await tick.boundingBox())!;
+    const overlap = b.x + 6 < pill!.x + pill!.width && b.x + 46 > pill!.x;
+    expect(overlap).toBe(false);
+  }
+});
+
 test.afterEach(() => {
   expect(errors).toEqual([]);
 });
