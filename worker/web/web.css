@@ -779,7 +779,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 
 /* Un solo ámbar protagonista por pantalla: el botón principal y la pestaña activa. Lo elegido (filtros, chips,
    segmentados, modos de la Guía) es siempre igual: relleno neutro y texto en 600; lo que pasa ahora, verde (--live). */
-.segmented button[aria-pressed="true"], .chip-btn[aria-pressed="true"], .seg button[aria-checked="true"], .gd-modes button[aria-checked="true"] { background: var(--fill); color: var(--text); font-weight: 600; }
+.segmented button[aria-pressed="true"], .chip-btn[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--fill); color: var(--text); font-weight: 600; }
 .btn-tonal { background: var(--fill); color: var(--text); }
 @media (hover: hover) { .btn-tonal:hover { background: color-mix(in srgb, var(--fill) 88%, var(--text)); } }
 .links-card { background: var(--surface-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
@@ -1001,7 +1001,6 @@ body.guide-open { overflow: hidden; }
 #guide .gd-head, #guide .gd-chips { padding-left: var(--gutter); padding-right: var(--gutter); }
 @media (min-width: 900px) { #guide .gd-head, #guide .gd-chips { padding-left: 24px; padding-right: 24px; } }
 .gd-head h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
-.gd-now-btn { min-height: 36px; }
 .gd-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px max(var(--gutter), calc((100% - 728px) / 2)) 10px; scrollbar-width: none; flex: none; }
 .gd-chips::-webkit-scrollbar { display: none; }
 .gd-chips .chip-btn { flex: none; }
@@ -1156,11 +1155,27 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 }
 @keyframes head-line { from { box-shadow: 0 1px 0 transparent; } to { box-shadow: 0 1px 0 var(--hairline); } }
 /* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
-.gd-modes { display: flex; margin-top: 12px; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; max-width: 480px; }
-.gd-modes button { flex: 1; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
-.gd-modes button + button { box-shadow: inset 1px 0 0 var(--faint); }
-@media (hover: hover) { .gd-modes button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
-.gd-modes .icon.sm { width: 18px; height: 18px; }
+/* El selector de la Guía va en la fila del título, a la derecha: «Grilla  Próximos», la elegida en color pleno y subrayada. */
+.gd-modes { display: flex; gap: 16px; flex: none; }
+.gd-modes button { position: relative; flex: none; min-height: 44px; padding: 0 2px; background: transparent; border: 0; font: inherit; font-size: var(--fs-lg); font-weight: 600; color: var(--muted); cursor: pointer; }
+.gd-modes button[aria-checked="true"] { color: var(--text); }
+.gd-modes button[aria-checked="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 2px; border-radius: 2px; background: var(--accent); }
+@media (hover: hover) { .gd-modes button[aria-checked="false"]:hover { color: var(--text); } }
+.gd-back { margin-left: -10px; }
+.gd-back .icon { width: 28px; height: 28px; }
+/* Tu plan, la parte del día armada: una tarjeta arriba de Grilla y Próximos que abre su página. */
+.gd-teaser { flex: none; display: flex; align-items: center; gap: 12px; margin: 0 var(--gutter) 12px; padding: 12px 14px; border: 0; border-radius: var(--radius); background: var(--accent-soft); color: var(--on-accent-soft); text-align: left; font: inherit; cursor: pointer; }
+@media (min-width: 900px) { .gd-teaser { margin-left: 24px; margin-right: 24px; max-width: 728px; } }
+.gd-teaser .ic { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.gd-teaser .ic .icon { width: 20px; height: 20px; }
+.gd-teaser .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gd-teaser .tx b { font-size: var(--fs-base); font-weight: 650; color: var(--text); }
+.gd-teaser .tx span { font-size: var(--fs-md); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gd-teaser > .icon { flex: none; }
+@media (hover: hover) { .gd-teaser:hover { background: color-mix(in srgb, var(--accent-soft) 85%, var(--text)); } }
+/* «Ahora» flota sobre la grilla, arriba de la barra de pestañas, solo si la línea de ahora no se ve. */
+.gd-now-btn { position: absolute; z-index: 6; right: var(--gutter); bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow-lg); gap: 6px; }
+@media (min-width: 900px) { .gd-now-btn { right: 24px; bottom: 24px; } }
 .gd-time-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .gd-time-chip .icon.sm { width: 16px; height: 16px; }
 
@@ -1296,7 +1311,7 @@ dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease back
 #linksBody > * { animation: view-in .22s cubic-bezier(.2, .8, .3, 1) backwards; }
 /* Guía: al cambiar entre Grilla, Próximos y Tu noche, lo nuevo entra con un fundido. */
 .gd-up, #guide .gd:not([hidden]) { animation: page-in .18s ease backwards; }
-.gd-modes button { transition: background-color .15s ease, color .15s ease; }
+.gd-modes button { transition: color .15s ease; }
 /* Botones de estado: el cambio de color se ve, y lo que se prende hace un «pop». */
 .chip-btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .chip-btn[aria-pressed="true"] .icon, .remind-btn.on .icon { animation: pop .3s ease; }

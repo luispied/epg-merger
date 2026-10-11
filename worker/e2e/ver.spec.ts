@@ -125,7 +125,7 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   // Próximos y «Tu noche» también, sin avisos.
   await page.getByRole('radio', { name: 'Próximos' }).click();
   await expect(page.locator('#guide')).toContainText('Pronóstico del tiempo');
-  await page.getByRole('radio', { name: 'Tu plan' }).click();
+  await page.locator('#guide .gd-teaser').click();
   await expect(page.locator('#guide .remind-btn, #guide .gd-remind')).toHaveCount(0);
   await expect(page.locator('.gd-plan-lead')).not.toContainText('campana');
 });

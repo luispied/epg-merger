@@ -149,14 +149,34 @@ test('Próximos: lo que viene y «Tengo tiempo»', async ({ page }) => {
 
 test('Tu mañana/tarde/noche: arma el plan con la programación de los canales', async ({ page }) => {
   await page.locator('#tabGuide').click();
-  const tab = page.getByRole('radio', { name: 'Tu plan' });
-  await tab.click();
-  await expect(tab).toHaveAttribute('aria-checked', 'true');
+  // Tu plan no es una vista más: una tarjeta arriba de Grilla y Próximos abre su página, con flecha para volver.
+  const teaser = page.locator('#guide .gd-teaser');
+  await expect(teaser).toContainText('armada para vos');
+  await teaser.click();
+  await expect(page.locator('#guide .gd-head h1')).toHaveText(/^Tu (mañana|tarde|noche|madrugada)$/);
+  await expect(page.locator('#guide .gd-teaser')).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Grilla' })).toHaveCount(0);
   const slot = page.locator('.gd-plan-slot', { hasText: 'Película de la noche' });
   await expect(slot).toBeVisible();
   await expect(slot.locator('.remind-btn')).toBeVisible();
   await slot.locator('.gd-plan-card').click();
   await expect(page.locator('dialog.gd-sheet')).toContainText('Película de la noche');
+  await page.keyboard.press('Escape');
+  // La flecha vuelve a la vista de antes, con la tarjeta otra vez arriba.
+  await page.getByRole('button', { name: 'Volver a Grilla' }).click();
+  await expect(page.getByRole('radio', { name: 'Grilla' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#guide .gd-teaser')).toBeVisible();
+});
+
+test('«Ahora» aparece solo cuando la línea de ahora no se ve', async ({ page }) => {
+  await page.locator('#tabGuide').click();
+  await expect(page.locator('.gd-cell.live')).toHaveCount(1);
+  const now = page.locator('#guide .gd-now-btn');
+  await expect(now).toHaveCount(0);
+  await page.locator('#guide .gd').evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+  await expect(now).toBeVisible();
+  await now.click();
+  await expect(now).toHaveCount(0);
 });
 
 test('el ? de la Guía abre su ayuda', async ({ page }, info) => {

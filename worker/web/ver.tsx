@@ -11,6 +11,10 @@ import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.t
 
 declare global { interface Window { ICONS: Record<string, string> } }
 Object.assign(window.ICONS, {
+  // La flecha de volver de Tu noche y las de «Ahora» en la Guía (ui/guide.tsx); en el editor vienen de app.ts.
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
 });
 
@@ -247,8 +251,8 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Guía<Icon name="chevron-down" /></summary>
-          <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es), <b>Próximos</b> (lo que empieza pronto) o <b>Tu plan</b> (lo mejor de tus canales para lo que queda de la mañana, la tarde, la noche o la madrugada).</p>
-          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en Tu plan y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
+          <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba, al lado del título, elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es) o <b>Próximos</b> (lo que empieza pronto). La tarjeta <b>Tu noche, armada para vos</b> (de día, tu mañana o tu tarde) abre lo mejor de tus canales para lo que queda de ese rato; la flecha de arriba te devuelve.</p>
+          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
