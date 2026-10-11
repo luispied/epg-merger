@@ -4,16 +4,18 @@
 export interface R2ObjectBody {
   body: ReadableStream;
   text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
   customMetadata?: Record<string, string>;
+  httpMetadata?: { contentType?: string; contentEncoding?: string };
   httpEtag?: string;
   uploaded?: Date;
 }
 
 export interface R2Bucket {
-  get(key: string): Promise<R2ObjectBody | null>;
+  get(key: string, options?: { range?: { offset: number; length: number } }): Promise<R2ObjectBody | null>;
   head(key: string): Promise<{ uploaded: Date } | null>;
-  put(key: string, value: string | ArrayBuffer | ReadableStream,
-    options?: { customMetadata?: Record<string, string>; httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  put(key: string, value: string | ArrayBuffer | Uint8Array | ReadableStream,
+    options?: { customMetadata?: Record<string, string>; httpMetadata?: { contentType?: string; contentEncoding?: string } }): Promise<unknown>;
   delete(key: string): Promise<void>;
   list(options?: { prefix?: string; cursor?: string }): Promise<{ objects: { key: string }[]; truncated: boolean; cursor?: string }>;
 }

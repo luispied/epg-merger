@@ -51,6 +51,7 @@ import { checkAllHealth, liveAccounts } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
+import { readHour, scheduleReader } from './schedule.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -834,8 +835,15 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   if (section === 'ui' && method === 'GET') {
     // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    if (!/^schedule(\/[A-Za-z0-9_-]+)+\.json$/.test(path)) return fail(404, 'no encontrado');
-    return serveR2(env, `ui/${path}`, 'application/json', 900);
+    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path);
+    const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
+    if (!hour && !channel) return fail(404, 'no encontrado');
+    // La corrida los guarda en gzip: viajan así, sin descomprimirlos acá (src/schedule.ts).
+    const raw = hour ? await readHour(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!);
+    if (!raw) return fail(404, 'no encontrado');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900', ...CORS };
+    if (raw.gz) headers['Content-Encoding'] = 'gzip';
+    return new Response(raw.bytes, { headers, encodeBody: 'manual' } as ResponseInit);
   }
   return fail(404, 'no encontrado');
 }

@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.39.1
+
+- Interno: la programación que sube la corrida diaria a R2 va empacada: los ~17.500 archivos por canal pasan a 256 tandas y todo va en gzip (`tools/pack_schedule.py`). `ui/` baja de 203 MB a 76 MB y las escrituras diarias de unas 17.600 a unas 320.
+- Worker: lee cada canal de su tanda con dos lecturas por rango y lo sirve comprimido tal cual, igual que los índices por hora (`src/schedule.ts`); mientras no haya tandas, sigue leyendo los archivos de antes.
+- Tests nuevos del empaque (`tests/test_pack_schedule.py`) y de la lectura en el Worker (`test/schedule.test.ts`).
+
 ## 1.39.0
 
 - **En la Guía, la vista se elige al lado del título.** Ya no hay una barra con tres botones debajo de «Guía»: a la derecha del título dice «Grilla  Próximos», con la que estás viendo subrayada y la otra apagada. Es una fila menos y la grilla gana lugar.
