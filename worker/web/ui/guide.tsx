@@ -257,6 +257,14 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     loadHours(Math.max(t0, visFrom - HOUR), Math.min(t1, visTo + HOUR), () => setVer((v) => v + 1));
   }, [mode, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
 
+  // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
+  // lugar, en vez de quedar vacía.
+  const pendingHours: number[] = [];
+  for (let h = Math.max(t0, Math.floor(visFrom / HOUR) * HOUR); h < Math.min(t1, visTo); h += HOUR) {
+    const v = hours.get(h);
+    if (v === undefined || v === 'loading') pendingHours.push(h);
+  }
+
   // Programas de un canal en el rango, desde las horas ya bajadas; los huecos de 10 min o más
   // dentro de horas bajadas se marcan («Sin programación»): así se ven las guías flojas.
   const progCache = useMemo(() => new Map<string, Prog[]>(), [ver, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
@@ -412,7 +420,9 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                 </button>
                 <div class="gd-track" style={{ width: `${W}px` }}>
                   {r.ch.epg
-                    ? progsOf(r.ch.epg).filter((p) => p.e > visFrom && p.s < visTo).map((p) => cell(r.ch, p))
+                    ? [...progsOf(r.ch.epg).filter((p) => p.e > visFrom && p.s < visTo).map((p) => cell(r.ch, p)),
+                      ...pendingHours.map((h) => <span key={`s${h}`} class="gd-cell skel" aria-hidden="true"
+                        style={{ left: `${x(h) + 2}px`, width: `${(HOUR / 60) * PX - 4}px` }} />)]
                     : (
                       <button type="button" class={`gd-cell gap${r.ch.quiet ? ' quiet' : ''}`} style={{ left: `${Math.max(lx, 0) + 2}px`, width: `${view.w - CHW - 4}px` }}
                         onClick={() => host.openChannel(r.ch.i)}>

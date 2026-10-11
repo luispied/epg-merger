@@ -11,6 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.37.0
+
+- **En una pantalla grande, las pestañas van a la izquierda.** En la compu, Canales, Guía, Categorías y Perfil pasan de la barra flotante de abajo a una columna fija a la izquierda, y el contenido usa todo el alto.
+- **Letra grande.** Nuevo interruptor en Configuración que agranda toda la app (textos, botones y la Guía) para leer más cómodo. Se recuerda en ese navegador.
+- **La Guía muestra dónde está cargando.** Mientras llegan los programas de una hora, en su lugar se ven celdas grises que titilan, en vez de un hueco vacío.
+- Ayudas de Canales, Configuración y del modo ver al día (pestañas a la izquierda, letra grande).
+- Interno: los últimos colores sueltos de `base.css` y `web.css` pasan a tokens en `worker/web/tokens.css`, y un test falla si vuelve a aparecer un color fijo o una regla de tema oscuro fuera de ese archivo.
+
 ## 1.36.7
 
 - **Las hojas se cierran con una animación.** Un canal, Configuración, la ayuda, el programa de la Guía y las demás hojas ya no desaparecen de golpe al tocar la ✕ o Esc: se van con un movimiento corto. En el celular suben desde abajo al abrirse y bajan al cerrarse.
