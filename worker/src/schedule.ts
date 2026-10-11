@@ -52,8 +52,8 @@ export function scheduleReader(bucket: R2Bucket): (file: string) => Promise<Raw 
   };
 }
 
-/** Un índice por hora: en gzip desde que la corrida los empaca, en texto los de antes. */
-export async function readHour(bucket: R2Bucket, key: string): Promise<Raw | null> {
+/** Un objeto que la corrida puede guardar en gzip (índices por hora, guide/index.json, mapas de imágenes). */
+export async function readStored(bucket: R2Bucket, key: string): Promise<Raw | null> {
   const obj = await bucket.get(key);
   return obj ? { gz: obj.httpMetadata?.contentEncoding === 'gzip', bytes: new Uint8Array(await obj.arrayBuffer()) } : null;
 }

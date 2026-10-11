@@ -47,7 +47,7 @@ test('programación en tandas: cada canal viaja en gzip, con dos lecturas por ra
   assert.deepEqual((await again.json() as { r: unknown[] }).r, [[0, now - 1800, [[0, now + 7200]]]]);
 });
 
-test('índice por hora: el guardado en gzip viaja tal cual, el viejo en texto también', async () => {
+test('índice por hora y de la guía: el guardado en gzip viaja tal cual, el viejo en texto también', async () => {
   const t = makeEnv();
   const body = '{"h":1,"t":[],"c":{}}';
   await t.env.BUCKET.put('ui/schedule/hour/2026101119.json', gzipSync(body), { httpMetadata: { contentEncoding: 'gzip' } });
@@ -59,4 +59,11 @@ test('índice por hora: el guardado en gzip viaja tal cual, el viejo en texto ta
   assert.equal(plain.headers.get('Content-Encoding'), null);
   assert.equal(await plain.text(), body);
   assert.equal((await handle(req('/api/ui/schedule/hour/x.json'), t.env, t.ctx, t.cache)).status, 404);
+
+  // El índice de la guía, igual.
+  await t.env.BUCKET.put('guide/index.json', gzipSync('{"channels":[]}'), { httpMetadata: { contentEncoding: 'gzip' } });
+  const guide = await handle(req('/api/guide/index.json'), t.env, t.ctx, t.cache);
+  assert.equal(guide.headers.get('Content-Encoding'), 'gzip');
+  assert.equal(guide.headers.get('Cache-Control'), 'public, max-age=3600');
+  assert.equal(await gunzip(new Uint8Array(await guide.arrayBuffer())), '{"channels":[]}');
 });

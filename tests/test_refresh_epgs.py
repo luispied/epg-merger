@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 import refresh_epgs  # noqa: E402
 from source_alias import logo_key  # noqa: E402
+from fake_s3 import FakeS3  # noqa: E402
 
 T = datetime.datetime(2026, 9, 30, 12, tzinfo=datetime.timezone.utc)
 
@@ -79,15 +80,6 @@ def test_baja_el_merged_sin_token_por_la_url_publica(tmp_path, monkeypatch):
     assert seen == [('https://github.com/yo/repo/releases/download/latest/merged.xml.gz', {})]
 
 
-class _Uploads:
-    def __init__(self):
-        self.files = {}
-
-    def upload_file(self, path, bucket, key, ExtraArgs=None):
-        with open(path, encoding='utf-8') as f:
-            self.files[key] = (json.load(f), ExtraArgs['ContentType'])
-
-
 def test_sube_los_mapas_de_imagenes_del_mismo_merged(tmp_path):
     """Las guías que arma apuntan los logos al Worker: los mapas que los resuelven suben con ellas."""
     merged = tmp_path / 'merged.xml.gz'
@@ -95,9 +87,13 @@ def test_sube_los_mapas_de_imagenes_del_mismo_merged(tmp_path):
         f.write('<tv><channel id="a"><display-name>A</display-name><icon src="http://x/t.png"/></channel>'
                 '<programme channel="a" start="20260930120000 +0000" stop="20260930130000 +0000">'
                 '<title>P</title><icon src="http://x/p.jpg"/></programme></tv>')
-    client = _Uploads()
+    client = FakeS3()
     assert refresh_epgs.upload_media_maps(client, 'b', str(merged), str(tmp_path)) == 2
     logo = logo_key('http://x/t.png')
     img = logo_key('http://x/p.jpg')
-    assert client.files[f'logo/map/{logo[:1]}.json'] == ({logo: 'http://x/t.png'}, 'application/json')
-    assert client.files[f'img/map/{img[:2]}.json'] == ({img: 'http://x/p.jpg'}, 'application/json')
+    read = lambda key: (json.loads(gzip.decompress(client.objects[key][0])), client.objects[key][1])  # noqa: E731
+    gz_json = {'ContentType': 'application/json', 'ContentEncoding': 'gzip'}
+    assert read(f'logo/map/{logo[:1]}.json') == ({logo: 'http://x/t.png'}, gz_json)
+    assert read(f'img/map/{img[:2]}.json') == ({img: 'http://x/p.jpg'}, gz_json)
+    # Entre corridas diarias los mapas suelen ser los mismos: no se vuelven a subir.
+    assert refresh_epgs.upload_media_maps(client, 'b', str(merged), str(tmp_path)) == 0

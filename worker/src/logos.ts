@@ -5,6 +5,7 @@
 // ver source_alias.py); el Worker lee solo el archivo de la clave que le piden.
 import { sha256Hex } from './crypto.ts';
 import type { Env } from './env.ts';
+import { gunzip } from './schedule.ts';
 
 export type MediaKind = 'logo' | 'img';
 export const MEDIA_RE = /^[0-9a-f]{16}$/;
@@ -36,7 +37,10 @@ function mapFor(env: Env, kind: MediaKind, key: string, now = Date.now()): Promi
     entry.map = env.BUCKET.get(name)
       .then(async (o) => {
         if (!o) entry.ttl = MISSING_TTL_MS;
-        return o ? JSON.parse(await o.text()) as Record<string, string> : {};
+        if (!o) return {};
+        // La corrida los guarda en gzip (tools/r2_sync.py); los de antes, en texto.
+        const text = o.httpMetadata?.contentEncoding === 'gzip' ? await gunzip(new Uint8Array(await o.arrayBuffer())) : await o.text();
+        return JSON.parse(text) as Record<string, string>;
       })
       .catch(() => { entry.ttl = MISSING_TTL_MS; return {}; });
     hit = entry;
