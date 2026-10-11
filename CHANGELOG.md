@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.41.2
+
+- **La Guía y la lista abren más rápido.** El cruce de cada canal con la guía se guarda en este navegador: se vuelve a calcular solo cuando cambia la guía del día, tu lista o tus preferencias.
+- Interno: caché en IndexedDB (`worker/web/cache.ts`) con una clave que incluye la fecha de la guía, el nombre, el id y la categoría de cada canal, y las preferencias de cruce.
+- Tests: el cruce guardado y su reemplazo al cambiar la guía (`e2e/cruce-cache.spec.ts`).
+
 ## 1.41.1
 
 - Worker: anota en su registro (Workers Logs) el tipo de cada pedido (`playlist`, `epg`, `stream`, `api/cfg`…), sin ids, códigos ni tokens, para saber qué gasta más CPU. No cambia ninguna respuesta.
