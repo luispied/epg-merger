@@ -78,8 +78,10 @@ async function setup(page: Page, theme: string) {
   await page.emulateMedia({ colorScheme: theme === 'dark' ? 'dark' : 'light', reducedMotion: 'reduce' });
 }
 
-// Suave: si una pantalla cambió, el test sigue y compara las demás.
-const shot = (page: Page, name: string) => expect.soft(page).toHaveScreenshot(`${name}.png`, { animations: 'disabled', caret: 'hide', maxDiffPixels: 0 });
+// Suave: si una pantalla cambió, el test sigue y compara las demás. La versión y el commit (pie de Configuración y de la
+// bienvenida) cambian con cada PR: van tapados.
+const shot = (page: Page, name: string) => expect.soft(page).toHaveScreenshot(`${name}.png`,
+  { animations: 'disabled', caret: 'hide', maxDiffPixels: 0, mask: [page.locator('.app-version, [data-version]')] });
 
 for (const theme of ['light', 'dark']) {
   test.describe(theme === 'light' ? 'claro' : 'oscuro', () => {
