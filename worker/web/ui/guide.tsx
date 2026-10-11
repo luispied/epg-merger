@@ -345,7 +345,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
         <div class="title-row">
           <span class="title-left">
             <h1>Guía</h1>
-            {host.help && <button type="button" class="icon-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
+            {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
           </span>
           {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
         </div>

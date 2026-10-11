@@ -18,6 +18,7 @@
   --muted: light-dark(#4d4a40, #b4bac6);
   --faint: light-dark(#6f6a5f, #8a91a0);
   --hairline: light-dark(#d9d3c6, #2a2e37);
+  --chip-line: light-dark(#8f887a, #626a77); /* borde de chips y filtros sin elegir (3:1 contra el fondo) */
   --toolbar-bg: light-dark(rgba(245, 242, 236, .92), rgba(12, 13, 16, .92));
 
   /* Acento (ámbar): lo que se toca y lo elegido */
@@ -28,7 +29,8 @@
 
   /* Estados */
   --green: light-dark(#17683a, #52d49a);
-  --live: var(--green); /* lo que pasa ahora (en el aire, en vivo) */
+  --live: var(--green); /* lo que pasa ahora (en el aire, en vivo): siempre verde, nunca ámbar */
+  --on-live: light-dark(#ffffff, #06281a);
   --orange: light-dark(#b03a10, #ff8566);
   --red: light-dark(#b3261e, #ff7b72);
   --on-danger: light-dark(#ffffff, #3c0a07);

@@ -11,6 +11,18 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.36.6
+
+- **Lo que está en el aire, en verde.** En la Guía, la línea y la hora de ahora, el borde y la barra del programa que está dando, «En el aire» en la hoja del programa y la barra de cuánto va (también en Canales y en el modo ver) pasan del ámbar al verde. El ámbar queda solo para lo que se toca o se elige: la Guía pasa de ocho cosas en ámbar a dos.
+- **Lo elegido se ve igual en todos lados.** Los filtros de Canales, las categorías de la Guía, «Tengo tiempo», los modos de la Guía y los botones segmentados (tema, tipo de proveedor) se marcan del mismo modo: fondo gris y texto en negrita. Antes había cinco formas distintas.
+- Los chips y filtros sin elegir tienen un borde más visible, así se nota que son botones.
+- En Próximos y Tu noche las horas van en el color del texto, y la línea del plan es una guía fina en lugar de ámbar.
+- Perfil: el perfil en uso, «En uso» y los «Agregar…» con menos ámbar.
+- Los rótulos de sección en mayúsculas («DEPORTES», «GUÍA ASIGNADA», «MI PROVEEDOR») tienen todos el mismo tamaño y color.
+- El botón de ayuda (?) va siempre al lado del título y sin círculo, en todas las pantallas (en Canales y en el modo ver estaba a la derecha). La derecha queda para las acciones y para cerrar.
+- Tu noche: el programa que está en el aire se destaca con un tinte verde suave en la tarjeta y «quedan…» en verde, en lugar de la raya verde del costado.
+- Ayudas de la Guía y del modo ver al día (el verde es lo que está en el aire).
+
 ## 1.36.5
 
 - Interno: auditoría de diseño, paso 2. Los colores, sombras y radios se definen en un solo lugar (`worker/web/tokens.css`), con el claro y el oscuro de cada token juntos en `light-dark(claro, oscuro)`; `build.mjs` lo expande en los bloques de siempre (anda en cualquier navegador). Antes `--accent` se definía en 5 lugares y había 21 bloques `:root`. Suma las escalas de letra, espacio, z-index y tiempos, y `--live` para lo que está en el aire, que las pantallas van a ir adoptando.
