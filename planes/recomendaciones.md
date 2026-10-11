@@ -46,6 +46,17 @@ Cómo haría falta armarlo:
   plan con los hábitos (por ejemplo, «explicame por qué»), avisarlo en la ayuda y dejar apagarlo.
 - **Sin IA disponible**, todo sigue como en la fase 1.
 
+### Decisiones (11/10/2026)
+- Modelo: **Claude Haiku 5.5** por la **API de lotes** (mitad de precio; la corrida diaria no necesita la respuesta al
+  instante). Sin «pensar»: es una etiqueta, no un razonamiento.
+- Antes de gastar nada, **medir gratis** cuántos títulos nuevos aparecen por día: `tools/measure_titles.py`, en la
+  corrida diaria (paso «Measure titles for AI (free)»). Cuenta los títulos distintos de 25 minutos o más (lo que puede
+  sugerir Tu noche), en toda la guía y en los canales que usa alguna configuración, recuerda los vistos en
+  `ai/seen.json` de R2 y deja cada día en `ai/measure.json` y en el resumen de la corrida, con la proyección mensual.
+- Cuando haya unos días de medición: límite de gasto mensual en la cuenta de Anthropic (por ejemplo US$ 5), tope de
+  títulos por corrida en el script y el secreto `ANTHROPIC_API_KEY` en el repo.
+
 ## Estado
 - ✅ 1.36.0: fase 1 (Worker, puntaje, porqué, «Más como esto» / «No me interesa», ayuda y tests).
-- Pendiente: fase 2.
+- 🔄 Fase 2: midiendo gratis el volumen y el costo (`tools/measure_titles.py`).
+- Pendiente: clasificar de verdad, usar géneros y temas en los hábitos y en Tu noche.
