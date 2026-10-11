@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
+import { gzipSync } from 'node:zlib';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, isFeatureBump, notifyExpiry, notifyNewVersion, notifyReminders } from '../src/push.ts';
@@ -1189,7 +1190,8 @@ test('logos: /logo/<clave> baja la imagen una vez, la guarda en R2 y no muestra 
   assert.equal(await mediaKey(ICON), 'b4009f79b7b3189c', 'misma clave que logo_key en source_alias.py');
   await t.env.BUCKET.put('logo/map/b.json', JSON.stringify({ b4009f79b7b3189c: ICON }));
   await t.env.BUCKET.put('logo/map/0.json', JSON.stringify({ '0000000000000000': 'http://x/page.html' }));
-  await t.env.BUCKET.put('img/map/b4.json', JSON.stringify({ b4009f79b7b3189c: ICON }));
+  // Como los sube la corrida: en gzip (tools/r2_sync.py).
+  await t.env.BUCKET.put('img/map/b4.json', gzipSync(JSON.stringify({ b4009f79b7b3189c: ICON })), { httpMetadata: { contentEncoding: 'gzip' } });
   const calls: string[] = [];
   const original = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
