@@ -11,6 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.39.0
+
+- **En la Guía, el título elige la vista.** Arriba ya no hay una barra con tres botones: dice «Grilla  Próximos» en letra grande, la que estás viendo en color pleno y la otra apagada. Tocá la otra para cambiar. Es una fila menos y la grilla gana lugar.
+- **Tu noche sale del selector y tiene su tarjeta.** Arriba de Grilla y Próximos, «Tu noche, armada para vos» (de día, tu mañana o tu tarde) dice hasta qué hora arma lo mejor de tus canales y abre el plan en su propia página. La flecha de al lado del título te devuelve a donde estabas.
+- **«Ahora» aparece solo cuando hace falta.** En la Grilla, si te alejás de la hora actual, abajo a la derecha aparece «Ahora» con una flecha hacia donde está; tocalo y volvés. Mientras la línea de ahora se ve, no está.
+- Ayudas de la Guía, de Canales y del modo ver al día.
+- Tests de la Guía y del modo ver al día; test nuevo de «Ahora» en `e2e/guide.spec.ts`.
+
 ## 1.38.1
 
 - **La Guía ya no se queda mostrando celdas grises.** Si la abrías pasada la media hora, los bloques de «cargando» de la primera hora no se iban nunca y tapaban los programas.

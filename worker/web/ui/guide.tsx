@@ -184,7 +184,11 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const m = pref.get('mode');
     return m === 'next' || m === 'plan' ? m : 'grid';
   });
-  const setMode = (m: Mode) => { setModeState(m); pref.set('mode', m); };
+  const setMode = (m: Mode) => { setModeState(m); pref.set('mode', m); if (m !== 'plan') pref.set('base', m); };
+  // Tu noche (el plan) se abre como una página propia desde su tarjeta; la flecha vuelve a la vista de antes (Grilla o Próximos).
+  const base: Mode = mode !== 'plan' ? mode : pref.get('base') === 'next' ? 'next' : 'grid';
+  const part = partOfDay(now);
+  const partName = `Tu ${part.name}`;
   const [budgetOn, setBudgetOn] = useState(false);
   const [budget, setBudget] = useState(() => Math.min(360, Math.max(20, Number(pref.get('budget')) || 75)));
   const [view, setView] = useState({ x: 0, y: 0, w: 390, h: 700 });
@@ -353,18 +357,26 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     <div class="gd-shell">
       <header class="app-header gd-head">
         <div class="title-row">
-          <span class="title-left">
-            <h1>Guía</h1>
-            {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
-          </span>
-          {mode === 'grid' && <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>Ahora</button>}
-        </div>
-        <div class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
-          {([['grid', 'Grilla'], ['next', 'Próximos'], ['plan', 'Tu plan']] as [Mode, string][]).map(([m, label]) => (
-            <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>
-              {label}
-            </button>
-          ))}
+          {mode === 'plan' ? (
+            <span class="title-left">
+              <button type="button" class="icon-btn gd-back" aria-label={`Volver a ${base === 'next' ? 'Próximos' : 'Grilla'}`} onClick={() => setMode(base)}>
+                <Icon name="chevron-left" />
+              </button>
+              <h1>{partName}</h1>
+              {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
+            </span>
+          ) : (
+            <span class="title-left">
+              <h1 class="sr-only">Guía</h1>
+              {/* El título es el selector: la vista elegida en color pleno, la otra apagada. */}
+              <span class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
+                {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
+                  <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>{label}</button>
+                ))}
+              </span>
+              {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
+            </span>
+          )}
         </div>
       </header>
       <nav class="gd-chips" aria-label="Categorías">
@@ -390,6 +402,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
         )}
       </nav>
       {picking && <CatSheet cats={cats} counts={counts} sel={sel} toggle={toggleCat} clear={() => setSel([])} close={() => setPicking(false)} />}
+      {mode !== 'plan' && channels.some((c) => c.epg && !c.quiet) && (
+        <button type="button" class="gd-teaser" onClick={() => setMode('plan')}>
+          <span class="ic"><Icon name="sparkles" /></span>
+          <span class="tx">
+            <b>{partName}, armada para vos</b>
+            <span>Lo mejor de {sel.length ? catsLabel(sel) : 'tus canales'} hasta las {hm(part.end)}</span>
+          </span>
+          <Icon name="chevron-right" />
+        </button>
+      )}
       {!channels.length && <div class="empty">No hay canales para mostrar.</div>}
       {mode === 'next' && channels.length > 0 && (
         <Upcoming channels={shown} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
@@ -439,6 +461,12 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           {now >= t0 && now < t1 && <div class="gd-nowline" style={{ left: `${CHW + x(now)}px`, top: `${RULER}px`, height: `${rows.height}px` }} />}
         </div>
       </div>
+      {/* «Ahora» aparece solo cuando la línea de ahora quedó fuera de la vista: vuelve a ella. */}
+      {mode === 'grid' && now >= t0 && now < t1 && (x(now) < view.x || x(now) > view.x + view.w - CHW) && (
+        <button type="button" class="btn btn-tonal sm gd-now-btn" onClick={() => goNow(true)}>
+          <Icon name={x(now) < view.x ? 'arrow-left' : 'arrow-right'} class="sm" />Ahora
+        </button>
+      )}
       {open && <ProgramSheet ch={open.ch} p={open.p} now={now} host={host} channels={channels} habits={habits} setHabits={setHabits}
         again={open.p.s <= now && now < open.p.e ? again.get(`${open.ch.epg}|${open.p.s}`) ?? [] : []} close={() => setOpen(null)} />}
     </div>
@@ -891,7 +919,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
       return;
     }
     if (quiet) return;
-    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en Tu plan.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
+    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en tu plan.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
@@ -901,7 +929,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
     </button>
   );
   return (
-    <div class="gd-taste" role="group" aria-label="Para Tu plan">
+    <div class="gd-taste" role="group" aria-label="Para tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
     </div>

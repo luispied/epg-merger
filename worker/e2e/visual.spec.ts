@@ -146,7 +146,7 @@ for (const theme of ['light', 'dark']) {
       await page.getByRole('radio', { name: 'Próximos' }).click();
       await expect(page.locator('#guide .gd-up-row').first()).toBeVisible();
       await shot(page, `${theme}-guia-proximos`);
-      await page.getByRole('radio', { name: /^Tu / }).click();
+      await page.locator('#guide .gd-teaser').click();
       await expect(page.locator('#guide .gd-plan-list, #guide .gd-up-empty').first()).toBeVisible();
       await shot(page, `${theme}-guia-tu-noche`);
     });
