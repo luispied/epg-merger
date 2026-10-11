@@ -54,7 +54,8 @@ function hourIndex(h: number) {
 }
 
 async function schedules(page: Page) {
-  await page.route('**/api/ui/**', async (r) => {
+  // La programación: /api/ui/ y el índice por hora de los canales de la configuración o del código (/api/cfg|view/…/hour).
+  await page.route(/\/api\/(?:ui\/|(?:cfg|view)\/[^/]+\/hour\/)/, async (r) => {
     const path = new URL(r.request().url()).pathname;
     const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})(-d)?\.json$/);
     if (m) {
