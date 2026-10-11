@@ -936,12 +936,30 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
 
 declare const caches: { default: SimpleCache };
 
+/** Qué tipo de pedido es, sin ids, códigos ni tokens: va al registro del Worker (Workers Logs) para ver qué gasta CPU
+ *  (tools/consumo.py lo resume por tipo en el issue «Consumo de servidores»). */
+export function routeKind(pathname: string): string {
+  const [a, b = '', c = '', d = ''] = pathname.split('/').filter(Boolean);
+  if (a === 'api') {
+    if (b === 'cfg' || b === 'view') return `api/${b}${d && /^[a-z]+$/.test(d) ? `/${d}` : ''}`;
+    return `api/${b || '-'}${b === 'ui' && /^[a-z]+$/.test(c) ? `/${c}` : ''}`;
+  }
+  if (a === 'p') return d === 'playlist.m3u8' ? 'playlist' : c === 'epg.xml.gz' ? 'epg' : 'p';
+  if (a === 'l') return 'playlist';
+  if (a === 'g') return 'epg';
+  if (a === 's') return 'stream';
+  if (a === 'logo' || a === 'img' || a === 'sep') return a;
+  return 'otro';
+}
+
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+    console.log({ route: routeKind(new URL(request.url).pathname) });
     return handle(request, env, ctx, caches.default);
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(_event: unknown, env: Env, ctx: Ctx): void {
+    console.log({ route: 'cron' });
     ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
   },
 };
