@@ -163,7 +163,7 @@ function Settings({ summary }: { summary: string }) {
     <>
       <div class="title-row">
         <span class="title-left"><h2 id="settingsTitle">Configuración</h2>
-          <button type="button" class="icon-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('settings', '#settingsDialog')}><Icon name="circle-help" /></button></span>
+          <button type="button" class="icon-btn help-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('settings', '#settingsDialog')}><Icon name="circle-help" /></button></span>
         <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         <p class="meta-line">{summary}</p>
       </div>

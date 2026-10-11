@@ -137,7 +137,7 @@ function Categories({ q: rawQ }: { q: string }) {
       <div class="title-row" ref={titleRef}>
         <span class="title-left">
           <h2 id="categoriesTitle">Categorías</h2>
-          <button type="button" class="icon-btn" aria-label="Cómo funciona" title="Cómo funciona" onClick={() => openHelp('categories', '#categoriesDialog')}><Icon name="circle-help" /></button>
+          <button type="button" class="icon-btn help-btn" aria-label="Cómo funciona" title="Cómo funciona" onClick={() => openHelp('categories', '#categoriesDialog')}><Icon name="circle-help" /></button>
         </span>
         <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         <p class="meta-line">{`${plural(nCats, 'categoría', 'categorías')}${nHidden ? ` · ${plural(nHidden, 'oculta', 'ocultas')}` : ''}`}</p>

@@ -111,7 +111,7 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
           <>
             <span class="vw-now">{cur.t}</span>
             <span class="vw-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-            <span class="vw-when">Hasta las {hm(cur.e)} · {left(cur.e - now)}</span>
+            <span class="vw-when vw-left">{left(cur.e - now)[0].toUpperCase() + left(cur.e - now).slice(1)} · hasta las {hm(cur.e)}</span>
             {info?.next && <span class="vw-when vw-next">Después: {info.next.t}</span>}
           </>
         ) : (
@@ -236,7 +236,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
-          <p>Cada canal muestra lo que dan <b>ahora</b>, hasta qué hora y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
+          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
           <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
         </details>
         <details>
@@ -245,7 +245,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Guía<Icon name="chevron-down" /></summary>
-          <p>Abajo, <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde), <b>Próximos</b> (lo que empieza pronto) o <b>Tu noche</b> (un plan con lo mejor de tus canales, que cambia de nombre según la hora).</p>
+          <p>Abajo, <b>Guía</b> muestra la programación como en la tele. Arriba elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es), <b>Próximos</b> (lo que empieza pronto) o <b>Tu noche</b> (un plan con lo mejor de tus canales, que cambia de nombre según la hora).</p>
           <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en Tu noche y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
@@ -284,10 +284,12 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
     <>
       <header class="app-header vw-head">
         <div class="title-row">
-          <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1>
+          <span class="title-left">
+            <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span></h1>
+            <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
+          </span>
           <span class="vw-head-r">
             <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
-            <button type="button" class="icon-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
         </div>
       </header>

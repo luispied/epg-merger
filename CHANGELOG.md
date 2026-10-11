@@ -19,6 +19,35 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 - El nombre arriba de la app va en minúscula, con el punto de la i en ámbar como el de la línea de «ahora».
 - Si ya la tenés en la pantalla de inicio: en Android el nombre y el ícono se actualizan solos; en iPhone y iPad se ven al quitarla y volver a agregarla desde Safari.
 
+## 1.36.6
+
+- **Lo que está en el aire, en verde.** En la Guía, la línea y la hora de ahora, el borde y la barra del programa que está dando, «En el aire» en la hoja del programa y la barra de cuánto va (también en Canales y en el modo ver) pasan del ámbar al verde. El ámbar queda solo para lo que se toca o se elige: la Guía pasa de ocho cosas en ámbar a dos.
+- **Lo elegido se ve igual en todos lados.** Los filtros de Canales, las categorías de la Guía, «Tengo tiempo», los modos de la Guía y los botones segmentados (tema, tipo de proveedor) se marcan del mismo modo: fondo gris y texto en negrita. Antes había cinco formas distintas.
+- Los chips y filtros sin elegir tienen un borde más visible, así se nota que son botones.
+- En Próximos y Tu noche las horas van en el color del texto, y la línea del plan es una guía fina en lugar de ámbar.
+- Perfil: el perfil en uso, «En uso» y los «Agregar…» con menos ámbar.
+- Los rótulos de sección en mayúsculas («DEPORTES», «GUÍA ASIGNADA», «MI PROVEEDOR») tienen todos el mismo tamaño y color.
+- El botón de ayuda (?) va siempre al lado del título y sin círculo, en todas las pantallas (en Canales y en el modo ver estaba a la derecha). La derecha queda para las acciones y para cerrar.
+- Tu noche: el programa que está en el aire se destaca con un tinte verde suave en la tarjeta y «quedan…» en verde, en lugar de la raya verde del costado.
+- Ayudas de la Guía y del modo ver al día (el verde es lo que está en el aire).
+
+## 1.36.5
+
+- Interno: auditoría de diseño, paso 2. Los colores, sombras y radios se definen en un solo lugar (`worker/web/tokens.css`), con el claro y el oscuro de cada token juntos en `light-dark(claro, oscuro)`; `build.mjs` lo expande en los bloques de siempre (anda en cualquier navegador). Antes `--accent` se definía en 5 lugares y había 21 bloques `:root`. Suma las escalas de letra, espacio, z-index y tiempos, y `--live` para lo que está en el aire, que las pantallas van a ir adoptando.
+- Interno: se borran 171 declaraciones de `base.css` que `web.css` ya pisaba enteras (y 28 reglas que quedaron vacías). La prueba de capturas da 0 diferencias en las 48 pantallas: nada cambia a la vista.
+
+## 1.36.4
+
+- La **barra de abajo** ya no deja leer lo que pasa por detrás: es más sólida y la lista se desvanece antes de llegar a ella.
+- En la **Guía**, la hora actual ya no tapa la marca de la media hora, y los programas muy cortos se ven como una franja sin texto (tocala para ver cuál es) en vez de letras sueltas.
+- En el **modo ver**, cada canal dice primero cuánto le queda («Quedan 42 min · hasta las 23:45») y no se corta.
+- En la computadora, con la hoja de un canal abierta a la derecha, la barra de búsqueda y filtros también se corre y no queda tapada.
+- En el celular, los botones y las filas ya no quedan resaltados después de tocarlos.
+- Los canales sin logo muestran las mismas iniciales en Canales y en la Guía.
+- Con «reducir movimiento» activado, el círculo de «cargando» sigue girando (más lento) y no parece colgado.
+- Los avisos que aparecen dentro de una hoja también los lee el lector de pantalla.
+- Interno: estilos sin uso borrados, el hover de todo `web.css` solo con mouse (`@media (hover: hover)`), `ui/mono.ts` con las iniciales compartidas. Tests nuevos en `e2e/guide.spec.ts` y `e2e/ver.spec.ts`.
+
 ## 1.36.3
 
 - Las etiquetas de resolución (SD, HD, FHD, 4K) se completan mucho más rápido: unos 100 canales por día en vez de 32, y si un canal no se pudo medir se vuelve a intentar al día siguiente en vez de a la semana.

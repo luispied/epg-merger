@@ -16,7 +16,7 @@ function Toast({ text, kind, ms, undo, close }: { text: string; kind: Kind; ms: 
     return () => clearTimeout(t);
   }, []);
   return (
-    <div class={`toast ${kind}`}>
+    <div class={`toast ${kind}`} role={kind === 'bad' ? 'alert' : undefined}>
       <Icon name={KIND_ICON[kind]} />
       <span class="msg">{text}</span>
       {undo && (
@@ -43,6 +43,7 @@ export function toast(text: string, kind: Kind = 'info', ms = 3500, undo?: Actio
   if (!box) {
     box = document.createElement('div');
     box.className = 'toasts';
+    box.setAttribute('aria-live', 'polite'); // dentro de una hoja también se anuncia
     host.appendChild(box);
   }
   // Un solo aviso a la vez: el nuevo reemplaza al anterior (no se apilan sobre la lista). La key
