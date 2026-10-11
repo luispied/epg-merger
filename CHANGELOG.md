@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.37.1
+
+- **La Guía ya no se queda mostrando celdas grises.** Si la abrías pasada la media hora, los bloques de «cargando» de la primera hora no se iban nunca y tapaban los programas.
+- Test nuevo en `e2e/guide.spec.ts`: la Guía abierta pasada la media hora.
+
 ## 1.37.0
 
 - **En una pantalla grande, las pestañas van a la izquierda.** En la compu, Canales, Guía, Categorías y Perfil pasan de la barra flotante de abajo a una columna fija a la izquierda, y el contenido usa todo el alto.
