@@ -26,6 +26,7 @@
 //   GET    /api/cfg/<cfgId>/reports      (Bearer editKey) los canales marcados · DELETE …/reports/<id>: ya está
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
+//   GET    /api/cfg/<cfgId>/hour/<hora>.json · /api/view/<código>/hour/<hora>.json  la de una hora, solo sus canales
 //   POST   /api/ui/again                 {ids} → cuándo vuelve a empezar lo que está en el aire (again.ts)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
@@ -51,7 +52,7 @@ import { checkAllHealth, liveAccounts } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
-import { type Raw, readStored, scheduleReader } from './schedule.ts';
+import { cfgHour, type Raw, readStored, scheduleReader } from './schedule.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -402,6 +403,14 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     }
   }
 
+  // El índice de una hora con solo los canales de la configuración (o del perfil del código para ver): lo que baja la
+  // Guía. Sin clave: es la misma programación pública de /api/ui/schedule/hour/, recortada.
+  const hourKey = /^([0-9]{10})\.json$/.exec(parts[4] ?? '')?.[1];
+  if ((section === 'cfg' || section === 'view') && cfgId && action === 'hour' && hourKey && parts.length === 5 && method === 'GET') {
+    const id = section === 'cfg' ? (isId(cfgId) ? cfgId : null) : (await readView(env.BUCKET, cfgId))?.cfgId;
+    if (!id) return fail(404, 'no encontrado');
+    return storedResponse(await cfgHour(env.BUCKET, id, hourKey), 900);
+  }
   if (section === 'cfg' && cfgId) {
     const stored = await loadConfig(env.BUCKET, cfgId);
     if (!stored) return fail(404, 'configuración inexistente');

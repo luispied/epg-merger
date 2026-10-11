@@ -50,7 +50,7 @@ test.beforeEach(async ({ page }) => {
       return r.fulfill({ json: { ok: true } });
     }
     if (path === `/api/view/${CODE}`) return gone ? r.fulfill({ status: 404, json: { error: 'no' } }) : r.fulfill({ json: view });
-    const m = path.match(/^\/api\/ui\/schedule\/hour\/(\d{10})\.json$/);
+    const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})\.json$/);
     if (m) {
       for (const h of [H, H + 3600]) if (hourKey(h) === m[1]) return r.fulfill({ json: hour(h) });
       return r.fulfill({ status: 404, json: {} });

@@ -40,7 +40,7 @@ async function open(page: Page, habits: typeof HABITS | null) {
       }
       return r.fulfill({ json: h });
     }
-    if (/^\/api\/ui\/schedule\/hour\/\d{10}\.json$/.test(path)) {
+    if (/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}\.json$/.test(path)) {
       return path.includes(hourKey(NOW)) ? r.fulfill({ json: { h: Math.floor(NOW / 3600) * 3600, t: [], c: {} } }) : r.fulfill({ status: 404, json: {} });
     }
     const m = /^\/api\/ui\/schedule\/([0-9a-f]{16})\.json$/.exec(path);
