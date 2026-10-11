@@ -42,5 +42,9 @@ a la vista (como el de tokens), tiene que decir «Ninguna pantalla cambió».
   600) para filtros, chips, segmentados y modos de la Guía; borde de chips con 3:1 (`--chip-line`); un solo rótulo
   (12 px, 700, .06em, `--muted`; 13 px en el modo ver); la ayuda (?) sin fondo y siempre al lado del título (`.help-btn` en `.title-left`); en Tu noche, el programa en el aire
   con un tinte verde en la tarjeta en lugar de la raya del costado.
-- Pendiente: paso 3b (`ui/kit.tsx` con `<Sheet>` —salida animada y manija que se arrastra—, `<ListGroup>`/`<Row>`,
-  `<Chip>`, `<Segmented>`, `<Kicker>`, `<Progress>`, `<Mono>`) y paso 4.
+- ✅ 1.36.7: paso 3b. Hojas con salida animada y, en el celular, entrada desde abajo y arrastre para cerrar (manija o
+  título), para todas las hojas sin tocar cada una (`ui/sheet.ts`, que envuelve `close`/`showModal`/`show`); el panel
+  anclado del escritorio y las páginas no cambian. `ui/kit.tsx` con `<Progress>`. El resto del kit (listas, chips,
+  segmentado, rótulo, monograma) sigue con las clases comunes que unificó el paso 3a: se arma como componente cuando una
+  pantalla nueva lo necesite, no vale la pena reescribir las que ya andan.
+- Pendiente: paso 4.
