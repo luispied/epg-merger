@@ -13,7 +13,7 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 
 ## 1.39.0
 
-- **En la Guía, el título elige la vista.** Arriba ya no hay una barra con tres botones: dice «Grilla  Próximos» en letra grande, la que estás viendo en color pleno y la otra apagada. Tocá la otra para cambiar. Es una fila menos y la grilla gana lugar.
+- **En la Guía, la vista se elige al lado del título.** Ya no hay una barra con tres botones debajo de «Guía»: a la derecha del título dice «Grilla  Próximos», con la que estás viendo subrayada y la otra apagada. Es una fila menos y la grilla gana lugar.
 - **Tu noche sale del selector y tiene su tarjeta.** Arriba de Grilla y Próximos, «Tu noche, armada para vos» (de día, tu mañana o tu tarde) dice hasta qué hora arma lo mejor de tus canales y abre el plan en su propia página. La flecha de al lado del título te devuelve a donde estabas.
 - **«Ahora» aparece solo cuando hace falta.** En la Grilla, si te alejás de la hora actual, abajo a la derecha aparece «Ahora» con una flecha hacia donde está; tocalo y volvés. Mientras la línea de ahora se ve, no está.
 - Ayudas de la Guía, de Canales y del modo ver al día.

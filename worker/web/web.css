@@ -1155,12 +1155,12 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 }
 @keyframes head-line { from { box-shadow: 0 1px 0 transparent; } to { box-shadow: 0 1px 0 var(--hairline); } }
 /* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
-/* El título de la Guía es el selector: «Grilla  Próximos» en letra de título, la elegida en color pleno. */
-.gd-modes { display: flex; gap: 18px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.gd-modes::-webkit-scrollbar { display: none; }
-.gd-modes button { flex: none; min-height: 44px; padding: 0; background: transparent; border: 0; font: inherit; font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; color: var(--muted); opacity: .6; cursor: pointer; }
-.gd-modes button[aria-checked="true"] { color: var(--text); opacity: 1; }
-@media (hover: hover) { .gd-modes button[aria-checked="false"]:hover { opacity: .85; } }
+/* El selector de la Guía va en la fila del título, a la derecha: «Grilla  Próximos», la elegida en color pleno y subrayada. */
+.gd-modes { display: flex; gap: 16px; flex: none; }
+.gd-modes button { position: relative; flex: none; min-height: 44px; padding: 0 2px; background: transparent; border: 0; font: inherit; font-size: var(--fs-lg); font-weight: 600; color: var(--muted); cursor: pointer; }
+.gd-modes button[aria-checked="true"] { color: var(--text); }
+.gd-modes button[aria-checked="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 2px; border-radius: 2px; background: var(--accent); }
+@media (hover: hover) { .gd-modes button[aria-checked="false"]:hover { color: var(--text); } }
 .gd-back { margin-left: -10px; }
 .gd-back .icon { width: 28px; height: 28px; }
 /* Tu plan, la parte del día armada: una tarjeta arriba de Grilla y Próximos que abre su página. */
@@ -1311,7 +1311,7 @@ dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease back
 #linksBody > * { animation: view-in .22s cubic-bezier(.2, .8, .3, 1) backwards; }
 /* Guía: al cambiar entre Grilla, Próximos y Tu noche, lo nuevo entra con un fundido. */
 .gd-up, #guide .gd:not([hidden]) { animation: page-in .18s ease backwards; }
-.gd-modes button { transition: color .15s ease, opacity .15s ease; }
+.gd-modes button { transition: color .15s ease; }
 /* Botones de estado: el cambio de color se ve, y lo que se prende hace un «pop». */
 .chip-btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .chip-btn[aria-pressed="true"] .icon, .remind-btn.on .icon { animation: pop .3s ease; }

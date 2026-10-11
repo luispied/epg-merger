@@ -367,14 +367,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
             </span>
           ) : (
             <span class="title-left">
-              <h1 class="sr-only">Guía</h1>
-              {/* El título es el selector: la vista elegida en color pleno, la otra apagada. */}
-              <span class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
-                {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
-                  <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>{label}</button>
-                ))}
-              </span>
+              <h1>Guía</h1>
               {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
+            </span>
+          )}
+          {mode !== 'plan' && (
+            // En la misma fila que el título: la vista elegida en color pleno y subrayada, la otra apagada.
+            <span class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
+              {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
+                <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>{label}</button>
+              ))}
             </span>
           )}
         </div>
