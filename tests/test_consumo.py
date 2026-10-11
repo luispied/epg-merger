@@ -100,3 +100,14 @@ def test_sin_credenciales_lo_dice():
 def test_human():
     assert consumo.human('r2_bytes', 2_500_000) == '2.5 MB'
     assert consumo.human('worker_requests', 123456) == '123.456'
+
+
+def test_fly_manda_el_token_flyv1_tal_cual():
+    seen = []
+
+    def get(url, params, headers, timeout):
+        seen.append(headers['Authorization'])
+        return Resp({'data': {'result': []}})
+    consumo.fly('FlyV1 fm2_abc,fm2_def\n', DAY, get=get)
+    consumo.fly('viejo', DAY, get=get)
+    assert seen[0] == 'FlyV1 fm2_abc,fm2_def' and seen[-1] == 'Bearer viejo'
