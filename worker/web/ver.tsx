@@ -236,7 +236,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
-          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora, y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
+          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde.</p>
           <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
         </details>
         <details>
@@ -287,7 +287,7 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
           <h1 class="brand"><img src="img/icon.svg" alt="" width="44" height="44" /><span class="wordmark">Grilla</span></h1>
           <span class="vw-head-r">
             <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
-            <button type="button" class="icon-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
+            <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
         </div>
       </header>

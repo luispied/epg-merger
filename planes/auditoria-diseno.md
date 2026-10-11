@@ -37,4 +37,9 @@ a la vista (como el de tokens), tiene que decir «Ninguna pantalla cambió».
   (así anda en iPhones viejos y sirve para sombras). Escalas definidas (`--fs-*`, `--sp-*`, `--z-*`, `--dur-*`,
   `--ease-*`, `--radius-full`) y `--live`; las pantallas las adoptan en el paso 3, que es el que cambia lo que se ve.
   De `base.css` se borraron 171 declaraciones que `web.css` pisaba enteras. Sin cambios a la vista (0 diferencias).
-- Pendiente: pasos 3 y 4.
+- ✅ 1.36.6: paso 3a, la regla del ámbar en toda la app. Verde (`--live`, con `--on-live`) para todo lo que pasa
+  ahora; ámbar solo para acción y selección (la Guía pasa de ocho ámbares a dos); un solo «elegido» (relleno neutro y
+  600) para filtros, chips, segmentados y modos de la Guía; borde de chips con 3:1 (`--chip-line`); un solo rótulo
+  (12 px, 700, .06em, `--muted`; 13 px en el modo ver); la ayuda (?) sin fondo en todos lados (`.help-btn`).
+- Pendiente: paso 3b (`ui/kit.tsx` con `<Sheet>` —salida animada y manija que se arrastra—, `<ListGroup>`/`<Row>`,
+  `<Chip>`, `<Segmented>`, `<Kicker>`, `<Progress>`, `<Mono>`) y paso 4.
