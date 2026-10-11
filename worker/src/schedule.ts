@@ -9,7 +9,7 @@
 import type { R2Bucket } from './env.ts';
 
 export type Entry = [number, number, string, string?];
-type Header = { start: number; index: Record<string, [number, number]> };
+type Header = { start: number; index: Record<string, [number, number]>; uploaded?: Date };
 
 const DIGITS = 8;
 const FIRST_READ = 8192; // los encabezados rondan los 2,5 KB
@@ -28,7 +28,7 @@ async function readHeader(bucket: R2Bucket, key: string): Promise<Header | null>
     if (!obj) return null;
     bytes = new Uint8Array(await obj.arrayBuffer());
   }
-  return { start: DIGITS + len, index: JSON.parse(dec.decode(bytes.subarray(DIGITS, DIGITS + len))) };
+  return { start: DIGITS + len, index: JSON.parse(dec.decode(bytes.subarray(DIGITS, DIGITS + len))), uploaded: obj.uploaded };
 }
 
 /** La programación de un canal (por el nombre de archivo, sha1 de 16): `gz` si los bytes vienen en gzip. */
@@ -56,6 +56,19 @@ export function scheduleReader(bucket: R2Bucket): (file: string) => Promise<Raw 
 export async function readStored(bucket: R2Bucket, key: string): Promise<Raw | null> {
   const obj = await bucket.get(key);
   return obj ? { gz: obj.httpMetadata?.contentEncoding === 'gzip', bytes: new Uint8Array(await obj.arrayBuffer()) } : null;
+}
+
+/** El índice de una hora con solo los canales de una configuración (ui/schedule/cfg/<cfgId>, que arman la corrida
+ *  y refresh_epgs.py). Si todavía no está o es de antes del último cambio de la configuración, el de toda la guía. */
+export async function cfgHour(bucket: R2Bucket, cfgId: string, key: string): Promise<Raw | null> {
+  const pack = `ui/schedule/cfg/${cfgId}`;
+  const [cfg, header] = await Promise.all([bucket.head(`cfg/${cfgId}.json`), readHeader(bucket, pack).catch(() => null)]);
+  const at = header?.index[key];
+  if (cfg && at && header.uploaded && header.uploaded >= cfg.uploaded) {
+    const obj = await bucket.get(pack, { range: { offset: header.start + at[0], length: at[1] } });
+    if (obj) return { gz: true, bytes: new Uint8Array(await obj.arrayBuffer()) };
+  }
+  return readStored(bucket, `ui/schedule/hour/${key}.json`);
 }
 
 export async function gunzip(bytes: Uint8Array<ArrayBuffer>): Promise<string> {

@@ -17,6 +17,7 @@ export class MemoryBucket implements R2Bucket {
       body: new Response(bytes).body as ReadableStream,
       text: async () => new TextDecoder().decode(bytes),
       arrayBuffer: async () => bytes.slice().buffer,
+      uploaded: item.uploaded,
       customMetadata: item.meta,
       httpMetadata: item.encoding ? { contentEncoding: item.encoding } : undefined,
     };

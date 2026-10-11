@@ -52,9 +52,11 @@ const left = (s: number) => {
 
 // Índices por hora (lo que da toda la guía en esa hora) y el archivo de cada canal (con descripciones).
 const hours = new Map<string, Promise<HourIndex | null>>();
+// Con el código, solo los canales de su configuración (~20 KB por hora en vez de ~400 KB de toda la guía).
+let hourPath = '/api/ui/schedule/hour';
 function hourIndex(t: number): Promise<HourIndex | null> {
   const k = hourKey(t);
-  if (!hours.has(k)) hours.set(k, fetch(`/api/ui/schedule/hour/${k}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  if (!hours.has(k)) hours.set(k, fetch(`${hourPath}/${k}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   return hours.get(k)!;
 }
 const files = new Map<string, Promise<Entry[] | null>>();
@@ -344,6 +346,7 @@ function Problem({ title, text, retry, other }: { title: string; text: string; r
 
 function App() {
   const code = useMemo(readCode, []);
+  if (code) hourPath = `/api/view/${code}/hour`;
   const [data, setData] = useState<ViewData | null>(null);
   const [err, setErr] = useState<{ status: number } | null>(null);
   const [tab, setTab] = useState<'canales' | 'guia'>('canales');
@@ -385,6 +388,7 @@ function App() {
       return r.json();
     },
     help: () => setHelp(true),
+    hourPath: code ? `/api/view/${code}/hour` : undefined,
   }), [channels]);
 
   useEffect(() => {

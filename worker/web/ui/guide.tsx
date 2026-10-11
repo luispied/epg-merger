@@ -37,6 +37,9 @@ export interface GuideHost {
   help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
   viewer?: boolean;
+  /** De dónde bajar el índice de cada hora con solo estos canales (/api/cfg/<id>/hour o /api/view/<código>/hour);
+   *  sin esto, el de toda la guía. */
+  hourPath?: string;
 }
 export type Feedback = 'no' | 'more' | 'clear';
 /** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
@@ -81,6 +84,7 @@ const dayLabel = (t: number, now: number) => {
 
 // Índices por hora, compartidos entre aperturas de la Guía (cada uno pesa ~350 KB comprimido).
 const hours = new Map<number, HourIndex | null | 'loading'>();
+let hourPath = '/api/ui/schedule/hour';
 
 // «Llegás desde el principio»: el Worker dice qué vuelve a empezar más tarde, en el mismo canal o en
 // otro de la lista (POST /api/ui/again). Clave `${guía}|${inicio}` → las próximas emisiones.
@@ -117,7 +121,7 @@ function loadHours(from: number, to: number, done: () => void) {
   for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
     if (hours.has(h)) continue;
     hours.set(h, 'loading');
-    fetch(`/api/ui/schedule/hour/${hourKey(h)}.json`)
+    fetch(`${hourPath}/${hourKey(h)}.json`)
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
       .then((idx: HourIndex | null) => { hours.set(h, idx); done(); });
@@ -940,5 +944,11 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
 
 /** Pinta (o actualiza, con los canales de ahora) la Guía en `el`. */
 export function showGuide(el: HTMLElement, host: GuideHost) {
+  const path = host.hourPath ?? '/api/ui/schedule/hour';
+  // Otra configuración, otros canales: lo bajado no sirve.
+  if (path !== hourPath) {
+    hours.clear();
+    hourPath = path;
+  }
   render(<Guide channels={host.channels()} host={host} />, el);
 }

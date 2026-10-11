@@ -939,7 +939,7 @@ function progOf(epg: string): Prog | null {
   return (healthIdx.later.c[epg]?.length ?? 0) > 0 ? 'gap' : 'dead';
 }
 async function loadHealth() {
-  const [now, later] = await Promise.all([hourIndex(0), hourIndex(HEALTH_AHEAD_H)]);
+  const [now, later] = await Promise.all([cfgHourIndex(0), cfgHourIndex(HEALTH_AHEAD_H)]);
   healthIdx = now ? { now, later } : null;
   render();
 }
@@ -1055,6 +1055,20 @@ function hourIndex(offsetHours = 0): Promise<HourIndex | null> {
     hourCache.set(key, fetch(`/api/ui/schedule/hour/${key}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   }
   return hourCache.get(key)!;
+}
+
+// Lo mismo con solo los canales de la configuración (~20 KB por hora en vez de ~400 KB): para lo que mira solo
+// los canales propios. El buscador de la guía sigue con el de toda la guía.
+const cfgHourCache = new Map<string, Promise<HourIndex | null>>();
+function cfgHourIndex(offsetHours = 0): Promise<HourIndex | null> {
+  if (!state.local) return hourIndex(offsetHours);
+  const hour = new Date(Date.now() + offsetHours * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
+  const key = `${state.local.cfgId}/${hour}`;
+  if (!cfgHourCache.has(key)) {
+    cfgHourCache.set(key, fetch(`/api/cfg/${state.local.cfgId}/hour/${hour}.json`)
+      .then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  }
+  return cfgHourCache.get(key)!;
 }
 
 const hourDescCache = new Map<string, Promise<HourDesc | null>>();
@@ -1234,6 +1248,7 @@ function renderNow() {
 // La pantalla es un componente Preact (ui/guide.tsx); acá se le pasan los canales (en el orden de
 // Canales, sin ocultos ni separadores) y lo que necesita del resto de la app.
 const guideHost: GuideHost = {
+  get hourPath() { return state.local ? `/api/cfg/${state.local.cfgId}/hour` : undefined; },
   channels() {
     const order = new Map(groups().map((g, k) => [g, k]));
     return state.channels.map((ch, i) => ({ ch, i, inf: info(ch) }))

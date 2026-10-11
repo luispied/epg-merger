@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
     if (path === '/api/guide/index.json') return r.fulfill({ json: guide });
     // La resolución medida por el relay: el Canal Uno en 1080; el Dos todavía sin medir.
     if (path === '/api/cfg/demo/health') return r.fulfill({ json: { channels: {}, res: { 1: { t: '2026-10-10T04:00:00Z', w: 1920, h: 1080 } } } });
-    const m = path.match(/^\/api\/ui\/schedule\/hour\/(\d{10})\.json$/);
+    const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})\.json$/);
     if (m) {
       for (const h of [H, H + 3600]) if (hourKey(h) === m[1]) return r.fulfill({ json: hour(h) });
       return r.fulfill({ status: 404, json: {} });
@@ -68,7 +68,7 @@ test('la resolución medida sale como etiqueta en Canales y en la Guía', async 
 
 test('un programa muy corto va sin texto y la hora actual no tapa la marca de la regla', async ({ page }) => {
   // Un programa de 4 minutos justo después del que está en el aire.
-  await page.route(/\/api\/ui\/schedule\/hour\/\d{10}\.json$/, (r) => {
+  await page.route(/\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}\.json$/, (r) => {
     const k = new URL(r.request().url()).pathname.match(/(\d{10})\.json$/)![1];
     if (k !== hourKey(H)) return r.fallback();
     return r.fulfill({ json: { h: H, t: ['Noticiero central', 'Avance'], c: { 'g0123456789abcd.uy': [[-60, 50, 0], [50, 4, 1]] } } });

@@ -26,7 +26,7 @@ async function open(page: Page, channels: ReturnType<typeof ch>[], prefs: Record
     const path = new URL(r.request().url()).pathname;
     if (path === `/api/view/${CODE}`) return r.fulfill({ json: { name: 'Abuela', channels } });
     if (path === `/api/view/${CODE}/connections`) return r.fulfill({ json: { watching: [] } });
-    if (/^\/api\/ui\/schedule\/hour\/\d{10}\.json$/.test(path)) {
+    if (/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}\.json$/.test(path)) {
       return path.includes(hourKey(NOW)) ? r.fulfill({ json: { h: Math.floor(NOW / 3600) * 3600, t: [], c: {} } }) : r.fulfill({ status: 404, json: {} });
     }
     // Cada canal: un partido en el aire que termina en 40 minutos, y nada más.
