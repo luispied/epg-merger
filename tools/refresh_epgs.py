@@ -23,6 +23,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config_epgs  # noqa: E402
+import r2_sync  # noqa: E402
 import shared_guide  # noqa: E402
 
 MERGED_URL = 'https://github.com/{repo}/releases/download/latest/merged.xml.gz'
@@ -62,17 +63,15 @@ def download_merged(repo, dest, token=None):
 
 
 def upload_media_maps(client, bucket, merged, tmp):
-    """Sube los mapas {clave: url} de `merged` (los mismos que arma shared_guide.py en la corrida diaria)."""
+    """Sube los mapas {clave: url} de `merged` (los mismos que arma shared_guide.py en la corrida diaria),
+    en gzip y solo los que cambiaron (tools/r2_sync.py): entre corridas diarias suelen ser los mismos."""
     maps = shared_guide.media_maps(shared_guide.load_epg_channels(merged), shared_guide.iter_programmes(merged))
     out = os.path.join(tmp, 'shared')
     count = 0
     for d in shared_guide.write_media_maps(maps, out):
         prefix = os.path.relpath(d, out).replace(os.sep, '/')
-        for name in sorted(os.listdir(d)):
-            client.upload_file(os.path.join(d, name), bucket, f'{prefix}/{name}',
-                               ExtraArgs={'ContentType': 'application/json'})
-            count += 1
-    print(f"🖼️  Mapas de imágenes: {len(maps['logo'])} logos, {len(maps['img'])} de programas ({count} archivos)")
+        count += r2_sync.sync(client, bucket, d, prefix, 'application/json', gz=True)[0]
+    print(f"🖼️  Mapas de imágenes: {len(maps['logo'])} logos, {len(maps['img'])} de programas ({count} archivos subidos)")
     return count
 
 

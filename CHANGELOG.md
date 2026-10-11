@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.39.2
+
+- Interno: la corrida sube a R2 solo los archivos que cambiaron: compara cada uno con el que ya está (`tools/r2_sync.py`) en vez de volver a subir todo. Lo mismo al armar la guía de una configuración nueva entre corridas, que antes volvía a subir los ~270 mapas de imágenes cada vez.
+- Interno: el índice de la guía y los mapas de imágenes se guardan en gzip: el índice baja de 2,3 MB a 0,6 MB y los mapas de 13 MB a 4,5 MB.
+- Worker: entrega el índice de la guía comprimido tal cual y lee los mapas de imágenes en gzip; los de antes, en texto, se siguen leyendo.
+- Tests nuevos de la subida (`tests/test_r2_sync.py`) y de la guía y los mapas en gzip.
+
 ## 1.39.1
 
 - Interno: la programación que sube la corrida diaria a R2 va empacada: los ~17.500 archivos por canal pasan a 256 tandas y todo va en gzip (`tools/pack_schedule.py`). `ui/` baja de 203 MB a 76 MB y las escrituras diarias de unas 17.600 a unas 320.

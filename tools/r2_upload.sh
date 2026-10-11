@@ -9,7 +9,7 @@
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
 #   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
 #   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
-#   logo/map/<x>.json         {clave: url} de los logos de canal (privado; el Worker los sirve por /logo/<clave>
+#   logo/map/<x>.json         {clave: url} de los logos de canal, en gzip como el índice y img/map (privado; el Worker los sirve por /logo/<clave>
 #                              y guarda cada uno en logo/img/<clave> la primera vez)
 #   img/map/<xx>.json          lo mismo para las imágenes de programa (/img/<clave>, sin guardarlas)
 #
@@ -33,11 +33,14 @@ export AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALI
 aws configure set default.s3.max_concurrent_requests 32
 s3() { aws s3 --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" --only-show-errors "$@"; }
 
-json=(--content-type application/json)
-s3 cp out/shared/guide/index.json "$BUCKET/guide/index.json" "${json[@]}"
+# tools/r2_sync.py sube solo lo que cambió (compara el MD5 con el ETag de R2): cada subida es una
+# escritura de clase A. --gzip: se guarda comprimido y el Worker lo lee o lo entrega así.
+sync() { python tools/r2_sync.py "$@"; }
+json=(--type application/json)
+sync out/shared/guide/index.json guide/index.json "${json[@]}" --gzip
 # Privados (el Worker no los sirve): con esto resuelve /logo/<clave> e /img/<clave> (source_alias.py).
 for kind in logo img; do
-  [ -d "out/shared/$kind/map" ] && s3 sync "out/shared/$kind/map" "$BUCKET/$kind/map" --delete "${json[@]}"
+  [ -d "out/shared/$kind/map" ] && sync "out/shared/$kind/map" "$kind/map" --delete "${json[@]}" --gzip
 done
 # Las copias viejas de lo que ya no se publica.
 for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/ui/$f"; done
@@ -46,8 +49,8 @@ for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/
 # que ya pasó deja de estar.
 python tools/pack_schedule.py out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
-  s3 sync out/schedule_r2/s "$BUCKET/ui/schedule/s" --content-type application/octet-stream
-  [ -d out/schedule_r2/hour ] && s3 sync out/schedule_r2/hour "$BUCKET/ui/schedule/hour" --delete "${json[@]}" --content-encoding gzip
+  sync out/schedule_r2/s ui/schedule/s
+  [ -d out/schedule_r2/hour ] && sync out/schedule_r2/hour ui/schedule/hour --delete "${json[@]}" --encoding gzip
   # Los archivos por canal de antes del empaque (ui/schedule/<archivo>.json), que ya no se usan.
   # Solo los .json sueltos de ui/schedule/: ni las tandas ni las horas ni nada fuera de ui/schedule/.
   s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*'
@@ -60,6 +63,6 @@ rm -rf out/cfgs out/cfg_epg
 s3 sync "$BUCKET/cfg" out/cfgs --exclude '*' --include '*.json'
 python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg
 if [ -d out/cfg_epg ]; then
-  s3 sync out/cfg_epg "$BUCKET/epg" --delete --content-type application/gzip
+  sync out/cfg_epg epg --delete --type application/gzip
   echo "✅ Guías de Grilla web subidas"
 fi
