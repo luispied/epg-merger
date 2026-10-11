@@ -9,6 +9,8 @@ Qué mide, y con qué (cada parte es opcional: sin su credencial se saltea y lo 
 - R2 (almacenamiento): tamaño y cantidad de objetos, por carpeta. Con las credenciales de R2 que ya usan los workflows.
 - Worker y R2 (operaciones): pedidos por día, errores y CPU del Worker; operaciones clase A y B de R2 en el mes. Con la
   API de analíticas de Cloudflare (CLOUDFLARE_ANALYTICS_TOKEN: un token con «Account Analytics: Read»).
+- CPU del Worker por tipo de pedido (playlist, guía, stream…): con Workers Logs, del mismo token si además tiene
+  «Workers Observability» (el Worker anota el tipo de cada pedido, sin ids). Sin ese permiso se saltea y lo dice.
 - Relay en Fly: tráfico de salida y de entrada, y horas encendido. Con las métricas de Fly (FLY_READ_TOKEN: un token de
   solo lectura, `fly tokens create readonly`).
 
@@ -127,6 +129,33 @@ def cloudflare(token, account, day, post=requests.post):
             'r2_class_a_month': a, 'r2_class_b_month': b}
 
 
+# ------------------------------------------------------------------ Worker: CPU por tipo de pedido (Workers Logs)
+def cpu_by_route(token, account, day, post=None):
+    """{tipo: [CPU p99 en ms, pedidos]} de ayer, del campo `route` que anota el Worker (routeKind en src/index.ts)."""
+    start = datetime.datetime.combine(day, datetime.time(), datetime.timezone.utc)
+    body = {
+        'queryId': 'consumo-cpu-por-pedido', 'view': 'calculations', 'limit': 50,
+        'timeframe': {'from': int(start.timestamp() * 1000), 'to': int((start + datetime.timedelta(days=1)).timestamp() * 1000)},
+        'parameters': {
+            'filters': [{'key': '$metadata.service', 'operation': 'eq', 'type': 'string', 'value': SCRIPT}],
+            'calculations': [{'operator': 'p99', 'key': '$workers.cpuTimeMs', 'keyType': 'number', 'alias': 'p99'}],
+            'groupBys': [{'type': 'string', 'value': 'route'}],
+        },
+    }
+    r = (post or requests.post)(f'https://api.cloudflare.com/client/v4/accounts/{account}/workers/observability/telemetry/query', json=body,
+             headers={'Authorization': f'Bearer {token}'}, timeout=TIMEOUT)
+    data = r.json()
+    if not r.ok or not data.get('success', True):
+        raise RuntimeError('; '.join(e.get('message', '?') for e in data.get('errors') or [])[:200] or f'HTTP {r.status_code}')
+    out = {}
+    for calc in (data.get('result') or {}).get('calculations') or []:
+        for agg in calc.get('aggregates') or []:
+            route = next((g['value'] for g in agg.get('groups') or [] if g.get('key') == 'route'), None)
+            if route is not None and agg.get('value') is not None:
+                out[str(route)] = [round(float(agg['value']), 2), int(agg.get('count') or 0)]
+    return {'worker_cpu_routes': dict(sorted(out.items(), key=lambda kv: -kv[1][0]))} if out else {}
+
+
 # ------------------------------------------------------------------ Fly: tráfico y horas del relay
 def fly(token, day, get=requests.get):
     end = datetime.datetime.combine(day + datetime.timedelta(days=1), datetime.time(), datetime.timezone.utc)
@@ -225,6 +254,9 @@ def render(hist, notes):
         lines.append(f'| {name} | {human(k, used)} | {human(k, cap)} | {pct:.0f} %{flag} |')
     if 'fly_up_hours' in last:
         lines.append(f'| Relay: horas encendido (ayer) | {last["fly_up_hours"]:g} h | | |')
+    if last.get('worker_cpu_routes'):
+        lines += ['', 'CPU del Worker por tipo de pedido (ayer, p99): ' + ', '.join(
+            f'`{k}` {v[0]:g} ms ({human("n", v[1])})' for k, v in last['worker_cpu_routes'].items())]
     if last.get('r2_prefixes'):
         lines += ['', 'R2 por carpeta: ' + ', '.join(f'`{p}` {human("bytes", b)}' for p, b in last['r2_prefixes'].items())]
     if notes:
@@ -280,6 +312,14 @@ def collect(day, env):
             row.update(cloudflare(env['CLOUDFLARE_ANALYTICS_TOKEN'], env['R2_ACCOUNT_ID'], day))
         except Exception as e:  # noqa: BLE001
             notes.append(f'Cloudflare: no se pudieron leer las analíticas ({type(e).__name__}).')
+        try:
+            routes = cpu_by_route(env['CLOUDFLARE_ANALYTICS_TOKEN'], env['R2_ACCOUNT_ID'], day)
+            row.update(routes)
+            if not routes:
+                notes.append('CPU por tipo de pedido: Workers Logs no devolvió datos de ayer.')
+        except Exception as e:  # noqa: BLE001
+            notes.append(f'CPU por tipo de pedido: no se pudo leer Workers Logs ({str(e)[:120] or type(e).__name__}); '
+                         'el token necesita además el permiso «Workers Observability».')
     else:
         notes.append('Sin `CLOUDFLARE_ANALYTICS_TOKEN`: faltan los pedidos al Worker y las operaciones de R2.')
     if env.get('FLY_READ_TOKEN'):

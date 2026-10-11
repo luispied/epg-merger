@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.39.4
+
+- Worker: anota en su registro (Workers Logs) el tipo de cada pedido (`playlist`, `epg`, `stream`, `api/cfg`…), sin ids, códigos ni tokens, para saber qué gasta más CPU. No cambia ninguna respuesta.
+- Interno: el registro de consumo (`tools/consumo.py`) suma la CPU p99 por tipo de pedido. Necesita que el token de analíticas tenga además el permiso «Workers Observability»; sin él, lo dice en el issue.
+
 ## 1.39.3
 
 - **La Guía gasta mucho menos datos.** Baja la programación de cada hora solo de tus canales, unos 27 KB en vez de unos 400 KB de toda la guía. Lo mismo en el modo ver y en el chequeo de qué canales dan programación.

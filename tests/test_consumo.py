@@ -132,3 +132,35 @@ def test_r2_sin_bucket_usa_grilla(monkeypatch):
     monkeypatch.setitem(sys.modules, 'boto3', types.SimpleNamespace(client=lambda *a, **k: Client()))
     row, _ = consumo.collect(DAY, {'R2_ACCOUNT_ID': 'x', 'R2_ACCESS_KEY_ID': 'k', 'R2_SECRET_ACCESS_KEY': 's', 'R2_BUCKET': ''})
     assert seen['bucket'] == 'grilla' and row['r2_bytes'] == 10
+
+
+class HttpResp(Resp):
+    def __init__(self, data, status=200):
+        super().__init__(data)
+        self.status_code, self.ok = status, status < 400
+
+
+def test_cpu_por_tipo_de_pedido():
+    seen = {}
+
+    def post(url, json, headers, timeout):
+        seen.update(url=url, body=json)
+        return HttpResp({'success': True, 'result': {'calculations': [{'alias': 'p99', 'aggregates': [
+            {'value': 3.2, 'count': 40, 'groups': [{'key': 'route', 'value': 'api/cfg'}]},
+            {'value': 31.4, 'count': 120, 'groups': [{'key': 'route', 'value': 'playlist'}]},
+        ]}]}})
+    out = consumo.cpu_by_route('t', 'acct', DAY, post=post)
+    assert out == {'worker_cpu_routes': {'playlist': [31.4, 120], 'api/cfg': [3.2, 40]}}
+    assert seen['url'].endswith('/accounts/acct/workers/observability/telemetry/query')
+    assert seen['body']['timeframe']['from'] == 1791590400000
+    assert seen['body']['parameters']['groupBys'] == [{'type': 'string', 'value': 'route'}]
+    hist = {'rows': [{'date': '2026-10-10', **out}], 'warned': {}}
+    assert '`playlist` 31.4 ms (120)' in consumo.render(hist, [])
+
+
+def test_cpu_por_tipo_sin_permiso_lo_dice(monkeypatch):
+    monkeypatch.setattr(consumo, 'cloudflare', lambda *a: {'worker_requests': 1})
+    monkeypatch.setattr(consumo.requests, 'post', lambda *a, **k: HttpResp({'success': False, 'errors': [{'message': 'Authentication error'}]}, 403))
+    row, notes = consumo.collect(DAY, {'CLOUDFLARE_ANALYTICS_TOKEN': 't', 'R2_ACCOUNT_ID': 'a'})
+    assert row['worker_requests'] == 1 and 'worker_cpu_routes' not in row
+    assert any('Workers Observability' in n and 'Authentication error' in n for n in notes)
