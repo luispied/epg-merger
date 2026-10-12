@@ -11,9 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.44.1
+
+- **La hoja de un programa dice su género.** Arriba del título aparece «Deportes», «Película», «Noticias»… cuando nowline ya lo sabe; en la Guía y en el modo ver.
+
 ## 1.44.0
 
-- **La hoja de un programa dice su género.** Al lado de la hora aparece «Deportes», «Película», «Noticias»… cuando nowline ya lo sabe; en la Guía y en el modo ver.
+- **«Más como esto» sube todo lo de ese género, no solo el mismo programa.** Si tocás «Más como esto» en un documental, Tu plan sube los documentales de otros canales, aunque nunca los hayas abierto, y debajo de «Más como esto» dice «Tu plan sube también los de documental». La publicidad no entra.
+- Interno: el Worker guarda el género de cada «Más como esto» (`mg` en los hábitos).
 
 ## 1.43.0
 

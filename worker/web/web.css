@@ -1267,6 +1267,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-taste { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .gd-taste-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
 .gd-taste-btn .icon.sm { width: 15px; height: 15px; }
+.gd-taste-hint { flex-basis: 100%; margin: 0; font-size: var(--fs-md); color: var(--muted); }
 .vw-foot { margin: 28px 4px 0; text-align: center; color: var(--muted); font-size: 14px; }
 .vw-foot .link-btn { display: block; margin: 6px auto 0; font-size: 14px; }
 .vw-conn { margin: 4px 0 6px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
