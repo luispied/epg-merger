@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.48.0
+
+- **Buscar por tema.** Escribir «Mundial» o «cocina» en el buscador de los canales (en la edición y en el modo ver) y en el de «Buscar otra guía» también encuentra los canales que dan algo de eso ahora, aunque el título no lo diga. Usa el género y los temas que nowline ya le puso a cada programa; sin ellos, la búsqueda sigue como siempre, por nombre y por lo que dan.
+- Worker: nuevo `GET /api/ui/schedule/topics.json`, un índice aparte que se baja recién la primera vez que se busca. Los temas no van en cada programa de la programación (`ui/schedule/s`): eso la hacía crecer más del 14 %.
+- Interno: `tools/pack_schedule.py --genres` arma también `topics.json` (títulos con su género y temas, una vez por título) y `r2_upload.sh` lo sube.
+
 ## 1.47.1
 
 - **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
