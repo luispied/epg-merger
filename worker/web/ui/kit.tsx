@@ -31,14 +31,16 @@ const SKEL_ROW = 150;
 const skelRows = () => Math.ceil(window.innerHeight / SKEL_ROW) + 1;
 
 /** Mientras cargan las tarjetas de canales: el mismo esqueleto en la edición y en el modo ver (sin texto de carga). Se
- *  arma según el alto de la pantalla y se rehace al girar o cambiar el tamaño. */
-export function Skeleton() {
-  const [rows, setRows] = useState(skelRows);
+ *  arma según el alto de la pantalla y se rehace al girar o cambiar el tamaño; `rows` fija cuántas (para dentro de una hoja). */
+export function Skeleton({ rows: fixed }: { rows?: number } = {}) {
+  const [auto, setRows] = useState(skelRows);
+  const rows = fixed ?? auto;
   useEffect(() => {
+    if (fixed !== undefined) return;
     const resize = () => setRows(skelRows());
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
-  }, []);
+  }, [fixed]);
   return (
     <>
       {Array.from({ length: rows }, (_, k) => <div key={k} class="skeleton"><div class="bar w60" /><div class="bar w40" /><div class="bar block" /></div>)}

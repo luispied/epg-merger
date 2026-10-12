@@ -98,6 +98,30 @@ test('buscar por el programa en el aire: todas las palabras y también la descri
   await expect(cards(page).locator('.empty')).toBeVisible();
 });
 
+test('buscar por tema: «mundial» o «cocina» encuentran el programa en el aire aunque el título no lo diga', async ({ page }) => {
+  const h = Math.floor(Date.now() / 3_600_000) * 3600;
+  await page.route(/\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}(-d)?\.json$/, (r) => r.fulfill({ json: r.request().url().endsWith('-d.json')
+    ? { d: [], c: {} }
+    : { h, t: ['Uruguay vs. Brasil', 'Sabores de casa'], c: { 'g00000000000001.ar': [[-30, 90, 0]] } } }));
+  let asked = 0;
+  // El índice de temas (ui/schedule/topics.json): un solo pedido, recién al buscar.
+  await page.route('**/api/ui/schedule/topics.json', (r) => {
+    asked++;
+    return r.fulfill({ json: { g: ['Deportes', 'Cocina'], v: ['mundial', 'fútbol', 'recetas'], t: ['sabores de casa', 'uruguay vs. brasil'], r: [[1, 2], [0, 0, 1]] } });
+  });
+  await page.reload();
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+  expect(asked).toBe(0);
+  const search = page.locator('#searchBox');
+  await search.fill('mundial');
+  await expect(cards(page).locator('.card-name')).toHaveText(['ESPN']);
+  await search.fill('deportes fútbol'); // el género y los temas, todas las palabras
+  await expect(cards(page).locator('.card-name')).toContainText(['ESPN']);
+  await search.fill('cocina'); // el que da «Sabores de casa» no está en este perfil: nada coincide
+  await expect(cards(page).locator('.empty')).toBeVisible();
+  expect(asked).toBe(1);
+});
+
 test('vista detallada: lo que está dando ahora', async ({ page }) => {
   await expect(cards(page).locator('.row-now')).toHaveCount(0);
   await page.locator('#viewBtn').click();

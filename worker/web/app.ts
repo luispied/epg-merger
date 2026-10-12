@@ -26,11 +26,13 @@ import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReview
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
-import { showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
+import { openProgramLink, showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
+import { changeTaste, loadTaste } from './ui/avisos-gusto.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
+import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
@@ -63,6 +65,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'bell-off': '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/>',
   bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
@@ -1083,12 +1086,24 @@ function loadHourNowDesc() {
     if (state.search.trim()) render();
   });
 }
+let topicsNow: TopicSearch | null = null;
+/** El índice de temas se baja la primera vez que se busca, no al abrir. */
+function loadTopicsNow() {
+  loadTopics().then((t) => {
+    if (!t || t === topicsNow) return;
+    topicsNow = t;
+    if (state.search.trim()) render();
+  });
+}
 /** El programa en el aire del EPG del canal, si coincide con la búsqueda por título o descripción. */
 function programMatch(ch: Channel, q: string): NowPlaying | null {
   const epg = state.cfg!.channels[ch.name]?.epg;
   if (!q || !hourNow || !epg) return null;
   const cur = nowFromHour(hourNow, epg);
-  return cur && hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q) ? cur : null;
+  if (!cur) return null;
+  // Por título y descripción, o por el género y los temas del programa (ui/ topics.ts): «mundial» encuentra un partido sin decirlo.
+  return hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q)
+    || topicsNow?.match(q).has(titleKey(cur.title)) ? cur : null;
 }
 
 /** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
@@ -1352,6 +1367,10 @@ const guideHost: GuideHost = {
   habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
   feedback: (title, kind, genre) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind, genre } }),
   help: () => openHelp('guide'),
+  tasteAlerts: {
+    state: () => loadTaste().catch(() => null),
+    setGenre: (genre, on) => changeTaste({ genre, genreOn: on }).then(() => {}),
+  },
 };
 // ------------------------------------------------------------------ pestañas de abajo
 // Canales es la página de la lista; Guía, Categorías y Perfil son páginas enteras que la tapan, con la barra de abajo
@@ -1394,6 +1413,17 @@ function openPage(t: PageTab) {
 function openProfiles(v: LinksView = { v: 'list' }) {
   openLinksView(v);
   openPage('profile');
+}
+
+/** Venir de un aviso por gusto (/?programa=<guía>&inicio=<segundos>): abre la Guía con la hoja de ese programa. */
+function openProgramFromUrl() {
+  const q = new URLSearchParams(location.search);
+  const epg = q.get('programa');
+  const start = Number(q.get('inicio'));
+  if (!epg || !start) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  openProgramLink(epg, start);
+  setGuide(true);
 }
 
 function setGuide(on: boolean) {
@@ -2556,6 +2586,7 @@ async function openSaved(soft = false) {
     loadStreamHealth();
     loadProfiles();
     void loadReports();
+    openProgramFromUrl();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -2800,6 +2831,7 @@ function setupEditor() {
     clearTimeout(t);
     loadHourNow(); // por si cambió la hora desde que se abrió
     loadHourNowDesc();
+    if ((ev.target as HTMLInputElement).value.trim()) loadTopicsNow();
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;

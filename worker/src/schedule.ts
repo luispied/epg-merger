@@ -3,6 +3,7 @@
 //                                  encabezado ({archivo: [desde, largo]}, desde el fin del encabezado) y
 //                                  la programación de cada canal en gzip ([inicio, fin, título, descripción?, género?][])
 //   ui/schedule/hour/<hora>.json   índices por hora, guardados en gzip (Content-Encoding: gzip)
+//   ui/schedule/topics.json        índice para buscar por tema (gzip): {g: géneros, v: temas, t: títulos, r: [[i_género, i_tema…]]}
 // Un canal se lee con dos lecturas por rango (el encabezado y sus bytes) y viaja comprimido tal cual.
 // Mientras no exista la tanda (antes de la primera corrida con este formato) se lee el archivo viejo
 // ui/schedule/<archivo>.json.

@@ -4,10 +4,13 @@
 // Se virtualiza en los dos ejes: solo se pintan las filas y los programas que entran en pantalla.
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { ActiveFilters, FilterToggle, type FilterHandlers, type FilterModel } from './filtros.tsx';
 import { Icon } from './icon.tsx';
 import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
+import { type Affinity, habitAffinity, type Habits, NEVER_SUGGEST, normTitle, planScore } from '../../../core/src/taste.ts';
+export { type Affinity, genreTaste, habitAffinity, moreGenres, normTitle, planScore } from '../../../core/src/taste.ts';
 
 export interface GuideChannel {
   i: number; // índice en la lista de canales de app.ts
@@ -34,6 +37,11 @@ export interface GuideHost {
   habits?(): Promise<Habits | null>;
   /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
   feedback?(title: string, kind: Feedback, genre?: string): Promise<Habits | null>;
+  /** Avisos por gusto (solo en la edición): cómo están y apagar o prender un género. Null = no hay avisos en este dispositivo. */
+  tasteAlerts?: {
+    state(): Promise<{ on: boolean; genres: { name: string; on: boolean }[] } | null>;
+    setGenre(genre: string, on: boolean): Promise<void>;
+  };
   /** La ayuda de la Guía (el ? del título). */
   help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
@@ -43,15 +51,17 @@ export interface GuideHost {
   hourPath?: string;
 }
 export type Feedback = 'no' | 'more' | 'clear';
-/** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
-export interface Habits {
-  ch: Record<string, { n: number; h: number[] }>;
-  t: Record<string, { n: number; g?: string }>;
-  no: Record<string, string>;
-  more: Record<string, string>;
-  /** El género de cada «Más como esto» (por título normalizado): sube ese género en el plan. */
-  mg?: Record<string, string>;
+export type { Habits };
+
+/** «documental» → «documentales»: para «No avisarme de documentales». */
+export function genrePlural(g: string): string {
+  const w = g.toLowerCase();
+  return /s$/.test(w) ? w : /[aeiouáéíóú]$/.test(w) ? `${w}s` : `${w}es`;
 }
+
+/** El programa que pidió abrir un aviso (?programa=…): la Guía abre su hoja apenas tiene los canales. */
+let pendingProgram: { epg: string; start: number } | null = null;
+export const openProgramLink = (epg: string, start: number) => { pendingProgram = { epg, start }; };
 
 /** El índice de una hora; `g` (género de cada título de `t`, '' = sin clasificar) viene cuando la IA ya clasificó alguno. */
 interface HourIndex { h: number; t: string[]; g?: string[]; c: Record<string, [number, number, number][]> }
@@ -148,9 +158,6 @@ export function catsLabel(cats: string[]): string {
   if (cats.length > 3) return `${cats.length} categorías`;
   return cats.length > 1 ? `${cats.slice(0, -1).join(', ')} y ${cats.at(-1)}` : cats[0] ?? '';
 }
-// Con pocas categorías van todas en la fila; con más, las elegidas, las que más canales con guía tienen y «Más».
-const MANY_CATS = 8;
-const QUICK_CATS = 5;
 
 // Preferencias de la Guía en este navegador (modo, rato libre y categorías); sin almacenamiento, los valores por defecto.
 const pref = {
@@ -225,6 +232,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const [habits, setHabits] = useState<Habits | null>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { host.habits?.().then(setHabits).catch(() => {}); }, []);
+  useEffect(() => {
+    const want = pendingProgram;
+    const ch = want && channels.find((c) => c.epg === want.epg);
+    if (!want || !ch) return;
+    pendingProgram = null;
+    host.schedule(want.epg).then((list) => {
+      const e = list?.find(([s]) => s === want.start);
+      if (e) setOpen({ ch, p: { s: e[0], e: e[1], t: e[2], ...(e[4] ? { g: e[4] } : {}) } });
+    }).catch(() => {});
+  }, [channels]);
   useEffect(() => { loadAgain(channels.flatMap((c) => (c.epg ? [c.epg] : []))).then(setAgain); }, [channels]);
 
   const cats = useMemo(() => [...new Set(channels.map((c) => c.cat))], [channels]);
@@ -244,10 +261,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     box.current?.scrollTo({ top: 0 });
   };
   const toggleCat = (c: string) => setSel(sel.includes(c) ? sel.filter((x) => x !== c) : [...sel, c]);
-  const byCount = (a: string, b: string) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
-  const many = cats.length > MANY_CATS;
-  const quick = many ? cats.filter((c) => !sel.includes(c)).sort(byCount).slice(0, QUICK_CATS) : [];
-  const [picking, setPicking] = useState(false);
+  // Pedir que se abra la hoja de filtros (el aviso de Tu noche): cada pedido es un número nuevo.
+  const [openSig, setOpenSig] = useState(0);
   // Géneros: otro filtro, aparte de las categorías (se pueden combinar) y propio de la Guía. Se recuerdan en este navegador.
   const [gsel, setGselState] = useState<string[]>(savedGenres);
   const setGsel = (next: string[]) => { setGselState(next); pref.set('genres', JSON.stringify(next)); };
@@ -319,6 +334,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     }
     return [...found].sort((a, b) => a.localeCompare(b, 'es'));
   }, [mode, shown, ver, gsel, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR), Math.floor(now / HOUR)]);
+
+  // Los filtros de la Guía, con el mismo botón, chips y hoja que Canales (ui/filtros.tsx): las categorías en el orden
+  // de la app y los géneros de lo que se ve. En Tu noche solo valen las categorías.
+  const filterModel: FilterModel = {
+    filter: 'todos', states: [], cats: sel,
+    categories: cats.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
+    ...(mode === 'plan' ? {} : { genres: gsel, genreOptions: genres.map((g) => ({ key: g, label: g })) }),
+  };
+  const filterHandlers: FilterHandlers = { onState: () => {}, onCats: setSel, onGenres: setGsel };
+  const filterCount = sel.length + (mode === 'plan' ? 0 : gsel.length);
 
   // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
   // lugar, en vez de quedar vacía.
@@ -431,49 +456,27 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
               {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
             </span>
           )}
-          {mode !== 'plan' && (
+          {mode !== 'plan' ? (
             // En la misma fila que el título: la vista elegida en color pleno y subrayada, la otra apagada.
             <span class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
               {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
                 <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>{label}</button>
               ))}
             </span>
-          )}
+          ) : null}
+          <FilterToggle model={filterModel} handlers={filterHandlers} openSignal={openSig} />
         </div>
       </header>
-      <nav class="gd-chips" aria-label="Categorías">
-        {mode === 'next' && (
-          <button type="button" class="chip-btn gd-time-chip" aria-pressed={budgetOn} onClick={() => setBudgetOn(!budgetOn)}>
-            <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
-          </button>
-        )}
-        <button type="button" class="chip-btn" aria-pressed={!sel.length} onClick={() => setSel([])}>Todas</button>
-        {(many ? sel : cats).map((c) => (
-          <button type="button" key={c} class="chip-btn" aria-pressed={sel.includes(c)} onClick={() => toggleCat(c)}>
-            {sel.includes(c) && <Icon name="check" class="sm" />}{c}
-          </button>
-        ))}
-        {many && sel.length > 0 && <span class="gd-chips-sep" aria-hidden="true" />}
-        {quick.map((c) => (
-          <button type="button" key={c} class="chip-btn" aria-pressed="false" onClick={() => toggleCat(c)}>{c}</button>
-        ))}
-        {many && (
-          <button type="button" class="chip-btn gd-more-chip" onClick={() => setPicking(true)} aria-haspopup="dialog">
-            <Icon name="plus" class="sm" />Más · {cats.length}
-          </button>
-        )}
-      </nav>
-      {genres.length > 0 && (
-        <nav class="gd-chips gd-genres" aria-label="Géneros">
-          <button type="button" class="chip-btn" aria-pressed={!gsel.length} onClick={() => setGsel([])}>Todos</button>
-          {genres.map((g) => (
-            <button type="button" key={g} class="chip-btn" aria-pressed={gsel.includes(g)} onClick={() => toggleGenre(g)}>
-              {gsel.includes(g) && <Icon name="check" class="sm" />}{g}
+      {(mode === 'next' || filterCount > 0) && (
+        <nav class="gd-chips active-filters" aria-label="Filtros activos">
+          {mode === 'next' && (
+            <button type="button" class="chip-btn gd-time-chip" aria-pressed={budgetOn} onClick={() => setBudgetOn(!budgetOn)}>
+              <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
             </button>
-          ))}
+          )}
+          <ActiveFilters model={filterModel} handlers={filterHandlers} />
         </nav>
       )}
-      {picking && <CatSheet cats={cats} counts={counts} sel={sel} toggle={toggleCat} clear={() => setSel([])} close={() => setPicking(false)} />}
       {mode !== 'plan' && channels.some((c) => c.epg && !c.quiet) && (
         <button type="button" class="gd-teaser" onClick={() => setMode('plan')}>
           <span class="ic"><Icon name="sparkles" /></span>
@@ -491,8 +494,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       )}
       {mode === 'plan' && channels.length > 0 && (
         <Plan channels={shown} now={now} host={host} habits={habits} open={(ch, p) => setOpen({ ch, p })} filter={sel}
-          suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort(byCount)[0]}
-          add={(c) => setSel([...sel, c])} pick={() => setPicking(true)} />
+          suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))[0]}
+          add={(c) => setSel([...sel, c])} pick={() => setOpenSig((n) => n + 1)} />
       )}
       <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
@@ -674,86 +677,9 @@ export function partOfDay(t: number): Part {
   return cur.end - t < 90 * 60 ? at((i < 0 ? 0 : i) + 1) : cur;
 }
 
-const FILLER = /canal no disponible|se[ñn]al no disponible|paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
-const LIVE = /\b(en vivo|vivo|live|vs\.?|final|semifinal|cl[aá]sico|gran premio|grand prix)\b/i;
-const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
-const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
-const MOVIE_CAT = /pel[ií]cul|cine|movie|film/i;
 
 interface Slot { ch: GuideChannel; p: Prog; alt?: { ch: GuideChannel; p: Prog }; why?: string }
 type Cand = { ch: GuideChannel; p: Prog };
-/** Lo que suma un programa por los gustos de la casa, y por qué; null = «No me interesa». */
-export type Affinity = (c: Cand) => { bonus: number; why?: string } | null;
-
-/** Como el Worker (again.ts): el mismo programa aunque cambien mayúsculas o espacios. */
-export const normTitle = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
-
-/** Afinidad por hábitos: el programa que se mira seguido, el canal a esa hora (±1 h) y en general, la campana y lo
- *  pedido. Pesa como mucho lo que un partido en vivo: lo de siempre sube, pero no tapa todo lo demás. */
-export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affinity {
-  const taste = genreTaste(h);
-  const asked = moreGenres(h);
-  return ({ ch, p }) => {
-    const k = normTitle(p.t);
-    if (h?.no[k]) return null;
-    const reasons: [number, string][] = [];
-    let bonus = 0;
-    const add = (v: number, why: string, min = 0) => { bonus += v; if (v > min) reasons.push([v, why]); };
-    if (h?.more[k]) add(3, 'Pediste más como esto');
-    if (p.g && asked.has(p.g) && !h?.more[k]) add(2, `Pediste más de ${p.g.toLowerCase()}`, 0.9);
-    if (marks?.has(`${ch.epg}|${p.s}`)) add(3, 'Le pusiste la campana');
-    const tn = h?.t[k]?.n ?? 0;
-    if (tn) add(Math.min(4, 1.5 * Math.log2(1 + tn)), tn >= 3 ? 'Lo mirás seguido' : 'Ya lo miraste', 1);
-    const c = ch.epg ? h?.ch[ch.epg] : undefined;
-    if (c) {
-      const hr = new Date(p.s * 1000).getUTCHours();
-      const at = [-1, 0, 1].reduce((n, d) => n + (c.h[(hr + d + 24) % 24] ?? 0), 0);
-      add(Math.min(3, 0.75 * at), 'Tu canal a esta hora', 1.4);
-      add(Math.min(1.5, 0.5 * Math.log2(1 + c.n)), 'De tus canales', 0.9);
-    }
-    const gs = p.g ? taste.get(p.g) ?? 0 : 0;
-    if (gs) add(gs, `Como lo que mirás: ${p.g!.toLowerCase()}`, 0.9);
-    reasons.sort((a, b) => b[0] - a[0]);
-    return { bonus, why: reasons[0]?.[1] };
-  };
-}
-
-/** Géneros que ya se pueden sugerir y cuánto pesan en la casa: el género de los programas que se miraron (la
- *  corrida lo anota en los hábitos cuando la IA ya lo clasificó). Hasta +2,5 según qué parte de lo mirado es de ese
- *  género; con menos de dos veces no cuenta. */
-export function genreTaste(h: Habits | null): Map<string, number> {
-  const n = new Map<string, number>();
-  let total = 0;
-  for (const v of Object.values(h?.t ?? {})) {
-    if (!v.g || v.g === NEVER_SUGGEST) continue;
-    n.set(v.g, (n.get(v.g) ?? 0) + v.n);
-    total += v.n;
-  }
-  const out = new Map<string, number>();
-  for (const [g, c] of n) if (c >= 2) out.set(g, Math.min(2.5, (6 * c) / total));
-  return out;
-}
-
-/** Los géneros de los «Más como esto» que siguen vigentes: sube todo lo de ese género, no solo el mismo título. */
-export function moreGenres(h: Habits | null): Set<string> {
-  const out = new Set<string>();
-  for (const [k, g] of Object.entries(h?.mg ?? {})) if (h?.more[k] && g !== NEVER_SUGGEST) out.add(g);
-  return out;
-}
-
-/** La publicidad (infomerciales, televenta) que la IA reconoce nunca se sugiere. */
-const NEVER_SUGGEST = 'Publicidad';
-
-/** Puntaje de un programa para el plan (más es mejor); null si no va. */
-export function planScore(t: string, len: number, cat: string): number | null {
-  if (len < 25 * 60 || FILLER.test(t)) return null;
-  let sc = Math.min(len, 150 * 60) / 1800;
-  if (LIVE.test(t)) sc += 4;
-  if (MOVIE_CAT.test(cat) && len >= 80 * 60) sc += 2;
-  if (RERUN.test(t)) sc -= 3;
-  if (NEWS.test(t)) sc -= 2;
-  return sc;
-}
 
 /** Encadena programas desde `now` hasta `end`: en cada paso, el mejor de los que empiezan cerca de donde
  *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
@@ -883,56 +809,6 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
   );
 }
 
-/** La hoja para elegir categorías de la Guía: buscador, las elegidas arriba y todas con sus canales con guía. */
-function CatSheet({ cats, counts, sel, toggle, clear, close }: {
-  cats: string[]; counts: Map<string, number>; sel: string[]; toggle: (c: string) => void; clear: () => void; close: () => void;
-}) {
-  const dlg = useRef<HTMLDialogElement>(null);
-  const [q, setQ] = useState('');
-  useLayoutEffect(() => {
-    dlg.current?.showModal();
-    return () => dlg.current?.close();
-  }, []);
-  const f = fold(q.trim());
-  const match = (c: string) => !f || fold(c).includes(f);
-  const chosen = sel.filter(match);
-  const rest = cats.filter((c) => !sel.includes(c) && match(c));
-  const row = (c: string) => (
-    <label class="gc-row" key={c}>
-      <input type="checkbox" checked={sel.includes(c)} onChange={() => toggle(c)} />
-      <span class="gc-name">{c}</span>
-      <span class="gc-count">{counts.get(c) ? plural(counts.get(c)!, 'canal', 'canales') : 'sin guía'}</span>
-    </label>
-  );
-  return (
-    <dialog class="sheet settings-sheet gc-sheet" ref={dlg} onClose={close} aria-labelledby="gcTitle">
-      <div class="sheet-body">
-        <div class="title-row">
-          <h2 id="gcTitle">Categorías</h2>
-          <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
-        </div>
-        <label class="search-field">
-          <Icon name="search" />
-          <input type="search" placeholder="Buscar categoría" aria-label="Buscar categoría" enterkeyhint="search"
-            value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        {chosen.length > 0 && (
-          <>
-            <h3 class="sec-title">Elegidas · {sel.length}</h3>
-            <div class="gc-list">{chosen.map(row)}</div>
-          </>
-        )}
-        <h3 class="sec-title">{f ? 'Resultados' : `Todas · ${cats.length}`}</h3>
-        {rest.length ? <div class="gc-list">{rest.map(row)}</div> : <p class="help">{f ? `Ninguna otra categoría coincide con «${q}».` : 'Ya elegiste todas.'}</p>}
-        <div class="gc-foot">
-          <button type="button" class="btn btn-gray" onClick={clear} disabled={!sel.length}>Todas</button>
-          <button type="button" class="btn btn-primary" onClick={() => dlg.current?.close()}>{sel.length ? `Listo · ${plural(sel.length, 'elegida', 'elegidas')}` : 'Listo'}</button>
-        </div>
-      </div>
-    </dialog>
-  );
-}
-
 function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, close }: {
   ch: GuideChannel; p: Prog; now: number; host: GuideHost; channels: GuideChannel[]; habits: Habits | null;
   setHabits: (h: Habits) => void; again: Airing[]; close: () => void;
@@ -1032,6 +908,24 @@ function Taste({ title, genre, host, habits, setHabits }: { title: string; genre
       : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
+  // «No avisarme de X»: solo si los avisos por gusto están prendidos para este género.
+  const [alertOn, setAlertOn] = useState(false);
+  useEffect(() => {
+    if (!genre || !host.tasteAlerts) return;
+    host.tasteAlerts.state().then((v) => setAlertOn(!!v?.on && !!v.genres.find((x) => x.name === genre)?.on));
+  }, [genre]);
+  const stopAlerts = async () => {
+    try {
+      await host.tasteAlerts!.setGenre(genre!, false);
+    } catch {
+      toast('No se pudo guardar. Probá de nuevo.', 'bad');
+      return;
+    }
+    setAlertOn(false);
+    toast(`Listo: no te aviso más de ${genrePlural(genre!)}.`, 'ok', 3500, {
+      label: 'Deshacer', run: () => { host.tasteAlerts!.setGenre(genre!, true).then(() => setAlertOn(true)).catch(() => toast('No se pudo guardar. Probá de nuevo.', 'bad')); },
+    });
+  };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
     <button type="button" class={`chip-btn gd-taste-btn${cur === kind ? ' on' : ''}`} aria-pressed={cur === kind}
       onClick={() => send(cur === kind ? 'clear' : kind)}>
@@ -1042,6 +936,11 @@ function Taste({ title, genre, host, habits, setHabits }: { title: string; genre
     <div class="gd-taste" role="group" aria-label="Para tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
+      {alertOn && genre && (
+        <button type="button" class="chip-btn gd-taste-btn" onClick={() => void stopAlerts()}>
+          <Icon name="bell-off" class="sm" />No avisarme de {genrePlural(genre)}
+        </button>
+      )}
       {cur === 'more' && g && <p class="gd-taste-hint">Tu plan sube también los de {g}.</p>}
     </div>
   );

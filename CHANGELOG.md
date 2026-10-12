@@ -19,6 +19,22 @@ nombres de código.
 - Worker: `kids` en los perfiles (`{ genres }`, validado en el servidor); `/api/view/<código>/hour` y la nueva `/api/view/<código>/schedule/<archivo>` devuelven lo no apto sin título ni descripción; los hábitos del modo ver dejan afuera lo no apto; `/api/cfg/<id>/profiles/<id>/kids` cuenta lo que se oculta.
 - Interno: `PORT` cambia el puerto de los tests e2e (por si el 4173 lo usa otro servidor de pruebas).
 
+## 1.50.0
+
+- **Avisos por gusto.** Con los avisos prendidos en el dispositivo, Configuración tiene una fila nueva, «Avisos por gusto», que abre una hoja: un interruptor (apagado hasta que lo prendas), los géneros de los que avisar (los que más mirás, con los mismos chips de siempre), cuándo (tarde de 18 a 20 o noche de 20 a 22, en la hora de este dispositivo) y cuántos (1 por día o 3 por semana), y los últimos avisos, cada uno con «Menos así». Nowline manda una notificación como «Hoy a las 20:30: Planeta Tierra» solo si hay un programa bueno del género que más mirás (empieza dentro de las próximas horas, dura 40 minutos o más, no es repetición ni algo que ya viste, ni se avisó en 14 días); si no lo hay, no manda nada. Nunca de noche (de 22 a 9), nunca de noticias ni de publicidad, y los avisos de canales nuevos, vencimientos y campanas no cuentan para el tope. Tocar el aviso abre la Guía con la hoja del programa, que ahora tiene «No avisarme de documentales» (con «Deshacer») cuando ese género está prendido. Cuentan los hábitos de todos los perfiles juntos. En el modo ver no hay avisos ni campana: Tu noche sigue dando el porqué.
+- Worker: `GET/POST /api/cfg/<id>/push/taste` guarda en `push/<id>.json` el interruptor, los géneros apagados, el horario, el tope, la zona horaria del dispositivo (se toma al prenderlo) y los últimos avisos; `notifyTaste` corre en la revisión de cada 30 minutos, después de los recordatorios. No cuesta nada de IA: usa el género que ya trae la programación. La suscripción push sigue atada a la configuración, no al perfil.
+- Interno: el puntaje de gustos (`habitAffinity`, `genreTaste`, `planScore`) pasó de `ui/guide.tsx` a `core/src/taste.ts` para usarlo igual en la web y en el Worker, sin duplicarlo.
+
+## 1.49.0
+
+- **Filtros de la Guía, como los de Canales.** Las categorías y los géneros ya no son filas de chips: hay un botón de filtros arriba, al lado de Grilla y Próximos, con el número de filtros puestos. Abre una hoja con las categorías (en el orden de tu lista) y, en Grilla y Próximos, los géneros; lo que elegís queda debajo del título como chips con su ×, más «Quitar todos». «Tengo tiempo» sigue en Próximos. Es el mismo patrón en la edición y en el modo ver, y la Guía sigue eligiendo aparte de Canales. En Tu noche, «Elegir otras» abre esa hoja.
+
+## 1.48.0
+
+- **Buscar por tema.** Escribir «Mundial» o «cocina» en el buscador de los canales (en la edición y en el modo ver) y en el de «Buscar otra guía» también encuentra los canales que dan algo de eso ahora, aunque el título no lo diga. Usa el género y los temas que nowline ya le puso a cada programa; sin ellos, la búsqueda sigue como siempre, por nombre y por lo que dan.
+- Worker: nuevo `GET /api/ui/schedule/topics.json`, un índice aparte que se baja recién la primera vez que se busca. Los temas no van en cada programa de la programación (`ui/schedule/s`): eso la hacía crecer más del 14 %.
+- Interno: `tools/pack_schedule.py --genres` arma también `topics.json` (títulos con su género y temas, una vez por título) y `r2_upload.sh` lo sube.
+
 ## 1.47.1
 
 - **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
