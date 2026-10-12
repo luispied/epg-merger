@@ -13,11 +13,14 @@ nombres de código.
 
 ## 1.42.5
 
+- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
 - **Las categorías del filtro salen en el mismo orden que la lista.** Antes seguían el orden del proveedor; ahora aparecen como las ordenaste en Canales, en la grilla y en la Guía.
 
 ## 1.42.4
 
-- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
+- **La carga ya no dice «sin conexión» cuando hay conexión.** Antes, cualquier error de la app en la carga se mostraba como falta de red. Ahora solo aparece si de verdad no hay conexión; si el servidor tarda, se avisa eso.
+- **Un pedido colgado ya no traba la carga.** Cada pedido tiene un tiempo máximo y, si la respuesta se corta a mitad en el celular, se vuelve a pedir.
+- **La lista de canales se ve aunque la guía no baje.** Arriba aparece «No se pudo bajar la guía» con «Reintentar».
 
 ## 1.42.3
 
