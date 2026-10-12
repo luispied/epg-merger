@@ -1316,8 +1316,9 @@ export function openProfileSwitch() {
   dlg.showModal();
 }
 
-/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto o tiene las conexiones llenas;
- *  si no, si el relay dejó de responder (la lista o la prueba de canales no se actualizan). */
+/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto;
+ *  si no, si el relay dejó de responder (la lista o la prueba de canales no se actualizan). Las conexiones llenas ya no
+ *  avisan acá: se ven en la página de la cuenta y en Conexiones en uso. */
 export function renderProfileNotice() {
   const box = document.querySelector<HTMLButtonElement>('#profileNotice');
   if (!box) return;
@@ -1327,7 +1328,6 @@ export function renderProfileNotice() {
   const who = a && (a.account || state.cfg?.mainName) ? `La cuenta de ${a.name}` : 'Tu cuenta';
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
-  else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${connectionsInUse(acc)} de ${acc.maxConnections} en uso)`;
   let sub = 'Tocá para ver la cuenta o cambiar de cuenta';
   let ico = 'clock';
   const trouble = !text && relayTrouble();

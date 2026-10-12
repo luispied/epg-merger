@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.42.6
+
+- **Canales ya no muestra el aviso de «conexiones llenas».** El aviso de arriba de la lista queda solo para cuando la cuenta vence pronto o el servicio que habla con tu proveedor no responde. Las conexiones en uso siguen en la página de la cuenta y en Conexiones en uso.
+
 ## 1.42.5
 
 - **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
