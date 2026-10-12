@@ -1,28 +1,29 @@
-// Avisos por gusto: las reglas, sin entrada ni salida (la lectura de R2 y el push están en push.ts → notifyTaste).
-// Una vez por corrida (cada 30 minutos) y solo con el interruptor prendido, dentro de la ventana de envío y con cupo,
-// se elige UN programa de los canales de la lista que sea del gusto de la casa; si no hay uno bueno, no se manda nada.
-// El puntaje de gustos es el de Tu noche (core/src/taste.ts), el mismo que usa la web.
+// Avisos por gusto, por perfil: las reglas, sin entrada ni salida (la lectura de R2 y el push están en push.ts → notifyTaste).
+// Cada perfil con el interruptor prendido manda, a sus dispositivos suscritos, UN programa por corrida (cada 30 minutos)
+// si está dentro de su horario y con cupo. El programa sale de los canales que ese perfil ve y del gusto de ese perfil;
+// si no hay uno bueno, no se manda nada. El puntaje de gustos es el de Tu noche (core/src/taste.ts), el mismo que usa la web.
 import { habitAffinity, type Habits, NEVER_NOTIFY, normTitle, planScore, RERUN, tasteGenres } from '../../core/src/taste.ts';
 import type { Entry } from './schedule.ts';
 
-export type TasteWhen = 'tarde' | 'noche';
-export type TastePer = 'dia' | 'semana';
+export type TasteWhen = 'manana' | 'tarde' | 'noche';
 export interface TasteSent { title: string; genre: string; /** ISO del envío. */ at: string; epg: string; name: string; start: number }
 export interface TasteState {
   on: boolean;
-  /** Géneros apagados por la persona. */
+  /** Géneros del gusto que la persona apagó. */
   off: string[];
+  /** Géneros que la persona prendió aunque no sean del gusto de la casa. */
+  plus: string[];
   /** Zona horaria del dispositivo que lo prendió (IANA). */
   tz: string;
   when: TasteWhen;
-  per: TastePer;
   /** Los últimos avisos (el más nuevo al final). */
   sent: TasteSent[];
 }
 
 export const DEFAULT_TZ = 'America/Argentina/Buenos_Aires';
 /** Ventana de envío en hora de la persona [desde, hasta): nunca entre las 22 y las 9. */
-export const WINDOWS: Record<TasteWhen, [number, number]> = { tarde: [18, 20], noche: [20, 22] };
+export const WINDOWS: Record<TasteWhen, [number, number]> = { manana: [9, 13], tarde: [13, 20], noche: [20, 22] };
+export const WHENS: TasteWhen[] = ['manana', 'tarde', 'noche'];
 export const MAX_PER_DAY = 1;
 export const MAX_PER_WEEK = 3;
 export const MAX_SENT = 20;
@@ -35,7 +36,7 @@ export const MIN_LEN_S = 40 * 60;
 export const MIN_SCORE = 3;
 const DAY_MS = 86_400_000;
 
-export const emptyTaste = (tz = DEFAULT_TZ): TasteState => ({ on: false, off: [], tz, when: 'tarde', per: 'semana', sent: [] });
+export const emptyTaste = (tz = DEFAULT_TZ): TasteState => ({ on: false, off: [], plus: [], tz, when: 'tarde', sent: [] });
 
 export function validTz(tz: unknown): tz is string {
   if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
@@ -68,18 +69,36 @@ export function inWindow(ms: number, t: TasteState): boolean {
   return hour >= from && hour < to;
 }
 
-/** ¿Queda cupo? Uno por día (el día de la persona) y, con «3 por semana», tres en los últimos 7 días. */
+/** ¿Queda cupo? Uno por día (el día de la persona) y tres en los últimos 7 días. */
 export function hasQuota(t: TasteState, ms: number): boolean {
   const today = localParts(ms, t.tz).day;
   if (t.sent.some((s) => localParts(Date.parse(s.at), t.tz).day === today)) return false;
-  if (t.per === 'semana' && t.sent.filter((s) => ms - Date.parse(s.at) < 7 * DAY_MS).length >= MAX_PER_WEEK) return false;
-  return true;
+  return t.sent.filter((s) => ms - Date.parse(s.at) < 7 * DAY_MS).length < MAX_PER_WEEK;
 }
 
-/** Los géneros de los que hoy se puede avisar: el gusto de la casa menos los apagados. */
+/** Los géneros de los que este perfil puede recibir avisos hoy: el gusto (automático) más los que prendió, menos los
+ *  que apagó. Nunca publicidad, noticias ni «Otro». */
 export function allowedGenres(h: Habits | null, t: TasteState, ms: number): string[] {
   const off = new Set(t.off);
-  return tasteGenres(h, ms).filter((g) => !off.has(g));
+  const out = new Set([...tasteGenres(h, ms), ...t.plus]);
+  return [...out].filter((g) => !off.has(g) && !NEVER_NOTIFY.has(g)).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Todos los géneros que el perfil ya mira o tocó (para la hoja): lo que se mira, lo apagado y lo prendido. */
+export function seenGenres(h: Habits | null, t: TasteState): string[] {
+  const seen = new Set<string>([...t.off, ...t.plus]);
+  for (const v of Object.values(h?.t ?? {})) if (v.g && !NEVER_NOTIFY.has(v.g)) seen.add(v.g);
+  return [...seen].filter((g) => !NEVER_NOTIFY.has(g)).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Prende o apaga un género para el perfil. Un género del gusto automático se apaga con `off`; uno ajeno, se prende con `plus`. */
+export function setGenre(t: TasteState, h: Habits | null, ms: number, genre: string, on: boolean): TasteState {
+  const auto = tasteGenres(h, ms).includes(genre);
+  const off = t.off.filter((g) => g !== genre);
+  const plus = t.plus.filter((g) => g !== genre);
+  if (on && !auto) plus.push(genre);
+  if (!on && auto) off.push(genre);
+  return { ...t, off, plus };
 }
 
 export interface TasteChannel { epg: string; name: string; cat: string }
@@ -123,12 +142,13 @@ export function parseTaste(raw: unknown): TasteState | undefined {
   const v = raw as Partial<TasteState> | null;
   if (!v || typeof v !== 'object') return undefined;
   const str = (x: unknown): x is string => typeof x === 'string';
+  const genres = (x: unknown) => Array.isArray(x) ? x.filter((g): g is string => str(g) && g.length <= 40).slice(0, 40) : [];
   return {
     on: v.on === true,
-    off: Array.isArray(v.off) ? v.off.filter((g): g is string => str(g) && g.length <= 40).slice(0, 40) : [],
+    off: genres(v.off),
+    plus: genres(v.plus),
     tz: validTz(v.tz) ? v.tz : DEFAULT_TZ,
-    when: v.when === 'noche' ? 'noche' : 'tarde',
-    per: v.per === 'dia' ? 'dia' : 'semana',
+    when: WHENS.includes(v.when as TasteWhen) ? v.when as TasteWhen : 'tarde',
     sent: Array.isArray(v.sent)
       ? v.sent.filter((s) => s && str(s.title) && str(s.genre) && str(s.at) && str(s.epg) && str(s.name) && typeof s.start === 'number').slice(-MAX_SENT)
       : [],

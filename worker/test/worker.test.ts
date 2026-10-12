@@ -1736,26 +1736,32 @@ test('perfil infantil: solo con la clave, y el modo ver recibe la programación 
   assert.equal((await call(`/profiles/${pid}/kids`)).status, 404);
 });
 
-test('avisos por gusto: la API pide un dispositivo suscrito y guarda zona, horario, tope y géneros', async () => {
+test('avisos por gusto: la API es por perfil; pide un dispositivo suscrito y guarda zona, horario y géneros', async () => {
   const t = await setup();
-  const call = (method: string, body?: object, key: string | undefined = t.editKey) =>
-    handle(req(`/api/cfg/${t.cfgId}/push/taste`, { method, key, ...(body ? { body: JSON.stringify(body) } : {}) }), t.env, t.ctx, t.cache);
-  assert.equal((await call('GET')).status, 404); // sin las claves de push no existe
+  // Un perfil (el principal) para prender los avisos.
+  const cfgObj = (await t.env.BUCKET.get(`cfg/${t.cfgId}.json`))!;
+  const cfgRaw = JSON.parse(await cfgObj.text());
+  await t.env.BUCKET.put(`cfg/${t.cfgId}.json`, JSON.stringify({ ...cfgRaw, profiles: [{ id: 'luis', name: 'Luis' }] }), { customMetadata: cfgObj.customMetadata });
+  const call = (method: string, query = '', body?: object, key: string | undefined = t.editKey) =>
+    handle(req(`/api/cfg/${t.cfgId}/push/taste${query}`, { method, key, ...(body ? { body: JSON.stringify(body) } : {}) }), t.env, t.ctx, t.cache);
+  assert.equal((await call('GET', '?profile=luis')).status, 404); // sin las claves de push no existe
   const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
   t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
   t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
-  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/push/taste`), t.env, t.ctx, t.cache)).status, 401);
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/push/taste?profile=luis`), t.env, t.ctx, t.cache)).status, 401);
+  assert.equal((await call('GET', '?profile=fantasma')).status, 404); // un perfil que no existe
   // Sin dispositivo suscrito no se puede prender.
-  assert.equal((await call('POST', { on: true })).status, 400);
+  assert.equal((await call('POST', '', { profile: 'luis', endpoint: 'https://push.example/s/gusto', on: true })).status, 400);
   const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
-  const sub = { endpoint: 'https://push.example/s/gusto', keys: { p256dh: b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey))), auth: b64urlEncode(crypto.getRandomValues(new Uint8Array(16))) } };
+  const endpoint = 'https://push.example/s/gusto';
+  const sub = { endpoint, keys: { p256dh: b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey))), auth: b64urlEncode(crypto.getRandomValues(new Uint8Array(16))) } };
   await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(sub) }), t.env, t.ctx, t.cache);
-  const off = await (await call('GET')).json() as { on: boolean; when: string; per: string; tz: string };
-  assert.deepEqual([off.on, off.when, off.per, off.tz], [false, 'tarde', 'semana', 'America/Argentina/Buenos_Aires']);
-  const on = await (await call('POST', { on: true, tz: 'Europe/Madrid', per: 'dia', when: 'noche', genre: 'Serie', genreOn: false })).json() as typeof off & { genres: { name: string; on: boolean }[] };
-  assert.deepEqual([on.on, on.when, on.per, on.tz], [true, 'noche', 'dia', 'Europe/Madrid']);
-  assert.deepEqual(on.genres, [{ name: 'Serie', on: false }]);
+  const off = await (await call('GET', `?profile=luis&endpoint=${encodeURIComponent(endpoint)}`)).json() as { on: boolean; when: string; tz: string; here: boolean };
+  assert.deepEqual([off.on, off.when, off.tz, off.here], [false, 'tarde', 'America/Argentina/Buenos_Aires', false]);
+  const on = await (await call('POST', '', { profile: 'luis', endpoint, on: true, tz: 'Europe/Madrid', when: 'noche', genre: 'Serie', genreOn: false })).json() as typeof off & { genres: { name: string; on: boolean }[] };
+  assert.deepEqual([on.on, on.when, on.tz, on.here], [true, 'noche', 'Europe/Madrid', true]);
+  assert.deepEqual(on.genres, []); // sin historial, no hay géneros que mostrar
   // Una zona inválida se ignora; el interruptor se apaga sin perder el resto.
-  const again = await (await call('POST', { on: false, tz: 'no/existe' })).json() as typeof on;
-  assert.deepEqual([again.on, again.tz], [false, 'Europe/Madrid']);
+  const again = await (await call('POST', '', { profile: 'luis', on: false, tz: 'no/existe' })).json() as typeof on;
+  assert.deepEqual([again.on, again.tz, again.when], [false, 'Europe/Madrid', 'noche']);
 });
