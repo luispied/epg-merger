@@ -36,6 +36,8 @@ test('en el modo ver, al recargar no vuelve el logo: se ve el esqueleto, como en
   await page.reload();
   await expect(page.locator('html')).toHaveClass(/no-splash/);
   await expect(page.locator('#splash')).toHaveCount(0);
-  await expect(page.locator('.vw-skel .skeleton')).toHaveCount(4);
+  // Una tarjeta cada 150 px de pantalla (más una): el esqueleto llena el alto visible en cualquier tamaño.
+  const alto = page.viewportSize()!.height;
+  await expect(page.locator('.vw-skel .skeleton')).toHaveCount(Math.ceil(alto / 150) + 1);
   await expect(page.getByText('Cargando los canales')).toHaveCount(0);
 });
