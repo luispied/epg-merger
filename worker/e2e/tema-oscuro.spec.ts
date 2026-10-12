@@ -1,5 +1,5 @@
-// Tema de punta a punta: sin preferencia la app abre oscura (el valor por defecto de la app, no el del sistema); «Como el
-// sistema» sigue al sistema; «Claro» y «Oscuro» se quedan como se eligieron. Las capturas (visual.spec.ts) miran la forma; esto
+// Tema de punta a punta: sin preferencia la app sigue al sistema (es el valor por defecto); «Como el sistema» hace lo
+// mismo; «Claro» y «Oscuro» se quedan como se eligieron. Las capturas (visual.spec.ts) miran la forma; esto
 // mira el color de fondo y del texto en las pantallas que más se usan.
 import { expect, test, type Page } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
@@ -30,13 +30,15 @@ const lum = (rgb: string) => {
 /** Deja la preferencia de tema guardada antes de que cargue la app (como si la hubiera elegido la persona). */
 const saveTheme = (page: Page, v: string) => page.addInitScript((t) => localStorage.setItem('grilla_theme', t), v);
 
-test('sin preferencia, la app abre oscura aunque el sistema esté en claro (el valor por defecto)', async ({ page }) => {
+test('sin preferencia, la app sigue al sistema (el valor por defecto): claro y, si cambia, oscuro', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await fakeWorker(page);
   await page.goto('/');
   await expect(page.locator('#cards .card').first()).toBeVisible();
-  expect(lum(await bodyBg(page))).toBeLessThan(80);
-  expect(lum(await rowText(page))).toBeGreaterThan(150);
+  expect(lum(await bodyBg(page))).toBeGreaterThan(200);
+  expect(lum(await rowText(page))).toBeLessThan(120);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => bodyBg(page).then(lum)).toBeLessThan(80);
 });
 
 test('«Como el sistema»: sigue al sistema, claro o oscuro', async ({ page }) => {
