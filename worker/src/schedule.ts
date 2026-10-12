@@ -1,14 +1,15 @@
 // La programación que sube la corrida diaria a R2 (tools/pack_schedule.py):
 //   ui/schedule/s/<xx>             los canales en 256 tandas: 8 dígitos con el largo del encabezado, el
 //                                  encabezado ({archivo: [desde, largo]}, desde el fin del encabezado) y
-//                                  la programación de cada canal en gzip ([inicio, fin, título, descripción?][])
+//                                  la programación de cada canal en gzip ([inicio, fin, título, descripción?, género?][])
 //   ui/schedule/hour/<hora>.json   índices por hora, guardados en gzip (Content-Encoding: gzip)
 // Un canal se lee con dos lecturas por rango (el encabezado y sus bytes) y viaja comprimido tal cual.
 // Mientras no exista la tanda (antes de la primera corrida con este formato) se lee el archivo viejo
 // ui/schedule/<archivo>.json.
 import type { R2Bucket } from './env.ts';
 
-export type Entry = [number, number, string, string?];
+/** [inicio, fin, título, descripción?, género?]: el género lo agrega la corrida cuando la IA ya clasificó el título. */
+export type Entry = [number, number, string, string?, string?];
 type Header = { start: number; index: Record<string, [number, number]>; uploaded?: Date };
 
 const DIGITS = 8;

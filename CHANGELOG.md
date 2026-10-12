@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.43.0
+
+- **Tu plan sugiere cosas parecidas a lo que mirás.** Si mirás mucho deporte, sube el deporte de otros canales, aunque nunca los hayas abierto, y debajo dice «Como lo que mirás: deportes». La publicidad nunca se sugiere.
+- Interno: la corrida diaria pone el género a cada programa de la programación; el Worker lo guarda en los hábitos.
+
 ## 1.42.10
 
 - **La barra inferior del modo ver queda a la misma altura en la Guía que en Canales.** Se saca el bloqueo de scroll de la página de atrás en el modo ver; la edición lo sigue usando.

@@ -79,7 +79,7 @@ flowchart TD
   E --> F[auto_sources update<br/>activa o retira fuentes]
   F --> G[shared_guide.py + r2_upload.sh]
   G --> G1[guide/index.json]
-  G --> G2[ui/schedule/s y hour<br/>programación empacada]
+  G --> G2[ui/schedule/s y hour<br/>programación empacada,<br/>con el género de cada título]
   G --> G3[epg/cfgId.xml.gz<br/>una guía por configuración]
   G --> G4[ui/schedule/cfg/cfgId<br/>índice por hora por configuración]
   G --> H[measure_titles.py<br/>medición de títulos]

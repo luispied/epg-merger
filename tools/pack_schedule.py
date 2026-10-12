@@ -15,7 +15,11 @@ de clase A por archivo todos los días (más de la mitad de las gratis del mes).
   índice de toda la guía pero solo con sus canales (unos cientos de los ~17.500), en el mismo formato de
   tanda con una entrada por hora. Es lo que baja la Guía en el celular: ~20 KB por hora en vez de ~400 KB.
 
-Uso: python tools/pack_schedule.py [out/schedule] [out/schedule_r2]
+- Con --genres <ai/genres.json>, cada entrada de un programa que la IA ya clasificó (tools/classify_genres.py) lleva
+  el género como quinto elemento: [inicio, fin, título, descripción o '', género]. Es lo que usa Tu plan para sugerir
+  cosas parecidas a lo que se mira y para dejar afuera la publicidad. «Otro» no se agrega: no dice nada.
+
+Uso: python tools/pack_schedule.py [--genres ai/genres.json] [out/schedule] [out/schedule_r2]
      python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
 """
 import gzip
@@ -51,8 +55,34 @@ def write_pack(path, members):
             out.write(member)
 
 
-def pack(src, dst):
-    """Devuelve (canales, tandas, horas) empacados."""
+NO_GENRE = {'Otro'}
+
+
+def tag_genres(raw, genres):
+    """El JSON de un canal con el género de cada programa clasificado como quinto elemento; igual si no hay ninguno."""
+    from measure_titles import title_key
+    try:
+        entries = json.loads(raw)
+    except ValueError:
+        return raw
+    if not isinstance(entries, list):
+        return raw
+    out, tagged = [], 0
+    for e in entries:
+        genre = (genres.get(title_key(e[2])) or [None])[0] if isinstance(e, list) and len(e) >= 3 else None
+        if genre and genre not in NO_GENRE:
+            out.append([e[0], e[1], e[2], e[3] if len(e) > 3 else '', genre])
+            tagged += 1
+        else:
+            out.append(e)
+    if not tagged:
+        return raw
+    return json.dumps(out, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+
+
+def pack(src, dst, genres=None):
+    """Devuelve (canales, tandas, horas) empacados. Con `genres` ({clave del título: [género, …]}), los programas
+    clasificados llevan su género."""
     if os.path.isdir(dst):
         shutil.rmtree(dst)
     os.makedirs(os.path.join(dst, 's'))
@@ -66,7 +96,8 @@ def pack(src, dst):
         members = []
         for f in files:
             with open(os.path.join(src, f'{f}.json'), 'rb') as fh:
-                members.append((f, fh.read()))
+                raw = fh.read()
+            members.append((f, tag_genres(raw, genres) if genres else raw))
         write_pack(os.path.join(dst, 's', prefix), members)
         channels += len(files)
 
@@ -149,14 +180,26 @@ def main(argv):
         n = pack_configs(load_configs(configs_dir), src, dst)
         print(f'📦 Índices por hora de {n} configuración(es): {_size(dst) / 1e6:.1f} MB')
         return 0
+    argv = list(argv)
+    genres = None
+    if '--genres' in argv:
+        i = argv.index('--genres')
+        path = argv[i + 1]
+        del argv[i:i + 2]
+        try:
+            with open(path, encoding='utf-8') as f:
+                genres = json.load(f)
+        except (OSError, ValueError):
+            print(f'ℹ️  Sin {path} legible: la programación sale sin géneros.')
     src = argv[1] if len(argv) > 1 else os.path.join('out', 'schedule')
     dst = argv[2] if len(argv) > 2 else os.path.join('out', 'schedule_r2')
     if not os.path.isdir(src):
         print(f'ℹ️  Sin {src}: no hay programación para empacar.')
         return 0
-    channels, shards, hours = pack(src, dst)
+    channels, shards, hours = pack(src, dst, genres)
     print(f'📦 Programación para R2: {channels} canales en {shards} tandas y {hours} archivos por hora, '
-          f'{_size(src) / 1e6:.0f} MB → {_size(dst) / 1e6:.0f} MB')
+          f'{_size(src) / 1e6:.0f} MB → {_size(dst) / 1e6:.0f} MB'
+          + (f', con el género de {len(genres)} títulos' if genres else ''))
     return 0
 
 

@@ -1584,9 +1584,9 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   await t.settle();
   // Lo que pasa ahora en Telefe (la guía por canal que deja la corrida diaria).
   const now = Math.floor(Date.now() / 1000);
-  await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera']]));
+  await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera', '', 'Deportes']]));
   const habits = async () => (await handle(req(`/api/cfg/${t.cfgId}/habits`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
-    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string }>; no: Record<string, string>; more: Record<string, string> }>;
+    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string; g?: string }>; no: Record<string, string>; more: Record<string, string> }>;
   assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {} });
   await handle(new Request(`${BASE}/s/${code}/10.ts`), t.env, t.ctx, t.cache);
   await t.settle();
@@ -1601,6 +1601,8 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   assert.equal(h.ch['Telefe.ar'].n, 2);
   assert.equal(h.ch['Telefe.ar'].h[new Date().getUTCHours()], 2);
   assert.deepEqual(h.t['fútbol de primera'], { ...h.t['fútbol de primera'], n: 1, title: 'Fútbol de Primera' });
+  // El género de la programación (lo agrega la corrida cuando la IA ya lo clasificó) queda anotado con el programa.
+  assert.equal(h.t['fútbol de primera'].g, 'Deportes');
   // Los pedidos: uno saca al otro, y «clear» los deshace.
   const fb = (kind: string, title = 'Fútbol de Primera') => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind }) }), t.env, t.ctx, t.cache);
   assert.equal((await fb('no')).status, 200);
