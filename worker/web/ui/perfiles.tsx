@@ -257,11 +257,10 @@ function ProfileList() {
   const cur = state.local!.cfgId;
   const xtream = state.cfg!.provider.type === 'xtream';
   const Head = ({ name, cfgId, inUse }: { name: string; cfgId: string; inUse: boolean }) => (
-    <div class="provider-head">
+    <button type="button" class="provider-head" onClick={() => openLinksView({ v: 'provider', cfgId })}>
       <span class="provider-tag">{name}{inUse ? ' · en uso' : ''}</span>
-      <button type="button" class="icon-btn" aria-label={`Ajustes de ${name}`} title="Ajustes del proveedor"
-        onClick={() => openLinksView({ v: 'provider', cfgId })}><Icon name="settings" /></button>
-    </div>
+      <Icon name="chevron-right" />
+    </button>
   );
   return (
     <>
