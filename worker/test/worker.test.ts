@@ -370,7 +370,7 @@ test('links cortos: no muestran la configuración ni el token, y los largos sigu
   assert.equal((await handle(new Request(links.playlistUrl.replace('.m3u8', '.xml.gz').replace('/l/', '/l/')), t.env, t.ctx, t.cache)).status, 404);
 });
 
-test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corrida (una por minuto)', async () => {
+test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corrida (una cada 15 minutos)', async () => {
   const { dispatchRefresh } = await import('../src/github.ts');
   const t = makeEnv();
   const calls: { url: string; auth: string | null }[] = [];
@@ -380,10 +380,10 @@ test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corr
     return new Response(null, { status: 204 });
   }) as typeof fetch;
   restore = () => void (globalThis.fetch = original);
-  assert.equal(await dispatchRefresh(t.env, t.cache), false, 'sin token no hace nada');
+  assert.equal(await dispatchRefresh(t.env), false, 'sin token no hace nada');
   const env = { ...t.env, GITHUB_TOKEN: 'ghp_x' };
-  assert.equal(await dispatchRefresh(env, t.cache), true);
-  assert.equal(await dispatchRefresh(env, t.cache), false, 'no más de una por minuto');
+  assert.equal(await dispatchRefresh(env), true);
+  assert.equal(await dispatchRefresh(env), false, 'no más de una cada 15 minutos');
   assert.deepEqual(calls, [{ url: 'https://api.github.com/repos/luispied/epg-merger/actions/workflows/refresh-lists.yml/dispatches', auth: 'Bearer ghp_x' }]);
 });
 

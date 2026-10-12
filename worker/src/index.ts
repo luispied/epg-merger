@@ -458,7 +458,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const config = parseConfig({ ...raw, ...keep, profiles: stored.config.profiles });
       await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
       // La guía de esta configuración se vuelve a armar con los cambios.
-      ctx.waitUntil(dispatchRefresh(env, cache));
+      ctx.waitUntil(dispatchRefresh(env));
       return json({ ok: true });
     }
     if (!action && method === 'DELETE') {
@@ -488,7 +488,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'refresh' && method === 'POST') {
-      return json({ started: await dispatchRefresh(env, cache), autoRefresh: !!env.GITHUB_TOKEN });
+      return json({ started: await dispatchRefresh(env), autoRefresh: !!env.GITHUB_TOKEN });
     }
     if (action === 'health' && parts[4] === 'run' && method === 'POST') {
       // Probar los canales a mano (lo hace el cron del Worker por el relay): una vez por día, igual que la prueba de la madrugada.

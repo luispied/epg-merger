@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.52.2
+
+- Interno: el aviso para armar la guía de una configuración nueva o cambiada (la corrida de GitHub) se lanza como mucho una vez cada 15 minutos. El momento de la última se guarda en R2, no en el caché del edge, que no frenaba las corridas repetidas. Si se guarda otra configuración dentro de esos 15 minutos, su guía se arma en la próxima corrida (como mucho, la del cron de 3 horas).
+
 ## 1.52.1
 
 - **«Mirando ahora» es más preciso.** Un link figura mirando una hora después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Una hora es la duración mediana de un programa en la guía. Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
