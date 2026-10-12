@@ -512,7 +512,6 @@ function App() {
   }), [channels]);
 
   useEffect(() => {
-    document.body.classList.toggle('guide-open', tab === 'guia');
     if (tab === 'guia' && guideEl.current) showGuide(guideEl.current, host);
     if (tab === 'canales') document.querySelector('#app > section:not(#guide)')?.scrollTo(0, 0);
   }, [tab, host]);

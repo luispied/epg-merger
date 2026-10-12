@@ -211,8 +211,11 @@ test('la página del modo ver no se desplaza y la barra de abajo queda igual en 
   const [h, vh] = await doc();
   expect(h).toBeLessThanOrEqual(vh);
   const canales = await pos();
+  const bodyAntes = await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow]);
   await page.getByRole('button', { name: 'Guía', exact: true }).click();
   await expect(page.locator('#guide')).toBeVisible();
+  // Nada del documento cambia de una pestaña a la otra (en la PWA de iPhone cualquier diferencia mueve la barra fija).
+  expect(await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow])).toEqual(bodyAntes);
   expect(await pos()).toEqual(canales);
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('button', { name: 'Canales' }).click();
   expect(await pos()).toEqual(canales);

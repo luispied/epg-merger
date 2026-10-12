@@ -13,7 +13,7 @@ nombres de código.
 
 ## 1.45.0
 
-- **La barra de abajo del modo ver queda a la misma altura en Canales y en la Guía.** En Safari, desplazar la lista de Canales encogía la barra del navegador y la de abajo cambiaba de altura al pasar a la Guía. Ahora la lista se desplaza dentro de su pantalla, como la Guía, y la página no se mueve.
+- **La barra de abajo del modo ver queda a la misma altura en Canales y en la Guía.** En Safari, desplazar la lista de Canales encogía la barra del navegador y la de abajo cambiaba de altura al pasar a la Guía. Ahora la lista se desplaza dentro de su pantalla, como la Guía, y la página no se mueve ni cambia al pasar de una pestaña a la otra (tampoco en la app instalada en el iPhone).
 - **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
 - Ayuda: el modo ver explica el engranaje y el tema.
 - **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
