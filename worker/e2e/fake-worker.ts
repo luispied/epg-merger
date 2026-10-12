@@ -29,7 +29,7 @@ const guide = [
 
 /** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. `extra` suma canales
  *  ([nombre, categoría]) a la lista del proveedor; `health` es lo que devuelve la prueba de canales. */
-export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown> } = {}): Promise<Fake> {
+export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown>; devices?: Record<string, unknown>[]; accounts?: Record<string, unknown> } = {}): Promise<Fake> {
   const list = [...channels, ...(opts.extra ?? []).map(([name, category], i) => ({ name, category, id: String(100 + i), ext: 'ts', icon: '', epgId: null }))];
   const fake: Fake = {
     writes: [],
@@ -39,7 +39,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
       { id: 'p2', name: 'Chicos', filter: { groups: ['Deportes'], channels: [] } },
     ],
   };
-  const devices = [{
+  const devices = opts.devices ?? [{
     code: 'd1', name: 'TV del living', active: true, lastUsed: new Date(Date.now() - 3_600_000).toISOString(), accountKey: 'ak1', profile: 'p1', lastPlay: { t: new Date(Date.now() - 20 * 60_000).toISOString(), ch: '4' },
     playlistUrl: 'https://grilla.test/p/abc123', epgUrl: 'https://grilla.test/e/abc123',
   }];
@@ -63,7 +63,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (path === '/api/cfg/c1/list') return json({ channels: list });
     if (path === '/api/cfg/c1/devices') return json({ devices, profiles: fake.profiles, mainName: 'Luis' });
     if (path === '/api/cfg/c1/accounts') {
-      return json({ accounts: { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });
+      return json({ accounts: opts.accounts ?? { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });
     }
     if (path === '/api/cfg/c1/status') return json({ guideUpToDate: true, guide: '2026-10-10T12:00:00Z', autoRefresh: true });
     if (path === '/api/cfg/c1/refresh') return json({ started: true });
