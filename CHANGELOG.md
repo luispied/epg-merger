@@ -11,13 +11,17 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.48.0
+## 1.51.0
 
 - **Perfil infantil.** En la página de un perfil, una fila nueva con interruptor, **Perfil infantil**, lo vuelve un perfil que solo muestra programas aptos para chicos. Al prenderlo se abre una hoja con los géneros: **Infantil** y **Educativo** entran siempre y se pueden sumar Documental, Cocina, Música, Deportes y Estilo de vida; la publicidad, las películas, las series y las noticias nunca entran, ni lo que la IA todavía no clasificó. Ya activo aparecen **Géneros que entran**, para cambiarlos, y **Qué se está ocultando**, que cuenta qué se ve y qué no en las próximas horas, por género y sin clasificar. Se prende y se quita solo desde la edición, con la clave: el modo ver no puede.
 - **El modo ver de un perfil infantil muestra «No disponible en este perfil».** En los canales, en la hoja del canal y en la Guía, lo que no es apto se ve así, con su horario. No aparece en la búsqueda, en Próximos ni en Tu plan, y no se puede ver la descripción. El servidor entrega la programación ya filtrada, así que mirar la red no lo esquiva.
 - Límites: la IA se equivoca a veces y va clasificando de a poco, así que al principio el perfil muestra poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran. En la edición se sigue viendo todo.
 - Worker: `kids` en los perfiles (`{ genres }`, validado en el servidor); `/api/view/<código>/hour` y la nueva `/api/view/<código>/schedule/<archivo>` devuelven lo no apto sin título ni descripción; los hábitos del modo ver dejan afuera lo no apto; `/api/cfg/<id>/profiles/<id>/kids` cuenta lo que se oculta.
 - Interno: `PORT` cambia el puerto de los tests e2e (por si el 4173 lo usa otro servidor de pruebas).
+
+## 1.47.1
+
+- **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
 
 ## 1.47.0
 

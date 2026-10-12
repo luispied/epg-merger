@@ -85,10 +85,10 @@ export function viewManifest(code: string): object | null {
     background_color: '#0c0d10',
     theme_color: '#0c0d10',
     icons: [
-      icon('/img/apple-touch-icon.png', '180x180'),
-      icon('/img/icon-192.png', '192x192'),
-      icon('/img/icon-512.png', '512x512'),
-      icon('/img/icon-maskable-512.png', '512x512', 'maskable'),
+      icon('/img/ver/apple-touch-icon.png', '180x180'),
+      icon('/img/ver/icon-192.png', '192x192'),
+      icon('/img/ver/icon-512.png', '512x512'),
+      icon('/img/ver/icon-maskable-512.png', '512x512', 'maskable'),
     ],
   };
 }
