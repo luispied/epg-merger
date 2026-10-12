@@ -200,27 +200,26 @@ test('filtrar por categoría como en la edición, sin estados', async ({ page })
   await expect(page.locator('.active-filters')).toBeHidden();
 });
 
-// En Safari, desplazar la página encoge la barra del navegador y la barra de abajo cambia de altura. En el modo ver la página
-// no se desplaza (la lista de Canales y la Guía lo hacen por dentro), así la barra queda igual en las dos pestañas.
-test('la página del modo ver no se desplaza y la barra de abajo queda igual en Canales y en la Guía', async ({ page }) => {
+// Igual que la edición: la lista de Canales queda en la página debajo de la Guía (el documento no se vacía al cambiar de
+// pestaña) y la barra de abajo queda a 1rem del borde en las dos. En la app de iPhone, una página vacía sube la barra.
+test('la barra de abajo del modo ver queda a 1rem del borde en Canales y en la Guía, como en la edición', async ({ page }) => {
   await page.goto(`/ver#${CODE}`);
   const nav = page.getByRole('navigation', { name: 'Secciones' });
   await expect(page.getByText('Canal Uno').first()).toBeVisible();
   const pos = () => nav.evaluate((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; });
-  const doc = () => page.evaluate(() => [document.documentElement.scrollHeight, window.innerHeight]);
-  const [h, vh] = await doc();
-  expect(h).toBeLessThanOrEqual(vh);
+  const alto = () => page.evaluate(() => document.documentElement.scrollHeight);
+  const vh = await page.evaluate(() => window.innerHeight);
   const canales = await pos();
-  const bodyAntes = await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow]);
+  if (await page.evaluate(() => innerWidth < 900)) expect(canales[1]).toBe(vh - 16);
+  const h = await alto();
   await page.getByRole('button', { name: 'Guía', exact: true }).click();
   await expect(page.locator('#guide')).toBeVisible();
-  // Nada del documento cambia de una pestaña a la otra (en la PWA de iPhone cualquier diferencia mueve la barra fija).
-  expect(await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow])).toEqual(bodyAntes);
+  expect(await alto()).toBe(h);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe('hidden');
   expect(await pos()).toEqual(canales);
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('button', { name: 'Canales' }).click();
+  await expect(page.getByText('Canal Uno').first()).toBeVisible();
   expect(await pos()).toEqual(canales);
-  const [h2, vh2] = await doc();
-  expect(h2).toBeLessThanOrEqual(vh2);
 });
 
 // Sin manifest, «Agregar a inicio» abre la PWA de iPhone en un modo viejo y la barra de abajo queda más arriba que en la

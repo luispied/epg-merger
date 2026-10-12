@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.4
+
+- Modo ver: la barra de abajo queda a 1rem del borde, igual que en la edición, en Canales y en la Guía. La lista de Canales
+  vuelve a estar en la página y queda debajo de la Guía, como en la edición (con la página vacía, la app de iPhone subía la barra).
+
 ## 1.46.3
 
 - **El esqueleto de carga en el modo «solo ver» llena toda la pantalla.** Antes mostraba cuatro tarjetas y en el escritorio y en el iPhone quedaba un hueco abajo. Ahora se arma según el alto de la pantalla (y se rehace al girar), igual que en la edición.
