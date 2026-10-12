@@ -126,6 +126,20 @@ test('compartir para ver: crear el código, copiarlo y quitar el acceso', async 
   expect(fake.writes.filter((w) => !w.path.includes('/view')).filter((w) => w.path.includes('/devices'))).toEqual([]);
 });
 
+test('abrir en modo ver desde el editor: la fila entra al modo ver con el código del perfil', async ({ page }) => {
+  await openPerfiles(page);
+  await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Chicos' }).click();
+  await page.locator('#linksBody').getByRole('button', { name: /Compartir para ver/ }).click();
+  await page.getByRole('button', { name: 'Crear el código para ver' }).click();
+  await expect(page.getByRole('button', { name: 'Copiar código' })).toBeVisible();
+  const code = fake.profiles.find((p) => p.id === 'p2')?.view;
+  expect(code).toBeTruthy();
+  await page.route(`**/api/view/${code}`, (r) => r.fulfill({ json: { name: 'Chicos', channels: [] } }));
+  await page.locator('#linksBody').getByRole('button', { name: 'Abrir en modo ver' }).click();
+  await page.waitForURL(`**/ver#${code}`, { waitUntil: 'commit' });
+  expect(await page.evaluate(() => localStorage.getItem('grilla_ver_code'))).toBe(code);
+});
+
 test('tu código: el de editar y los de modo ver, cada uno con su copiar', async ({ page }, info) => {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
   await openPerfiles(page);
