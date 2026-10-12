@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.41.4
+
+- **Configuración ya no muestra el commit.** Al pie solo queda la versión de Nowline, que es lo que le sirve a quien usa la app.
+- Interno: el build ya no lee el commit de git.
+
 ## 1.41.3
 
 - **Nowline se actualiza sola, sin avisos con la app abierta.** Ya no aparece «Hay una versión nueva» con el botón **Actualizar**, ni llega una notificación push por cada versión nueva. La versión nueva se ve al abrir la app. Al abrirla después de una actualización, un aviso breve dice «Nowline se actualizó» y **Qué hay nuevo** muestra los cambios.

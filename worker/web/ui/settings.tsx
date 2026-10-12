@@ -14,7 +14,6 @@ import { openNovedades } from './novedades.tsx';
 import { BrandFoot } from './kit.tsx';
 
 declare const __APP_VERSION__: string;
-declare const __APP_COMMIT__: string;
 
 const dialog = () => document.getElementById('settingsDialog') as HTMLDialogElement;
 
@@ -239,7 +238,7 @@ function Settings({ summary }: { summary: string }) {
         </label>
       </div>
       <BrandFoot />
-      <p class="app-version" data-version>{`Versión ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`}</p>
+      <p class="app-version" data-version>{`Versión ${__APP_VERSION__}`}</p>
       <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
     </>
   );

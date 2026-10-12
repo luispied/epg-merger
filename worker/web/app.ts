@@ -47,7 +47,6 @@ interface Config {
   mainName?: string;
 }
 declare const __APP_VERSION__: string;
-declare const __APP_COMMIT__: string;
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string }
 type Creds = { username: string; password: string } | { url: string };
@@ -3002,7 +3001,7 @@ void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
 addSearchClear(document);
-for (const el of $$('[data-version]')) el.textContent = `Nowline ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
+for (const el of $$('[data-version]')) el.textContent = `Nowline ${__APP_VERSION__}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 $('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 setupOnboarding();

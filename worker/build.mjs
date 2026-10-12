@@ -4,16 +4,13 @@
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { execSync } from 'node:child_process';
 import { expandTokens } from './tokens.mjs';
 
 const here = (p) => new URL(p, import.meta.url);
 mkdirSync(here('./public'), { recursive: true });
 
-// Versión de la app (worker/package.json) y, si hay git, el commit: se ven al pie de Configuración.
+// Versión de la app (worker/package.json): se ve al pie de Configuración.
 const appVersion = JSON.parse(readFileSync(here('./package.json'), 'utf-8')).version;
-let appCommit = '';
-try { appCommit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* sin git */ }
 
 // El editor (app.ts) y el modo «solo ver» (ver.tsx, ver.html): dos páginas que no comparten estado.
 const common = {
@@ -25,7 +22,7 @@ const common = {
   jsxImportSource: 'preact',
   minify: true,
   sourcemap: false,
-  define: { __APP_VERSION__: JSON.stringify(appVersion), __APP_COMMIT__: JSON.stringify(appCommit) },
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   logLevel: 'warning',
 };
 await build({ ...common, entryPoints: [here('./web/app.ts').pathname], outfile: here('./public/app.js').pathname });
