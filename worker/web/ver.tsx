@@ -17,6 +17,10 @@ Object.assign(window.ICONS, {
   'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
   'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  // Los íconos del tema, como en el editor (app.ts).
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
 });
 
 interface ViewData { name: string; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
@@ -27,11 +31,21 @@ interface Prog { s: number; e: number; t: string }
 
 const CODE_KEY = 'grilla_ver_code';
 const THEME_KEY = 'grilla_theme';
+// Los mismos tres íconos que el editor (ui/settings.tsx), en el mismo orden.
 const THEMES = [
+  { v: 'auto', label: 'Como el sistema', icon: 'monitor' },
   { v: 'light', label: 'Claro', icon: 'sun' },
   { v: 'dark', label: 'Oscuro', icon: 'moon' },
 ] as const;
 type Theme = typeof THEMES[number]['v'];
+/** El tema que tiene guardado el dispositivo: «auto» sigue al sistema; sin nada guardado, oscuro (como el editor). */
+function savedTheme(): Theme {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === 'auto' || v === 'light' || v === 'dark') return v;
+  } catch { /* sin storage */ }
+  return 'dark';
+}
 const RE = /^[A-Za-z0-9_-]{20,32}$/;
 
 /** El código va después del # (no llega a ningún servidor en los registros); si no está, el último que se abrió acá. */
@@ -237,14 +251,15 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
 /** Ajustes de este dispositivo: el tema claro u oscuro, como en el editor. Queda guardado en el navegador. */
 function SettingsSheet({ close }: { close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
-  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'));
+  const [theme, setTheme] = useState<Theme>(savedTheme);
   useLayoutEffect(() => {
     dlg.current?.showModal();
     return () => dlg.current?.close();
   }, []);
   const pick = (t: Theme) => {
     setTheme(t);
-    document.documentElement.dataset.theme = t;
+    if (t === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
     try { localStorage.setItem(THEME_KEY, t); } catch { /* sin storage: vale por esta vez */ }
   };
   return (
@@ -256,12 +271,11 @@ function SettingsSheet({ close }: { close: () => void }) {
         </div>
         <p class="vw-k">Este dispositivo</p>
         <div class="vw-field">
-          <span class="vw-field-t"><strong>Tema</strong><small>Claro o oscuro, como lo quieras ver</small></span>
+          <span class="vw-field-t"><strong>Tema</strong></span>
           <div class="seg vw-seg" role="radiogroup" aria-label="Tema">
             {THEMES.map((t) => (
-              <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} onClick={() => pick(t.v)}>
-                <Icon name={t.icon} />{t.label}
-              </button>
+              <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} aria-label={t.label} title={t.label}
+                onClick={() => pick(t.v)}><Icon name={t.icon} /></button>
             ))}
           </div>
         </div>
@@ -301,7 +315,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Ajustes<Icon name="chevron-down" /></summary>
-          <p>Tocá el engranaje, arriba a la derecha de Canales, para elegir el tema <b>claro</b> u <b>oscuro</b>. Queda guardado en este dispositivo.</p>
+          <p>Tocá el engranaje, arriba a la derecha de Canales, para elegir el tema: <b>como el sistema</b>, <b>claro</b> u <b>oscuro</b>. Queda guardado en este dispositivo.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
