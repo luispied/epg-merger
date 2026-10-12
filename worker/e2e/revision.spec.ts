@@ -71,3 +71,22 @@ test('si la grilla no carga, «Reintentar» la vuelve a pedir', async ({ page })
   await retry.click();
   await expect(page.locator('#cards .card').first()).toBeVisible();
 });
+
+test('si la guía no baja, la lista de canales igual se ve y «Reintentar» la vuelve a pedir', async ({ page }) => {
+  await fakeWorker(page);
+  let fail = true;
+  await page.route('**/api/guide/index.json', (route) => (fail ? route.abort('failed') : route.fallback()));
+  await page.goto('/');
+  await expect(page.locator('.status-bar.bad .lead')).toContainText('No se pudo bajar la guía');
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+  fail = false;
+  await page.locator('.status-bar.bad').getByRole('button', { name: 'Reintentar' }).click();
+  await expect(page.locator('.status-bar.bad').first()).toBeHidden();
+});
+
+test('un fallo de red en la grilla dice «sin conexión», no un error de código', async ({ page }) => {
+  await fakeWorker(page);
+  await page.route('**/api/cfg/c1', (route) => route.abort('failed'));
+  await page.goto('/');
+  await expect(page.locator('.status-bar.bad .lead')).toContainText('sin conexión');
+});

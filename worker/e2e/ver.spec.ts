@@ -171,3 +171,19 @@ test('el ? del modo ver abre su ayuda, también desde la Guía', async ({ page }
   await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
   await expect(page.locator('dialog.vw-help')).toBeVisible();
 });
+
+test('filtrar por categoría como en la edición, sin estados', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('.vw-row')).toHaveCount(4);
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await expect(sheet.getByRole('heading', { name: 'Estado' })).toHaveCount(0);
+  await sheet.getByRole('button', { name: /^Películas/ }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+  await expect(page.locator('.vw-row')).toHaveCount(2);
+  await expect(page.locator('.active-filters .chip-btn', { hasText: 'Películas' })).toBeVisible();
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar, 1 activo');
+  await page.locator('.active-filters .chip-btn', { hasText: 'Películas' }).click();
+  await expect(page.locator('.vw-row')).toHaveCount(4);
+  await expect(page.locator('.active-filters')).toBeHidden();
+});

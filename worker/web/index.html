@@ -163,6 +163,7 @@
 
 <nav class="tabbar" id="tabbar" aria-label="Secciones">
   <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40">
+  <span class="tab-pill" aria-hidden="true"></span>
   <button type="button" class="tab active" id="tabHome" aria-current="page"><span data-icon="tv"></span><span>Canales</span></button>
   <button type="button" class="tab" id="tabGuide"><span data-icon="layout-grid"></span><span>Guía</span></button>
   <button type="button" class="tab" id="categoriesBtn"><span data-icon="layers"></span><span>Categorías</span></button>
@@ -178,8 +179,6 @@
   <button class="icon-btn filled" id="bulkActions" title="Acciones" aria-label="Acciones para los seleccionados" disabled><span data-icon="ellipsis"></span></button>
 </div>
 
-<!-- Filtros de la lista de Canales (ui/filtros.tsx). -->
-<div id="filterSheetMount"></div>
 <dialog class="sheet settings-sheet" id="bulkDialog" aria-labelledby="bulkTitle">
   <div class="sheet-body">
     <div class="title-row">
@@ -274,7 +273,7 @@
     <details>
       <summary>Los avisos de arriba de los canales<span data-icon="chevron-down"></span></summary>
       <p>Arriba de la lista aparecen avisos solo cuando algo necesita tu atención, y cada uno se toca:</p>
-      <p><b>«La cuenta de … vence en 3 días»</b> o <b>«conexiones llenas»</b>: abre la página de esa cuenta para renovarla o cambiar de cuenta. <b>«La lista del proveedor no se actualiza desde hace …»</b>: el servicio que habla con tu proveedor no responde (lo explica la ayuda de Perfil, en «Canales caídos»). <b>«La guía de … no coincide»</b>: alguien en modo ver avisó que en su tele dan otra cosa; tocalo para cambiar la guía de ese canal o marcarlo <b>Resuelto</b>. <b>«N canales para revisar»</b>: <b>Empezar</b> te los muestra de a uno. <b>«N canales nuevos en tu lista»</b>: <b>Ver</b> los filtra y <b>Marcar como vistos</b> saca el aviso.</p>
+      <p><b>«La cuenta de … vence en 3 días»</b>: abre la página de esa cuenta para renovarla o cambiar de cuenta. Las conexiones llenas ya no aparecen acá: las ves en la página de la cuenta, en <b>Conexiones en uso</b>. <b>«La lista del proveedor no se actualiza desde hace …»</b>: el servicio que habla con tu proveedor no responde (lo explica la ayuda de Perfil, en «Canales caídos»). <b>«La guía de … no coincide»</b>: alguien en modo ver avisó que en su tele dan otra cosa; tocalo para cambiar la guía de ese canal o marcarlo <b>Resuelto</b>. <b>«N canales para revisar»</b>: <b>Empezar</b> te los muestra de a uno. <b>«N canales nuevos en tu lista»</b>: <b>Ver</b> los filtra y <b>Marcar como vistos</b> saca el aviso.</p>
       <p>Al empezar también aparecen la tarjeta para copiar tus links y la de los gestos de la lista; se cierran con la <span class="inline-icon" data-icon="x"></span> y no vuelven.</p>
     </details>
 
@@ -450,7 +449,7 @@
       <details open>
         <summary>Cuentas: tu usuario y contraseña del proveedor<span data-icon="chevron-down"></span></summary>
         <p>Cada <b>cuenta</b> (la tuya o la de un familiar) muestra los días de suscripción y las <b>conexiones en uso</b> en este momento. La cuenta <b>en uso</b> lleva su inicial en la pestaña <b>Perfil</b> y es la que baja la lista y prueba los canales caídos. <b>Mantené apretada la pestaña</b> (o clic derecho) para cambiar de cuenta sin entrar.</p>
-        <p>En su página están «Usar esta cuenta», sus perfiles, su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Si la cuenta en uso vence en 7 días o menos o tiene las conexiones llenas, aparece un aviso arriba de los canales.</p>
+        <p>En su página están «Usar esta cuenta», sus perfiles, su nombre, su usuario y contraseña y borrarla (sus perfiles pasan a otra cuenta). Si la cuenta en uso vence en 7 días o menos, aparece un aviso arriba de los canales.</p>
         <p>Tocá <b>Conexiones en uso</b> para ver qué links están <b>mirando ahora</b> y qué canal abrió cada uno. El proveedor dice cuántas conexiones hay, no cuáles: nowline ve cuándo un link abre un canal, no cuándo lo deja, así que un link figura mirando hasta 3 horas después. Si una conexión no aparece, puede ser otra app o dispositivo con la misma cuenta.</p>
       </details>
       <details open>

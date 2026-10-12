@@ -13,7 +13,7 @@ import {
 } from '../app.ts';
 import { Logo, RowNow } from './epg.tsx';
 import { Icon } from './icon.tsx';
-import { Progress } from './kit.tsx';
+import { Progress, Skeleton } from './kit.tsx';
 
 const box = () => document.getElementById('cards')!;
 
@@ -36,14 +36,6 @@ export function refreshCards() {
 export function renderSkeleton() {
   lastList = [];
   render(<Skeleton key={++seq} />, box());
-}
-
-function Skeleton() {
-  return (
-    <>
-      {[0, 1, 2, 3].map((k) => <div key={k} class="skeleton"><div class="bar w60" /><div class="bar w40" /><div class="bar block" /></div>)}
-    </>
-  );
 }
 
 /** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la lista es plana. */

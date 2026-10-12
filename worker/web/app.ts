@@ -18,9 +18,10 @@ import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
 import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
-import { renderFilters, setupFilters } from './ui/filtros.tsx';
+import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { placeTabPill } from './ui/tabbar.ts';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
@@ -199,11 +200,14 @@ const saveLocal = (l: Local | null) => {
 
 /** Un GET que falla por la red o por un error pasajero del servidor (5xx) se reintenta dos veces (a los 0,6 y 1,8 s):
  *  con datos móviles el primer pedido a veces se corta y la grilla quedaba sin cargar. Los cambios no se reintentan. */
+/** Un pedido que no contesta en este tiempo se da por caído (en el celular, una conexión colgada dejaba la carga
+ *  esperando para siempre). */
+const GET_TIMEOUT_MS = 20000;
 async function fetchRetry(path: string, init: RequestInit = {}): Promise<Response> {
   const get = !init.method || init.method === 'GET';
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(path, init);
+      const res = await fetch(path, get ? { ...init, signal: AbortSignal.timeout(GET_TIMEOUT_MS) } : init);
       if (!get || res.status < 500 || i >= 2) return res;
     } catch (e) {
       if (!get || i >= 2) throw e;
@@ -211,6 +215,14 @@ async function fetchRetry(path: string, init: RequestInit = {}): Promise<Respons
     await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
   }
 }
+
+/** Sin red de verdad: el navegador no tiene conexión o el pedido falló en el camino. Un error de código (o del
+ *  servidor) no cuenta: antes, cualquier TypeError se mostraba como «sin conexión». */
+const offlineError = (e: unknown) => !navigator.onLine || (e instanceof TypeError && /fetch|network|load failed|aborted/i.test(e.message));
+/** El servidor no contestó a tiempo (y no es falta de conexión). */
+const slowError = (e: unknown) => e instanceof DOMException && e.name === 'TimeoutError';
+/** Lo que se le dice a la persona cuando algo de la carga falla. */
+const loadError = (e: unknown) => (offlineError(e) ? 'sin conexión' : slowError(e) ? 'el servidor tarda en responder' : (e as Error).message);
 
 /** Cuántos cambios de links, perfiles o cuentas se mandaron al Worker: Perfil dibuja con lo que ya tiene solo si no hubo ninguno desde que lo bajó. */
 let apiWrites = 0;
@@ -221,10 +233,24 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
   if (opts.key) headers.Authorization = `Bearer ${opts.key}`;
   else if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
-  const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
-  return data as T;
+  const get = (opts.method ?? 'GET') === 'GET';
+  for (let i = 0; ; i++) {
+    const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+    let data: unknown = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      // Con la respuesta bien pero el cuerpo cortado (pasa en la red del celular), se vuelve a pedir. Un error del
+      // servidor que no trae JSON sigue siendo un error con su código.
+      if (res.ok && get && i < 2) {
+        await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
+        continue;
+      }
+      if (res.ok) throw e;
+    }
+    if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
+    return data as T;
+  }
 }
 
 // ------------------------------------------------------------------ hogar
@@ -589,11 +615,9 @@ let guideAt: string | null = null;
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
-  const res = await fetchRetry('/api/guide/index.json');
-  if (!res.ok) throw new Error(`la guía no respondió (HTTP ${res.status})`);
-  const guide = await res.json() as {
+  const guide = await api<{
     matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[]; generated_at?: string;
-  };
+  }>('/api/guide/index.json', { auth: false });
   guideAt = guide.generated_at ?? null;
   onStatus('Preparando la guía…');
   await new Promise((r) => setTimeout(r));
@@ -709,7 +733,6 @@ function scheduleSave() {
 }
 // Sin conexión, los cambios quedan en este navegador y se mandan solos cuando vuelve.
 const PENDING_KEY = (cfgId: string) => `grilla_pending_${cfgId}`;
-const offlineError = (e: unknown) => !navigator.onLine || e instanceof TypeError;
 
 async function saveNow(announce = true) {
   clearTimeout(saveTimer);
@@ -987,20 +1010,41 @@ const STATE_FILTERS: [string, string][] = [
   ['caidos', 'Caídos'], ['manual', 'Elegidos a mano'], ['editados', 'Editados'], ['ocultos', 'Ocultos'],
 ];
 // Estos siempre se ofrecen en la hoja; los demás solo cuando hay canales que cumplen.
-const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg', 'manual', 'editados', 'ocultos']);
+const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg']);
 let listCats: string[] = [];
 function renderFilterBar() {
   const states = STATE_FILTERS
     .map(([key, label]) => ({ key, label, count: state.channels.filter((c) => matchesFilter(c, key)).length }))
     .filter((s) => ALWAYS_STATES.has(s.key) || s.count > 0 || s.key === state.filter);
+  // Las categorías ocultas (y los separadores) no se ofrecen: no tienen canales que mostrar.
   const cats = new Map<string, number>();
   for (const ch of state.channels) {
-    if (info(ch).divider) continue;
+    if (info(ch).divider || state.cfg!.groups.hidden.includes(groupOf(ch))) continue;
     cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
   }
   listCats = listCats.filter((c) => cats.has(c));
-  const categories = [...cats].map(([key, count]) => ({ key, label: groupLabel(key), count }));
-  renderFilters({ filter: state.filter, cats: listCats, states, categories });
+  // En el orden de la lista (el que arregló la persona), no en el del proveedor.
+  const categories = groups().filter((key) => cats.has(key)).map((key) => ({ key, label: groupLabel(key), count: cats.get(key)! }));
+  const model: FilterModel = { filter: state.filter, cats: listCats, states, categories };
+  renderFilterControls(model);
+}
+
+// Los controles de arriba de la lista (el botón de filtros y la fila de chips), dibujados en Preact (ui/filtros.tsx).
+const filterHandlers: FilterHandlers = {
+  onState: (f) => {
+    state.filter = f;
+    setPref('grilla_last_filter', f);
+    state.shown = PAGE;
+    render();
+  },
+  onCats: (cats) => {
+    listCats = cats;
+    state.shown = PAGE;
+    render();
+  },
+};
+function renderFilterControls(model: FilterModel) {
+  drawFilterBar(model, filterHandlers, $('#filterMount'), $('#activeFilters'));
 }
 
 function matchesFilter(ch: Channel, filter: string) {
@@ -1325,6 +1369,7 @@ function markTab(t: Tab) {
     if (k === t) $(sel).setAttribute('aria-current', 'page');
     else $(sel).removeAttribute('aria-current');
   }
+  placeTabPill($('#tabbar'));
 }
 /** La pestaña que se ve: una página abierta o, si no hay, la Guía o la lista. */
 function currentTab(): Tab {
@@ -2488,11 +2533,18 @@ async function openSaved(soft = false) {
       } catch { /* sin storage */ }
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
-    await loadGuide(say);
+    // Si la guía no baja, la lista de canales igual se ve (sin logos ni programa): se avisa arriba y «Reintentar» la vuelve a pedir.
+    let guideError: unknown = null;
+    try {
+      await loadGuide(say);
+    } catch (e) {
+      guideError = e;
+    }
     const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if ((await rematch(say)) || pending || masked) await saveNow(false);
     status(st, null);
+    if (guideError) status(st, `No se pudo bajar la guía: ${loadError(guideError)}`, 'bad', () => void refreshGrid());
     detectNew();
     placeNewCategories();
     main.classList.remove('loading');
@@ -2514,7 +2566,7 @@ async function openSaved(soft = false) {
       state.creds = null;
       showOnboarding();
     } else {
-      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad', () => void refreshGrid());
+      status(st, `No se pudo cargar la grilla: ${loadError(e)}`, 'bad', () => void refreshGrid());
     }
   }
 }
@@ -2743,19 +2795,6 @@ function wireDownRow() {
 }
 
 function setupEditor() {
-  setupFilters({
-    onState: (f) => {
-      state.filter = f;
-      setPref('grilla_last_filter', f);
-      state.shown = PAGE;
-      render();
-    },
-    onCats: (cats) => {
-      listCats = cats;
-      state.shown = PAGE;
-      render();
-    },
-  });
   let t = 0;
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);
@@ -2924,6 +2963,7 @@ function setupEditor() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   $('#tabGuide').onclick = () => setGuide(true);
+  placeTabPill($('#tabbar'));
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
   let pressTimer = 0;
   let pressed = false;

@@ -5,8 +5,10 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
-import { BrandFoot, Progress } from './ui/kit.tsx';
+import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
+import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
@@ -246,7 +248,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
           <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
-          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
+          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo. Al lado de la búsqueda, el botón <span class="inline-icon"><Icon name="list-filter" /></span> <b>filtra por categoría</b>: elegís una o más y quedan arriba como chips; tocá la <b>×</b> de cada uno para quitarlo.</p>
         </details>
         <details>
           <summary>Conexiones en uso<Icon name="chevron-down" /></summary>
@@ -275,12 +277,22 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
+  // Las categorías que se ofrecen son las de los canales que ve este perfil (ya vienen sin las ocultas): mismo filtro que en la edición.
+  const [cats, setCats] = useState<string[]>([]);
+  const categories = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of channels) m.set(c.cat, (m.get(c.cat) ?? 0) + 1);
+    return [...m].map(([key, count]) => ({ key, label: key, count }));
+  }, [channels]);
+  const picked = cats.filter((c) => categories.some((x) => x.key === c));
+  const model: FilterModel = { filter: 'todos', cats: picked, states: [], categories };
   const shown = useMemo(() => {
+    const inCats = picked.length ? channels.filter((c) => picked.includes(c.cat)) : channels;
     const f = fold(q.trim());
-    if (!f) return channels;
-    return channels.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
+    if (!f) return inCats;
+    return inCats.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
       || (c.epg && info?.get(c.epg)?.cur && fold(info.get(c.epg)!.cur!.t).includes(f)));
-  }, [q, channels, info]);
+  }, [q, channels, info, picked.join('|')]);
   const out = [];
   let last = '';
   for (const ch of shown) {
@@ -304,11 +316,15 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
         </div>
       </header>
       <div class="vw-search">
-        <label class="search-field">
-          <Icon name="search" />
-          <input type="search" placeholder="Buscar canal o programa" enterkeyhint="search" aria-label="Buscar canal o programa"
-            value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
-        </label>
+        <div class="toolbar-row">
+          <label class="search-field">
+            <Icon name="search" />
+            <input type="search" placeholder="Buscar canal o programa" enterkeyhint="search" aria-label="Buscar canal o programa"
+              value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
+          </label>
+          {categories.length > 1 && <FilterToggle model={model} handlers={{ onState: () => {}, onCats: setCats }} />}
+        </div>
+        {picked.length > 0 && <div class="active-filters"><ActiveFilters model={model} handlers={{ onState: () => {}, onCats: setCats }} /></div>}
       </div>
       <main class="vw-list">
         {!q.trim() && <Connections code={code} />}
@@ -358,7 +374,8 @@ function App() {
   const load = () => {
     if (!code) return;
     setErr(null);
-    fetch(`/api/view/${code}`)
+    // Con un tiempo máximo: el logo se queda mientras carga, así que una conexión colgada tiene que terminar en un aviso.
+    fetch(`/api/view/${code}`, { signal: AbortSignal.timeout(15_000) })
       .then(async (r) => {
         if (!r.ok) return setErr({ status: r.status });
         setData(await r.json() as ViewData);
@@ -398,22 +415,22 @@ function App() {
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
 
-  // El logo de inicio se va cuando hay canales o un problema que mostrar (o a los 5 s, y queda «Cargando los canales…»).
-  useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
-  useEffect(() => { const t = setTimeout(hideSplash, 5000); return () => clearTimeout(t); }, []);
+  // El logo de inicio se va apenas la pantalla dibuja, igual que en la edición: el esqueleto ya es la pantalla.
+  useEffect(() => { hideSplash(); }, []);
 
   if (!code) return <Problem title="Falta el código" text="Abrí nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
   if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
-  if (!data) return <main class="vw-loading" aria-busy="true"><Icon name="loader-circle" class="spin" /><span>Cargando los canales…</span></main>;
+  if (!data) return <main class="vw-skel" aria-busy="true" aria-label="Cargando los canales"><Skeleton /></main>;
 
   return (
     <>
       <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
-      <nav class="tabbar vw-tabbar" aria-label="Secciones">
+      <nav class="tabbar vw-tabbar" aria-label="Secciones" ref={(el) => { if (el) placeTabPill(el); }}>
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
+        <span class="tab-pill" aria-hidden="true" />
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
           <Icon name="tv" /><span>Canales</span>
         </button>

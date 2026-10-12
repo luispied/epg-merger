@@ -16,6 +16,46 @@ nombres de código.
 - **Tu plan sugiere cosas parecidas a lo que mirás.** Si mirás mucho deporte, sube el deporte de otros canales, aunque nunca los hayas abierto, y debajo dice «Como lo que mirás: deportes». La publicidad nunca se sugiere.
 - Interno: la corrida diaria pone el género a cada programa de la programación; el Worker lo guarda en los hábitos.
 
+## 1.42.10
+
+- **La barra inferior del modo ver queda a la misma altura en la Guía que en Canales.** Se saca el bloqueo de scroll de la página de atrás en el modo ver; la edición lo sigue usando.
+
+## 1.42.9
+
+- **La barra de abajo tiene una píldora que se desliza.** Al pasar de Canales a Guía, Categorías o Perfil, la marca de la pestaña elegida viaja hasta el botón nuevo en vez de aparecer de golpe. Igual en la edición y en el modo ver, y con «reducir movimiento» activado no se anima.
+
+## 1.42.8
+
+- **Al abrir la Guía, la página de atrás ya no se mueve.** En el celular, el scroll de la lista de atrás corría la barra inferior y la hacía verse más arriba que en el modo ver.
+- **En el modo ver, el buscador ya no deja un hueco grande debajo del título.** En el celular la distancia se sumaba dos veces con la franja de la hora, y ahora queda igual que en la edición.
+
+## 1.42.7
+
+- **La barra inferior queda igual en el modo ver que en la edición.** El modo ver ahora usa el mismo ajuste de texto grande que la app, así la barra mide y se ubica igual en las dos pantallas.
+
+## 1.42.6
+
+- **Canales ya no muestra el aviso de «conexiones llenas».** El aviso de arriba de la lista queda solo para cuando la cuenta vence pronto o el servicio que habla con tu proveedor no responde. Las conexiones en uso siguen en la página de la cuenta y en Conexiones en uso.
+
+## 1.42.5
+
+- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
+- **Las categorías del filtro salen en el mismo orden que la lista.** Antes seguían el orden del proveedor; ahora aparecen como las ordenaste en Canales, en la grilla y en la Guía.
+
+## 1.42.4
+
+- **La carga ya no dice «sin conexión» cuando hay conexión.** Antes, cualquier error de la app en la carga se mostraba como falta de red. Ahora solo aparece si de verdad no hay conexión; si el servidor tarda, se avisa eso.
+- **Un pedido colgado ya no traba la carga.** Cada pedido tiene un tiempo máximo y, si la respuesta se corta a mitad en el celular, se vuelve a pedir.
+- **La lista de canales se ve aunque la guía no baje.** Arriba aparece «No se pudo bajar la guía» con «Reintentar».
+
+## 1.42.3
+
+- **El filtro de categorías solo ofrece las categorías visibles.** Las ocultas no aparecen en la hoja de filtros, y los estados sin canales (Ocultos, Editados, Elegidos a mano) tampoco salen si no hay nada que mostrar.
+
+## 1.42.2
+
+- **El modo ver carga como la edición.** El logo de inicio se ve al abrir y no vuelve al recargar. Mientras llegan los canales, aparecen tarjetas de carga en vez del texto «Cargando los canales…». Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+
 ## 1.42.1
 
 - **En modo ver, el nombre de la categoría ya no deja ver lo que pasa por debajo al hacer scroll.** El encabezado queda con fondo sólido desde arriba.
