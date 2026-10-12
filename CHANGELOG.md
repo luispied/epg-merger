@@ -11,9 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.42.1
+## 1.42.2
 
 - **El modo ver carga como la edición.** El logo de inicio se ve al abrir y no vuelve al recargar. Mientras llegan los canales, aparecen tarjetas de carga en vez del texto «Cargando los canales…». Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+
+## 1.42.1
+
+- **En modo ver, el nombre de la categoría ya no deja ver lo que pasa por debajo al hacer scroll.** El encabezado queda con fondo sólido desde arriba.
 
 ## 1.42.0
 
