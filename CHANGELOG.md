@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.43.0
+
+- **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
+- Ayuda: el modo ver explica el engranaje y el tema.
+- **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
+
 ## 1.42.10
 
 - **La barra inferior del modo ver queda a la misma altura en la Guía que en Canales.** Se saca el bloqueo de scroll de la página de atrás en el modo ver; la edición lo sigue usando.
@@ -64,12 +70,6 @@ nombres de código.
 
 - **La rueda queda solo para Configuración.** En Perfiles, el proveedor se toca como una fila con flecha (como las cuentas): ahí se cambian su nombre, su dirección, su lista o se quita. Ya no hay un engranaje dentro de Perfil.
 - **Configuración no repite el conteo de canales.** El «3391 canales · 1739 con guía · guardado…» sigue en la lista de Canales.
-
-## 1.43.0
-
-- **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
-- Ayuda: el modo ver explica el engranaje y el tema.
-- **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
 
 ## 1.41.5
 
