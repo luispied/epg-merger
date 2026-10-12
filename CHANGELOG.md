@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.41.7
+
+- **En modo ver, el nombre de la categoría ya no deja ver lo que pasa por debajo al hacer scroll.** El encabezado queda con fondo sólido desde arriba.
+
 ## 1.41.5
 
 - **El nombre de la app va siempre en minúscula**: «nowline», como en el logo. Sin negrita en el texto corrido. Cambia en la pantalla de bienvenida, la ayuda, Compartir, el aviso de actualización, el ícono de inicio y el título de la pestaña.
