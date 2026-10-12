@@ -41,3 +41,11 @@ test('en el modo ver, al recargar no vuelve el logo: se ve el esqueleto, como en
   await expect(page.locator('.vw-skel .skeleton')).toHaveCount(Math.ceil(alto / 150) + 1);
   await expect(page.getByText('Cargando los canales')).toHaveCount(0);
 });
+
+test('el logo tapa lo que la app ya dibujó debajo: no se ve a través del fundido', async ({ page }) => {
+  await page.goto('/ver#codigo-que-no-existe');
+  await expect(page.locator('#splash')).toBeVisible();
+  await expect(page.locator('#app')).toHaveCSS('opacity', '0');
+  await expect(page.locator('#splash')).toHaveCount(0);
+  await expect(page.locator('#app')).toHaveCSS('opacity', '1');
+});

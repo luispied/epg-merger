@@ -1427,6 +1427,10 @@ html[data-text="lg"] { zoom: 1.12; }
 .splash .wordmark { font-size: 30px; }
 @media (min-width: 900px) { .splash svg { width: 128px; height: 128px; } .splash .wordmark { font-size: 38px; } }
 .no-splash .splash { display: none; }
+/* Mientras el logo está, lo que la app dibuja debajo queda oculto (no se ve a través del fundido); después entra con un
+   fundido corto. Sin pointer-events: none en la app, los toques igual llegan. */
+body > :not(#splash) { transition: opacity var(--dur-3) var(--ease-out); }
+.splash-on body > :not(#splash) { opacity: 0; }
 .splash.out { opacity: 0; }
 .splash.out svg { transform: scale(1.06); }
 @media (prefers-reduced-motion: reduce) { .splash.out svg { transform: none; } }
