@@ -36,6 +36,8 @@ test.beforeEach(async ({ page }) => {
   errors = [];
   gone = false;
   reported = [];
+  // Reloj fijo a las y 20 de la hora de H: si la prueba cruza una hora, la app no ve los datos de la hora anterior.
+  await page.clock.setFixedTime(new Date(H * 1000 + 20 * 60_000));
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/api/**', (r) => {
     const path = new URL(r.request().url()).pathname;
@@ -43,8 +45,8 @@ test.beforeEach(async ({ page }) => {
     if (r.request().method() !== 'GET' && path !== '/api/ui/again' && path !== `/api/view/${CODE}/report`) errors.push(`escribió ${path}`);
     if (path === `/api/view/${CODE}/connections`) {
       return r.fulfill({ json: { inUse: 2, max: 2, watching: [
-        { name: 'TV del living', channel: 'Canal Uno', t: new Date(Date.now() - 20 * 60_000).toISOString() },
-        { name: 'Tablet', channel: 'Cine Clásico', t: new Date(Date.now() - 3 * 60_000).toISOString() },
+        { name: 'TV del living', channel: 'Canal Uno', t: new Date(H * 1000).toISOString() },
+        { name: 'Tablet', channel: 'Cine Clásico', t: new Date(H * 1000 + 17 * 60_000).toISOString() },
       ] } });
     }
     if (path === `/api/view/${CODE}/report`) {
