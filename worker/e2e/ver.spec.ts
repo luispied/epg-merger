@@ -161,7 +161,8 @@ test('pegar el código para ver al abrir nowline deja el dispositivo en modo ver
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-who')).toContainText('Abuela');
   // Salir pide el código de la casa: otro código no sirve y el dispositivo sigue en modo ver.
-  await page.getByRole('button', { name: 'Salir del modo ver' }).click();
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.locator('dialog.settings-sheet').getByRole('button', { name: 'Salir del modo ver' }).click();
   await page.getByLabel('Código de la casa').fill('otro0123456789abcdef.otraclave0123456789abcdef');
   await page.locator('dialog.ask-sheet button[type=submit]').click();
   await expect(page.locator('dialog.ask-sheet [role=alert]')).toBeVisible();
@@ -230,4 +231,24 @@ test('el modo ver trae su manifest con el código', async ({ page }) => {
   await page.goto(`/ver#${CODE}`);
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', `/ver-app/${CODE}.webmanifest`);
   await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible();
+});
+
+test('la app del editor instalada abre el editor aunque el dispositivo tenga un código para ver', async ({ page }) => {
+  // Lo que pasa en iPhone: la app de ver y la del editor comparten localStorage. Instalada, la del editor no se desvía a /ver.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
+  await expect(page).not.toHaveURL(/\/ver/);
+});
+
+test('un dispositivo solo con el código para ver, con la app del editor instalada, no llega al editor', async ({ page }) => {
+  // Sin configuración propia (solo el código para ver): la app del editor muestra el alta, nunca la grilla de la casa.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
+  await expect(page.locator('#homeLink')).toBeVisible();
 });

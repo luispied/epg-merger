@@ -252,7 +252,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
 }
 
 /** Configuración de este dispositivo: la misma hoja y la misma fila de Tema que en el editor (ui/settings.tsx). */
-function SettingsSheet({ close }: { close: () => void }) {
+function SettingsSheet({ close, leave }: { close: () => void; leave: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [theme, setTheme] = useState<Theme>(savedTheme);
   useLayoutEffect(() => {
@@ -285,6 +285,8 @@ function SettingsSheet({ close }: { close: () => void }) {
             </div>
           </div>
         </div>
+        <button type="button" class="btn btn-tonal btn-block vw-leave" onClick={leave}><Icon name="key-round" />Salir del modo ver</button>
+        <p class="help">Para salir hace falta el código de la casa.</p>
       </div>
     </dialog>
   );
@@ -324,6 +326,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <details>
           <summary>Configuración<Icon name="chevron-down" /></summary>
           <p>Tocá el engranaje, arriba a la derecha de Canales, y en <b>Configuración</b> elegí el <b>tema</b>: como el sistema, claro u oscuro. Queda guardado en este dispositivo.</p>
+          <p>Más abajo, en la misma hoja, está <b>Salir del modo ver</b>.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
@@ -331,7 +334,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>. Para salir hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
+          <p>Esta app abre siempre así. La de editar, si la tenés instalada aparte, sigue como siempre. Para salir, tocá el engranaje de Canales y después <b>Salir del modo ver</b> (también está al final de la lista de canales). Hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
         </details>
       </div>
     </dialog>
@@ -555,7 +558,7 @@ function App() {
         </button>
       </nav>
       {help && <HelpSheet close={() => setHelp(false)} />}
-      {settings && <SettingsSheet close={() => setSettings(false)} />}
+      {settings && <SettingsSheet close={() => setSettings(false)} leave={() => { setSettings(false); setUnlock(true); }} />}
       {unlock && <UnlockSheet close={() => setUnlock(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>

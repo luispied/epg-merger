@@ -16,6 +16,14 @@ nombres de código.
 - **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.
 - Interno: los índices por hora (los de toda la guía y los de cada configuración) llevan el género de cada título en `g`, a partir de `ai/genres.json`, sin gasto nuevo de IA. Con configuraciones armadas antes de este cambio, el filtro aparece cuando la próxima corrida diaria las rehace.
 
+## 1.46.8
+
+- **Dos apps instaladas, cada una en su modo.** En iPhone, la app de editar y la de modo ver comparten los datos: al entrar en modo ver, la de editar también se abría en modo ver. Ahora la app instalada del editor abre el editor, y la de modo ver sigue en modo ver. Desde el navegador, quien mira sigue sin llegar al editor.
+
+## 1.46.7
+
+- **«Salir del modo ver» está en Configuración.** Antes solo estaba al final de la lista de canales, y no se encontraba. Ahora, en el engranaje de Canales, la hoja Configuración tiene la opción. Sigue pidiendo el código de la casa.
+
 ## 1.46.6
 
 - Interno: el Worker escribe el tipo de cada pedido en su registro como JSON (`{"route":…}`), para que Workers Logs lo lea como campo y el registro de consumo (`tools/consumo.py`) muestre la CPU por tipo de pedido. No cambia ninguna respuesta.
