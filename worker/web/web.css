@@ -965,7 +965,8 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 .profile-card .device:first-child { border-top: 0; padding-top: 0; }
 .profile-card .device [data-dev=show] { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .profile-card .device .icon-btn { width: 40px; height: 40px; }
-.provider-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 -4px; }
+.provider-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin: 20px 0 -4px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.provider-head > svg { flex: none; }
 .provider-head:first-of-type { margin-top: 12px; }
 .provider-tag { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .profile-pick .provider-tag { margin: 8px 2px 0; }

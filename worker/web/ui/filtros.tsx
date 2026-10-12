@@ -2,7 +2,7 @@
 // chips de lo que está puesto (cada uno se quita con su ×) y la hoja para elegir el estado y las categorías. Lo que
 // filtra la lista lo decide app.ts; acá solo se dibuja y se avisa lo que se toca.
 import { render } from 'preact';
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './icon.tsx';
 
 export interface FilterOption { key: string; label: string; count: number }
@@ -56,7 +56,7 @@ function FilterButton() {
   const open = () => { sheetOpen = true; renderFilters(m); };
   return (
     <button type="button" class="icon-btn filter-btn" aria-haspopup="dialog" aria-expanded={sheetOpen}
-      aria-label={n ? `Filtrar, ${n} activos` : 'Filtrar'} title="Filtrar" onClick={open}>
+      aria-label={n ? `Filtrar, ${n} ${n === 1 ? 'activo' : 'activos'}` : 'Filtrar'} title="Filtrar" onClick={open}>
       <Icon name="list-filter" />
       {n > 0 && <span class="count" aria-hidden="true">{n}</span>}
     </button>
@@ -92,7 +92,6 @@ function ActiveFilters() {
 function FilterSheet() {
   const m = model!;
   const dlg = useRef<HTMLDialogElement>(null);
-  const [, bump] = useState(0);
   useLayoutEffect(() => {
     if (sheetOpen && !dlg.current?.open) dlg.current?.showModal();
   });
@@ -100,7 +99,7 @@ function FilterSheet() {
   const pick = (c: string) => handlers!.onCats(m.cats.includes(c) ? m.cats.filter((x) => x !== c) : [...m.cats, c]);
   const n = activeCount(m);
   return (
-    <dialog class="sheet settings-sheet filter-sheet" ref={dlg} onClose={() => { sheetOpen = false; bump((v) => v + 1); }} aria-labelledby="filterTitle">
+    <dialog class="sheet settings-sheet filter-sheet" ref={dlg} onClose={() => { sheetOpen = false; renderFilters(model!); }} aria-labelledby="filterTitle">
       <div class="sheet-body">
         <div class="title-row">
           <h2 id="filterTitle">Filtrar</h2>

@@ -16,6 +16,11 @@ nombres de código.
 - **Filtros de la lista en una hoja**: al lado del buscador hay un botón de filtros (con un número si hay algo puesto). En la hoja elegís un estado (Todos, A revisar, Sin EPG…) y una o más categorías. Lo que elegiste aparece arriba como chips, cada uno con su ×, y «Quitar todos». Ya no hay una fila fija de filtros.
 - Interno: `ui/filtros.tsx` (Preact) dibuja el botón, los chips y la hoja; app.ts sigue decidiendo qué canales se ven.
 
+## 1.41.6
+
+- **La rueda queda solo para Configuración.** En Perfiles, el proveedor se toca como una fila con flecha (como las cuentas): ahí se cambian su nombre, su dirección, su lista o se quita. Ya no hay un engranaje dentro de Perfil.
+- **Configuración no repite el conteo de canales.** El «3391 canales · 1739 con guía · guardado…» sigue en la lista de Canales.
+
 ## 1.41.5
 
 - **El nombre de la app va siempre en minúscula**: «nowline», como en el logo. Sin negrita en el texto corrido. Cambia en la pantalla de bienvenida, la ayuda, Compartir, el aviso de actualización, el ícono de inicio y el título de la pestaña.
