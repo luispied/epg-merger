@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.42.8
+
+- **Al abrir la Guía, la página de atrás ya no se mueve.** En el celular, el scroll de la lista de atrás corría la barra inferior y la hacía verse más arriba que en el modo ver.
+- **En el modo ver, el buscador ya no deja un hueco grande debajo del título.** En el celular la distancia se sumaba dos veces con la franja de la hora, y ahora queda igual que en la edición.
+
 ## 1.42.7
 
 - **La barra inferior queda igual en el modo ver que en la edición.** El modo ver ahora usa el mismo ajuste de texto grande que la app, así la barra mide y se ubica igual en las dos pantallas.

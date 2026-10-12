@@ -278,6 +278,8 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 
 /* Con una hoja abierta no se mueve la página de atrás (ni al llegar al final de la hoja). */
 html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
+/* La Guía tapa la pantalla: la página de atrás no se mueve (en el celular el scroll de atrás corre la barra inferior). */
+html:has(#guide:not([hidden])) { overflow: hidden; }
 dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 
 /* Avisos: ocupan todo el ancho de la pantalla (hasta 640 px) y el texto largo baja de renglón. */
@@ -1108,7 +1110,7 @@ body.viewer { font-size: 17px; }
 .vw-head-r .vw-who { max-width: none; min-width: 0; }
 .vw-help > .sheet-body > p, .vw-help details p { font-size: 17px; line-height: 1.55; }
 .vw-help summary { font-size: 17px; }
-.vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 14px; background: var(--bg); max-width: 760px; margin: 0 auto; }
+.vw-search { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; padding: 10px var(--gutter) 14px; background: var(--bg); max-width: 760px; margin: 0 auto; }
 .vw-search .search-field input { font-size: 18px; min-height: 52px; }
 .vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
 /* Lo que pasa por debajo se veía en el hueco entre el buscador (termina en 70px) y el encabezado: el margen queda por fuera del fondo, así que va como padding. */
