@@ -29,7 +29,7 @@ async function openSettings(page: Page) {
 test('muestra la guía, los avisos y la versión', async ({ page }) => {
   await openSettings(page);
   const s = sheet(page);
-  await expect(s.locator('.meta-line')).toHaveText(await page.locator('#statusLine').textContent() ?? '');
+  await expect(s.locator('.meta-line')).toHaveCount(0);
   await expect(s.getByRole('button', { name: /Actualizar la guía ahora/ })).toContainText('Al día · última actualización');
   await expect(s.getByRole('button', { name: /Salud de la guía/ })).toContainText('Todavía no hay datos de programación');
   // El Worker tiene avisos: aparece el interruptor (Chromium sin pantalla los da por bloqueados).
