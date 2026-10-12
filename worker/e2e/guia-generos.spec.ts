@@ -1,6 +1,7 @@
 // Filtro por género de la Guía (ui/guide.tsx), probado en el modo ver (la Guía es el mismo componente en la edición):
-// los chips salen de la programación a la vista, sin Publicidad ni «sin clasificar»; en la Grilla apaga lo que no es del
-// género y en Próximos lo saca; se combina con las categorías, se recuerda y es de la Guía.
+// con el botón y la hoja de filtros de Canales (ui/filtros.tsx), las opciones salen de la programación a la vista, sin
+// Publicidad ni «sin clasificar»; lo puesto queda en chips con su ×; en la Grilla apaga lo que no es del género y en
+// Próximos lo saca; se combina con las categorías, se recuerda y es de la Guía.
 import { expect, test, type Page } from '@playwright/test';
 
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
@@ -49,24 +50,36 @@ async function open(page: Page, prefs: Record<string, string> = {}) {
   });
   await page.goto(`/ver#${CODE}`);
   await page.getByRole('button', { name: 'Guía' }).click();
-  await expect(page.locator('#guide nav[aria-label="Categorías"]')).toBeVisible();
+  await expect(page.locator('#guide .filter-btn')).toBeVisible();
 }
 
-const genres = (page: Page) => page.locator('#guide nav[aria-label="Géneros"]');
-const genre = (page: Page, name: string) => genres(page).getByRole('button', { name, exact: true });
-const cats = (page: Page) => page.locator('#guide nav[aria-label="Categorías"]');
+const btn = (page: Page) => page.locator('#guide .filter-btn');
+const sheet = (page: Page) => page.locator('dialog.filter-sheet');
+const active = (page: Page) => page.locator('#guide nav[aria-label="Filtros activos"]');
+const options = (page: Page) => sheet(page).locator('.filter-chips').last().locator('.chip-btn');
+/** Abre la hoja, alterna estos géneros y la cierra. */
+async function pick(page: Page, ...names: string[]) {
+  await btn(page).click();
+  for (const n of names) await sheet(page).locator('.filter-chips').last().getByRole('button', { name: n, exact: true }).click();
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await expect(sheet(page)).toHaveCount(0);
+}
 
 test.beforeEach(() => { errors = []; });
 test.afterEach(() => { expect(errors).toEqual([]); });
 
 test('los chips salen de la programación, sin Publicidad ni sin clasificar; la Grilla apaga el resto', async ({ page }, info) => {
   await open(page);
-  await expect(genres(page).getByRole('button')).toHaveText(['Todos', 'Cine', 'Infantil']);
-  await expect(genre(page, 'Todos')).toHaveAttribute('aria-pressed', 'true');
+  await btn(page).click();
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías', 'Géneros']);
+  await expect(options(page)).toHaveText(['Cine', 'Infantil']);
+  await shots(page, 'hoja', info.project.name);
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await expect(active(page)).toHaveCount(0);
   await expect(page.locator('#guide .gd-cell.off')).toHaveCount(0);
-  await genre(page, 'Cine').click();
-  await expect(genre(page, 'Cine')).toHaveAttribute('aria-pressed', 'true');
-  await expect(genre(page, 'Todos')).toHaveAttribute('aria-pressed', 'false');
+  await pick(page, 'Cine');
+  await expect(active(page).getByRole('button')).toHaveText(['Cine Quitar']);
+  await expect(btn(page)).toHaveAccessibleName('Filtrar, 1 activo');
   // Los que no son de cine (infantil, sin clasificar, publicidad) quedan apagados; los de cine, no.
   await expect(page.locator('#guide .gd-cell.off').first()).toBeVisible();
   const on = page.locator('#guide .gd-row .gd-cell:not(.off):not(.skel)');
@@ -76,44 +89,53 @@ test('los chips salen de la programación, sin Publicidad ni sin clasificar; la 
     expect(label).not.toMatch(/Cine de Barrio|Peli de la tarde/);
   }
   await shots(page, 'grilla', info.project.name);
-  await genre(page, 'Todos').click();
+  await active(page).getByRole('button', { name: /^Cine/ }).click();
   await expect(page.locator('#guide .gd-cell.off')).toHaveCount(0);
 });
 
 test('Próximos: solo lo del género; combina con las categorías; se recuerda', async ({ page }, info) => {
   await open(page);
   await page.getByRole('radio', { name: 'Próximos' }).click();
-  await expect(genres(page).getByRole('button')).toHaveText(['Todos', 'Cine', 'Infantil']);
+  await btn(page).click();
+  await expect(options(page)).toHaveText(['Cine', 'Infantil']);
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
   const titles = page.locator('#guide .gd-up-row .tt');
   await expect(titles.filter({ hasText: 'Sin clasificar' }).first()).toBeVisible();
-  await genre(page, 'Infantil').click();
+  await pick(page, 'Infantil');
   await expect(titles.first()).toHaveText('Dibujos Locos');
   await expect(titles.filter({ hasText: /Sin clasificar|Cine de Barrio|Compre/ })).toHaveCount(0);
   await shots(page, 'proximos', info.project.name);
   // Con dos géneros entran los dos.
-  await genre(page, 'Cine').click();
+  await pick(page, 'Cine');
   await expect(titles.filter({ hasText: 'Dibujos Locos' }).first()).toBeVisible();
   await expect(titles.filter({ hasText: /Cine de Barrio|Peli de la tarde/ }).first()).toBeVisible();
   // Combinado con una categoría: solo los canales de esa categoría.
-  await cats(page).getByRole('button', { name: 'Noticias', exact: true }).click();
+  await btn(page).click();
+  await sheet(page).getByRole('button', { name: /^Noticias/ }).click();
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
   await expect(titles.filter({ hasText: 'Dibujos Locos' })).toHaveCount(0);
   await expect(titles.filter({ hasText: 'Peli de la tarde' }).first()).toBeVisible();
   // Se recuerda en este navegador, aparte de los filtros de Canales.
   expect(await page.evaluate(() => localStorage.getItem('grilla_guide_genres'))).toBe('["Infantil","Cine"]');
   await page.reload();
   await page.getByRole('button', { name: 'Guía' }).click();
-  await expect(genre(page, 'Infantil')).toHaveAttribute('aria-pressed', 'true');
-  await expect(genre(page, 'Cine')).toHaveAttribute('aria-pressed', 'true');
+  await expect(active(page).getByRole('button')).toHaveText([' Tengo tiempo', 'Noticias Quitar', 'Infantil Quitar', 'Cine Quitar', 'Quitar todos']);
+  await shots(page, 'chips', info.project.name);
 });
 
 test('un género elegido sin nada en esas horas se puede sacar; Tu noche no lleva géneros', async ({ page }) => {
   await open(page, { grilla_guide_genres: '["Deportes en vivo","Publicidad"]', grilla_guide_mode: 'next' });
   // Publicidad nunca es un filtro; el otro no está en la programación pero se ve para poder sacarlo.
-  await expect(genres(page).getByRole('button')).toHaveText(['Todos', 'Cine', 'Deportes en vivo', 'Infantil']);
+  await btn(page).click();
+  await expect(options(page)).toHaveText(['Cine', 'Deportes en vivo', 'Infantil']);
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await expect(btn(page)).toHaveAccessibleName('Filtrar, 1 activo');
   await expect(page.locator('#guide .gd-up-empty')).toContainText('Nada de deportes en vivo empieza');
-  await genre(page, 'Deportes en vivo').click();
+  await active(page).getByRole('button', { name: /^Deportes en vivo/ }).click();
   await expect(page.locator('#guide .gd-up-row').first()).toBeVisible();
   await page.getByRole('button', { name: /armada para vos/ }).click();
   await expect(page.locator('#guide .gd-plan')).toBeVisible();
-  await expect(genres(page)).toHaveCount(0);
+  // En Tu noche solo valen las categorías: ni chips de género ni sección en la hoja.
+  await btn(page).click();
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías']);
 });

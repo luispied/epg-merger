@@ -1,6 +1,6 @@
-// Humo de las categorías de la Guía (ui/guide.tsx), sobre el modo ver para controlar canales y programación: elegir
-// varias, que valgan en Grilla, Próximos y Tu noche y se recuerden; con muchas, las rápidas, «Más» y su hoja; y el
-// aviso de Tu noche cuando lo elegido no alcanza.
+// Humo de las categorías de la Guía (ui/guide.tsx), sobre el modo ver para controlar canales y programación: el botón de
+// filtros y su hoja (la de Canales, ui/filtros.tsx), elegir varias, que valgan en Grilla, Próximos y Tu noche y se
+// recuerden; y el aviso de Tu noche cuando lo elegido no alcanza.
 import { expect, test, type Page } from '@playwright/test';
 
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
@@ -36,59 +36,46 @@ async function open(page: Page, channels: ReturnType<typeof ch>[], prefs: Record
   });
   await page.goto(`/ver#${CODE}`);
   await page.getByRole('button', { name: 'Guía' }).click();
-  await expect(page.locator('#guide nav[aria-label="Categorías"]')).toBeVisible();
+  await expect(page.locator('#guide .filter-btn')).toBeVisible();
 }
 
-const chips = (page: Page) => page.locator('#guide nav[aria-label="Categorías"]');
-const chip = (page: Page, name: string) => chips(page).getByRole('button', { name, exact: true });
+const btn = (page: Page) => page.locator('#guide .filter-btn');
+const sheet = (page: Page) => page.locator('dialog.filter-sheet');
+const active = (page: Page) => page.locator('#guide nav[aria-label="Filtros activos"]');
+const opt = (page: Page, name: string) => sheet(page).getByRole('button', { name, exact: true });
 
 test.beforeEach(() => { errors = []; });
 test.afterEach(() => { expect(errors).toEqual([]); });
 
-test('con pocas categorías: elegir varias, en las tres formas, y se recuerdan', async ({ page }) => {
+test('la hoja ofrece las categorías en el orden de la lista; lo elegido queda en chips con su ×', async ({ page }, info) => {
   await open(page, FEW);
-  await expect(chips(page).getByRole('button')).toHaveText(['Todas', 'Deportes', 'Noticias', 'Infantiles']);
-  await expect(chips(page).locator('.gd-more-chip')).toHaveCount(0);
-  await chip(page, 'Deportes').click();
-  await chip(page, 'Infantiles').click();
-  await expect(chip(page, 'Deportes')).toHaveAttribute('aria-pressed', 'true');
-  await expect(chip(page, 'Infantiles')).toHaveAttribute('aria-pressed', 'true');
-  await expect(chip(page, 'Todas')).toHaveAttribute('aria-pressed', 'false');
+  // Sin filtros no hay fila de chips ni número en el botón.
+  await expect(active(page)).toHaveCount(0);
+  await expect(btn(page)).toHaveAccessibleName('Filtrar');
+  await btn(page).click();
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías', 'Géneros']);
+  await expect(sheet(page).locator('.filter-chips .chip-btn')).toHaveText(['Deportes1', 'Noticias1', 'Infantiles1']);
+  await opt(page, 'Deportes 1').click();
+  await opt(page, 'Infantiles 1').click();
+  await expect(opt(page, 'Deportes 1')).toHaveAttribute('aria-pressed', 'true');
+  await page.screenshot({ path: `test-results/categorias-${info.project.name}-hoja.png` });
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await expect(btn(page)).toHaveAccessibleName('Filtrar, 2 activos');
+  await expect(active(page).getByRole('button')).toHaveText(['Deportes Quitar', 'Infantiles Quitar', 'Quitar todos']);
   // Con dos elegidas, la grilla sigue con un encabezado por categoría.
   await expect(page.locator('#guide .gd-cat')).toHaveText(['Deportes', 'Infantiles']);
   await page.getByRole('radio', { name: 'Próximos' }).click();
-  await expect(chip(page, 'Infantiles')).toHaveAttribute('aria-pressed', 'true');
+  await expect(active(page).getByRole('button', { name: /Infantiles/ })).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Guía' }).click();
-  await expect(chip(page, 'Deportes')).toHaveAttribute('aria-pressed', 'true');
-  await expect(chip(page, 'Infantiles')).toHaveAttribute('aria-pressed', 'true');
-  await chip(page, 'Todas').click();
-  await expect(chip(page, 'Deportes')).toHaveAttribute('aria-pressed', 'false');
-});
-
-test('con muchas: las rápidas, «Más» y la hoja con buscador', async ({ page }, info) => {
-  await open(page, MANY);
-  // Todas, las 5 con más canales con guía y «Más».
-  await expect(chips(page).getByRole('button')).toHaveText(['Todas', 'Deportes', 'Películas', 'Series', 'Noticias', 'Infantiles', 'Más · 10']);
-  await chip(page, 'Series').click();
-  await expect(chips(page).getByRole('button')).toHaveText(['Todas', 'Series', 'Deportes', 'Películas', 'Noticias', 'Infantiles', 'Documentales', 'Más · 10']);
-  await expect(chips(page).locator('.gd-chips-sep')).toHaveCount(1);
-  await page.screenshot({ path: `test-results/categorias-${info.project.name}-fila.png` });
-  await chips(page).getByRole('button', { name: /^Más/ }).click();
-  const sheet = page.locator('dialog.gc-sheet');
-  await expect(sheet).toBeVisible();
-  await expect(sheet.locator('.sec-title').first()).toHaveText('Elegidas · 1');
-  await expect(sheet.locator('.gc-row', { hasText: 'Deportes' })).toContainText('3 canales');
-  await sheet.getByRole('searchbox').fill('docu');
-  await expect(sheet.locator('.gc-list').last().locator('.gc-row')).toHaveText([/Documentales/]);
-  await sheet.locator('.gc-row', { hasText: 'Documentales' }).click();
-  await sheet.getByRole('searchbox').fill('');
-  await page.screenshot({ path: `test-results/categorias-${info.project.name}-hoja.png` });
-  await sheet.getByRole('button', { name: 'Listo · 2 elegidas' }).click();
-  await expect(sheet).toHaveCount(0);
-  await expect(chip(page, 'Series')).toHaveAttribute('aria-pressed', 'true');
-  await expect(chip(page, 'Documentales')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#guide .gd-cat')).toHaveText(['Series', 'Documentales']);
+  await page.getByRole('radio', { name: 'Grilla' }).click();
+  await expect(active(page).getByRole('button')).toHaveText(['Deportes Quitar', 'Infantiles Quitar', 'Quitar todos']);
+  await page.screenshot({ path: `test-results/categorias-${info.project.name}-chips.png` });
+  await active(page).getByRole('button', { name: /^Deportes/ }).click();
+  await expect(page.locator('#guide .gd-cat')).toHaveCount(0);
+  await active(page).getByRole('button', { name: /^Infantiles/ }).click();
+  await expect(active(page)).toHaveCount(0);
+  await expect(btn(page)).toHaveAccessibleName('Filtrar');
 });
 
 test('Tu noche: con lo elegido no alcanza, lo dice y ofrece sumar una categoría', async ({ page }, info) => {
@@ -99,8 +86,10 @@ test('Tu noche: con lo elegido no alcanza, lo dice y ofrece sumar una categoría
   await expect(page.locator('#guide .gd-plan-lead')).toContainText('lo mejor de Cultura');
   await page.screenshot({ path: `test-results/categorias-${info.project.name}-noalcanza.png` });
   await gap.getByRole('button', { name: 'Sumar Deportes' }).click();
-  await expect(chip(page, 'Deportes')).toHaveAttribute('aria-pressed', 'true');
+  await expect(active(page).getByRole('button', { name: /^Deportes/ })).toBeVisible();
   await expect(page.locator('#guide .gd-plan-lead')).toContainText('Cultura y Deportes');
   await gap.getByRole('button', { name: 'Elegir otras' }).click();
-  await expect(page.locator('dialog.gc-sheet')).toBeVisible();
+  await expect(sheet(page)).toBeVisible();
+  // En Tu noche solo valen las categorías: la hoja no ofrece géneros.
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías']);
 });

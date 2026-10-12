@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.49.0
+
+- **Filtros de la Guía, como los de Canales.** Las categorías y los géneros ya no son filas de chips: hay un botón de filtros arriba, al lado de Grilla y Próximos, con el número de filtros puestos. Abre una hoja con las categorías (en el orden de tu lista) y, en Grilla y Próximos, los géneros; lo que elegís queda debajo del título como chips con su ×, más «Quitar todos». «Tengo tiempo» sigue en Próximos. Es el mismo patrón en la edición y en el modo ver, y la Guía sigue eligiendo aparte de Canales. En Tu noche, «Elegir otras» abre esa hoja.
+
 ## 1.48.0
 
 - **Buscar por tema.** Escribir «Mundial» o «cocina» en el buscador de los canales (en la edición y en el modo ver) y en el de «Buscar otra guía» también encuentra los canales que dan algo de eso ahora, aunque el título no lo diga. Usa el género y los temas que nowline ya le puso a cada programa; sin ellos, la búsqueda sigue como siempre, por nombre y por lo que dan.
