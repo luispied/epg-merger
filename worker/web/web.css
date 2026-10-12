@@ -118,6 +118,7 @@ dialog .search-field { background: var(--surface-2); }
 .filter-btn .count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
 .active-filters { display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-2) var(--gutter) 0; scrollbar-width: none; }
 .active-filters[hidden] { display: none; }
+.vw-search .active-filters { padding: var(--sp-2) 0 0; }
 .active-filters::-webkit-scrollbar { display: none; }
 .active-filters .chip-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-right: 6px; }
 .active-filters .x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--hairline); color: var(--muted); }

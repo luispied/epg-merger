@@ -18,7 +18,7 @@ import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
 import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
-import { renderFilters, setupFilters } from './ui/filtros.tsx';
+import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { placeTabPill } from './ui/tabbar.ts';
@@ -1023,8 +1023,28 @@ function renderFilterBar() {
     cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
   }
   listCats = listCats.filter((c) => cats.has(c));
-  const categories = [...cats].map(([key, count]) => ({ key, label: groupLabel(key), count }));
-  renderFilters({ filter: state.filter, cats: listCats, states, categories });
+  // En el orden de la lista (el que arregló la persona), no en el del proveedor.
+  const categories = groups().filter((key) => cats.has(key)).map((key) => ({ key, label: groupLabel(key), count: cats.get(key)! }));
+  const model: FilterModel = { filter: state.filter, cats: listCats, states, categories };
+  renderFilterControls(model);
+}
+
+// Los controles de arriba de la lista (el botón de filtros y la fila de chips), dibujados en Preact (ui/filtros.tsx).
+const filterHandlers: FilterHandlers = {
+  onState: (f) => {
+    state.filter = f;
+    setPref('grilla_last_filter', f);
+    state.shown = PAGE;
+    render();
+  },
+  onCats: (cats) => {
+    listCats = cats;
+    state.shown = PAGE;
+    render();
+  },
+};
+function renderFilterControls(model: FilterModel) {
+  drawFilterBar(model, filterHandlers, $('#filterMount'), $('#activeFilters'));
 }
 
 function matchesFilter(ch: Channel, filter: string) {
@@ -2775,19 +2795,6 @@ function wireDownRow() {
 }
 
 function setupEditor() {
-  setupFilters({
-    onState: (f) => {
-      state.filter = f;
-      setPref('grilla_last_filter', f);
-      state.shown = PAGE;
-      render();
-    },
-    onCats: (cats) => {
-      listCats = cats;
-      state.shown = PAGE;
-      render();
-    },
-  });
   let t = 0;
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);

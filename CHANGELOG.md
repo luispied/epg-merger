@@ -11,9 +11,18 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.42.5
+## 1.42.7
 
 - **La barra de abajo tiene una píldora que se desliza.** Al pasar de Canales a Guía, Categorías o Perfil, la marca de la pestaña elegida viaja hasta el botón nuevo en vez de aparecer de golpe. Igual en la edición y en el modo ver, y con «reducir movimiento» activado no se anima.
+
+## 1.42.6
+
+- **Canales ya no muestra el aviso de «conexiones llenas».** El aviso de arriba de la lista queda solo para cuando la cuenta vence pronto o el servicio que habla con tu proveedor no responde. Las conexiones en uso siguen en la página de la cuenta y en Conexiones en uso.
+
+## 1.42.5
+
+- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
+- **Las categorías del filtro salen en el mismo orden que la lista.** Antes seguían el orden del proveedor; ahora aparecen como las ordenaste en Canales, en la grilla y en la Guía.
 
 ## 1.42.4
 
