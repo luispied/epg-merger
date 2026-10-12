@@ -187,6 +187,8 @@ jobs:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         AI_CLASSIFY: ${{ vars.AI_CLASSIFY }}
         AI_SAMPLE: ${{ inputs.ai_muestras }}
+        AI_MAX_TITLES: ${{ vars.AI_MAX_TITLES }}
+        AI_MONTH_BUDGET: ${{ vars.AI_MONTH_BUDGET }}
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

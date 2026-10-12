@@ -62,6 +62,6 @@ Cómo haría falta armarlo:
 - 🔄 Fase 2: `tools/classify_genres.py` clasifica con Haiku 5.5 por lotes (caché `ai/genres.json`, gasto en
   `ai/spend.json`, lote sin terminar en `ai/pending.json`). Prueba a mano: Actions → Merge EPGs → Run workflow con
   `ai_muestras` (página `ia-muestras` en los artefactos). Diaria solo con la variable del repo `AI_CLASSIFY` = `on`
-  (apagada por defecto), con tope `AI_MAX_TITLES` (3000). Resumen y decisiones en `planes/ia-tu-plan.md` de los
+  (apagada por defecto), con tope `AI_MAX_TITLES` (10000 desde la cobertura de 5 minutos o más; ver `planes/ia-tu-plan.md`). Resumen y decisiones en `planes/ia-tu-plan.md` de los
   archivos del proyecto.
 - Pendiente: clasificar de verdad, usar géneros y temas en los hábitos y en Tu noche.
