@@ -19,11 +19,6 @@ export function renderNetPill(el: HTMLElement, offline: boolean, text: string) {
   render(<><Icon name={offline ? 'cloud-off' : 'loader-circle'} class={offline ? '' : 'spin'} /><span>{text}</span></>, el);
 }
 
-/** Un filtro de la lista con cuántos canales tiene. */
-export function renderFilterTab(el: HTMLElement, label: string, count: number) {
-  render(<>{label}<span class="count">{count}</span></>, el);
-}
-
 /** Un ícono solo, como único contenido de `el` (un botón de ícono, el del campo de un diálogo). */
 export function renderIcon(el: HTMLElement, name: string, cls = '') {
   render(<Icon name={name} class={cls} />, el);
