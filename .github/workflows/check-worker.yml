@@ -57,6 +57,12 @@ jobs:
         else
           npx playwright test
         fi
+    - name: Punta a punta contra el Worker real (solo en main)
+      # wrangler dev con R2 local (worker/e2e-real/): el Worker de verdad, sin simulaciones. Solo en main, como la suite
+      # completa: en los PR no corre.
+      if: github.event_name == 'push'
+      working-directory: worker
+      run: npm run e2e:real
 
   # Prueba de capturas (worker/e2e/visual.spec.ts): las pantallas principales de main y del PR, sacadas en esta misma
   # máquina con la misma prueba (la del PR), y comparadas. No hay capturas guardadas en el repo. Es informativa: no
