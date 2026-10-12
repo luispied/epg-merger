@@ -10,6 +10,7 @@ import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
+import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
 declare global { interface Window { ICONS: Record<string, string> } }
@@ -308,7 +309,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
           <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
-          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo. Al lado de la búsqueda, el botón <span class="inline-icon"><Icon name="list-filter" /></span> <b>filtra por categoría</b>: elegís una o más y quedan arriba como chips; tocá la <b>×</b> de cada uno para quitarlo.</p>
+          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias», el nombre de un equipo o un tema («Mundial», «cocina»): también aparecen los canales que dan algo de eso ahora, aunque el título no lo diga. Al lado de la búsqueda, el botón <span class="inline-icon"><Icon name="list-filter" /></span> <b>filtra por categoría</b>: elegís una o más y quedan arriba como chips; tocá la <b>×</b> de cada uno para quitarlo.</p>
         </details>
         <details>
           <summary>Conexiones en uso<Icon name="chevron-down" /></summary>
@@ -350,13 +351,18 @@ function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }:
   }, [channels]);
   const picked = cats.filter((c) => categories.some((x) => x.key === c));
   const model: FilterModel = { filter: 'todos', cats: picked, states: [], categories };
+  // Género y temas del programa (se bajan la primera vez que se busca): «mundial» encuentra un partido sin decirlo.
+  const [topics, setTopics] = useState<TopicSearch | null>(null);
+  const searching = !!q.trim();
+  useEffect(() => { if (searching) loadTopics().then((t) => t && setTopics(t)); }, [searching]);
   const shown = useMemo(() => {
     const inCats = picked.length ? channels.filter((c) => picked.includes(c.cat)) : channels;
     const f = fold(q.trim());
     if (!f) return inCats;
     return inCats.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
-      || (c.epg && info?.get(c.epg)?.cur && fold(info.get(c.epg)!.cur!.t).includes(f)));
-  }, [q, channels, info, picked.join('|')]);
+      || (c.epg && info?.get(c.epg)?.cur && (fold(info.get(c.epg)!.cur!.t).includes(f)
+        || !!topics?.match(f).has(titleKey(info.get(c.epg)!.cur!.t)))));
+  }, [q, channels, info, topics, picked.join('|')]);
   const out = [];
   let last = '';
   for (const ch of shown) {

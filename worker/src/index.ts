@@ -870,7 +870,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   if (section === 'ui' && method === 'GET') {
     // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path);
+    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path) || path === 'schedule/topics.json'; // topics.json: el índice para buscar por tema
     const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
     if (!hour && !channel) return fail(404, 'no encontrado');
     return storedResponse(hour ? await readStored(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!), 900);

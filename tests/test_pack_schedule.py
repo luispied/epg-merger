@@ -114,3 +114,30 @@ def test_pack_sin_generos_deja_los_bytes_igual(tmp_path):
     (src / 'ab00000000000001.json').write_text('[[1,2,"Uno"]]', encoding='utf-8')
     ps.pack(str(src), str(dst), {})
     assert read_channel(str(dst), 'ab00000000000001') == [[1, 2, 'Uno']]
+
+
+def test_indice_de_temas(tmp_path):
+    """topics.json: los títulos con género o temas, normalizados, con índices a los géneros y a los temas; sin «Otro»."""
+    from measure_titles import title_key
+    src, dst = tmp_path / 'schedule', tmp_path / 'r2'
+    src.mkdir()
+    entries = [[1, 2, 'Noticiero  Central'], [3, 4, 'Cine de Barrio'], [5, 6, 'Programa raro'], [7, 8, 'Sin clasificar'],
+               [9, 10, 'Solo tema']]
+    (src / 'ab00000000000001.json').write_text(json.dumps(entries), encoding='utf-8')
+    genres = {
+        title_key('noticiero central'): ['Noticias', ['política', 'mundial'], False, '2026-10-12'],
+        title_key('Cine de Barrio'): ['Película', ['drama', 'mundial'], False, '2026-10-12'],
+        title_key('Programa raro'): ['Otro', [], False, '2026-10-12'],
+        title_key('Solo tema'): ['Otro', ['cocina'], False, '2026-10-12'],
+    }
+    ps.pack(str(src), str(dst), genres)
+    n, raw, gz = ps.pack_topics(str(src), str(dst), genres)
+    topics = json.loads((dst / 'topics.json').read_text(encoding='utf-8'))
+    assert n == 4 and raw == len((dst / 'topics.json').read_bytes()) and gz > 0
+    assert topics['t'] == ['cine de barrio', 'noticiero central', 'solo tema']
+    by_title = {t: [(topics['g'][r[0]] if r[0] >= 0 else None), [topics['v'][i] for i in r[1:]]]
+                for t, r in zip(topics['t'], topics['r'])}
+    assert by_title == {'cine de barrio': ['Película', ['drama', 'mundial']],
+                        'noticiero central': ['Noticias', ['política', 'mundial']],
+                        'solo tema': [None, ['cocina']]}
+    assert topics['v'].count('mundial') == 1

@@ -63,6 +63,9 @@ test.beforeEach(async ({ page }) => {
       for (const h of [H, H + 3600]) if (hourKey(h) === m[1]) return r.fulfill({ json: hour(h) });
       return r.fulfill({ status: 404, json: {} });
     }
+    if (path === '/api/ui/schedule/topics.json') {
+      return r.fulfill({ json: { g: ['Película', 'Noticias'], v: ['romántico', 'guerra'], t: ['casablanca', 'noticiero central'], r: [[0, 0, 1], [1]] } });
+    }
     if (path.startsWith('/api/ui/schedule/')) {
       return r.fulfill({ json: [[H - 2400, H + 3600, 'Noticiero central', 'Las noticias del día, con todo lo que pasó.'], [H + 3600, H + 7200, 'Pronóstico del tiempo'], [H + 7200, H + 9000, 'Deportes al cierre']] });
     }
@@ -100,6 +103,10 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await page.screenshot({ path: `test-results/ver-${info.project.name}-canales.png` });
   // Buscar por programa.
   await page.getByRole('searchbox').fill('casablanca');
+  await expect(page.locator('.vw-row')).toHaveCount(1);
+  await expect(page.locator('.vw-row')).toContainText('Cine Clásico');
+  // Buscar por tema: el género y los temas del programa, aunque el título no lo diga (índice aparte, se baja al buscar).
+  await page.getByRole('searchbox').fill('película romántico');
   await expect(page.locator('.vw-row')).toHaveCount(1);
   await expect(page.locator('.vw-row')).toContainText('Cine Clásico');
   await page.getByRole('searchbox').fill('');

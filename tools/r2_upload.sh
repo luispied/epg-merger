@@ -8,6 +8,7 @@
 # Estructura en el bucket:
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
 #   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
+#   ui/schedule/topics.json    índice para buscar por tema (géneros y temas de la IA, una vez por título)
 #   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
 #   ui/schedule/cfg/<cfgId>    la de cada hora con solo los canales de esa configuración
 #   logo/map/<x>.json         {clave: url} de los logos de canal, en gzip como el índice y img/map (privado; el Worker los sirve por /logo/<clave>
@@ -57,9 +58,11 @@ python tools/pack_schedule.py "${genres[@]}" out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
   sync out/schedule_r2/s ui/schedule/s
   [ -d out/schedule_r2/hour ] && sync out/schedule_r2/hour ui/schedule/hour --delete "${json[@]}" --encoding gzip
+  # El índice para buscar por tema (topics.json, solo con géneros): la web lo baja recién cuando se busca.
+  [ -f out/schedule_r2/topics.json ] && sync out/schedule_r2/topics.json ui/schedule/topics.json "${json[@]}" --gzip
   # Los archivos por canal de antes del empaque (ui/schedule/<archivo>.json), que ya no se usan.
   # Solo los .json sueltos de ui/schedule/: ni las tandas ni las horas ni nada fuera de ui/schedule/.
-  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*'
+  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*' --exclude 'topics.json'
 fi
 echo "✅ Subido a R2 ($BUCKET)"
 
