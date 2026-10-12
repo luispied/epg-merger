@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.52.0
+
+- **Géneros en Tu plan.** La hoja de filtros de Tu plan (Tu noche, Tu tarde…) ahora también tiene **Géneros**, con los de lo que el plan podría proponer (sin publicidad ni lo que todavía no está clasificado), y el número del botón los cuenta. Con uno o varios elegidos, el plan se arma solo con programas de esos géneros; si no alcanza, dice desde qué hora no encontró nada y **Quitar filtro** lo saca. Es el mismo género de la Grilla y Próximos: lo que elegís en uno vale en los tres.
+- **La Grilla filtrada por género esconde los canales sin nada.** Antes solo se apagaban los programas y las filas seguían todas. Ahora, con un género elegido, quedan solo los canales que tienen algo de ese género en las horas que se ven; mientras esas horas cargan no se esconde nada, y si ningún canal tiene, dice «Ningún canal tiene…» y **Quitar filtros** los saca. Como la IA va clasificando de a poco, al principio quedan pocos canales y se completa solo.
+- Interno: el índice por hora de cada configuración ya trae el género cuando existe `ai/genres.json` (lo arma la corrida diaria y la revisión de configuraciones); los de hoy se rehacen en la próxima corrida.
+
 ## 1.51.1
 
 - **El tema por defecto sigue al sistema.** Si nunca elegiste un tema, nowline sigue el claro u oscuro del dispositivo, en la edición y en el modo ver (antes abría siempre oscuro). Si ya elegiste uno, no cambia.
