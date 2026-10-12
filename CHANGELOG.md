@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.42.5
+
+- **La barra inferior queda igual en el modo ver que en la edición.** El modo ver ahora usa el mismo ajuste de texto grande que la app, así la barra mide y se ubica igual en las dos pantallas.
+
 ## 1.42.4
 
 - **La carga ya no dice «sin conexión» cuando hay conexión.** Antes, cualquier error de la app en la carga se mostraba como falta de red. Ahora solo aparece si de verdad no hay conexión; si el servidor tarda, se avisa eso.
