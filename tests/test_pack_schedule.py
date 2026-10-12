@@ -114,3 +114,26 @@ def test_pack_sin_generos_deja_los_bytes_igual(tmp_path):
     (src / 'ab00000000000001.json').write_text('[[1,2,"Uno"]]', encoding='utf-8')
     ps.pack(str(src), str(dst), {})
     assert read_channel(str(dst), 'ab00000000000001') == [[1, 2, 'Uno']]
+
+
+def test_indices_por_hora_con_generos(tmp_path):
+    """El índice por hora (de toda la guía y de cada configuración) lleva "g", paralelo a "t"; sin clasificados, no."""
+    from measure_titles import title_key
+    src, dst, cfg = tmp_path / 'schedule', tmp_path / 'r2', tmp_path / 'cfg'
+    (src / 'hour').mkdir(parents=True)
+    index = {'h': 100, 't': ['Cine de Barrio', 'Sin clasificar', 'Programa raro', 'Compre YA'],
+             'c': {'g0000000000000a.ar': [[0, 30, 0], [30, 60, 1]], 'g0000000000000b.us': [[0, 60, 3], [60, 90, 2]]}}
+    (src / 'hour' / '2026101119.json').write_text(json.dumps(index), encoding='utf-8')
+    (src / 'hour' / '2026101119-d.json').write_text('{"d":[],"c":{}}', encoding='utf-8')
+    (src / 'hour' / '2026101120.json').write_text(json.dumps({'h': 200, 't': ['Sin clasificar'], 'c': {}}), encoding='utf-8')
+    genres = {title_key('Cine de Barrio'): ['Cine', [], False, 'x'], title_key('Programa raro'): ['Otro', [], False, 'x'],
+              title_key('Compre YA'): ['Publicidad', [], False, 'x']}
+    ps.pack(str(src), str(dst), genres)
+    got = json.loads(gzip.decompress((dst / 'hour' / '2026101119.json').read_bytes()))
+    assert got['g'] == ['Cine', '', '', 'Publicidad'] and got['t'] == index['t']
+    assert gzip.decompress((dst / 'hour' / '2026101119-d.json').read_bytes()) == b'{"d":[],"c":{}}'
+    assert 'g' not in json.loads(gzip.decompress((dst / 'hour' / '2026101120.json').read_bytes()))
+    configs = {'x': {'channels': {'B': {'epg': 'g0000000000000b.us'}}}}
+    ps.pack_configs(configs, str(src), str(cfg), genres)
+    assert read_channel_from(cfg / 'x', '2026101119') == {
+        'h': 100, 't': ['Compre YA', 'Programa raro'], 'c': {'g0000000000000b.us': [[0, 60, 0], [60, 90, 1]]}, 'g': ['Publicidad', '']}

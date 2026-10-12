@@ -1059,6 +1059,8 @@ body.guide-open { overflow: hidden; }
 .gd-cell.past { background: transparent; }
 .gd-cell.past .tt { color: var(--faint); font-weight: 500; }
 .gd-cell.past .hh { color: var(--faint); }
+/* Con un género elegido en la Grilla, lo que no es de ese género se apaga igual que lo que «no entra» en Próximos (.gd-up-row.dim). */
+.gd-cell.off { opacity: .45; }
 /* Esqueleto mientras baja la programación de esa hora (el mismo brillo que el de Canales). */
 .gd-cell.skel { background: linear-gradient(90deg, var(--surface-2) 25%, var(--fill) 50%, var(--surface-2) 75%); background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite; box-shadow: none; pointer-events: none; }
