@@ -69,6 +69,7 @@ nombres de código.
 
 - **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Ajustes**, con el tema claro u oscuro. Queda guardado en este dispositivo.
 - Ayuda: el modo ver explica el engranaje y el tema.
+- **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
 
 ## 1.41.5
 
