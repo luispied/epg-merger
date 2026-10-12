@@ -242,7 +242,7 @@ function HelpSheet({ close }: { close: () => void }) {
           <h2 id="vwHelpTitle">Cómo se usa</h2>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo. Al abrir, el logo de Nowline se ve un instante mientras cargan los canales.</p>
+        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo. Al abrir, el logo de nowline se ve un instante mientras cargan los canales.</p>
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
           <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
@@ -263,7 +263,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>Nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
+          <p>nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
         </details>
       </div>
     </dialog>
@@ -320,13 +320,13 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
   );
 }
 
-/** Salir del modo ver: este dispositivo deja de abrir Nowline así (para usarla con una configuración propia). */
+/** Salir del modo ver: este dispositivo deja de abrir nowline así (para usarla con una configuración propia). */
 function leave() {
   if (!confirm('¿Salir del modo «solo ver» en este dispositivo? Para volver vas a necesitar el código otra vez.')) return;
   restart();
 }
 
-/** Volver al inicio de Nowline sin el código guardado (para pegar otro). */
+/** Volver al inicio de nowline sin el código guardado (para pegar otro). */
 function restart() {
   try { localStorage.removeItem(CODE_KEY); } catch { /* sin storage */ }
   location.href = '/';
@@ -401,7 +401,7 @@ function App() {
   useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
   useEffect(() => { const t = setTimeout(hideSplash, 5000); return () => clearTimeout(t); }, []);
 
-  if (!code) return <Problem title="Falta el código" text="Abrí Nowline y tocá «Pegá el código» con el que te pasaron." other />;
+  if (!code) return <Problem title="Falta el código" text="Abrí nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
   if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
@@ -412,7 +412,7 @@ function App() {
       <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
-        <img class="tab-brand" src="img/icon.svg" alt="Nowline" width="40" height="40" />
+        <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
           <Icon name="tv" /><span>Canales</span>
         </button>

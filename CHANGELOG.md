@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.41.5
+
+- **El nombre de la app va siempre en minúscula**: «nowline», como en el logo. Sin negrita en el texto corrido. Cambia en la pantalla de bienvenida, la ayuda, Compartir, el aviso de actualización, el ícono de inicio y el título de la pestaña.
+
 ## 1.41.4
 
 - **Configuración ya no muestra el commit.** Al pie solo queda la versión de Nowline, que es lo que le sirve a quien usa la app.

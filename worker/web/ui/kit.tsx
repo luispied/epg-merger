@@ -18,7 +18,7 @@ export function BrandFoot() {
   return (
     <div class="brand-foot">
       <img src="img/icon.svg" alt="" width="28" height="28" />
-      <span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">Nowline</span></span>
+      <span class="wordmark"><span aria-hidden="true">nowl<span class="wm-i">ı</span>ne</span><span class="sr-only">nowline</span></span>
     </div>
   );
 }

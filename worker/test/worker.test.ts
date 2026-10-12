@@ -494,7 +494,7 @@ test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo cor
   const offList = await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache);
   assert.equal(offList.status, 200);
   const offText = await offList.text();
-  assert.match(offText, /Link desactivado: reactivalo en Nowline/);
+  assert.match(offText, /Link desactivado: reactivalo en nowline/);
   assert.equal(offText.match(/#EXTINF/g)?.length, 1);
   assert.equal((await handle(new Request(living.epgUrl), t.env, t.ctx, t.cache)).status, 403);
   assert.equal((await handle(new Request(`${BASE}/s/${living.code}/desactivado.ts`), t.env, t.ctx, t.cache)).status, 403);
