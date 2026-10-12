@@ -309,14 +309,14 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>; para volver vas a necesitar el código otra vez.</p>
+          <p>nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>. Para salir hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
         </details>
       </div>
     </dialog>
   );
 }
 
-function Channels({ code, data, channels, onOpen, onHelp, onSettings }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void; onSettings: () => void }) {
+function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void; onSettings: () => void; onLeave: () => void }) {
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
@@ -361,32 +361,70 @@ function Channels({ code, data, channels, onOpen, onHelp, onSettings }: { code: 
         {out.length ? out : <div class="empty"><Icon name="inbox" class="lg" /><strong>Nada por acá</strong>{q ? `Nada coincide con “${q}”.` : 'Este perfil no tiene canales.'}</div>}
         <BrandFoot />
         <p class="vw-foot">Modo «solo ver»: acá no se puede cambiar nada.
-          <button type="button" class="link-btn" onClick={leave}>Salir del modo ver</button></p>
+          <button type="button" class="link-btn" onClick={onLeave}>Salir del modo ver</button></p>
       </main>
     </>
   );
 }
 
-/** Salir del modo ver: este dispositivo deja de abrir nowline así (para usarla con una configuración propia). */
-function leave() {
-  if (!confirm('¿Salir del modo «solo ver» en este dispositivo? Para volver vas a necesitar el código otra vez.')) return;
-  restart();
+const HOME_RE = /^([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{20,})$/;
+/** ¿El código es el de la casa (el que deja editar)? Pregunta al Worker con su clave, que no cambia nada. */
+async function isHomeCode(code: string): Promise<boolean> {
+  const m = HOME_RE.exec(code.trim());
+  if (!m) return false;
+  try {
+    const r = await fetch(`/api/home/${m[1]}`, { headers: { Authorization: `Bearer ${m[2]}` } });
+    return r.ok;
+  } catch { return false; }
 }
 
-/** Volver al inicio de nowline sin el código guardado (para pegar otro). */
-function restart() {
-  try { localStorage.removeItem(CODE_KEY); } catch { /* sin storage */ }
-  location.href = '/';
+/** Salir del modo ver pide el código de la casa: quien solo mira no puede salir ni llegar al editor. */
+function UnlockSheet({ close }: { close: () => void }) {
+  const dlg = useRef<HTMLDialogElement>(null);
+  const [code, setCode] = useState('');
+  const [state, setState] = useState<'idle' | 'busy' | 'bad'>('idle');
+  useLayoutEffect(() => {
+    dlg.current?.showModal();
+    return () => dlg.current?.close();
+  }, []);
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    setState('busy');
+    if (!(await isHomeCode(code))) return setState('bad');
+    // Con el código de la casa se sale: se borra el código para ver y se abre el inicio de nowline (el editor).
+    try { localStorage.removeItem(CODE_KEY); } catch { /* sin storage */ }
+    location.href = '/';
+  };
+  return (
+    <dialog class="sheet settings-sheet vw-settings" ref={dlg} onClose={close} aria-labelledby="vwUnlockTitle">
+      <form class="sheet-body" onSubmit={submit}>
+        <div class="title-row">
+          <h2 id="vwUnlockTitle">Salir del modo ver</h2>
+          <button type="button" class="icon-btn" aria-label="Cerrar" onClick={() => dlg.current?.close()}><Icon name="x" /></button>
+        </div>
+        <p class="vw-unlock-lead">Para salir hace falta el código de la casa, el que usa quien arma la grilla. Sin ese código, este dispositivo sigue en modo «solo ver».</p>
+        <label class="vw-unlock-field">
+          <span>Código de la casa</span>
+          <input type="password" autocomplete="off" autocapitalize="off" spellcheck={false} value={code}
+            onInput={(e) => { setCode((e.currentTarget as HTMLInputElement).value); setState('idle'); }} />
+        </label>
+        {state === 'bad' && <p class="vw-report-bad" role="alert">Ese código no es el de la casa.</p>}
+        <button type="submit" class="btn btn-primary btn-block" disabled={!code.trim() || state === 'busy'}>
+          {state === 'busy' ? 'Revisando…' : 'Salir del modo ver'}
+        </button>
+      </form>
+    </dialog>
+  );
 }
 
-function Problem({ title, text, retry, other }: { title: string; text: string; retry?: () => void; other?: boolean }) {
+function Problem({ title, text, retry, other }: { title: string; text: string; retry?: () => void; other?: () => void }) {
   return (
     <main class="vw-problem">
       <img src="img/icon.svg" alt="" width="64" height="64" />
       <h1>{title}</h1>
       <p>{text}</p>
       {retry && <button type="button" class="btn btn-primary" onClick={retry}><Icon name="refresh-cw" />Probar de nuevo</button>}
-      {other && <button type="button" class="btn btn-primary" onClick={restart}>Pegar otro código</button>}
+      {other && <button type="button" class="btn btn-primary" onClick={other}>Salir del modo ver</button>}
     </main>
   );
 }
@@ -400,6 +438,7 @@ function App() {
   const [open, setOpen] = useState<GuideChannel | null>(null);
   const [help, setHelp] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [unlock, setUnlock] = useState(false);
   const guideEl = useRef<HTMLElement>(null);
 
   const load = () => {
@@ -449,15 +488,21 @@ function App() {
   useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
   useEffect(() => { const t = setTimeout(hideSplash, 5000); return () => clearTimeout(t); }, []);
 
-  if (!code) return <Problem title="Falta el código" text="Abrí nowline y tocá «Pegá el código» con el que te pasaron." other />;
-  if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
+  if (!code) return <>
+    <Problem title="Falta el código" text="Este dispositivo está en modo «solo ver», pero no tiene el código guardado." other={() => setUnlock(true)} />
+    {unlock && <UnlockSheet close={() => setUnlock(false)} />}
+  </>;
+  if (err?.status === 404) return <>
+    <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other={() => setUnlock(true)} />
+    {unlock && <UnlockSheet close={() => setUnlock(false)} />}
+  </>;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
-  if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
+  if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} other={() => setUnlock(true)} />;
   if (!data) return <main class="vw-loading" aria-busy="true"><Icon name="loader-circle" class="spin" /><span>Cargando los canales…</span></main>;
 
   return (
     <>
-      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} /></section>
+      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} onLeave={() => setUnlock(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
@@ -470,6 +515,7 @@ function App() {
       </nav>
       {help && <HelpSheet close={() => setHelp(false)} />}
       {settings && <SettingsSheet close={() => setSettings(false)} />}
+      {unlock && <UnlockSheet close={() => setUnlock(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>
   );

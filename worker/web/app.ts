@@ -3046,9 +3046,10 @@ setupEditor();
     else if (travel < -40) bar.classList.remove('compact');
   }, { passive: true });
 }
-// Un dispositivo que entró con un código para ver (y no tiene configuración propia) abre siempre en ese modo.
+// Un dispositivo que entró con un código para ver abre siempre en ese modo; salir pide el código de la casa (ver.tsx).
 let viewOnly: string | null = null;
-try { viewOnly = state.local ? null : localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
+// Aunque el dispositivo tenga configuración propia: quien mira no llega al editor escribiendo la dirección sin «ver».
+try { viewOnly = localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
 if (viewOnly) {
   try { sessionStorage.removeItem('nowline_splash'); } catch { /* sin storage */ } // que el logo siga en /ver
   location.replace(`/ver#${viewOnly}`);
