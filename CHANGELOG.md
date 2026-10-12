@@ -11,11 +11,21 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.43.0
+## 1.45.0
 
 - **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
 - Ayuda: el modo ver explica el engranaje y el tema.
 - **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
+
+## 1.44.0
+
+- **«Más como esto» sube todo lo de ese género, no solo el mismo programa.** Si tocás «Más como esto» en un documental, Tu plan sube los documentales de otros canales, aunque nunca los hayas abierto, y debajo de «Más como esto» dice «Tu plan sube también los de documental». La publicidad no entra.
+- Interno: el Worker guarda el género de cada «Más como esto» (`mg` en los hábitos).
+
+## 1.43.0
+
+- **Tu plan sugiere cosas parecidas a lo que mirás.** Si mirás mucho deporte, sube el deporte de otros canales, aunque nunca los hayas abierto, y debajo dice «Como lo que mirás: deportes». La publicidad nunca se sugiere.
+- Interno: la corrida diaria pone el género a cada programa de la programación; el Worker lo guarda en los hábitos.
 
 ## 1.42.10
 

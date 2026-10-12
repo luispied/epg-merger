@@ -7,7 +7,8 @@ import { GENERIC, norm, scheduleFile } from './again.ts';
 import { readEntries, scheduleReader } from './schedule.ts';
 
 export interface ChannelHabit { n: number; h: number[]; at: string }
-export interface TitleHabit { n: number; title: string; at: string; s?: number }
+/** `g`: el género del programa cuando la corrida ya lo tenía clasificado (para saber qué tipo de cosas se miran). */
+export interface TitleHabit { n: number; title: string; at: string; s?: number; g?: string }
 export interface Habits {
   /** Por epg del canal: cuántas veces se abrió, por hora UTC (24) y la última. */
   ch: Record<string, ChannelHabit>;
@@ -16,6 +17,8 @@ export interface Habits {
   /** «No me interesa» y «Más como esto», por título normalizado: cuándo se pidió. */
   no: Record<string, string>;
   more: Record<string, string>;
+  /** Género de cada «Más como esto» (por título normalizado), para subir ese género en el plan. */
+  mg: Record<string, string>;
 }
 type Store = Record<string, Habits>;
 
@@ -26,7 +29,7 @@ const FORGET_MS = 90 * 24 * 3600 * 1000; // lo que no se mira hace tres meses ya
 const key = (cfgId: string) => `habits/${cfgId}.json`;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 
-export const emptyHabits = (): Habits => ({ ch: {}, t: {}, no: {}, more: {} });
+export const emptyHabits = (): Habits => ({ ch: {}, t: {}, no: {}, more: {}, mg: {} });
 
 async function readStore(bucket: R2Bucket, cfgId: string): Promise<Store> {
   try {
@@ -38,14 +41,17 @@ async function readStore(bucket: R2Bucket, cfgId: string): Promise<Store> {
   }
 }
 
-const fix = (h: Partial<Habits> | undefined): Habits => ({ ch: h?.ch ?? {}, t: h?.t ?? {}, no: h?.no ?? {}, more: h?.more ?? {} });
+const fix = (h: Partial<Habits> | undefined): Habits => ({ ch: h?.ch ?? {}, t: h?.t ?? {}, no: h?.no ?? {}, more: h?.more ?? {}, mg: h?.mg ?? {} });
 
 /** Se queda con lo más visto y reciente, y olvida lo viejo. */
 function prune(h: Habits, now: number): Habits {
   const fresh = <T extends { n: number; at: string }>(rec: Record<string, T>, max: number) => Object.fromEntries(
     Object.entries(rec).filter(([, v]) => now - Date.parse(v.at) < FORGET_MS).sort((a, b) => b[1].n - a[1].n).slice(0, max));
   const recent = (rec: Record<string, string>) => Object.fromEntries(Object.entries(rec).sort((a, b) => b[1].localeCompare(a[1])).slice(0, MAX_FB));
-  return { ch: fresh(h.ch, MAX_CH), t: fresh(h.t, MAX_T), no: recent(h.no), more: recent(h.more) };
+  const more = recent(h.more);
+  // Un género solo cuenta mientras su pedido siga vigente.
+  const mg = Object.fromEntries(Object.entries(h.mg).filter(([k]) => k in more));
+  return { ch: fresh(h.ch, MAX_CH), t: fresh(h.t, MAX_T), no: recent(h.no), more, mg };
 }
 
 /** Lo que vale para la guía de un perfil. Sin perfil (el editor): todos juntos, con los pedidos del editor. */
@@ -64,18 +70,19 @@ export async function readHabits(bucket: R2Bucket, cfgId: string, profile?: stri
     for (const [k, v] of Object.entries(h.t)) {
       const cur = all.t[k] ??= { n: 0, title: v.title, at: v.at };
       cur.n += v.n;
+      if (v.g) cur.g = v.g;
       if (v.at > cur.at) cur.at = v.at;
     }
-    if (p === '') Object.assign(all, { no: h.no, more: h.more });
+    if (p === '') Object.assign(all, { no: h.no, more: h.more, mg: h.mg });
   }
   return all;
 }
 
 /** El título que pasaba en un canal (por su epg) en un momento, si no es genérico. */
-async function titleAt(bucket: R2Bucket, epg: string, t: number): Promise<{ title: string; s: number } | null> {
+async function titleAt(bucket: R2Bucket, epg: string, t: number): Promise<{ title: string; s: number; g?: string } | null> {
   try {
     const e = (await readEntries(scheduleReader(bucket), await scheduleFile(epg)))?.find(([s, end]) => s <= t && t < end);
-    return e && e[2] && !GENERIC.has(norm(e[2])) ? { title: e[2], s: e[0] } : null;
+    return e && e[2] && !GENERIC.has(norm(e[2])) ? { title: e[2], s: e[0], ...(e[4] ? { g: e[4] } : {}) } : null;
   } catch {
     return null;
   }
@@ -97,7 +104,7 @@ export async function noteHabit(bucket: R2Bucket, cfgId: string, profile: string
     const rec = h.t[k] ??= { n: 0, title: prog.title, at };
     // La misma emisión cuenta una vez, aunque se vuelva a abrir el canal.
     if (rec.s !== prog.s) rec.n++;
-    Object.assign(rec, { title: prog.title, at, s: prog.s });
+    Object.assign(rec, { title: prog.title, at, s: prog.s, ...(prog.g ? { g: prog.g } : {}) });
   }
   store[profile] = prune(h, now.getTime());
   await bucket.put(key(cfgId), JSON.stringify(store), JSON_TYPE);
@@ -106,20 +113,23 @@ export async function noteHabit(bucket: R2Bucket, cfgId: string, profile: string
 export type Feedback = 'no' | 'more' | 'clear';
 
 /** «No me interesa», «Más como esto» o deshacer, para un título. */
-export async function feedbackHabit(bucket: R2Bucket, cfgId: string, profile: string, title: string, kind: Feedback, now = new Date()): Promise<Habits> {
+export async function feedbackHabit(bucket: R2Bucket, cfgId: string, profile: string, title: string, kind: Feedback, genre?: string, now = new Date()): Promise<Habits> {
   const store = await readStore(bucket, cfgId);
   const h = fix(store[profile]);
   const k = norm(title);
   delete h.no[k];
   delete h.more[k];
+  delete h.mg[k];
   if (kind !== 'clear') h[kind][k] = now.toISOString();
+  if (kind === 'more' && genre) h.mg[k] = genre;
   store[profile] = prune(h, now.getTime());
   await bucket.put(key(cfgId), JSON.stringify(store), JSON_TYPE);
   return store[profile];
 }
 
-export const validFeedback = (body: Record<string, unknown>): body is { title: string; kind: Feedback } =>
+export const validFeedback = (body: Record<string, unknown>): body is { title: string; kind: Feedback; genre?: string } =>
   typeof body.title === 'string' && body.title.trim().length > 0 && body.title.length <= 200 &&
-  (body.kind === 'no' || body.kind === 'more' || body.kind === 'clear');
+  (body.kind === 'no' || body.kind === 'more' || body.kind === 'clear') &&
+  (body.genre === undefined || (typeof body.genre === 'string' && body.genre.length <= 40));
 
 export const deleteHabits = (bucket: R2Bucket, cfgId: string) => bucket.delete(key(cfgId));

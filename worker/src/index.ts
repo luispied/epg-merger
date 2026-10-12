@@ -548,7 +548,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (method === 'POST') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
         if (!validFeedback(body)) return fail(400, 'pedido inválido');
-        await feedbackHabit(env.BUCKET, cfgId, '', body.title, body.kind);
+        await feedbackHabit(env.BUCKET, cfgId, '', body.title, body.kind, body.genre);
         return json(await readHabits(env.BUCKET, cfgId));
       }
     }
@@ -830,7 +830,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (method === 'POST') {
       const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
       if (!validFeedback(body)) return fail(400, 'pedido inválido');
-      return json(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind));
+      return json(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind, body.genre));
     }
   }
   if (section === 'view' && cfgId && action === 'report' && method === 'POST') {

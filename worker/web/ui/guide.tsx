@@ -21,7 +21,8 @@ export interface GuideChannel {
   q: string | null;
   qTitle: string;
 }
-type Entry = [number, number, string, string?];
+/** [inicio, fin, título, descripción?, género?]: el género sale de la IA cuando ya clasificó el título. */
+type Entry = [number, number, string, string?, string?];
 export interface GuideHost {
   channels(): GuideChannel[];
   openChannel(i: number): void;
@@ -32,7 +33,7 @@ export interface GuideHost {
   /** Lo que se suele mirar (habits.ts del Worker), para «Tu noche». */
   habits?(): Promise<Habits | null>;
   /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
-  feedback?(title: string, kind: Feedback): Promise<Habits | null>;
+  feedback?(title: string, kind: Feedback, genre?: string): Promise<Habits | null>;
   /** La ayuda de la Guía (el ? del título). */
   help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
@@ -45,13 +46,15 @@ export type Feedback = 'no' | 'more' | 'clear';
 /** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
 export interface Habits {
   ch: Record<string, { n: number; h: number[] }>;
-  t: Record<string, { n: number }>;
+  t: Record<string, { n: number; g?: string }>;
   no: Record<string, string>;
   more: Record<string, string>;
+  /** El género de cada «Más como esto» (por título normalizado): sube ese género en el plan. */
+  mg?: Record<string, string>;
 }
 
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
-interface Prog { s: number; e: number; t: string; gap?: boolean }
+interface Prog { s: number; e: number; t: string; g?: string; gap?: boolean }
 
 type Mode = 'grid' | 'next' | 'plan';
 const HOUR = 3600;
@@ -624,6 +627,8 @@ export const normTitle = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').
 /** Afinidad por hábitos: el programa que se mira seguido, el canal a esa hora (±1 h) y en general, la campana y lo
  *  pedido. Pesa como mucho lo que un partido en vivo: lo de siempre sube, pero no tapa todo lo demás. */
 export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affinity {
+  const taste = genreTaste(h);
+  const asked = moreGenres(h);
   return ({ ch, p }) => {
     const k = normTitle(p.t);
     if (h?.no[k]) return null;
@@ -631,6 +636,7 @@ export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affi
     let bonus = 0;
     const add = (v: number, why: string, min = 0) => { bonus += v; if (v > min) reasons.push([v, why]); };
     if (h?.more[k]) add(3, 'Pediste más como esto');
+    if (p.g && asked.has(p.g) && !h?.more[k]) add(2, `Pediste más de ${p.g.toLowerCase()}`, 0.9);
     if (marks?.has(`${ch.epg}|${p.s}`)) add(3, 'Le pusiste la campana');
     const tn = h?.t[k]?.n ?? 0;
     if (tn) add(Math.min(4, 1.5 * Math.log2(1 + tn)), tn >= 3 ? 'Lo mirás seguido' : 'Ya lo miraste', 1);
@@ -641,10 +647,38 @@ export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affi
       add(Math.min(3, 0.75 * at), 'Tu canal a esta hora', 1.4);
       add(Math.min(1.5, 0.5 * Math.log2(1 + c.n)), 'De tus canales', 0.9);
     }
+    const gs = p.g ? taste.get(p.g) ?? 0 : 0;
+    if (gs) add(gs, `Como lo que mirás: ${p.g!.toLowerCase()}`, 0.9);
     reasons.sort((a, b) => b[0] - a[0]);
     return { bonus, why: reasons[0]?.[1] };
   };
 }
+
+/** Géneros que ya se pueden sugerir y cuánto pesan en la casa: el género de los programas que se miraron (la
+ *  corrida lo anota en los hábitos cuando la IA ya lo clasificó). Hasta +2,5 según qué parte de lo mirado es de ese
+ *  género; con menos de dos veces no cuenta. */
+export function genreTaste(h: Habits | null): Map<string, number> {
+  const n = new Map<string, number>();
+  let total = 0;
+  for (const v of Object.values(h?.t ?? {})) {
+    if (!v.g || v.g === NEVER_SUGGEST) continue;
+    n.set(v.g, (n.get(v.g) ?? 0) + v.n);
+    total += v.n;
+  }
+  const out = new Map<string, number>();
+  for (const [g, c] of n) if (c >= 2) out.set(g, Math.min(2.5, (6 * c) / total));
+  return out;
+}
+
+/** Los géneros de los «Más como esto» que siguen vigentes: sube todo lo de ese género, no solo el mismo título. */
+export function moreGenres(h: Habits | null): Set<string> {
+  const out = new Set<string>();
+  for (const [k, g] of Object.entries(h?.mg ?? {})) if (h?.more[k] && g !== NEVER_SUGGEST) out.add(g);
+  return out;
+}
+
+/** La publicidad (infomerciales, televenta) que la IA reconoce nunca se sugiere. */
+const NEVER_SUGGEST = 'Publicidad';
 
 /** Puntaje de un programa para el plan (más es mejor); null si no va. */
 export function planScore(t: string, len: number, cat: string): number | null {
@@ -661,7 +695,7 @@ export function planScore(t: string, len: number, cat: string): number | null {
  *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
 export function buildPlan(cands: Cand[], now: number, end: number, forced: Map<number, Cand>, aff?: Affinity): Slot[] {
   const scored = cands.flatMap((c) => {
-    const sc = planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
+    const sc = c.p.g === NEVER_SUGGEST ? null : planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
     const a = aff ? aff(c) : { bonus: 0 };
     return sc === null || !a ? [] : [{ ...c, sc: sc + a.bonus, why: a.why }];
   });
@@ -710,8 +744,8 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
   const plan = useMemo(() => {
     const cands: { ch: GuideChannel; p: Prog }[] = [];
     for (const ch of withGuide) {
-      for (const [s, e, t] of scheds.get(ch.epg!) ?? []) {
-        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t } });
+      for (const [s, e, t, , g] of scheds.get(ch.epg!) ?? []) {
+        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } });
       }
     }
     return buildPlan(cands, now, part.end, forced, habitAffinity(habits, marks));
@@ -894,7 +928,7 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
           </section>
         )}
         {!live && p.s > now && ch.epg && !host.viewer && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
-        {host.feedback && <Taste title={p.t} host={host} habits={habits} setHabits={setHabits} />}
+        {host.feedback && <Taste title={p.t} genre={p.g} host={host} habits={habits} setHabits={setHabits} />}
         {next.length > 0 && (
           <div class="gd-sh-next">
             <h3>Después</h3>
@@ -912,20 +946,24 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
 }
 
 /** «Más como esto» / «No me interesa» de un programa: cambia Tu noche al momento, con Deshacer. */
-function Taste({ title, host, habits, setHabits }: { title: string; host: GuideHost; habits: Habits | null; setHabits: (h: Habits) => void }) {
+function Taste({ title, genre, host, habits, setHabits }: { title: string; genre?: string; host: GuideHost; habits: Habits | null; setHabits: (h: Habits) => void }) {
   const k = normTitle(title);
   const cur: Feedback = habits?.no[k] ? 'no' : habits?.more[k] ? 'more' : 'clear';
+  // Sin género (o publicidad) «Más como esto» sube solo este título.
+  const g = genre && genre !== NEVER_SUGGEST ? genre.toLowerCase() : '';
   const send = async (kind: Feedback, quiet = false) => {
     const prev = cur;
     try {
-      const h = await host.feedback!(title, kind);
+      const h = await host.feedback!(title, kind, g ? genre : undefined);
       if (h) setHabits(h);
     } catch {
       toast('No se pudo guardar. Probá de nuevo.', 'bad');
       return;
     }
     if (quiet) return;
-    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en tu plan.' : kind === 'more' ? 'Listo: te lo voy a sugerir más.' : 'Listo: lo dejé como antes.';
+    const msg = kind === 'no' ? 'Listo: no te lo sugiero más en tu plan.'
+      : kind === 'more' ? (g ? `Listo: te voy a sugerir más de ${g}.` : 'Listo: te lo voy a sugerir más.')
+      : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
@@ -938,6 +976,7 @@ function Taste({ title, host, habits, setHabits }: { title: string; host: GuideH
     <div class="gd-taste" role="group" aria-label="Para tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
+      {cur === 'more' && g && <p class="gd-taste-hint">Tu plan sube también los de {g}.</p>}
     </div>
   );
 }
