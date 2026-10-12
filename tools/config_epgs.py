@@ -6,7 +6,9 @@ arma la corrida diaria, igual que la guía de cada perfil: una sola pasada por l
 escribiendo todas a la vez. Cada una lleva los canales de guía elegidos en su configuración
 (`channels[nombre].epg`) y su programación.
 
-Uso: `python tools/config_epgs.py --configs <dir con cfg/*.json> --out out/cfg_epg`.
+Uso: `python tools/config_epgs.py --configs <dir con cfg/*.json> --out out/cfg_epg [--idle out/idle.json]`.
+Con --idle (tools/config_activity.py), las configuraciones sin uso no reciben guía nueva; las que ya tienen
+la suya se quedan como están.
 """
 import argparse
 import contextlib
@@ -38,7 +40,19 @@ def load_configs(configs_dir):
     return out
 
 
-def build(configs, merged_path, out_dir):
+def load_idle(path):
+    """Los cfgId sin uso de tools/config_activity.py. Sin archivo (o ilegible) no se salta ninguno: se arman todas."""
+    if not path or not os.path.exists(path):
+        return set()
+    try:
+        with open(path, encoding='utf-8') as f:
+            return set(json.load(f).get('configs') or [])
+    except (OSError, ValueError, AttributeError):
+        print(f"⚠️  {path} ilegible: se arman todas las guías")
+        return set()
+
+
+def build(configs, merged_path, out_dir, skip=()):
     if not configs:
         print("ℹ️  Sin configuraciones de Grilla web: no hay guías para armar")
         return {}
@@ -53,6 +67,8 @@ def build(configs, merged_path, out_dir):
             real.setdefault(channel_alias(c.get('id')), c.get('id'))
     guides = {}
     for cfg_id, config in configs.items():
+        if cfg_id in skip:
+            continue
         # Cada canal sale con el id que guardó la configuración (el tvg-id de su playlist): el alias, o el
         # real si todavía no se abrió en la web con la guía enmascarada. El alias gana si están los dos.
         out_ids = {}
@@ -78,8 +94,9 @@ def main(argv=None):
     ap.add_argument('--configs', required=True)
     ap.add_argument('--merged', default=gp.MERGED_EPG_PATH)
     ap.add_argument('--out', default=os.path.join('out', 'cfg_epg'))
+    ap.add_argument('--idle', help='JSON de tools/config_activity.py: estas configuraciones no reciben guía nueva')
     args = ap.parse_args(argv)
-    build(load_configs(args.configs), args.merged, args.out)
+    build(load_configs(args.configs), args.merged, args.out, skip=load_idle(args.idle))
     return 0
 
 

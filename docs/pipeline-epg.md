@@ -273,6 +273,27 @@ override correspondiente.
   nuevas. Sin `category_order`, toda la sección se ordena alfabéticamente. El formato viejo
   (una lista, donde la posición es el orden) también se sigue aceptando.
 
+### Configuraciones sin uso (`tools/config_activity.py`)
+
+Cada configuración de Grilla web tiene su propia guía (`epg/<cfgId>.xml.gz`), así que sin límite la corrida
+diaria escribe una más por cada persona. Una configuración está **en uso** si en los últimos 30 días pasó
+alguna de estas dos cosas:
+
+- la editaron (`cfg/<cfgId>.json` cambió en R2: el Worker lo escribe en cada edición), o
+- alguno de sus links de reproducción se usó (`lastUsed` de `short/<código>.json`, que el Worker anota como mucho
+  una vez por hora).
+
+Las que no están en uso no reciben guía nueva en la corrida diaria. Lo que **no** cambia:
+
+- no se borra ni se cambia ningún link (`short/`, `devices/`), ni su `epg/` existente: la subida ya no usa
+  `--delete` sobre `epg/`, así que queda la última guía armada;
+- el índice por hora (`ui/schedule/cfg/<cfgId>`) sigue armándose para todas: lo lee la Guía de la edición, y sin él
+  mostraría la guía de toda la programación;
+- si alguien la vuelve a usar, el link anota el uso y la corrida siguiente la arma; si la edita,
+  `refresh-lists.yml` la arma a la hora.
+
+Si el cálculo falla, se arman todas como antes. El resultado queda en `out/idle.json` del paso de subida.
+
 ## Perfiles de la corrida (opcional)
 
 La corrida diaria **no necesita ninguna credencial de proveedor**: la programación y el catálogo de toda la guía salen
