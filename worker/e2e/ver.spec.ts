@@ -239,5 +239,16 @@ test('la app del editor instalada abre el editor aunque el dispositivo tenga un 
   await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
   await page.goto('/');
   await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
   await expect(page).not.toHaveURL(/\/ver/);
+});
+
+test('un dispositivo solo con el código para ver, con la app del editor instalada, no llega al editor', async ({ page }) => {
+  // Sin configuración propia (solo el código para ver): la app del editor muestra el alta, nunca la grilla de la casa.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
+  await expect(page.locator('#homeLink')).toBeVisible();
 });
