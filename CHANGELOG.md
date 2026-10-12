@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.7
+
+- **«Salir del modo ver» está en Configuración.** Antes solo estaba al final de la lista de canales, y no se encontraba. Ahora, en el engranaje de Canales, la hoja Configuración tiene la opción. Sigue pidiendo el código de la casa.
+
 ## 1.46.6
 
 - Interno: el Worker escribe el tipo de cada pedido en su registro como JSON (`{"route":…}`), para que Workers Logs lo lea como campo y el registro de consumo (`tools/consumo.py`) muestre la CPU por tipo de pedido. No cambia ninguna respuesta.

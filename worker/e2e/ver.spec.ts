@@ -161,7 +161,8 @@ test('pegar el código para ver al abrir nowline deja el dispositivo en modo ver
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-who')).toContainText('Abuela');
   // Salir pide el código de la casa: otro código no sirve y el dispositivo sigue en modo ver.
-  await page.getByRole('button', { name: 'Salir del modo ver' }).click();
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.locator('dialog.settings-sheet').getByRole('button', { name: 'Salir del modo ver' }).click();
   await page.getByLabel('Código de la casa').fill('otro0123456789abcdef.otraclave0123456789abcdef');
   await page.locator('dialog.ask-sheet button[type=submit]').click();
   await expect(page.locator('dialog.ask-sheet [role=alert]')).toBeVisible();
