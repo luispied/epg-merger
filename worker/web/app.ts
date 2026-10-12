@@ -1000,7 +1000,8 @@ function renderFilterBar() {
     cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
   }
   listCats = listCats.filter((c) => cats.has(c));
-  const categories = [...cats].map(([key, count]) => ({ key, label: groupLabel(key), count }));
+  // En el orden de la lista (el que arregló la persona), no en el del proveedor.
+  const categories = groups().filter((key) => cats.has(key)).map((key) => ({ key, label: groupLabel(key), count: cats.get(key)! }));
   const model: FilterModel = { filter: state.filter, cats: listCats, states, categories };
   renderFilterControls(model);
 }
