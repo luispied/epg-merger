@@ -49,7 +49,8 @@ Para cada programa numerado recibís el título y, a veces, la descripción. Dev
   nombre del programa: «Blue Bloods» → «policial, nueva york», no «blue bloods».
 - Publicidad: infomerciales, televentas y avisos que venden un producto («llame ya», cremas, monedas, aparatos).
 - vivo: true solo si el título o la descripción dicen que es en vivo o en directo.
-Si no alcanza la información, usá el título; si sigue sin alcanzar, genero «Otro» y temas vacíos."""
+Si no hay descripción, clasificá por el título: si reconocés la película, la serie o el programa, usá lo que sabés de él
+(«Robot Salvaje» → Infantil). «Otro» solo si de verdad no se puede saber qué es."""
 
 SCHEMA = {
     'type': 'object',
