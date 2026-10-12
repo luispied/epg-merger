@@ -37,13 +37,17 @@ PER_REQUEST = 50
 MAX_TOPICS = 3
 
 GENRES = ['Película', 'Serie', 'Telenovela', 'Deportes', 'Noticias', 'Documental', 'Infantil', 'Entretenimiento',
-          'Reality', 'Música', 'Cocina', 'Estilo de vida', 'Humor', 'Religión', 'Educativo', 'Otro']
+          'Reality', 'Música', 'Cocina', 'Estilo de vida', 'Humor', 'Religión', 'Educativo', 'Publicidad', 'Otro']
+# Lo que Tu plan nunca sugiere aunque el programa dure 25 minutos o más.
+NEVER_SUGGEST = {'Publicidad'}
 
 SYSTEM = f"""Clasificás programas de una guía de TV de Latinoamérica para un recomendador.
 Para cada programa numerado recibís el título y, a veces, la descripción. Devolvé, para cada número:
 - genero: uno solo de esta lista: {', '.join(GENRES)}.
 - temas: hasta {MAX_TOPICS} temas cortos en castellano y en minúscula que sirvan para encontrar programas parecidos
-  (subgénero, deporte, liga, equipos, país, público). Los nombres propios, como van. Sin repetir el género.
+  (subgénero, deporte, liga, equipos, país, público). Los nombres propios, como van. Sin repetir el género ni el
+  nombre del programa: «Blue Bloods» → «policial, nueva york», no «blue bloods».
+- Publicidad: infomerciales, televentas y avisos que venden un producto («llame ya», cremas, monedas, aparatos).
 - vivo: true solo si el título o la descripción dicen que es en vivo o en directo.
 Si no alcanza la información, usá el título; si sigue sin alcanzar, genero «Otro» y temas vacíos."""
 
@@ -83,19 +87,28 @@ def requests_for(keys, titles):
     return out
 
 
-def parse(text, chunk, today):
-    """{clave: [género, temas, vivo, día]} de la respuesta de una tanda; ignora números fuera de rango."""
+def show_name(title):
+    """El nombre del programa, sin episodio ni temporada: «Blue Bloods · Cerca de casa» → «blue bloods»."""
+    return mt.norm(title.split(' · ')[0].split(':')[0])
+
+
+def parse(text, chunk, today, names=None):
+    """{clave: [género, temas, vivo, día]} de la respuesta de una tanda; ignora números fuera de rango y los
+    temas que repiten el nombre del programa (`names`: {clave: título}), que no sirven para buscar parecidos."""
     out = {}
     for item in json.loads(text).get('items', []):
         n = item.get('n')
         if not isinstance(n, int) or not 1 <= n <= len(chunk) or item.get('genero') not in GENRES:
             continue
-        topics = [' '.join(str(t).split()) for t in item.get('temas') or [] if str(t).strip()][:MAX_TOPICS]
-        out[chunk[n - 1]] = [item['genero'], topics, bool(item.get('vivo')), today]
+        key = chunk[n - 1]
+        name = show_name((names or {}).get(key, ''))
+        topics = [' '.join(str(t).split()) for t in item.get('temas') or [] if str(t).strip()]
+        topics = [t for t in topics if mt.norm(t) != name][:MAX_TOPICS]
+        out[key] = [item['genero'], topics, bool(item.get('vivo')), today]
     return out
 
 
-def collect_batch(client, batch_id, chunks, today):
+def collect_batch(client, batch_id, chunks, today, names=None):
     """Resultados de un lote terminado: ({clave: etiqueta}, tokens de entrada, tokens de salida, errores)."""
     genres, tin, tout, errors = {}, 0, 0, 0
     for res in client.messages.batches.results(batch_id):
@@ -109,7 +122,7 @@ def collect_batch(client, batch_id, chunks, today):
         tout += u.output_tokens or 0
         text = next((b.text for b in msg.content if b.type == 'text'), '')
         try:
-            genres.update(parse(text, chunk, today))
+            genres.update(parse(text, chunk, today, names))
         except ValueError:
             errors += 1
     return genres, tin, tout, errors
@@ -135,6 +148,11 @@ def pick(titles, genres, sample, limit):
     if sample:
         return plan[:sample]
     return [k for k in plan if k not in genres][:limit]
+
+
+def money(x):
+    """Como mt.usd, pero los centavos de una prueba no quedan en «US$ 0,00»."""
+    return mt.usd(x) if x >= 0.01 else f'US$ {x:.4f}'.replace('.', ',')
 
 
 def cost(tin, tout):
@@ -164,7 +182,7 @@ def summary(rows, spent, pending, sample):
         lines.append(f'El lote sigue en proceso: lo recoge la corrida siguiente ({pending} títulos).')
     if spent:
         lines.append(f"{spent['titles']} títulos clasificados · {spent['tokens_in']:,} tokens de entrada y "
-                     f"{spent['tokens_out']:,} de salida · **{mt.usd(spent['cost'])}**"
+                     f"{spent['tokens_out']:,} de salida · **{money(spent['cost'])}**"
                      + (f" · {spent['errors']} tandas con error" if spent['errors'] else ''))
     if rows:
         lines += ['', '| Programa | Género | Temas |', '|---|---|---|']
@@ -195,6 +213,7 @@ def main(argv=None):
     spend = (read_json(r2, SPEND_KEY) if r2 else None) or []
     pending = (read_json(r2, PENDING_KEY) if r2 else None) or None
     titles = mt.collect(mt.SCHEDULE_DIR, mt.used_files(configs) if configs else None)
+    names = {k: v[0] for k, v in titles.items()}
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     client = anthropic.Anthropic()
     minutes = float(os.environ.get('AI_WAIT_MIN') or 20)
@@ -202,12 +221,13 @@ def main(argv=None):
 
     # Primero, el lote que quedó en proceso en la corrida anterior.
     if pending and wait(client, pending['id'], 0):
-        g, i, o, e = collect_batch(client, pending['id'], pending['chunks'], today)
+        g, i, o, e = collect_batch(client, pending['id'], pending['chunks'], today, names)
         got.update(g)
         tin, tout, errors, pending = tin + i, tout + o, errors + e, None
 
     keys = [] if pending else pick(titles, genres, sample, int(os.environ.get('AI_MAX_TITLES') or 3000))
-    todo = [k for k in keys if k not in genres and k not in got]
+    # La prueba vuelve a clasificar sus muestras aunque estén en el caché: sirve para ver un cambio en las instrucciones.
+    todo = [k for k in keys if k not in got and (sample or k not in genres)]
     if todo:
         reqs = requests_for(todo, titles)
         batch = client.messages.batches.create(requests=[
@@ -215,7 +235,7 @@ def main(argv=None):
         chunks = {cid: chunk for cid, chunk, _ in reqs}
         print(f'📤 Lote {batch.id}: {len(todo)} títulos en {len(reqs)} tandas')
         if wait(client, batch.id, minutes):
-            g, i, o, e = collect_batch(client, batch.id, chunks, today)
+            g, i, o, e = collect_batch(client, batch.id, chunks, today, names)
             got.update(g)
             tin, tout, errors = tin + i, tout + o, errors + e
         else:
