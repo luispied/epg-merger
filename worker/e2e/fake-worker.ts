@@ -29,7 +29,7 @@ const guide = [
 
 /** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. `extra` suma canales
  *  ([nombre, categoría]) a la lista del proveedor; `health` es lo que devuelve la prueba de canales. */
-export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown>; devices?: Record<string, unknown>[]; accounts?: Record<string, unknown> } = {}): Promise<Fake> {
+export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown>; devices?: Record<string, unknown>[]; accounts?: Record<string, unknown>; run?: Record<string, unknown> } = {}): Promise<Fake> {
   const list = [...channels, ...(opts.extra ?? []).map(([name, category], i) => ({ name, category, id: String(100 + i), ext: 'ts', icon: '', epgId: null }))];
   const fake: Fake = {
     writes: [],
@@ -79,6 +79,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (path.startsWith('/api/home/') && method === 'PUT') return json({});
     if (path === '/api/cfg/c1/health' && opts.health) return json(opts.health);
     if (path === '/api/cfg/c1/health/run' && method === 'DELETE') return json({ stopped: true });
+    if (path === '/api/cfg/c1/health/run' && method === 'POST') return json(opts.run ?? { started: true, requested: new Date().toISOString() });
     if (path === '/api/cfg/c1/reports') return json({ items: fake.reports });
     const rp = path.match(/^\/api\/cfg\/c1\/reports\/(\w+)$/);
     if (rp && method === 'DELETE') {
