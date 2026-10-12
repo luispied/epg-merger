@@ -32,6 +32,7 @@ import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
+import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
@@ -1085,12 +1086,24 @@ function loadHourNowDesc() {
     if (state.search.trim()) render();
   });
 }
+let topicsNow: TopicSearch | null = null;
+/** El índice de temas se baja la primera vez que se busca, no al abrir. */
+function loadTopicsNow() {
+  loadTopics().then((t) => {
+    if (!t || t === topicsNow) return;
+    topicsNow = t;
+    if (state.search.trim()) render();
+  });
+}
 /** El programa en el aire del EPG del canal, si coincide con la búsqueda por título o descripción. */
 function programMatch(ch: Channel, q: string): NowPlaying | null {
   const epg = state.cfg!.channels[ch.name]?.epg;
   if (!q || !hourNow || !epg) return null;
   const cur = nowFromHour(hourNow, epg);
-  return cur && hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q) ? cur : null;
+  if (!cur) return null;
+  // Por título y descripción, o por el género y los temas del programa (ui/ topics.ts): «mundial» encuentra un partido sin decirlo.
+  return hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q)
+    || topicsNow?.match(q).has(titleKey(cur.title)) ? cur : null;
 }
 
 /** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
@@ -2818,6 +2831,7 @@ function setupEditor() {
     clearTimeout(t);
     loadHourNow(); // por si cambió la hora desde que se abrió
     loadHourNowDesc();
+    if ((ev.target as HTMLInputElement).value.trim()) loadTopicsNow();
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;

@@ -60,6 +60,14 @@ test('índice por hora y de la guía: el guardado en gzip viaja tal cual, el vie
   assert.equal(await plain.text(), body);
   assert.equal((await handle(req('/api/ui/schedule/hour/x.json'), t.env, t.ctx, t.cache)).status, 404);
 
+  // El índice para buscar por tema, también guardado en gzip.
+  const topics = '{"g":["Deportes"],"v":["mundial"],"t":["uruguay vs. brasil"],"r":[[0,0]]}';
+  assert.equal((await handle(req('/api/ui/schedule/topics.json'), t.env, t.ctx, t.cache)).status, 404);
+  await t.env.BUCKET.put('ui/schedule/topics.json', gzipSync(topics), { httpMetadata: { contentEncoding: 'gzip' } });
+  const tp = await handle(req('/api/ui/schedule/topics.json'), t.env, t.ctx, t.cache);
+  assert.equal(tp.headers.get('Content-Encoding'), 'gzip');
+  assert.equal(await gunzip(new Uint8Array(await tp.arrayBuffer())), topics);
+
   // El índice de la guía, igual.
   await t.env.BUCKET.put('guide/index.json', gzipSync('{"channels":[]}'), { httpMetadata: { contentEncoding: 'gzip' } });
   const guide = await handle(req('/api/guide/index.json'), t.env, t.ctx, t.cache);
