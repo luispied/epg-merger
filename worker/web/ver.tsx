@@ -26,6 +26,12 @@ type Entry = [number, number, string, string?];
 interface Prog { s: number; e: number; t: string }
 
 const CODE_KEY = 'grilla_ver_code';
+const THEME_KEY = 'grilla_theme';
+const THEMES = [
+  { v: 'light', label: 'Claro', icon: 'sun' },
+  { v: 'dark', label: 'Oscuro', icon: 'moon' },
+] as const;
+type Theme = typeof THEMES[number]['v'];
 const RE = /^[A-Za-z0-9_-]{20,32}$/;
 
 /** El código va después del # (no llega a ningún servidor en los registros); si no está, el último que se abrió acá. */
@@ -228,6 +234,42 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
   );
 }
 
+/** Ajustes de este dispositivo: el tema claro u oscuro, como en el editor. Queda guardado en el navegador. */
+function SettingsSheet({ close }: { close: () => void }) {
+  const dlg = useRef<HTMLDialogElement>(null);
+  const [theme, setTheme] = useState<Theme>(() => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'));
+  useLayoutEffect(() => {
+    dlg.current?.showModal();
+    return () => dlg.current?.close();
+  }, []);
+  const pick = (t: Theme) => {
+    setTheme(t);
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem(THEME_KEY, t); } catch { /* sin storage: vale por esta vez */ }
+  };
+  return (
+    <dialog class="sheet settings-sheet vw-settings" ref={dlg} onClose={close} aria-labelledby="vwSetTitle">
+      <div class="sheet-body">
+        <div class="title-row">
+          <h2 id="vwSetTitle">Ajustes</h2>
+          <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
+        </div>
+        <p class="vw-k">Este dispositivo</p>
+        <div class="vw-field">
+          <span class="vw-field-t"><strong>Tema</strong><small>Claro o oscuro, como lo quieras ver</small></span>
+          <div class="seg vw-seg" role="radiogroup" aria-label="Tema">
+            {THEMES.map((t) => (
+              <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} onClick={() => pick(t.v)}>
+                <Icon name={t.icon} />{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
 /** La ayuda del modo ver: corta, con letra grande y en el orden en que se descubre la app. */
 function HelpSheet({ close }: { close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
@@ -258,6 +300,10 @@ function HelpSheet({ close }: { close: () => void }) {
           <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
+          <summary>Ajustes<Icon name="chevron-down" /></summary>
+          <p>Tocá el engranaje, arriba a la derecha de Canales, para elegir el tema <b>claro</b> u <b>oscuro</b>. Queda guardado en este dispositivo.</p>
+        </details>
+        <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
           <p>Abrí el canal y tocá <b>Lo que dan en la tele no es esto</b>. Le llega un aviso a quien arma tu grilla para que lo arregle.</p>
         </details>
@@ -270,7 +316,7 @@ function HelpSheet({ close }: { close: () => void }) {
   );
 }
 
-function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void }) {
+function Channels({ code, data, channels, onOpen, onHelp, onSettings }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void; onSettings: () => void }) {
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
@@ -298,6 +344,7 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
             <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
           <span class="vw-head-r">
+            <button type="button" class="icon-btn" aria-label="Ajustes" title="Ajustes" onClick={onSettings}><Icon name="settings" /></button>
             <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
           </span>
         </div>
@@ -352,6 +399,7 @@ function App() {
   const [tab, setTab] = useState<'canales' | 'guia'>('canales');
   const [open, setOpen] = useState<GuideChannel | null>(null);
   const [help, setHelp] = useState(false);
+  const [settings, setSettings] = useState(false);
   const guideEl = useRef<HTMLElement>(null);
 
   const load = () => {
@@ -409,7 +457,7 @@ function App() {
 
   return (
     <>
-      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
+      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones">
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
@@ -421,6 +469,7 @@ function App() {
         </button>
       </nav>
       {help && <HelpSheet close={() => setHelp(false)} />}
+      {settings && <SettingsSheet close={() => setSettings(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>
   );

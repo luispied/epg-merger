@@ -1107,6 +1107,14 @@ body.viewer { font-size: 17px; }
 .vw-head-r .vw-who { max-width: none; min-width: 0; }
 .vw-help > .sheet-body > p, .vw-help details p { font-size: 17px; line-height: 1.55; }
 .vw-help summary { font-size: 17px; }
+.vw-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--hairline); }
+.vw-field-t { display: grid; gap: 2px; min-width: 0; }
+.vw-field-t strong { font-size: 18px; font-weight: 600; }
+.vw-field-t small { font-size: 14px; color: var(--muted); }
+.vw-settings .vw-k { color: var(--muted); } /* el verde es solo para lo que está en vivo */
+.vw-seg { flex: none; }
+.vw-seg button { height: 44px; min-width: 104px; padding: 0 14px; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.vw-seg .icon { width: 18px; height: 18px; }
 .vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; background: var(--bg); max-width: 760px; margin: 0 auto; }
 .vw-search .search-field input { font-size: 18px; min-height: 52px; }
 .vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
