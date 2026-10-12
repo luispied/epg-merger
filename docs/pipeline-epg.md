@@ -375,7 +375,6 @@ Las claves van solo a los secretos del repo: no se pegan en el chat ni en ningú
 | `check-core.yml`, `check-worker.yml`, `version-check.yml` | en cada PR | tipos, tests y versión + CHANGELOG |
 | `release.yml` | al llegar a `main` | crea la etiqueta y el release de la versión |
 | `delete-config.yml`, `delete-short-links.yml` | a mano | borrados puntuales en R2 |
-| `worker-smoke.yml` | a mano | prueba contra un Worker publicado; pide credenciales de un proveedor |
 
 Con el repo privado en el plan Free hay ~2000 minutos de Actions por mes: la corrida diaria gasta unos 8–10 minutos y
 `refresh-lists` uno o dos por corrida.

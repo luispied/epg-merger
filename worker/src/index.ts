@@ -351,7 +351,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         return json({ channels: (await loadM3u(body.url)).map(({ url: _url, ...ch }) => ch) });
       }
       if (body.type === 'xtream' && Array.isArray(body.servers) && typeof body.username === 'string' && typeof body.password === 'string') {
-        // User-Agent opcional: para diagnosticar proveedores que filtran por él (worker_smoke.py).
+        // User-Agent opcional: para diagnosticar proveedores que filtran por él.
         const ua = typeof body.userAgent === 'string' && body.userAgent ? body.userAgent.slice(0, 120) : undefined;
         const { server, channels } = await loadXtream(body.servers.map(String), body.username, body.password, ua);
         return json({ server, channels });

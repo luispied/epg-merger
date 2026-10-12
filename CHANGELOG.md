@@ -11,10 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.46.1
+## 1.46.2
 
 - **La app del modo ver abre como una app de verdad en el iPhone.** Antes, al agregarla a la pantalla de inicio desde el modo ver, iOS la abría en un modo viejo y la barra de abajo quedaba más arriba que en la edición. Ahora el modo ver trae su propio manifest (con su código), así la barra queda a la misma altura que en la edición. Si ya la tenías en inicio, quitá el ícono y volvé a agregarla desde la pantalla del modo ver: la anterior sigue abriendo en el modo viejo.
 - Worker: nuevo `/ver-app/<código>.webmanifest`.
+
+## 1.46.1
+
+- Worker: se quita la prueba manual `worker-smoke` (workflow y script), que dependía de credenciales del proveedor ya borradas. El relay la reemplazó.
 
 ## 1.46.0
 
