@@ -20,3 +20,4 @@ está en [`../docs/arquitectura.md`](../docs/arquitectura.md).
 | [`app-publica.md`](app-publica.md) | idea de largo plazo: app nativa sobre el mismo servicio |
 | [`evaluacion-app-nativa.md`](evaluacion-app-nativa.md) | evaluación: la PWA alcanza por ahora |
 | [`licencias-fuentes-epg.md`](licencias-fuentes-epg.md) | revisión de licencias de las fuentes de guía |
+| [`tests-e2e.md`](tests-e2e.md) | propuesta: plan de tests de punta a punta (fases, huecos, decisiones) |
