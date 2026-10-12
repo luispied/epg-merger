@@ -46,6 +46,9 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        # Caché de los paquetes de pip (se reusa mientras requirements.txt no cambie): baja el tiempo de instalación.
+        cache: 'pip'
+        cache-dependency-path: requirements.txt
 
     - name: Install dependencies
       run: pip install -r requirements.txt boto3
