@@ -47,7 +47,7 @@ sano del balanceador y la guía desde R2. Endpoints: ver el comentario de `src/i
 
 `web/` es la interfaz: conectar el proveedor, cruzar los canales con la guía en el navegador
 (con `@grilla/core`, el mismo matcher que la corrida de Python), corregir y copiar los links.
-`build.mjs` la compila con esbuild a `public/`, junto con los estilos e íconos de `docs/`.
+`build.mjs` la compila con esbuild a `public/`, junto con los estilos e íconos.
 Cloudflare la sirve en la misma dirección del Worker (`[assets]` en `wrangler.toml`) y corre la
 compilación sola antes de publicar (`[build]`).
 
