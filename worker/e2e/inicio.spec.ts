@@ -1,4 +1,4 @@
-// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión (en la app; en el modo ver sí vuelve). En el
+// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión (también en el modo ver). En el
 // resto de los tests no aparece (navigator.webdriver); acá se hace pasar por un navegador común.
 import { expect, test } from '@playwright/test';
 
@@ -28,13 +28,14 @@ test('en el modo ver se va cuando hay algo para mostrar', async ({ page }) => {
   await expect(page.locator('#splash')).toHaveCount(0);
 });
 
-test('en el modo ver el logo vuelve al recargar y no pasa por «Cargando los canales…»', async ({ page }) => {
-  // Los canales tardan: el logo se queda hasta que llegan (o hasta que la carga falla), sin el texto debajo.
+test('en el modo ver, al recargar no vuelve el logo: se ve el esqueleto, como en la edición', async ({ page }) => {
+  // Los canales tardan: el logo se ve al abrir y, al recargar, el esqueleto de tarjetas (sin texto de carga).
   await page.route('**/api/view/**', () => {});
-  await page.goto('/ver#codigo-que-tarda');
+  await page.goto('/ver#AbCdEfGhIjKlMnOpQrStUv');
   await expect(page.locator('#splash')).toBeVisible();
   await page.reload();
-  await expect(page.locator('html')).not.toHaveClass(/no-splash/);
-  await expect(page.locator('#splash')).toBeVisible();
-  await expect(page.locator('#splash .wordmark')).toHaveText('nowlıne');
+  await expect(page.locator('html')).toHaveClass(/no-splash/);
+  await expect(page.locator('#splash')).toHaveCount(0);
+  await expect(page.locator('.vw-skel .skeleton')).toHaveCount(4);
+  await expect(page.getByText('Cargando los canales')).toHaveCount(0);
 });

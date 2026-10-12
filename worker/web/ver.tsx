@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
-import { BrandFoot, Progress } from './ui/kit.tsx';
+import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { hideSplash } from './ui/splash.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
@@ -398,14 +398,14 @@ function App() {
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
 
-  // El logo de inicio se va cuando hay canales o un problema que mostrar: no pasa por «Cargando los canales…».
-  useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
+  // El logo de inicio se va apenas la pantalla dibuja, igual que en la edición: el esqueleto ya es la pantalla.
+  useEffect(() => { hideSplash(); }, []);
 
   if (!code) return <Problem title="Falta el código" text="Abrí nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
   if (err?.status === 409) return <Problem title="Todavía no hay canales" text="Probá de nuevo en un rato." retry={load} />;
   if (err && !data) return <Problem title="No se pudo cargar" text={err.status ? 'Algo falló del otro lado. Probá de nuevo.' : 'Revisá la conexión a internet.'} retry={load} />;
-  if (!data) return <main class="vw-loading" aria-busy="true"><Icon name="loader-circle" class="spin" /><span>Cargando los canales…</span></main>;
+  if (!data) return <main class="vw-skel" aria-busy="true" aria-label="Cargando los canales"><Skeleton /></main>;
 
   return (
     <>

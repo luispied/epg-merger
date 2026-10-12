@@ -13,7 +13,7 @@ nombres de código.
 
 ## 1.42.1
 
-- **En el modo ver, el logo de inicio vuelve al recargar.** Al abrir o recargar la página de un código para ver, se ve el logo con «nowline» hasta que llegan los canales, y pasa directo a la lista, sin el «Cargando los canales…» en el medio. Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+- **El modo ver carga como la edición.** El logo de inicio se ve al abrir y no vuelve al recargar. Mientras llegan los canales, aparecen tarjetas de carga en vez del texto «Cargando los canales…». Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
 
 ## 1.42.0
 
