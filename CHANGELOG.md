@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.42.4
+
+- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
+
 ## 1.42.3
 
 - **El filtro de categorías solo ofrece las categorías visibles.** Las ocultas no aparecen en la hoja de filtros, y los estados sin canales (Ocultos, Editados, Elegidos a mano) tampoco salen si no hay nada que mostrar.

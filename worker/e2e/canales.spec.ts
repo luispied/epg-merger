@@ -71,10 +71,11 @@ test('buscar, el vacío y ver todos', async ({ page }) => {
   await expect(search).toHaveValue('');
   await expect(cards(page).locator('.card')).toHaveCount(7);
 
-  await pickState(page, 'Ocultos');
-  await expect(cards(page).locator('.empty')).toContainText('No ocultaste ningún canal.');
-  await cards(page).getByRole('button', { name: 'Ver todos los canales' }).click();
-  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar');
+  // Sin canales ocultos, el filtro «Ocultos» no se ofrece en la hoja.
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await expect(sheet.getByRole('button', { name: /^Ocultos/ })).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Listo' }).click();
   await expect(cards(page).locator('.card')).toHaveCount(7);
 });
 
