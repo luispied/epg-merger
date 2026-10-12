@@ -10,9 +10,11 @@ export function hideSplash() {
   const el = document.getElementById('splash');
   if (!el || hiding) return;
   hiding = true;
-  if (document.documentElement.classList.contains('no-splash')) { el.remove(); return; }
+  const root = document.documentElement;
+  if (root.classList.contains('no-splash')) { el.remove(); root.classList.remove('splash-on'); return; }
+  // La app queda tapada (splash-on) hasta que el logo se fue del todo: así el esqueleto no se ve a través del fundido.
   setTimeout(() => {
     el.classList.add('out');
-    setTimeout(() => el.remove(), FADE_MS);
+    setTimeout(() => { el.remove(); root.classList.remove('splash-on'); }, FADE_MS);
   }, Math.max(0, MIN_MS - performance.now()));
 }

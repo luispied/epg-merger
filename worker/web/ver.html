@@ -34,7 +34,12 @@
     // Texto grande: el mismo ajuste que la edición (la barra inferior mide y queda igual en los dos).
     if (localStorage.getItem('grilla_text') === 'lg') document.documentElement.dataset.text = 'lg';
     if (sessionStorage.getItem('nowline_splash') || navigator.webdriver) document.documentElement.classList.add('no-splash');
-    else sessionStorage.setItem('nowline_splash', '1');
+    else {
+      sessionStorage.setItem('nowline_splash', '1');
+      document.documentElement.classList.add('splash-on');
+      // Plan B: si la app no llega a sacar el logo (error de JS, red lenta), a los 5 s se muestra igual.
+      setTimeout(function () { var s = document.getElementById('splash'); if (s) s.remove(); document.documentElement.classList.remove('splash-on'); }, 5000);
+    }
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
 <link rel="stylesheet" href="app.css?v=__VERSION__">
