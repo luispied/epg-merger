@@ -10,7 +10,7 @@ import classify_genres as cg  # noqa: E402
 
 
 def titles(n):
-    return {f'k{i:03}': (f'Programa {i}', 'Una descripción ' * 40 if i % 2 else '', i % 5 != 0) for i in range(n)}
+    return {f'k{i:03}': (f'Programa {i}', 'Una descripción ' * 40 if i % 2 else '', i % 5 != 0, 1, 1) for i in range(n)}
 
 
 def test_tandas_de_50_con_titulos_numerados_y_descripcion_recortada():
@@ -72,6 +72,24 @@ def test_temas_sin_el_nombre_del_programa_y_publicidad():
     assert got['a'][:2] == ['Serie', ['policial', 'nueva york']]
     assert got['b'][:2] == ['Publicidad', ['cosmética']]
     assert 'Publicidad' in cg.NEVER_SUGGEST and 'Publicidad' in cg.SYSTEM
+
+
+def test_pick_prioriza_canales_mas_usados_y_luego_emisiones():
+    t = {'a': ('A', '', True, 1, 50), 'b': ('B', '', True, 5, 1), 'c': ('C', '', True, 5, 9),
+         'd': ('D', '', False, 9, 99), 'e': ('E', '', True, 0, 3)}
+    assert cg.pick(t, {}, 0, 10) == ['c', 'b', 'a', 'e']   # d es muy corto; c y b: mismo canal, c aparece más
+    assert cg.pick(t, {'c': ['Serie', [], False, 'x']}, 0, 2) == ['b', 'a']
+
+
+def test_tope_de_gasto_del_mes():
+    spend = [{'date': '2026-10-02', 'cost': 1.5}, {'date': '2026-09-30', 'cost': 4.0}, {'date': '2026-10-09', 'cost': 0.25}]
+    assert cg.month_spent(spend, '2026-10-12') == 1.75
+    t = {f'k{i}': (f'Programa {i}', 'Una descripción ' * 20, True, 1, 1) for i in range(1000)}
+    keys = sorted(t)
+    one = cg.title_cost(*t['k0'][:2])
+    assert cg.within_budget(keys, t, 0) == []
+    assert len(cg.within_budget(keys, t, one * 10.5)) == 10
+    assert len(cg.within_budget(keys, t, 100)) == 1000
 
 
 def test_costo_de_una_prueba_no_queda_en_cero():

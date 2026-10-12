@@ -21,7 +21,7 @@ def guide(tmp, extra=()):
     write(tmp, 'Teledoce.uy', [
         [0, H, 'Telemundo', 'El noticiero central con todo lo del día.'],
         [H, 2 * H, 'TELEMUNDO  ', 'Una descripción bastante más larga del noticiero de la noche.'],
-        [2 * H, 2 * H + 600, 'Avance'],             # corto: no entra en Tu noche
+        [2 * H, 2 * H + 240, 'Avance'],             # menos de 5 minutos: no es un programa
         [3 * H, 4 * H, 'Programa pagado'],          # genérico
         [4 * H, 5 * H, 'Infomercial de cuchillos'],  # relleno
     ])
@@ -37,6 +37,7 @@ def test_collect_dedupe_genericos_y_tu_noche(tmp_path):
     # Mismo título con otras mayúsculas y espacios: uno solo, con la descripción más larga.
     assert by['Telemundo'][1].startswith('Una descripción bastante')
     assert by['Avance'][2] is False and by['Telemundo'][2] is True
+    assert by['Telemundo'][4] == 2 and by['SportsCenter'][4] == 1   # emisiones
 
 
 def test_canales_en_uso_por_alias_o_id_viejo(tmp_path):
@@ -45,6 +46,17 @@ def test_canales_en_uso_por_alias_o_id_viejo(tmp_path):
                'b': {'channels': {'ESPN': {'epg': 'ESPN.ar'}, 'Otro': {'epg': None}, 'X': {}}}}
     titles = mt.collect(str(tmp_path), mt.used_files(configs))
     assert sorted(v[0] for v in titles.values()) == ['Peñarol vs. Nacional', 'SportsCenter']
+    # El peso es cuántas configuraciones usan el canal.
+    assert mt.used_files(configs) == {mt.schedule_file('Canal10.uy'): 1, mt.schedule_file('ESPN.ar'): 1}
+    configs['c'] = {'channels': {'X': {'epg': 'ESPN.ar'}, 'Y': {'epg': 'ESPN.ar'}}}
+    weights = {v[0]: v[3] for v in mt.collect(str(tmp_path), mt.used_files(configs)).values()}
+    assert weights == {'Peñarol vs. Nacional': 1, 'SportsCenter': 2}
+
+
+def test_programas_cortos_de_5_minutos_o_mas_se_clasifican(tmp_path):
+    write(str(tmp_path), 'Kids.uy', [[0, 11 * 60, 'Peppa Pig · Ep. 1'], [H, H + 299, 'Sorteo']])
+    by = {v[0]: v for v in mt.collect(str(tmp_path)).values()}
+    assert by['Peppa Pig · Ep. 1'][2] is True and by['Sorteo'][2] is False
 
 
 def test_medicion_cuenta_nuevos_de_un_dia_a_otro_y_olvida(tmp_path):
