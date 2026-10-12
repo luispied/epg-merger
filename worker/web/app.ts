@@ -199,11 +199,14 @@ const saveLocal = (l: Local | null) => {
 
 /** Un GET que falla por la red o por un error pasajero del servidor (5xx) se reintenta dos veces (a los 0,6 y 1,8 s):
  *  con datos móviles el primer pedido a veces se corta y la grilla quedaba sin cargar. Los cambios no se reintentan. */
+/** Un pedido que no contesta en este tiempo se da por caído (en el celular, una conexión colgada dejaba la carga
+ *  esperando para siempre). */
+const GET_TIMEOUT_MS = 20000;
 async function fetchRetry(path: string, init: RequestInit = {}): Promise<Response> {
   const get = !init.method || init.method === 'GET';
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(path, init);
+      const res = await fetch(path, get ? { ...init, signal: AbortSignal.timeout(GET_TIMEOUT_MS) } : init);
       if (!get || res.status < 500 || i >= 2) return res;
     } catch (e) {
       if (!get || i >= 2) throw e;
@@ -211,6 +214,14 @@ async function fetchRetry(path: string, init: RequestInit = {}): Promise<Respons
     await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
   }
 }
+
+/** Sin red de verdad: el navegador no tiene conexión o el pedido falló en el camino. Un error de código (o del
+ *  servidor) no cuenta: antes, cualquier TypeError se mostraba como «sin conexión». */
+const offlineError = (e: unknown) => !navigator.onLine || (e instanceof TypeError && /fetch|network|load failed|aborted/i.test(e.message));
+/** El servidor no contestó a tiempo (y no es falta de conexión). */
+const slowError = (e: unknown) => e instanceof DOMException && e.name === 'TimeoutError';
+/** Lo que se le dice a la persona cuando algo de la carga falla. */
+const loadError = (e: unknown) => (offlineError(e) ? 'sin conexión' : slowError(e) ? 'el servidor tarda en responder' : (e as Error).message);
 
 /** Cuántos cambios de links, perfiles o cuentas se mandaron al Worker: Perfil dibuja con lo que ya tiene solo si no hubo ninguno desde que lo bajó. */
 let apiWrites = 0;
@@ -221,10 +232,24 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
   if (opts.key) headers.Authorization = `Bearer ${opts.key}`;
   else if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
-  const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
-  return data as T;
+  const get = (opts.method ?? 'GET') === 'GET';
+  for (let i = 0; ; i++) {
+    const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+    let data: unknown = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      // Con la respuesta bien pero el cuerpo cortado (pasa en la red del celular), se vuelve a pedir. Un error del
+      // servidor que no trae JSON sigue siendo un error con su código.
+      if (res.ok && get && i < 2) {
+        await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
+        continue;
+      }
+      if (res.ok) throw e;
+    }
+    if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
+    return data as T;
+  }
 }
 
 // ------------------------------------------------------------------ hogar
@@ -589,11 +614,9 @@ let guideAt: string | null = null;
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
-  const res = await fetchRetry('/api/guide/index.json');
-  if (!res.ok) throw new Error(`la guía no respondió (HTTP ${res.status})`);
-  const guide = await res.json() as {
+  const guide = await api<{
     matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[]; generated_at?: string;
-  };
+  }>('/api/guide/index.json', { auth: false });
   guideAt = guide.generated_at ?? null;
   onStatus('Preparando la guía…');
   await new Promise((r) => setTimeout(r));
@@ -709,7 +732,6 @@ function scheduleSave() {
 }
 // Sin conexión, los cambios quedan en este navegador y se mandan solos cuando vuelve.
 const PENDING_KEY = (cfgId: string) => `grilla_pending_${cfgId}`;
-const offlineError = (e: unknown) => !navigator.onLine || e instanceof TypeError;
 
 async function saveNow(announce = true) {
   clearTimeout(saveTimer);
@@ -2489,11 +2511,18 @@ async function openSaved(soft = false) {
       } catch { /* sin storage */ }
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
-    await loadGuide(say);
+    // Si la guía no baja, la lista de canales igual se ve (sin logos ni programa): se avisa arriba y «Reintentar» la vuelve a pedir.
+    let guideError: unknown = null;
+    try {
+      await loadGuide(say);
+    } catch (e) {
+      guideError = e;
+    }
     const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if ((await rematch(say)) || pending || masked) await saveNow(false);
     status(st, null);
+    if (guideError) status(st, `No se pudo bajar la guía: ${loadError(guideError)}`, 'bad', () => void refreshGrid());
     detectNew();
     placeNewCategories();
     main.classList.remove('loading');
@@ -2515,7 +2544,7 @@ async function openSaved(soft = false) {
       state.creds = null;
       showOnboarding();
     } else {
-      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad', () => void refreshGrid());
+      status(st, `No se pudo cargar la grilla: ${loadError(e)}`, 'bad', () => void refreshGrid());
     }
   }
 }
