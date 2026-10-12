@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.48.0
+
+- **Filtros de la Guía, como los de Canales.** Las categorías y los géneros ya no son filas de chips: hay un botón de filtros arriba, al lado de Grilla y Próximos, con el número de filtros puestos. Abre una hoja con las categorías (en el orden de tu lista) y, en Grilla y Próximos, los géneros; lo que elegís queda debajo del título como chips con su ×, más «Quitar todos». «Tengo tiempo» sigue en Próximos. Es el mismo patrón en la edición y en el modo ver, y la Guía sigue eligiendo aparte de Canales. En Tu noche, «Elegir otras» abre esa hoja.
+
 ## 1.47.0
 
 - **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.

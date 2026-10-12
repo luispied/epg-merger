@@ -1032,6 +1032,7 @@ body.guide-open { overflow: hidden; }
 .gd-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px max(var(--gutter), calc((100% - 728px) / 2)) 10px; scrollbar-width: none; flex: none; }
 .gd-chips::-webkit-scrollbar { display: none; }
 .gd-chips .chip-btn { flex: none; }
+.gd-chips.active-filters { align-items: center; }
 .gd { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--hairline); overscroll-behavior: contain; }
 /* Lo último queda arriba de la barra de pestañas (flota sobre la grilla). */
 .gd-inner { margin-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
@@ -1319,16 +1320,8 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .cd-text code.muted { color: var(--muted); font-family: inherit; }
 .cd-row .btn { flex: none; }
 
-/* Guía: varias categorías (la raya entre las elegidas y las rápidas, «Más» y su hoja) y el aviso de Tu noche */
-.gd-chips-sep { flex: none; width: 1px; height: 22px; align-self: center; background: var(--hairline); }
-.gd-more-chip { color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
-.gc-sheet .search-field { margin: 4px 0 8px; }
-.gc-list { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; }
-.gc-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-top: 1px solid var(--hairline); cursor: pointer; }
-.gc-row:first-child { border-top: 0; }
-.gc-row input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+/* Guía: los filtros (hoja de ui/filtros.tsx), el aviso de Tu noche y el pie de las hojas */
 .gc-name { flex: 1; min-width: 0; font-size: 16px; }
-.gc-count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .gc-foot { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; margin-top: 12px; background: linear-gradient(to top, var(--surface) 78%, transparent); }
 .gc-foot .btn { min-height: 48px; }
 .gc-foot .btn-primary { flex: 1; }

@@ -4,6 +4,7 @@
 // Se virtualiza en los dos ejes: solo se pintan las filas y los programas que entran en pantalla.
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { ActiveFilters, FilterToggle, type FilterHandlers, type FilterModel } from './filtros.tsx';
 import { Icon } from './icon.tsx';
 import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
@@ -142,9 +143,6 @@ export function catsLabel(cats: string[]): string {
   if (cats.length > 3) return `${cats.length} categorías`;
   return cats.length > 1 ? `${cats.slice(0, -1).join(', ')} y ${cats.at(-1)}` : cats[0] ?? '';
 }
-// Con pocas categorías van todas en la fila; con más, las elegidas, las que más canales con guía tienen y «Más».
-const MANY_CATS = 8;
-const QUICK_CATS = 5;
 
 // Preferencias de la Guía en este navegador (modo, rato libre y categorías); sin almacenamiento, los valores por defecto.
 const pref = {
@@ -238,10 +236,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     box.current?.scrollTo({ top: 0 });
   };
   const toggleCat = (c: string) => setSel(sel.includes(c) ? sel.filter((x) => x !== c) : [...sel, c]);
-  const byCount = (a: string, b: string) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
-  const many = cats.length > MANY_CATS;
-  const quick = many ? cats.filter((c) => !sel.includes(c)).sort(byCount).slice(0, QUICK_CATS) : [];
-  const [picking, setPicking] = useState(false);
+  // Pedir que se abra la hoja de filtros (el aviso de Tu noche): cada pedido es un número nuevo.
+  const [openSig, setOpenSig] = useState(0);
   // Géneros: otro filtro, aparte de las categorías (se pueden combinar) y propio de la Guía. Se recuerdan en este navegador.
   const [gsel, setGselState] = useState<string[]>(savedGenres);
   const setGsel = (next: string[]) => { setGselState(next); pref.set('genres', JSON.stringify(next)); };
@@ -313,6 +309,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     }
     return [...found].sort((a, b) => a.localeCompare(b, 'es'));
   }, [mode, shown, ver, gsel, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR), Math.floor(now / HOUR)]);
+
+  // Los filtros de la Guía, con el mismo botón, chips y hoja que Canales (ui/filtros.tsx): las categorías en el orden
+  // de la app y los géneros de lo que se ve. En Tu noche solo valen las categorías.
+  const filterModel: FilterModel = {
+    filter: 'todos', states: [], cats: sel,
+    categories: cats.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
+    ...(mode === 'plan' ? {} : { genres: gsel, genreOptions: genres.map((g) => ({ key: g, label: g })) }),
+  };
+  const filterHandlers: FilterHandlers = { onState: () => {}, onCats: setSel, onGenres: setGsel };
+  const filterCount = sel.length + (mode === 'plan' ? 0 : gsel.length);
 
   // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
   // lugar, en vez de quedar vacía.
@@ -425,49 +431,27 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
               {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
             </span>
           )}
-          {mode !== 'plan' && (
+          {mode !== 'plan' ? (
             // En la misma fila que el título: la vista elegida en color pleno y subrayada, la otra apagada.
             <span class="gd-modes" role="radiogroup" aria-label="Cómo ver la Guía">
               {([['grid', 'Grilla'], ['next', 'Próximos']] as [Mode, string][]).map(([m, label]) => (
                 <button type="button" key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}>{label}</button>
               ))}
             </span>
-          )}
+          ) : null}
+          <FilterToggle model={filterModel} handlers={filterHandlers} openSignal={openSig} />
         </div>
       </header>
-      <nav class="gd-chips" aria-label="Categorías">
-        {mode === 'next' && (
-          <button type="button" class="chip-btn gd-time-chip" aria-pressed={budgetOn} onClick={() => setBudgetOn(!budgetOn)}>
-            <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
-          </button>
-        )}
-        <button type="button" class="chip-btn" aria-pressed={!sel.length} onClick={() => setSel([])}>Todas</button>
-        {(many ? sel : cats).map((c) => (
-          <button type="button" key={c} class="chip-btn" aria-pressed={sel.includes(c)} onClick={() => toggleCat(c)}>
-            {sel.includes(c) && <Icon name="check" class="sm" />}{c}
-          </button>
-        ))}
-        {many && sel.length > 0 && <span class="gd-chips-sep" aria-hidden="true" />}
-        {quick.map((c) => (
-          <button type="button" key={c} class="chip-btn" aria-pressed="false" onClick={() => toggleCat(c)}>{c}</button>
-        ))}
-        {many && (
-          <button type="button" class="chip-btn gd-more-chip" onClick={() => setPicking(true)} aria-haspopup="dialog">
-            <Icon name="plus" class="sm" />Más · {cats.length}
-          </button>
-        )}
-      </nav>
-      {genres.length > 0 && (
-        <nav class="gd-chips gd-genres" aria-label="Géneros">
-          <button type="button" class="chip-btn" aria-pressed={!gsel.length} onClick={() => setGsel([])}>Todos</button>
-          {genres.map((g) => (
-            <button type="button" key={g} class="chip-btn" aria-pressed={gsel.includes(g)} onClick={() => toggleGenre(g)}>
-              {gsel.includes(g) && <Icon name="check" class="sm" />}{g}
+      {(mode === 'next' || filterCount > 0) && (
+        <nav class="gd-chips active-filters" aria-label="Filtros activos">
+          {mode === 'next' && (
+            <button type="button" class="chip-btn gd-time-chip" aria-pressed={budgetOn} onClick={() => setBudgetOn(!budgetOn)}>
+              <Icon name="clock" class="sm" />{budgetOn ? `Tengo ${dur(budget * 60)}` : 'Tengo tiempo'}
             </button>
-          ))}
+          )}
+          <ActiveFilters model={filterModel} handlers={filterHandlers} />
         </nav>
       )}
-      {picking && <CatSheet cats={cats} counts={counts} sel={sel} toggle={toggleCat} clear={() => setSel([])} close={() => setPicking(false)} />}
       {mode !== 'plan' && channels.some((c) => c.epg && !c.quiet) && (
         <button type="button" class="gd-teaser" onClick={() => setMode('plan')}>
           <span class="ic"><Icon name="sparkles" /></span>
@@ -485,8 +469,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       )}
       {mode === 'plan' && channels.length > 0 && (
         <Plan channels={shown} now={now} host={host} habits={habits} open={(ch, p) => setOpen({ ch, p })} filter={sel}
-          suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort(byCount)[0]}
-          add={(c) => setSel([...sel, c])} pick={() => setPicking(true)} />
+          suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))[0]}
+          add={(c) => setSel([...sel, c])} pick={() => setOpenSig((n) => n + 1)} />
       )}
       <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
@@ -874,56 +858,6 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
         </div>
       )}
     </div>
-  );
-}
-
-/** La hoja para elegir categorías de la Guía: buscador, las elegidas arriba y todas con sus canales con guía. */
-function CatSheet({ cats, counts, sel, toggle, clear, close }: {
-  cats: string[]; counts: Map<string, number>; sel: string[]; toggle: (c: string) => void; clear: () => void; close: () => void;
-}) {
-  const dlg = useRef<HTMLDialogElement>(null);
-  const [q, setQ] = useState('');
-  useLayoutEffect(() => {
-    dlg.current?.showModal();
-    return () => dlg.current?.close();
-  }, []);
-  const f = fold(q.trim());
-  const match = (c: string) => !f || fold(c).includes(f);
-  const chosen = sel.filter(match);
-  const rest = cats.filter((c) => !sel.includes(c) && match(c));
-  const row = (c: string) => (
-    <label class="gc-row" key={c}>
-      <input type="checkbox" checked={sel.includes(c)} onChange={() => toggle(c)} />
-      <span class="gc-name">{c}</span>
-      <span class="gc-count">{counts.get(c) ? plural(counts.get(c)!, 'canal', 'canales') : 'sin guía'}</span>
-    </label>
-  );
-  return (
-    <dialog class="sheet settings-sheet gc-sheet" ref={dlg} onClose={close} aria-labelledby="gcTitle">
-      <div class="sheet-body">
-        <div class="title-row">
-          <h2 id="gcTitle">Categorías</h2>
-          <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
-        </div>
-        <label class="search-field">
-          <Icon name="search" />
-          <input type="search" placeholder="Buscar categoría" aria-label="Buscar categoría" enterkeyhint="search"
-            value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
-        </label>
-        {chosen.length > 0 && (
-          <>
-            <h3 class="sec-title">Elegidas · {sel.length}</h3>
-            <div class="gc-list">{chosen.map(row)}</div>
-          </>
-        )}
-        <h3 class="sec-title">{f ? 'Resultados' : `Todas · ${cats.length}`}</h3>
-        {rest.length ? <div class="gc-list">{rest.map(row)}</div> : <p class="help">{f ? `Ninguna otra categoría coincide con «${q}».` : 'Ya elegiste todas.'}</p>}
-        <div class="gc-foot">
-          <button type="button" class="btn btn-gray" onClick={clear} disabled={!sel.length}>Todas</button>
-          <button type="button" class="btn btn-primary" onClick={() => dlg.current?.close()}>{sel.length ? `Listo · ${plural(sel.length, 'elegida', 'elegidas')}` : 'Listo'}</button>
-        </div>
-      </div>
-    </dialog>
   );
 }
 
