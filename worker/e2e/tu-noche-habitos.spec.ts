@@ -21,7 +21,7 @@ let genres: Record<string, string> = {};
 const HABITS = { ch: { [CHANNELS[1].epg]: { n: 6, h: hours } }, t: { dibujitos: { n: 5 } } as Record<string, { n: number; g?: string }>, no: {} as Record<string, string>, more: {} };
 
 let errors: string[] = [];
-let posts: { title: string; kind: string }[] = [];
+let posts: { title: string; kind: string; genre?: string }[] = [];
 
 async function open(page: Page, habits: typeof HABITS | null) {
   page.on('pageerror', (e) => errors.push(e.message));
@@ -34,11 +34,12 @@ async function open(page: Page, habits: typeof HABITS | null) {
     if (path === `/api/view/${CODE}/habits`) {
       if (!h) return r.fulfill({ status: 404, json: {} });
       if (r.request().method() === 'POST') {
-        const body = r.request().postDataJSON() as { title: string; kind: string };
+        const body = r.request().postDataJSON() as { title: string; kind: string; genre?: string };
         posts.push(body);
         const k = body.title.toLowerCase();
         delete h.no[k];
-        if (body.kind === 'no') h.no[k] = new Date().toISOString();
+        delete h.more[k];
+        if (body.kind === 'no' || body.kind === 'more') h[body.kind === 'no' ? 'no' : 'more'][k] = new Date().toISOString();
       }
       return r.fulfill({ json: h });
     }
@@ -116,4 +117,26 @@ test('sin géneros en la guía, el plan sale como antes', async ({ page }) => {
   await open(page, { ch: {}, t: { 'otro partido': { n: 3, g: 'Deportes' } }, no: {}, more: {} });
   await expect(first(page).locator('.gd-plan-card .tt')).toHaveText('Final del torneo en vivo');
   await expect(page.locator('#guide .gd-plan-why')).toHaveCount(0);
+});
+
+test('«Más como esto» en un programa sube todo su género, y lo dice debajo', async ({ page }, info) => {
+  genres = { [file(CHANNELS[0].epg)]: 'Deportes', [file(CHANNELS[1].epg)]: 'Infantil' };
+  await open(page, HABITS);
+  await first(page).locator('.gd-plan-card').click();
+  const sheet = page.locator('dialog.gd-sheet');
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'Más como esto' }).click();
+  await expect(sheet.locator('.toast')).toContainText('te voy a sugerir más de infantil');
+  await expect(sheet.locator('.gd-taste-hint')).toHaveText('Tu plan sube también los de infantil.');
+  expect(posts).toEqual([{ title: 'Dibujitos', kind: 'more', genre: 'Infantil' }]);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.screenshot({ path: `test-results/habitos-${info.project.name}-mas-genero-claro.png` });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.screenshot({ path: `test-results/habitos-${info.project.name}-mas-genero-oscuro.png` });
+  // Tocarlo otra vez lo deshace: se borra el pedido y el hint.
+  await sheet.getByRole('button', { name: 'Cerrar el aviso' }).click();
+  await sheet.getByRole('button', { name: 'Más como esto' }).click();
+  await expect(sheet.getByRole('button', { name: 'Más como esto' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(sheet.locator('.gd-taste-hint')).toHaveCount(0);
+  expect(posts.map((p) => p.kind)).toEqual(['more', 'clear']);
 });
