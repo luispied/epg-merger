@@ -67,9 +67,11 @@ jobs:
       continue-on-error: true
       run: curl -sSfL --retry 3 -o iptv_channels.json https://iptv-org.github.io/api/channels.json
 
-    # Cruza la guía fusionada con la lista de cada perfil de XTREAM_PROFILES: arma el catálogo y la
-    # programación que usa Grilla web y el match_report de cada perfil (out/<perfil>/). Las playlists que
-    # también escribe no se publican en ningún lado: las que usa el reproductor las arma el Worker.
+    # Arma lo compartido de toda la guía a partir de la guía fusionada: el catálogo y la programación que
+    # usa Grilla web (de ahí cuelgan la Guía y Tu plan de todos). No necesita ninguna credencial.
+    # Opcional: si hay perfiles en XTREAM_PROFILES (o XTREAM_USERNAME/PASSWORD/SERVERS), también cruza la
+    # guía con la lista de cada uno y deja su match_report (out/<perfil>/), que usan los bancos de pruebas.
+    # Las playlists que escribe no se publican: las que usa el reproductor las arma el Worker.
     # El JSON con las credenciales nunca se expande en el shell: lo lee el propio Python.
     - name: Generate playlists
       env:

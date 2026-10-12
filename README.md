@@ -324,7 +324,7 @@ las descarta. Con `RELAY_URL` y `RELAY_SECRET` cargados en el Worker:
   `health/<cfgId>.json` (`src/streamcheck.ts`).
 
 Sin esas variables, la lista la sube la persona (desde el navegador o con `tools/grilla_home.py`) y no hay prueba de
-canales caídos. `XTREAM_PROFILES` queda solo para la corrida diaria (`merge-epgs.yml`: catálogo y reporte de cruce).
+canales caídos. `XTREAM_PROFILES` es opcional en la corrida diaria (`merge-epgs.yml`): sin él igual se arma lo compartido (programación y catálogo de la guía); con él, además, el cruce y el reporte de esa cuenta para los bancos de pruebas.
 
 Las claves `known/` y `links/` que quedaron en R2 del camino viejo ya no se usan y se pueden borrar. No son los links de reproducción (`short/` y `devices/`), que no se tocan nunca.
 

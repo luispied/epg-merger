@@ -16,8 +16,9 @@ las usa y las descarta, no guarda nada ni las escribe en el log, y solo habla co
    `/v1/account` y escribe `health/<cfgId>.json`; con relay, «Probar ahora» deja un pedido en `healthreq/` (lo toma el cron, hasta
    30 minutos) en vez de lanzar `check-streams.yml`.
 3. ✅ Retirar el camino de GitHub para listas y pruebas (`XTREAM_PROFILES`, `known/`, `links/`): fuera `push_lists.py`,
-   `check_streams.py` y `check-streams.yml`; `refresh-lists.yml` solo arma guías. `XTREAM_PROFILES` queda únicamente para
-   la corrida diaria (`merge-epgs.yml`: catálogo y reporte de cruce). Mergear solo con el relay andando en producción.
+   `check_streams.py` y `check-streams.yml`; `refresh-lists.yml` solo arma guías. `XTREAM_PROFILES` queda solo como
+   opcional en la corrida diaria (`merge-epgs.yml`): sin él se arma igual lo compartido (programación y catálogo); ver
+   `planes/arquitectura-por-usuario.md`. Mergear solo con el relay andando en producción.
 
 ## Qué hace falta de parte de Luis
 - Publicar `relay/` (ver `relay/README.md`) y cargar `RELAY_URL` y `RELAY_SECRET` en el Worker. El secret se genera en

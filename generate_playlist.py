@@ -997,11 +997,13 @@ def write_epg_icons(index, path=EPG_ICONS_PATH):
 
 
 def generate():
+    # La programación y el catálogo salen solo de la guía fusionada: son lo compartido de toda la
+    # corrida (la Guía y Tu plan de todos los usuarios cuelgan de ahí). Los perfiles son opcionales y
+    # solo agregan el cruce con la lista de una cuenta y su reporte (hoy, la de quien mantiene el repo).
     profiles = load_profiles()
     if not profiles:
         print("ℹ️  Sin perfiles configurados (XTREAM_PROFILES o XTREAM_USERNAME/PASSWORD/SERVERS); "
-              "se omite la generación de playlists")
-        return
+              "solo se arma lo compartido (programación y catálogo), sin cruce por perfil")
 
     if not os.path.exists(MERGED_EPG_PATH):
         print(f"❌ Falta {MERGED_EPG_PATH}; corré primero: python merge_epgs.py")
@@ -1039,12 +1041,14 @@ def generate():
               f"{len(edits[1])} cambio(s) de categoría, {len(edits[2])} oculto(s), "
               f"{len(edits[3])} categoría(s) oculta(s)")
 
-    print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
-    no_epg_categories = load_no_epg_categories()
-    guides = [g for g in (generate_for_profile(profile, index, channels_root, sections, overrides, edits,
-                                                 no_epg_categories)
-                          for profile in profiles) if g]
-    print(f"\n⏱️  Matching de {len(guides)} perfil(es) listo [{elapsed()}]; recorriendo la guía…")
+    guides = []
+    if profiles:
+        print(f"👥 Perfiles configurados: {', '.join(p['name'] for p in profiles)}")
+        no_epg_categories = load_no_epg_categories()
+        guides = [g for g in (generate_for_profile(profile, index, channels_root, sections, overrides, edits,
+                                                     no_epg_categories)
+                              for profile in profiles) if g]
+        print(f"\n⏱️  Matching de {len(guides)} perfil(es) listo [{elapsed()}]; recorriendo la guía…")
 
     # Segunda pasada: cada programa va a la programación de la interfaz y a la guía de los
     # perfiles que lo usan, y se libera.
