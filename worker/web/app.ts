@@ -1350,7 +1350,7 @@ const guideHost: GuideHost = {
   },
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
   habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
-  feedback: (title, kind) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind } }),
+  feedback: (title, kind, genre) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind, genre } }),
   help: () => openHelp('guide'),
 };
 // ------------------------------------------------------------------ pestañas de abajo

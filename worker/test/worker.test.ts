@@ -1586,8 +1586,8 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   const now = Math.floor(Date.now() / 1000);
   await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera', '', 'Deportes']]));
   const habits = async () => (await handle(req(`/api/cfg/${t.cfgId}/habits`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
-    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string; g?: string }>; no: Record<string, string>; more: Record<string, string> }>;
-  assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {} });
+    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string; g?: string }>; no: Record<string, string>; more: Record<string, string>; mg: Record<string, string> }>;
+  assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {}, mg: {} });
   await handle(new Request(`${BASE}/s/${code}/10.ts`), t.env, t.ctx, t.cache);
   await t.settle();
   // Un canal sin guía (ESPN) no cuenta.
@@ -1604,14 +1604,18 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   // El género de la programación (lo agrega la corrida cuando la IA ya lo clasificó) queda anotado con el programa.
   assert.equal(h.t['fútbol de primera'].g, 'Deportes');
   // Los pedidos: uno saca al otro, y «clear» los deshace.
-  const fb = (kind: string, title = 'Fútbol de Primera') => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind }) }), t.env, t.ctx, t.cache);
+  const fb = (kind: string, title = 'Fútbol de Primera', genre?: string) => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind, genre }) }), t.env, t.ctx, t.cache);
   assert.equal((await fb('no')).status, 200);
   assert.ok((await habits()).no['fútbol de primera']);
   await fb('more');
   assert.deepEqual(Object.keys((await habits()).no), []);
   assert.ok((await habits()).more['fútbol de primera']);
+  // «Más como esto» con su género: se guarda, y se borra con el pedido.
+  await fb('more', 'Fútbol de Primera', 'Deportes');
+  assert.deepEqual((await habits()).mg, { 'fútbol de primera': 'Deportes' });
   await fb('clear');
   assert.deepEqual((await habits()).more, {});
+  assert.deepEqual((await habits()).mg, {});
   assert.equal((await fb('nada')).status, 400);
   // Sin la clave, nada.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/habits`), t.env, t.ctx, t.cache)).status, 401);
