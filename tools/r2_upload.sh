@@ -76,7 +76,7 @@ python tools/config_activity.py --out out/idle.json || rm -f out/idle.json
 python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg --idle out/idle.json
 # El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular. Se arma para todas,
 # también las que no usan: la Guía de la edición lo lee, y sin él mostraría la guía de toda la programación.
-python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
+python tools/pack_schedule.py "${genres[@]}" --configs out/cfgs out/schedule out/schedule_cfg
 [ -d out/schedule_cfg ] && sync out/schedule_cfg ui/schedule/cfg --delete
 if [ -d out/cfg_epg ]; then
   sync out/cfg_epg epg --type application/gzip

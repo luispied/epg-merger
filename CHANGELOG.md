@@ -11,11 +11,24 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.47.0
+## 1.48.0
 
 - **Buscar por tema.** Escribir «Mundial» o «cocina» en el buscador de los canales (en la edición y en el modo ver) y en el de «Buscar otra guía» también encuentra los canales que dan algo de eso ahora, aunque el título no lo diga. Usa el género y los temas que nowline ya le puso a cada programa; sin ellos, la búsqueda sigue como siempre, por nombre y por lo que dan.
 - Worker: nuevo `GET /api/ui/schedule/topics.json`, un índice aparte que se baja recién la primera vez que se busca. Los temas no van en cada programa de la programación (`ui/schedule/s`): eso la hacía crecer más del 14 %.
 - Interno: `tools/pack_schedule.py --genres` arma también `topics.json` (títulos con su género y temas, una vez por título) y `r2_upload.sh` lo sube.
+
+## 1.47.0
+
+- **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.
+- Interno: los índices por hora (los de toda la guía y los de cada configuración) llevan el género de cada título en `g`, a partir de `ai/genres.json`, sin gasto nuevo de IA. Con configuraciones armadas antes de este cambio, el filtro aparece cuando la próxima corrida diaria las rehace.
+
+## 1.46.8
+
+- **Dos apps instaladas, cada una en su modo.** En iPhone, la app de editar y la de modo ver comparten los datos: al entrar en modo ver, la de editar también se abría en modo ver. Ahora la app instalada del editor abre el editor, y la de modo ver sigue en modo ver. Desde el navegador, quien mira sigue sin llegar al editor.
+
+## 1.46.7
+
+- **«Salir del modo ver» está en Configuración.** Antes solo estaba al final de la lista de canales, y no se encontraba. Ahora, en el engranaje de Canales, la hoja Configuración tiene la opción. Sigue pidiendo el código de la casa.
 
 ## 1.46.6
 

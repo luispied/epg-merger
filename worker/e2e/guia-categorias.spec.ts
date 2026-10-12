@@ -36,10 +36,10 @@ async function open(page: Page, channels: ReturnType<typeof ch>[], prefs: Record
   });
   await page.goto(`/ver#${CODE}`);
   await page.getByRole('button', { name: 'Guía' }).click();
-  await expect(page.locator('#guide .gd-chips')).toBeVisible();
+  await expect(page.locator('#guide nav[aria-label="Categorías"]')).toBeVisible();
 }
 
-const chips = (page: Page) => page.locator('#guide .gd-chips');
+const chips = (page: Page) => page.locator('#guide nav[aria-label="Categorías"]');
 const chip = (page: Page, name: string) => chips(page).getByRole('button', { name, exact: true });
 
 test.beforeEach(() => { errors = []; });

@@ -253,7 +253,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
 }
 
 /** Configuración de este dispositivo: la misma hoja y la misma fila de Tema que en el editor (ui/settings.tsx). */
-function SettingsSheet({ close }: { close: () => void }) {
+function SettingsSheet({ close, leave }: { close: () => void; leave: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [theme, setTheme] = useState<Theme>(savedTheme);
   useLayoutEffect(() => {
@@ -286,6 +286,8 @@ function SettingsSheet({ close }: { close: () => void }) {
             </div>
           </div>
         </div>
+        <button type="button" class="btn btn-tonal btn-block vw-leave" onClick={leave}><Icon name="key-round" />Salir del modo ver</button>
+        <p class="help">Para salir hace falta el código de la casa.</p>
       </div>
     </dialog>
   );
@@ -318,12 +320,14 @@ function HelpSheet({ close }: { close: () => void }) {
         <details>
           <summary>Guía<Icon name="chevron-down" /></summary>
           <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba, al lado del título, elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es) o <b>Próximos</b> (lo que empieza pronto). La tarjeta <b>Tu noche, armada para vos</b> (de día, tu mañana o tu tarde) abre lo mejor de tus canales para lo que queda de ese rato; la flecha de arriba te devuelve.</p>
-          <p>Tu plan también sube programas parecidos a lo que mirás, según el género («Como lo que mirás: deportes»), aunque sean de un canal que nunca abriste. La publicidad nunca se sugiere.</p>
+          <p>Debajo de las categorías, la fila de <b>géneros</b> (Cine, Deportes, Infantil…) deja ver solo un tipo de programa: tocá uno o varios, otra vez para sacarlo, o <b>Todos</b>. En la Grilla lo demás se apaga y en Próximos se saca; lo que todavía no tiene género no aparece mientras haya uno elegido.</p>
+                    <p>Tu plan también sube programas parecidos a lo que mirás, según el género («Como lo que mirás: deportes»), aunque sean de un canal que nunca abriste. La publicidad nunca se sugiere.</p>
           <p>Tocá un programa para leer de qué se trata; arriba del título dice su género cuando lo sabemos. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos y también lo de su mismo género; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
           <summary>Configuración<Icon name="chevron-down" /></summary>
           <p>Tocá el engranaje, arriba a la derecha de Canales, y en <b>Configuración</b> elegí el <b>tema</b>: como el sistema, claro u oscuro. Queda guardado en este dispositivo.</p>
+          <p>Más abajo, en la misma hoja, está <b>Salir del modo ver</b>.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
@@ -331,7 +335,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>nowline abre siempre así en este dispositivo. Al final de la lista de canales está <b>Salir del modo ver</b>. Para salir hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
+          <p>Esta app abre siempre así. La de editar, si la tenés instalada aparte, sigue como siempre. Para salir, tocá el engranaje de Canales y después <b>Salir del modo ver</b> (también está al final de la lista de canales). Hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
         </details>
       </div>
     </dialog>
@@ -560,7 +564,7 @@ function App() {
         </button>
       </nav>
       {help && <HelpSheet close={() => setHelp(false)} />}
-      {settings && <SettingsSheet close={() => setSettings(false)} />}
+      {settings && <SettingsSheet close={() => setSettings(false)} leave={() => { setSettings(false); setUnlock(true); }} />}
       {unlock && <UnlockSheet close={() => setUnlock(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>
