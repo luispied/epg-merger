@@ -102,6 +102,8 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(sheet).toContainText('le avisamos');
       expect(reported).toEqual([{ id: '2', title: '' }]);
       await page.keyboard.press('Escape');
+      // Esperar a que la hoja se cierre: si no, el toque al canal apto cae mientras se cierra.
+      await expect(sheet).toBeHidden();
       // La del canal apto, con su descripción (bajada por el Worker del código).
       await rows.nth(0).click();
       await expect(sheet.locator('.gd-sh-title')).toHaveText('Dibujitos');
