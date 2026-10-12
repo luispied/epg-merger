@@ -268,8 +268,9 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   return json({ name: profile.name, channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
 }
 
-/** Un link «mira» si abrió un canal en las últimas 3 horas (como en Conexiones de la web). */
-const WATCHING_MS = 3 * 3600 * 1000;
+/** Un link «mira» si abrió un canal en la última hora (como en Conexiones de la web): es la duración mediana de un programa en la guía.
+ *  El Worker no ve cuándo se deja un canal, así que una ventana larga marcaba como activos links que ya no miraban nada. */
+const WATCHING_MS = 60 * 60 * 1000;
 
 /** Modo «solo ver»: conexiones en uso de la cuenta del perfil (por el relay, si hay) y qué está mirando cada link de esa
  *  cuenta. Solo el nombre del link, el canal y cuándo lo abrió: ni códigos ni direcciones. */
@@ -304,7 +305,9 @@ async function serveViewConnections(code: string, env: Env, ctx: Ctx, cache: Sim
       } catch { /* sin datos del proveedor: quedan los links */ }
     }
   }
-  const body = { ...(inUse !== undefined ? { inUse } : {}), ...(max ? { max } : {}), watching };
+  // El proveedor dice cuántas conexiones hay: no se muestran más links mirando que conexiones.
+  const shown = inUse === undefined ? watching : watching.slice(0, inUse);
+  const body = { ...(inUse !== undefined ? { inUse } : {}), ...(max ? { max } : {}), watching: shown };
   // Se pide cada minuto mientras la página está abierta: un minuto de caché para no ir al proveedor de más.
   ctx.waitUntil(cache.put(key, new Response(JSON.stringify(body), { headers: { 'Cache-Control': 'max-age=60' } })));
   return json(body, 200, { 'Cache-Control': 'no-store' });

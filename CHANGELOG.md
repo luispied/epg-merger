@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.52.1
+
+- **«Mirando ahora» es más preciso.** Un link figura mirando una hora después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Una hora es la duración mediana de un programa en la guía. Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
+- Worker: el modo «solo ver» usa la misma ventana y el mismo tope.
+- Interno: `WATCHING_MS` (`worker/src/index.ts`) y `RECENT_PLAY_MS` (`worker/web/ui/perfiles.tsx`) en 60 minutos.
+
 ## 1.52.0
 
 - **Géneros en Tu plan.** La hoja de filtros de Tu plan (Tu noche, Tu tarde…) ahora también tiene **Géneros**, con los de lo que el plan podría proponer (sin publicidad ni lo que todavía no está clasificado), y el número del botón los cuenta. Con uno o varios elegidos, el plan se arma solo con programas de esos géneros; si no alcanza, dice desde qué hora no encontró nada y **Quitar filtro** lo saca. Es el mismo género de la Grilla y Próximos: lo que elegís en uno vale en los tres.
