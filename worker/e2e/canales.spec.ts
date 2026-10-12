@@ -121,10 +121,12 @@ test('ocultar desde el menú «…» y elegir varios', async ({ page }) => {
     await row(page, 'CNN').locator('.row-more').click();
     await page.locator('.row-menu').getByRole('menuitem', { name: 'Seleccionar' }).click();
   } else {
+    // El reloj de Playwright: el toque que sigue al mantener apretado no cuenta hasta que pasan 600 ms.
+    await page.clock.install();
     await row(page, 'CNN').dispatchEvent('pointerdown', { button: 0, clientX: 50, clientY: 50 });
     await expect(page.locator('#bulkBar')).toBeVisible();
     await row(page, 'CNN').dispatchEvent('pointerup');
-    await page.waitForTimeout(700); // el toque que sigue al mantener apretado no cuenta
+    await page.clock.runFor(700);
   }
   const n = desk ? 6 : 7;
   await expect(page.locator('#bulkBar')).toBeVisible();

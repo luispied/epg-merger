@@ -26,10 +26,12 @@ const savedEdit = (f: Fake, ch: string) => f.writes.filter((w) => w.path === '/a
 
 /** Mantener apretado Fox Sports y tocar TyC Sports: dos seleccionados; abre la hoja. */
 async function selectTwo(page: Page) {
+  // El reloj de Playwright: el toque que sigue al mantener apretado no cuenta hasta que pasan 600 ms.
+  await page.clock.install();
   await row(page, 'Fox Sports').dispatchEvent('pointerdown', { button: 0, clientX: 50, clientY: 50 });
   await expect(page.locator('#bulkBar')).toBeVisible();
   await row(page, 'Fox Sports').dispatchEvent('pointerup');
-  await page.waitForTimeout(700); // el toque que sigue al mantener apretado no cuenta
+  await page.clock.runFor(700);
   await row(page, 'TyC Sports').click();
   await expect(page.locator('#bulkCount')).toHaveText('2 seleccionados');
   await page.locator('#bulkActions').click();
