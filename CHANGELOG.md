@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.9
+
+- **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
+
 ## 1.46.8
 
 - **Dos apps instaladas, cada una en su modo.** En iPhone, la app de editar y la de modo ver comparten los datos: al entrar en modo ver, la de editar también se abría en modo ver. Ahora la app instalada del editor abre el editor, y la de modo ver sigue en modo ver. Desde el navegador, quien mira sigue sin llegar al editor.
