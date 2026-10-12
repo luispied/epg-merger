@@ -125,7 +125,7 @@ export function GuideSearch({ placeholder, label, onPick, children }: {
       const [idx, descs] = await Promise.all([hourIndex(), hourDescIndex()]);
       if (!alive) return;
       const hits: Hit[] = [];
-      for (const [id, name] of state.index!.displayName) {
+      for (const [id, name] of state.index?.displayName ?? []) {
         const byName = hasWords(fold(name), q);
         const cur = idx ? nowFromHour(idx, id) : null;
         const byProgram = !!cur && hasWords(fold(`${cur.title} ${descs ? descFromHour(descs, idx!, id, cur) : ''}`), q);
