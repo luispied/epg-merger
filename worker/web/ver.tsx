@@ -514,7 +514,7 @@ function App() {
   useEffect(() => {
     document.body.classList.toggle('guide-open', tab === 'guia');
     if (tab === 'guia' && guideEl.current) showGuide(guideEl.current, host);
-    if (tab === 'canales') window.scrollTo(0, 0);
+    if (tab === 'canales') document.querySelector('#app > section:not(#guide)')?.scrollTo(0, 0);
   }, [tab, host]);
 
   // El logo de inicio se va apenas la pantalla dibuja, igual que en la edición: el esqueleto ya es la pantalla.

@@ -1111,6 +1111,9 @@ body.guide-open { overflow: hidden; }
 
 /* ---- Modo «solo ver» (ver.html / ver.tsx): letra grande, filas altas y nada para editar. ---- */
 body.viewer { font-size: 17px; }
+/* La lista de Canales del modo ver se desplaza dentro de su propia pantalla, como la Guía, y no la página: en Safari, desplazar la
+   página encoge la barra del navegador y la barra de abajo sube o baja según la pestaña. Así la página nunca se mueve. */
+body.viewer #app > section:not(#guide) { position: fixed; inset: 0; overflow-y: auto; overscroll-behavior: contain; }
 .vw-head .title-row { align-items: center; }
 .vw-who { display: inline-flex; align-items: center; gap: 6px; max-width: 55%; padding: 6px 12px; border-radius: 999px;
   background: var(--fill); color: var(--muted); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

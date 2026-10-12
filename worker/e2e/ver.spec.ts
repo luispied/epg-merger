@@ -199,3 +199,23 @@ test('filtrar por categoría como en la edición, sin estados', async ({ page })
   await expect(page.locator('.vw-row')).toHaveCount(4);
   await expect(page.locator('.active-filters')).toBeHidden();
 });
+
+// En Safari, desplazar la página encoge la barra del navegador y la barra de abajo cambia de altura. En el modo ver la página
+// no se desplaza (la lista de Canales y la Guía lo hacen por dentro), así la barra queda igual en las dos pestañas.
+test('la página del modo ver no se desplaza y la barra de abajo queda igual en Canales y en la Guía', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  const nav = page.getByRole('navigation', { name: 'Secciones' });
+  await expect(page.getByText('Canal Uno').first()).toBeVisible();
+  const pos = () => nav.evaluate((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; });
+  const doc = () => page.evaluate(() => [document.documentElement.scrollHeight, window.innerHeight]);
+  const [h, vh] = await doc();
+  expect(h).toBeLessThanOrEqual(vh);
+  const canales = await pos();
+  await page.getByRole('button', { name: 'Guía', exact: true }).click();
+  await expect(page.locator('#guide')).toBeVisible();
+  expect(await pos()).toEqual(canales);
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('button', { name: 'Canales' }).click();
+  expect(await pos()).toEqual(canales);
+  const [h2, vh2] = await doc();
+  expect(h2).toBeLessThanOrEqual(vh2);
+});
