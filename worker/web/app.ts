@@ -3090,7 +3090,10 @@ setupEditor();
 let viewOnly: string | null = null;
 // Aunque el dispositivo tenga configuración propia: quien mira no llega al editor escribiendo la dirección sin «ver».
 try { viewOnly = localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
-if (viewOnly) {
+// La app instalada en el inicio del editor abre el editor aunque otra app instalada (la de modo ver) use el mismo storage:
+// en iPhone, todas las apps agregadas del mismo sitio comparten localStorage. Quien mira sigue sin llegar al editor desde el navegador.
+const installed = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+if (viewOnly && !installed) {
   try { sessionStorage.removeItem('nowline_splash'); } catch { /* sin storage */ } // que el logo siga en /ver
   location.replace(`/ver#${viewOnly}`);
 } else {
