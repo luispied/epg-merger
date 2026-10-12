@@ -11,6 +11,7 @@ import {
 import { Icon } from './icon.tsx';
 import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
+import { loadTopics, titleKey } from './topics.ts';
 
 /** Sin imagen: las iniciales, en un tono neutro (no compiten con los logos). */
 function Mono({ label }: { label: string }) {
@@ -105,7 +106,7 @@ function useInfiniteScroll(ref: { current: HTMLElement | null }, active: boolean
 const SEARCH_PAGE = 50;
 interface Hit { id: string; cur: NowPlaying | null; byProgram: boolean }
 
-/** Busca en toda la guía por nombre del canal y por lo que está dando ahora; primero los que tienen algo en el aire.
+/** Busca en toda la guía por nombre del canal y por lo que está dando ahora (título, descripción, género y temas); primero los que tienen algo en el aire.
  *  `children` va entre el buscador y los resultados (los chips «Automática» y «Sin guía»). */
 export function GuideSearch({ placeholder, label, onPick, children }: {
   placeholder: string; label: string; onPick: (id: string) => void; children?: ComponentChildren;
@@ -122,13 +123,14 @@ export function GuideSearch({ placeholder, label, onPick, children }: {
     }
     let alive = true;
     const t = window.setTimeout(async () => {
-      const [idx, descs] = await Promise.all([hourIndex(), hourDescIndex()]);
+      const [idx, descs, topics] = await Promise.all([hourIndex(), hourDescIndex(), loadTopics()]);
       if (!alive) return;
       const hits: Hit[] = [];
       for (const [id, name] of state.index?.displayName ?? []) {
         const byName = hasWords(fold(name), q);
         const cur = idx ? nowFromHour(idx, id) : null;
-        const byProgram = !!cur && hasWords(fold(`${cur.title} ${descs ? descFromHour(descs, idx!, id, cur) : ''}`), q);
+        const byProgram = !!cur && (hasWords(fold(`${cur.title} ${descs ? descFromHour(descs, idx!, id, cur) : ''}`), q)
+          || !!topics?.match(q).has(titleKey(cur.title)));
         if (byName || byProgram) hits.push({ id, cur, byProgram });
       }
       if (idx) hits.sort((a, b) => Number(!a.cur) - Number(!b.cur));
