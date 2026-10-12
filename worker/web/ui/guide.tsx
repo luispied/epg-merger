@@ -21,7 +21,8 @@ export interface GuideChannel {
   q: string | null;
   qTitle: string;
 }
-type Entry = [number, number, string, string?];
+/** [inicio, fin, título, descripción?, género?]: el género sale de la IA cuando ya clasificó el título. */
+type Entry = [number, number, string, string?, string?];
 export interface GuideHost {
   channels(): GuideChannel[];
   openChannel(i: number): void;
@@ -45,13 +46,13 @@ export type Feedback = 'no' | 'more' | 'clear';
 /** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
 export interface Habits {
   ch: Record<string, { n: number; h: number[] }>;
-  t: Record<string, { n: number }>;
+  t: Record<string, { n: number; g?: string }>;
   no: Record<string, string>;
   more: Record<string, string>;
 }
 
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
-interface Prog { s: number; e: number; t: string; gap?: boolean }
+interface Prog { s: number; e: number; t: string; g?: string; gap?: boolean }
 
 type Mode = 'grid' | 'next' | 'plan';
 const HOUR = 3600;
@@ -624,6 +625,7 @@ export const normTitle = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').
 /** Afinidad por hábitos: el programa que se mira seguido, el canal a esa hora (±1 h) y en general, la campana y lo
  *  pedido. Pesa como mucho lo que un partido en vivo: lo de siempre sube, pero no tapa todo lo demás. */
 export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affinity {
+  const taste = genreTaste(h);
   return ({ ch, p }) => {
     const k = normTitle(p.t);
     if (h?.no[k]) return null;
@@ -641,10 +643,31 @@ export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affi
       add(Math.min(3, 0.75 * at), 'Tu canal a esta hora', 1.4);
       add(Math.min(1.5, 0.5 * Math.log2(1 + c.n)), 'De tus canales', 0.9);
     }
+    const gs = p.g ? taste.get(p.g) ?? 0 : 0;
+    if (gs) add(gs, `Como lo que mirás: ${p.g!.toLowerCase()}`, 0.9);
     reasons.sort((a, b) => b[0] - a[0]);
     return { bonus, why: reasons[0]?.[1] };
   };
 }
+
+/** Géneros que ya se pueden sugerir y cuánto pesan en la casa: el género de los programas que se miraron (la
+ *  corrida lo anota en los hábitos cuando la IA ya lo clasificó). Hasta +2,5 según qué parte de lo mirado es de ese
+ *  género; con menos de dos veces no cuenta. */
+export function genreTaste(h: Habits | null): Map<string, number> {
+  const n = new Map<string, number>();
+  let total = 0;
+  for (const v of Object.values(h?.t ?? {})) {
+    if (!v.g || v.g === NEVER_SUGGEST) continue;
+    n.set(v.g, (n.get(v.g) ?? 0) + v.n);
+    total += v.n;
+  }
+  const out = new Map<string, number>();
+  for (const [g, c] of n) if (c >= 2) out.set(g, Math.min(2.5, (6 * c) / total));
+  return out;
+}
+
+/** La publicidad (infomerciales, televenta) que la IA reconoce nunca se sugiere. */
+const NEVER_SUGGEST = 'Publicidad';
 
 /** Puntaje de un programa para el plan (más es mejor); null si no va. */
 export function planScore(t: string, len: number, cat: string): number | null {
@@ -661,7 +684,7 @@ export function planScore(t: string, len: number, cat: string): number | null {
  *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
 export function buildPlan(cands: Cand[], now: number, end: number, forced: Map<number, Cand>, aff?: Affinity): Slot[] {
   const scored = cands.flatMap((c) => {
-    const sc = planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
+    const sc = c.p.g === NEVER_SUGGEST ? null : planScore(c.p.t, c.p.e - c.p.s, c.ch.cat);
     const a = aff ? aff(c) : { bonus: 0 };
     return sc === null || !a ? [] : [{ ...c, sc: sc + a.bonus, why: a.why }];
   });
@@ -710,8 +733,8 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
   const plan = useMemo(() => {
     const cands: { ch: GuideChannel; p: Prog }[] = [];
     for (const ch of withGuide) {
-      for (const [s, e, t] of scheds.get(ch.epg!) ?? []) {
-        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t } });
+      for (const [s, e, t, , g] of scheds.get(ch.epg!) ?? []) {
+        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } });
       }
     }
     return buildPlan(cands, now, part.end, forced, habitAffinity(habits, marks));

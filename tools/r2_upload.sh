@@ -48,7 +48,12 @@ for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/
 # Programación empacada (tools/pack_schedule.py): 256 tandas con los canales y los índices por hora
 # en gzip, unas 320 escrituras por día en vez de un archivo por canal (~17.500). --delete: la hora
 # que ya pasó deja de estar.
-python tools/pack_schedule.py out/schedule out/schedule_r2
+# Los géneros que la IA ya clasificó (ai/genres.json, tools/classify_genres.py) van en cada programa de esos
+# canales; los de hoy entran mañana (la clasificación corre al final de la corrida). Sin el archivo, sin géneros.
+genres=()
+rm -f out/genres.json
+if s3 cp "$BUCKET/ai/genres.json" out/genres.json 2>/dev/null; then genres=(--genres out/genres.json); fi
+python tools/pack_schedule.py "${genres[@]}" out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
   sync out/schedule_r2/s ui/schedule/s
   [ -d out/schedule_r2/hour ] && sync out/schedule_r2/hour ui/schedule/hour --delete "${json[@]}" --encoding gzip
