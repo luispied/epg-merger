@@ -1,7 +1,8 @@
 # Etapa 1: Grilla web sin GitHub
 
-Prerrequisito: `planes/etapa-0-generico.md` (✅). Reemplaza como camino principal a la
-Etapa 0.5 (`planes/etapa-0-5-autoservicio.md`), que queda **opcional**. Es la base de la app
+Prerrequisito: `planes/etapa-0-generico.md` (✅). Reemplazó a la Etapa 0.5
+(`planes/etapa-0-5-autoservicio.md`), que quedó cerrada. **Hecha y en producción**; la arquitectura de hoy está en
+`docs/arquitectura.md`. Es la base de la app
 pública (`planes/app-publica.md`): la app pasa a ser otra cara del mismo servicio.
 
 ## Contexto
