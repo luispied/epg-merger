@@ -1082,6 +1082,8 @@ body.guide-open { overflow: hidden; }
 .gd-sh-ch { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .gd-sh-ch strong { display: block; }
 .gd-sh-ch small { color: var(--muted); font-size: 13px; }
+.gd-sheet .gd-sh-genre { margin: 16px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-sheet .gd-sh-genre + .gd-sh-title { margin-top: 4px; }
 .gd-sheet .gd-sh-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin: 16px 0 4px; }
 .gd-sheet .gd-sh-when { margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .gd-sh-when b { color: var(--live); font-weight: 600; }
@@ -1139,6 +1141,7 @@ body.viewer { font-size: 17px; }
 .vw-bar > i { display: block; height: 100%; background: var(--live); }
 .vw-chev { flex: none; color: var(--faint); }
 .vw-sheet .gd-sh-title { font-size: 24px; }
+.vw-sheet .gd-sh-genre { font-size: 13px; }
 .vw-sheet .gd-sh-when, .vw-sheet .gd-sh-desc { font-size: 17px; }
 .vw-sheet .gd-sh-row { font-size: 17px; padding: 6px 0; }
 .vw-sheet .gd-sh-row b { width: 56px; }
