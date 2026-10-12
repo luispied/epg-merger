@@ -53,7 +53,8 @@ export interface Habits {
   mg?: Record<string, string>;
 }
 
-interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
+/** El índice de una hora; `g` (género de cada título de `t`, '' = sin clasificar) viene cuando la IA ya clasificó alguno. */
+interface HourIndex { h: number; t: string[]; g?: string[]; c: Record<string, [number, number, number][]> }
 interface Prog { s: number; e: number; t: string; g?: string; gap?: boolean }
 
 type Mode = 'grid' | 'next' | 'plan';
@@ -119,6 +120,9 @@ function loadAgain(epgs: string[]): Promise<AgainMap> {
   return data;
 }
 
+/** Quién quiere saber cuándo llega cualquier hora (los chips de género salen de lo que ya bajó, lo haya pedido quien lo haya pedido). */
+const hourListeners = new Set<() => void>();
+
 /** Baja (una vez) los índices de las horas que tocan [from, to) y avisa con `done` al llegar cada uno. */
 function loadHours(from: number, to: number, done: () => void) {
   for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
@@ -127,7 +131,7 @@ function loadHours(from: number, to: number, done: () => void) {
     fetch(`${hourPath}/${hourKey(h)}.json`)
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
-      .then((idx: HourIndex | null) => { hours.set(h, idx); done(); });
+      .then((idx: HourIndex | null) => { hours.set(h, idx); done(); for (const f of hourListeners) f(); });
   }
 }
 
@@ -151,6 +155,16 @@ function savedCats(): string[] {
   try {
     const v = JSON.parse(pref.get('cats') || '[]');
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Los géneros elegidos en la Guía (de la Guía: no los comparte Canales). Publicidad nunca es un filtro. */
+function savedGenres(): string[] {
+  try {
+    const v = JSON.parse(pref.get('genres') || '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x !== NEVER_SUGGEST) : [];
   } catch {
     return [];
   }
@@ -228,6 +242,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const many = cats.length > MANY_CATS;
   const quick = many ? cats.filter((c) => !sel.includes(c)).sort(byCount).slice(0, QUICK_CATS) : [];
   const [picking, setPicking] = useState(false);
+  // Géneros: otro filtro, aparte de las categorías (se pueden combinar) y propio de la Guía. Se recuerdan en este navegador.
+  const [gsel, setGselState] = useState<string[]>(savedGenres);
+  const setGsel = (next: string[]) => { setGselState(next); pref.set('genres', JSON.stringify(next)); };
+  const toggleGenre = (g: string) => setGsel(gsel.includes(g) ? gsel.filter((x) => x !== g) : [...gsel, g]);
   // Memo: una lista nueva en cada render volvería a disparar la carga de Tu noche.
   const shown = useMemo(() => (sel.length ? channels.filter((c) => sel.includes(c.cat)) : channels), [channels, sel]);
 
@@ -265,8 +283,36 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   // Bajar las horas que se ven (y una de margen).
   useEffect(() => {
     if (mode !== 'grid') return;
-    loadHours(Math.max(t0, visFrom - HOUR), Math.min(t1, visTo + HOUR), () => setVer((v) => v + 1));
+    loadHours(Math.max(t0, visFrom - HOUR), Math.min(t1, visTo + HOUR), () => {});
   }, [mode, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
+  // Cada hora que llega (la pida la Grilla o Próximos) vuelve a dibujar: la grilla, y los chips de género.
+  useEffect(() => {
+    const on = () => setVer((v) => v + 1);
+    hourListeners.add(on);
+    return () => { hourListeners.delete(on); };
+  }, []);
+
+  // Géneros de la programación que se ve (la Grilla, las horas a la vista; Próximos, las próximas horas) en los canales
+  // de las categorías elegidas. Sin clasificar y Publicidad no ofrecen chip. Los elegidos se ven siempre, para poder sacarlos.
+  const genres = useMemo(() => {
+    if (mode === 'plan') return [];
+    const from = mode === 'grid' ? visFrom : now - HOUR;
+    const to = mode === 'grid' ? visTo : now + (NEXT_H + 1) * HOUR;
+    const epgs = new Set(shown.flatMap((c) => (c.epg ? [c.epg] : [])));
+    const found = new Set(gsel);
+    for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
+      const idx = hours.get(h);
+      if (!idx || idx === 'loading' || !idx.g) continue;
+      for (const [epg, rows] of Object.entries(idx.c)) {
+        if (!epgs.has(epg)) continue;
+        for (const r of rows) {
+          const g = idx.g[r[2]];
+          if (g && g !== NEVER_SUGGEST) found.add(g);
+        }
+      }
+    }
+    return [...found].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [mode, shown, ver, gsel, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR), Math.floor(now / HOUR)]);
 
   // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
   // lugar, en vez de quedar vacía.
@@ -290,7 +336,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       if (!idx || idx === 'loading') continue;
       loaded.push(h);
       for (const [s, e, t] of idx.c[epg] ?? []) {
-        const p = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t] };
+        const p: Prog = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t], ...(idx.g?.[t] ? { g: idx.g[t] } : {}) };
         if (!seen.has(p.s)) seen.set(p.s, p);
       }
     }
@@ -342,7 +388,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const past = !p.gap && p.e <= now;
     const shift = Math.max(0, Math.min(lx - l, r - l - 56)); // el título queda pegado al borde visible
     const tiny = r - l - 4 < TINY; // angosta: sin texto (se lee al tocarla), no letras sueltas
-    const cls = `gd-cell${tiny ? ' tiny' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
+    const off = gsel.length > 0 && (p.gap || !p.g || !gsel.includes(p.g)); // fuera del género elegido
+    const cls = `gd-cell${tiny ? ' tiny' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${off ? ' off' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
     const re = live && now - p.s >= AGAIN_AFTER ? again.get(`${ch.epg}|${p.s}`)?.[0] : undefined;
     const label = p.gap ? `${ch.name}: sin programación de ${hm(p.s)} a ${hm(p.e)}`
       : `${ch.name}: ${p.t}, de ${hm(p.s)} a ${hm(p.e)}${re ? `; vuelve a empezar a las ${hm(re.s)}` : ''}`;
@@ -410,6 +457,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
           </button>
         )}
       </nav>
+      {genres.length > 0 && (
+        <nav class="gd-chips gd-genres" aria-label="Géneros">
+          <button type="button" class="chip-btn" aria-pressed={!gsel.length} onClick={() => setGsel([])}>Todos</button>
+          {genres.map((g) => (
+            <button type="button" key={g} class="chip-btn" aria-pressed={gsel.includes(g)} onClick={() => toggleGenre(g)}>
+              {gsel.includes(g) && <Icon name="check" class="sm" />}{g}
+            </button>
+          ))}
+        </nav>
+      )}
       {picking && <CatSheet cats={cats} counts={counts} sel={sel} toggle={toggleCat} clear={() => setSel([])} close={() => setPicking(false)} />}
       {mode !== 'plan' && channels.some((c) => c.epg && !c.quiet) && (
         <button type="button" class="gd-teaser" onClick={() => setMode('plan')}>
@@ -423,7 +480,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       )}
       {!channels.length && <div class="empty">No hay canales para mostrar.</div>}
       {mode === 'next' && channels.length > 0 && (
-        <Upcoming channels={shown} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
+        <Upcoming channels={shown} genres={gsel} now={now} again={again} open={(ch, p) => setOpen({ ch, p })}
           budget={budgetOn ? budget : null} setBudget={(m) => { setBudget(m); pref.set('budget', String(m)); }} />
       )}
       {mode === 'plan' && channels.length > 0 && (
@@ -492,8 +549,8 @@ const MAX_ROWS = 80;
 
 interface UpItem { p: Prog; chs: GuideChannel[] }
 
-function Upcoming({ channels, now, again, open, budget, setBudget }: {
-  channels: GuideChannel[]; now: number; again: AgainMap; open: (ch: GuideChannel, p: Prog) => void;
+function Upcoming({ channels, genres, now, again, open, budget, setBudget }: {
+  channels: GuideChannel[]; genres: string[]; now: number; again: AgainMap; open: (ch: GuideChannel, p: Prog) => void;
   budget: number | null; setBudget: (m: number) => void;
 }) {
   const [ver, setVer] = useState(0);
@@ -515,8 +572,9 @@ function Upcoming({ channels, now, again, open, budget, setBudget }: {
         const idx = hours.get(h);
         if (!idx || idx === 'loading') continue;
         for (const [s, e, t] of idx.c[ch.epg] ?? []) {
-          const p = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t] };
+          const p: Prog = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t], ...(idx.g?.[t] ? { g: idx.g[t] } : {}) };
           if (p.e - p.s < MIN_UP) continue;
+          if (genres.length && !(p.g && genres.includes(p.g))) continue; // sin género (sin clasificar) no entra en un filtro de género
           const isRecent = p.s <= now && now < p.e && now - p.s <= RECENT;
           if (!isRecent && !(p.s > now && p.s <= now + NEXT_H * HOUR)) continue;
           const key = `${p.t}|${p.s}`;
@@ -528,7 +586,7 @@ function Upcoming({ channels, now, again, open, budget, setBudget }: {
     }
     const all = [...items.values()].sort((a, b) => a.p.s - b.p.s);
     return { recent: all.filter((x) => x.p.s <= now).reverse(), next: all.filter((x) => x.p.s > now) };
-  }, [channels, ver, Math.floor(now / 60)]);
+  }, [channels, genres, ver, Math.floor(now / 60)]);
 
   const fits = (p: Prog) => p.e <= end + 120;
   const nextShown = (budget ? next.filter((x) => x.p.s < end) : next).slice(0, MAX_ROWS);
@@ -583,7 +641,7 @@ function Upcoming({ channels, now, again, open, budget, setBudget }: {
             <h3>Lo que viene</h3>
             {nextShown.length
               ? <div class="gd-up-list">{nextShown.map(row)}</div>
-              : <p class="gd-up-empty">{budget ? `Nada empieza antes de las ${hm(end)}. Probá con más tiempo.` : `Nada empieza en las próximas ${NEXT_H} horas.`}</p>}
+              : <p class="gd-up-empty">{budget ? `Nada empieza antes de las ${hm(end)}. Probá con más tiempo.` : genres.length ? `Nada de ${genres.join(', ').toLowerCase()} empieza en las próximas ${NEXT_H} horas.` : `Nada empieza en las próximas ${NEXT_H} horas.`}</p>}
           </section>
         </>
       )}
