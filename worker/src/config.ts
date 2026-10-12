@@ -5,6 +5,7 @@ import { randomId, sha256Hex } from './crypto.ts';
 import { parseFilter, type DeviceFilter } from './playlist.ts';
 import type { R2Bucket } from './env.ts';
 import { VIEW_RE } from './view.ts';
+import { parseKids, type Kids } from './kids.ts';
 
 /** Lo que la persona decidió para un canal, por su nombre crudo en el proveedor. */
 export interface ChannelEdit {
@@ -54,6 +55,8 @@ export interface ProfileDef {
   filter?: DeviceFilter;
   /** Código del link «solo ver» del perfil (ver view.ts). */
   view?: string;
+  /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
+  kids?: Kids;
 }
 export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
 const MAX_PROFILES = 50;
@@ -68,7 +71,8 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const account = typeof r.account === 'string' ? r.account.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
     const filter = parseFilter(r.filter);
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}) });
+    const kids = parseKids(r.kids);
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}) });
   }
   return out;
 }

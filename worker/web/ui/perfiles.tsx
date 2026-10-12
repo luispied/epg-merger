@@ -16,6 +16,8 @@ import {
   type Account, type AccountView, type Device, type DeviceFilter, type LinkResult, type OtherProvider, type ProfileDef, type ProfileView,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
+import { closeSheet } from './sheet.ts';
+import { Skeleton } from './kit.tsx';
 import { toast } from './toast.tsx';
 
 // ------------------------------------------------------------------ navegación
@@ -35,6 +37,7 @@ type LinksSub =
   | { k: 'servers' }
   | { k: 'filter'; p: ProfileView }
   | { k: 'view'; p: ProfileView }
+  | { k: 'kids-hidden'; p: ProfileView }
   | { k: 'result'; result: LinkResult };
 
 let linksView: LinksView = { v: 'list' };
@@ -482,6 +485,7 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
         <MenuRow ico="key-round" title="Cuenta" sub={a.name} cls={canChangeAccount ? '' : 'static'} chevron={canChangeAccount}
           onClick={canChangeAccount ? () => openSub({ k: 'profile-account', p, a }) : undefined} />
       </div>
+      {other ? null : <KidsRows p={p} />}
       <SubTitle>Links</SubTitle>
       {p.devices.length ? (
         <section class="profile-card">
@@ -512,6 +516,146 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
           </div>
         </>
       )}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ perfil infantil
+// Un interruptor en la página del perfil: al prenderlo se abre una hoja con los géneros y las reglas; ya activo, suma
+// «Géneros que entran» y «Qué se está ocultando». La regla la aplica el Worker en el modo ver del perfil (src/kids.ts);
+// se activa y se quita solo desde acá, con la clave de edición. Ver planes/perfil-infantil.md.
+const KIDS_ALWAYS = ['Infantil', 'Educativo'];
+const KIDS_OPTIONAL = ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'];
+/** «Infantil, Educativo y Documental». */
+const listY = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}` : xs[0] ?? '');
+
+function KidsRows({ p }: { p: ProfileView }) {
+  const toggle = async (on: boolean) => {
+    if (on) return openKidsSheet(p);
+    if (!(await confirmDialog({
+      title: 'Quitar el perfil infantil', danger: true, ok: 'Quitar', icon: 'hand',
+      text: `«${p.name}» va a volver a ver todo lo que dejan sus categorías: películas, noticias, publicidad y también los programas sin clasificar.`,
+    }))) return void renderLinks();
+    try {
+      await profileApi(p.id, 'PUT', { kids: null });
+      toast(`«${p.name}» ya no es un perfil infantil`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  return (
+    <>
+      <SubTitle>Para chicos</SubTitle>
+      <div class="menu">
+        <label class="menu-row static">
+          <span class="menu-icon"><Icon name="hand" /></span>
+          <span class="menu-text">Perfil infantil<small>{p.kids ? 'Activo' : 'Solo programas aptos, nunca publicidad'}</small></span>
+          <input type="checkbox" class="switch" role="switch" aria-label={`Perfil infantil: ${p.name}`} checked={!!p.kids}
+            onChange={(ev) => { const on = ev.currentTarget.checked; ev.currentTarget.checked = !!p.kids; void toggle(on); }} />
+        </label>
+        {p.kids ? (
+          <>
+            <MenuRow ico="check" title="Géneros que entran" sub={listY(p.kids.genres)} onClick={() => openKidsSheet(p)} />
+            <MenuRow ico="eye" title="Qué se está ocultando" sub="Lo que no entra en las próximas horas" onClick={() => openSub({ k: 'kids-hidden', p })} />
+          </>
+        ) : null}
+      </div>
+      {p.kids ? <Help>El modo ver de este perfil aplica las mismas reglas. Para sacarlo hace falta la clave de edición, que el modo ver no tiene.</Help> : null}
+    </>
+  );
+}
+
+/** La hoja del perfil infantil: dice qué cambia y deja elegir los géneros opcionales (Infantil y Educativo entran siempre). */
+function openKidsSheet(p: ProfileView) {
+  const dlg = el<HTMLDialogElement>('#kidsDialog');
+  render(<KidsSheet key={`${p.id}:${Date.now()}`} p={p} dlg={dlg} />, dlg);
+  if (!dlg.open) dlg.showModal();
+}
+
+function KidsSheet({ p, dlg }: { p: ProfileView; dlg: HTMLDialogElement }) {
+  const [on, setOn] = useState(() => new Set((p.kids?.genres ?? []).filter((g) => KIDS_OPTIONAL.includes(g))));
+  const [busy, run] = useBusy();
+  const active = !!p.kids;
+  const save = (ev: Event) => {
+    ev.preventDefault();
+    void run(async () => {
+      try {
+        await profileApi(p.id, 'PUT', { kids: { genres: KIDS_OPTIONAL.filter((g) => on.has(g)) } });
+        toast(active ? 'Géneros guardados' : `«${p.name}» ahora es un perfil infantil`, 'ok');
+        closeSheet(dlg);
+        void renderLinks();
+      } catch (e) {
+        toast((e as Error).message, 'bad', 6000);
+      }
+    });
+  };
+  return (
+    <form class="sheet-body" onSubmit={save}>
+      <div class="title-row">
+        <h2 id="kidsTitle">{active ? 'Géneros que entran' : 'Perfil infantil'}</h2>
+        <button type="button" class="icon-btn" aria-label="Cerrar" onClick={() => closeSheet(dlg)}><Icon name="x" /></button>
+      </div>
+      <p>En «{p.name}» solo se van a ver programas de estos géneros. Lo que la IA no pudo clasificar no se muestra.</p>
+      <h3 class="sec-title">Géneros que entran</h3>
+      <div class="filter-chips">
+        {KIDS_ALWAYS.map((g) => <button type="button" key={g} class="chip-btn" aria-pressed="true" disabled>{g}</button>)}
+        {KIDS_OPTIONAL.map((g) => (
+          <button type="button" key={g} class="chip-btn" aria-pressed={on.has(g)}
+            onClick={() => setOn((cur) => { const next = new Set(cur); if (!next.delete(g)) next.add(g); return next; })}>{g}</button>
+        ))}
+      </div>
+      <ul class="rules">
+        <li><Icon name="check" /><span>Vale en el modo ver de este perfil: la Guía, Tu plan y la lista de canales.</span></li>
+        <li><Icon name="ban" /><span>Nunca entran la publicidad, las películas, las series ni las noticias, ni lo que no tenga género.</span></li>
+        <li><Icon name="info" /><span>La IA se equivoca a veces y va clasificando de a poco: al principio se ve poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran.</span></li>
+      </ul>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-plain" onClick={() => closeSheet(dlg)}>Cancelar</button>
+        <button type="submit" class="btn btn-primary" disabled={busy}>{active ? 'Guardar' : 'Activar'}</button>
+      </div>
+    </form>
+  );
+}
+
+interface KidsReport { hours: number; shown: number; hidden: number; by: { genre: string; n: number; sample: string[] }[] }
+
+/** «Qué se está ocultando»: de lo que dan en las próximas horas en los canales del perfil, cuántos programas se ven y
+ *  cuáles se ocultan, por género (y los sin clasificar). */
+function KidsHidden({ p }: { p: ProfileView }) {
+  const [r, setR] = useState<KidsReport | null | 'bad'>(null);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setR(null);
+    api<KidsReport>(`/api/cfg/${state.local!.cfgId}/profiles/${p.id}/kids`).then((v) => live && setR(v)).catch(() => live && setR('bad'));
+    return () => { live = false; };
+  }, [tries]);
+  if (r === null) return <div aria-busy="true" aria-label="Calculando lo que se oculta"><Skeleton /></div>;
+  if (r === 'bad') {
+    return (
+      <>
+        <SubTitle>Qué se está ocultando</SubTitle>
+        <Help>No se pudo calcular. Revisá la conexión y probá de nuevo.</Help>
+        <button type="button" class="btn btn-tonal btn-block" onClick={() => setTries(tries + 1)}><Icon name="refresh-cw" />Probar de nuevo</button>
+      </>
+    );
+  }
+  return (
+    <>
+      <SubTitle>Qué se está ocultando en «{p.name}»</SubTitle>
+      <Help>
+        En las próximas {r.hours} horas, en los canales de este perfil: {plural(r.shown, 'programa se ve', 'programas se ven')} y {plural(r.hidden, 'se oculta', 'se ocultan')}.
+      </Help>
+      {r.by.length ? (
+        <div class="menu">
+          {r.by.map((x) => (
+            <MenuRow key={x.genre} ico={x.genre ? 'ban' : 'circle-help'} cls="static" chevron={false}
+              title={`${x.genre || 'Sin clasificar'} · ${plural(x.n, 'programa', 'programas')}`} sub={x.sample.join(', ')} />
+          ))}
+        </div>
+      ) : <Help>Por ahora no se oculta nada.</Help>}
+      <Help>Lo «sin clasificar» es lo que la IA todavía no vio: se muestra recién cuando tiene un género apto. Cada día se clasifican más programas, así que este perfil se va completando.</Help>
     </>
   );
 }
@@ -683,6 +827,7 @@ function SubPage({ s }: { s: LinksSub }) {
     case 'servers': return <Servers />;
     case 'filter': return <ProfileFilter p={s.p} />;
     case 'view': return <ViewShare p={s.p} />;
+    case 'kids-hidden': return <KidsHidden p={s.p} />;
     case 'result': return <LinkResultView result={s.result} />;
   }
 }

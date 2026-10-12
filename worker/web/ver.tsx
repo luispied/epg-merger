@@ -11,7 +11,7 @@ import { installSheets } from './ui/sheet.ts';
 import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
-import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
+import { Logo, MASKED, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
 declare global { interface Window { ICONS: Record<string, string> } }
 Object.assign(window.ICONS, {
@@ -27,11 +27,12 @@ Object.assign(window.ICONS, {
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
 });
 
-interface ViewData { name: string; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
+interface ViewData { name: string; kids?: boolean; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
 interface Conn { inUse?: number; max?: number; watching: { name: string; channel: string; t: string }[] }
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
 type Entry = [number, number, string, string?];
-interface Prog { s: number; e: number; t: string }
+/** `m`: en un perfil infantil, un programa que no es apto (el Worker lo manda sin título). */
+interface Prog { s: number; e: number; t: string; m?: boolean }
 
 const CODE_KEY = 'grilla_ver_code';
 const THEME_KEY = 'grilla_theme';
@@ -83,12 +84,14 @@ function hourIndex(t: number): Promise<HourIndex | null> {
   if (!hours.has(k)) hours.set(k, fetch(`${hourPath}/${k}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
   return hours.get(k)!;
 }
+// Un perfil infantil baja la programación de cada canal por el Worker del código, que ya la filtra (kids.ts); la pública no.
+let schedulePath = '/api/ui/schedule';
 const files = new Map<string, Promise<Entry[] | null>>();
 function schedule(epg: string): Promise<Entry[] | null> {
   if (!files.has(epg)) {
     files.set(epg, crypto.subtle.digest('SHA-1', new TextEncoder().encode(epg))
       .then((d) => [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16))
-      .then((f) => fetch(`/api/ui/schedule/${f}.json`))
+      .then((f) => fetch(`${schedulePath}/${f}.json`))
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null));
   }
@@ -117,7 +120,7 @@ function useNowNext(now: number): Map<string, { cur?: Prog; next?: Prog }> | nul
         if (!ix) continue;
         for (const [epg, list] of Object.entries(ix.c)) {
           for (const [s, e, t] of list) {
-            const p = { s: ix.h + s * 60, e: ix.h + e * 60, t: ix.t[t] };
+            const p: Prog = ix.t[t] ? { s: ix.h + s * 60, e: ix.h + e * 60, t: ix.t[t] } : { s: ix.h + s * 60, e: ix.h + e * 60, t: MASKED, m: true };
             const o = out.get(epg) ?? {};
             if (p.s <= now && now < p.e) o.cur = p;
             else if (p.s >= now && (!o.next || p.s < o.next.s)) o.next = p;
@@ -140,12 +143,14 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
       <Logo ch={ch} cls="lg" />
       <span class="vw-body">
         <span class="vw-name">{ch.name}</span>
-        {cur ? (
+        {cur?.m ? (
+          <span class="vw-when">{MASKED}</span>
+        ) : cur ? (
           <>
             <span class="vw-now">{cur.t}</span>
             <Progress cls="vw-bar" value={pct} />
             <span class="vw-when vw-left">{left(cur.e - now)[0].toUpperCase() + left(cur.e - now).slice(1)} · hasta las {hm(cur.e)}</span>
-            {info?.next && <span class="vw-when vw-next">Después: {info.next.t}</span>}
+            {info?.next && <span class="vw-when vw-next">Después: {info.next.m ? MASKED : info.next.t}</span>}
           </>
         ) : (
           <span class="vw-when">{ch.epg ? (info === undefined ? 'Cargando…' : 'Sin programación ahora') : 'Sin guía'}</span>
@@ -211,6 +216,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
   }, []);
   useEffect(() => { if (ch.epg) schedule(ch.epg).then(setEntries); }, []);
   const cur = entries?.find(([s, e]) => s <= now && now < e);
+  const hidden = !!cur && !cur[2]; // perfil infantil: lo que da ahora no es apto
   const later = (entries ?? []).filter(([s]) => s > now).slice(0, 8);
   return (
     <dialog class="sheet settings-sheet gd-sheet vw-sheet" ref={dlg} onClose={close} aria-label={ch.name}>
@@ -224,10 +230,10 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
         {cur && (
           <>
             <p class="vw-k">Ahora</p>
-            <h2 class="gd-sh-title">{cur[2]}</h2>
+            <h2 class="gd-sh-title">{hidden ? MASKED : cur[2]}</h2>
             <p class="gd-sh-when">{hm(cur[0])} – {hm(cur[1])} · {left(cur[1] - now)}</p>
             <Progress cls="np-bar gd-sh-bar" value={((now - cur[0]) / (cur[1] - cur[0])) * 100} />
-            {cur[3] && <p class="gd-sh-desc">{cur[3]}</p>}
+            {cur[3] && !hidden && <p class="gd-sh-desc">{cur[3]}</p>}
           </>
         )}
         {entries && !cur && <p class="gd-sh-desc muted">No hay nada anunciado para este momento.</p>}
@@ -244,7 +250,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
         {later.length > 0 && (
           <div class="gd-sh-next">
             <h3>Más tarde</h3>
-            {later.map(([s, , t]) => <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t}</span></div>)}
+            {later.map(([s, , t]) => <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t || MASKED}</span></div>)}
           </div>
         )}
       </div>
@@ -331,6 +337,10 @@ function HelpSheet({ close }: { close: () => void }) {
           <p>Más abajo, en la misma hoja, está <b>Salir del modo ver</b>.</p>
         </details>
         <details>
+          <summary>Perfil infantil<Icon name="chevron-down" /></summary>
+          <p>Si este perfil es infantil, solo se ven programas aptos para chicos: lo demás dice <b>No disponible en este perfil</b>, con su horario, en los canales, en la Guía y en Tu plan, y no aparece en la búsqueda ni en Próximos. Quien armó la grilla elige qué géneros entran. Lo que todavía no se clasificó tampoco se muestra, así que al principio se ve poco y se va completando. Para cambiarlo hace falta la clave de edición, que este modo no tiene.</p>
+        </details>
+        <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
           <p>Abrí el canal y tocá <b>Lo que dan en la tele no es esto</b>. Le llega un aviso a quien arma tu grilla para que lo arregle.</p>
         </details>
@@ -359,13 +369,13 @@ function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }:
   // Género y temas del programa (se bajan la primera vez que se busca): «mundial» encuentra un partido sin decirlo.
   const [topics, setTopics] = useState<TopicSearch | null>(null);
   const searching = !!q.trim();
-  useEffect(() => { if (searching) loadTopics().then((t) => t && setTopics(t)); }, [searching]);
+  useEffect(() => { if (searching && !data.kids) loadTopics().then((t) => t && setTopics(t)); }, [searching, data.kids]);
   const shown = useMemo(() => {
     const inCats = picked.length ? channels.filter((c) => picked.includes(c.cat)) : channels;
     const f = fold(q.trim());
     if (!f) return inCats;
     return inCats.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
-      || (c.epg && info?.get(c.epg)?.cur && (fold(info.get(c.epg)!.cur!.t).includes(f)
+      || (c.epg && info?.get(c.epg)?.cur && !info.get(c.epg)!.cur!.m && (fold(info.get(c.epg)!.cur!.t).includes(f)
         || !!topics?.match(f).has(titleKey(info.get(c.epg)!.cur!.t)))));
   }, [q, channels, info, topics, picked.join('|')]);
   const out = [];
@@ -485,6 +495,7 @@ function App() {
   }, [code]);
   if (code) hourPath = `/api/view/${code}/hour`;
   const [data, setData] = useState<ViewData | null>(null);
+  if (code && data?.kids) schedulePath = `/api/view/${code}/schedule`;
   const [err, setErr] = useState<{ status: number } | null>(null);
   const [tab, setTab] = useState<'canales' | 'guia'>('canales');
   const [open, setOpen] = useState<GuideChannel | null>(null);
