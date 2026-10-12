@@ -31,13 +31,22 @@ test('la píldora queda sobre la pestaña elegida y se desliza hasta la nueva', 
   await expect(page.locator('#tabHome')).toHaveClass(/active/);
 
   const guide = center(await boxOf('#tabGuide'));
+  // Las animaciones de CSS van en cámara lenta (CDP): la píldora tarda segundos en llegar, así que siempre hay un momento
+  // en que está entre las dos pestañas, sin depender de la velocidad de la máquina ni de cuándo arranca la animación.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Animation.enable');
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.02 });
   await page.locator('#tabGuide').click();
   // A mitad del recorrido la píldora está entre las dos pestañas: se ve que viaja.
-  await page.waitForTimeout(90);
+  await expect.poll(async () => {
+    const m = center(await boxOf('#tabbar .tab-pill'));
+    return Math.min(dist(m, home), dist(m, guide));
+  }).toBeGreaterThan(2);
   const mid = center(await boxOf('#tabbar .tab-pill'));
   expect(dist(mid, home)).toBeGreaterThan(2);
   expect(dist(mid, guide)).toBeGreaterThan(2);
-  // Al final queda sobre la Guía.
+  // Al terminar (velocidad normal) la píldora queda sobre la Guía.
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
   await expect.poll(async () => dist(center(await boxOf('#tabbar .tab-pill')), guide)).toBeLessThan(1.5);
   await expect(page.locator('#tabbar .tab-pill')).toHaveCSS('opacity', '1');
 });
