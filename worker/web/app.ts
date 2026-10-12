@@ -987,15 +987,16 @@ const STATE_FILTERS: [string, string][] = [
   ['caidos', 'Caídos'], ['manual', 'Elegidos a mano'], ['editados', 'Editados'], ['ocultos', 'Ocultos'],
 ];
 // Estos siempre se ofrecen en la hoja; los demás solo cuando hay canales que cumplen.
-const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg', 'manual', 'editados', 'ocultos']);
+const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg']);
 let listCats: string[] = [];
 function renderFilterBar() {
   const states = STATE_FILTERS
     .map(([key, label]) => ({ key, label, count: state.channels.filter((c) => matchesFilter(c, key)).length }))
     .filter((s) => ALWAYS_STATES.has(s.key) || s.count > 0 || s.key === state.filter);
+  // Las categorías ocultas (y los separadores) no se ofrecen: no tienen canales que mostrar.
   const cats = new Map<string, number>();
   for (const ch of state.channels) {
-    if (info(ch).divider) continue;
+    if (info(ch).divider || state.cfg!.groups.hidden.includes(groupOf(ch))) continue;
     cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
   }
   listCats = listCats.filter((c) => cats.has(c));
