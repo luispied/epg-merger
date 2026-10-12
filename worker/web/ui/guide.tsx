@@ -899,6 +899,7 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
           <div class="gd-sh-ch"><Logo ch={ch} cls="lg" /><div><strong>{ch.name}</strong><small>{ch.cat}</small></div></div>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
+        {mine?.[4] && <p class="gd-sh-genre">{mine[4]}</p>}
         <h2 class="gd-sh-title">{p.t}</h2>
         <p class="gd-sh-when">
           {live ? <b>En el aire</b> : <span>{dayLabel(p.s, now)}</span>} · {hm(p.s)} – {hm(p.e)}{live ? ` · ${left(p.e - now)}` : ''}

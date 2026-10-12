@@ -44,7 +44,7 @@ test.beforeEach(async ({ page }) => {
       return r.fulfill({ status: 404, json: {} });
     }
     if (path.startsWith('/api/ui/schedule/')) {
-      return r.fulfill({ json: [[H - 3600, H + 3600, 'Noticiero central', 'Las noticias del día.'], [H + 3600, H + 7200, 'Película de la noche']] });
+      return r.fulfill({ json: [[H - 3600, H + 3600, 'Noticiero central', 'Las noticias del día.', 'Noticias'], [H + 3600, H + 7200, 'Película de la noche']] });
     }
     // El noticiero vuelve a empezar después de la película, y otra vez mañana. La misma emisión viene dos veces (la
     // guía trae dos títulos a esa hora), con la repetición de mañana en la segunda: el ↻ muestra la más cercana.
@@ -110,6 +110,7 @@ test('la Guía muestra la programación y la hoja del programa', async ({ page }
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText('En el aire');
   await expect(sheet).toContainText('Las noticias del día.');
+  await expect(sheet.locator('.gd-sh-genre')).toHaveText('Noticias');
   await expect(sheet.locator('.gd-again')).toContainText('Vuelve a empezar');
   await expect(sheet.locator('.gd-again')).toContainText('En este canal');
   await expect(sheet.locator('.gd-again .also')).toHaveCount(1);
