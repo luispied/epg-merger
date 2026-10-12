@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Un push nuevo a un PR cancela la corrida anterior del mismo PR: no se apilan minutos en commits que ya no valen.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   worker:
     runs-on: ubuntu-latest
@@ -19,6 +24,8 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: '22'
+        cache: npm
+        cache-dependency-path: worker/package-lock.json
     - name: Dependencias
       working-directory: worker
       run: npm ci --no-audit --no-fund
@@ -31,17 +38,38 @@ jobs:
       run: node build.mjs
     - name: Tests
       run: node --test worker/test/*.test.ts
+    - name: Caché del navegador de Playwright
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: pw-${{ hashFiles('worker/package-lock.json') }}
     - name: Tests de humo de la web (Playwright)
       working-directory: worker
+      # En los PR, solo el humo: la alta, el modo ver, la primera carga y la pantalla de inicio. La suite completa corre en
+      # main (push), con SLOW=1 para las pruebas lentas (p. ej. el pedido que no contesta, ~1 min).
+      env:
+        SLOW: ${{ github.event_name == 'push' && '1' || '' }}
+        EVENT: ${{ github.event_name }}
       run: |
         npx playwright install --with-deps chromium
-        npx playwright test
+        if [ "$EVENT" = "pull_request" ]; then
+          npx playwright test e2e/smoke.spec.ts e2e/alta.spec.ts e2e/ver.spec.ts e2e/primera-carga.spec.ts
+        else
+          npx playwright test
+        fi
+    - name: Punta a punta contra el Worker real (solo en main)
+      # wrangler dev con R2 local (worker/e2e-real/): el Worker de verdad, sin simulaciones. Solo en main, como la suite
+      # completa: en los PR no corre.
+      if: github.event_name == 'push'
+      working-directory: worker
+      run: npm run e2e:real
 
   # Prueba de capturas (worker/e2e/visual.spec.ts): las pantallas principales de main y del PR, sacadas en esta misma
   # máquina con la misma prueba (la del PR), y comparadas. No hay capturas guardadas en el repo. Es informativa: no
   # frena el PR; si algo cambió a la vista, el resumen lo dice y las diferencias quedan en el artifact «capturas».
   visual:
-    if: github.event_name == 'pull_request'
+    # Solo con la etiqueta «visual» en el PR (o en main): es informativa y gasta minutos (compila main y el PR).
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'visual')
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4

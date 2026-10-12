@@ -26,7 +26,11 @@ SEEN_KEY = 'ai/seen.json'
 MEASURE_KEY = 'ai/measure.json'
 FORGET_DAYS = 60   # un título que no aparece hace dos meses se vuelve a contar como nuevo
 HISTORY_DAYS = 90
-MIN_PLAN = 25 * 60  # Tu noche no sugiere nada más corto (planScore en worker/web/ui/guide.tsx)
+# Desde 5 minutos se clasifica: los dibujitos y otros programas cortos (Peppa Pig, Cuquín, 10 a 20 min) también
+# necesitan género para el filtro de la Guía, la búsqueda por tema y un perfil infantil. Menos de 5 minutos son
+# avances, sorteos, cortes y clips que no son un programa. Tu plan sigue sin sugerir nada de menos de 25 minutos
+# (planScore en worker/web/ui/guide.tsx): eso lo decide la web, no esta medición.
+MIN_CLASSIFY = 5 * 60
 
 # Como en el Worker (src/again.ts) y la web (ui/guide.tsx): mismo título aunque cambien mayúsculas o espacios.
 GENERIC = {'paid programming', 'programa pagado', 'programación pagada', 'no data', 'sin información', 'movie',
@@ -66,7 +70,9 @@ def tokens(text):
 
 
 def collect(schedule_dir, only=None):
-    """{clave: (título, descripción, si entra en Tu noche)} de los archivos por canal; `only` limita a esos archivos."""
+    """{clave: (título, descripción, si vale clasificarlo, peso, emisiones)} de los archivos por canal; `only` limita a
+    esos archivos (o a {archivo: configuraciones que lo usan}, de used_files: el peso del título es el de su canal más
+    usado, y las emisiones son las veces que aparece en la programación)."""
     titles = {}
     for name in os.listdir(schedule_dir):
         if not name.endswith('.json') or (only is not None and name[:-5] not in only):
@@ -85,24 +91,31 @@ def collect(schedule_dir, only=None):
             if not t or norm(t) in GENERIC or FILLER.search(t):
                 continue
             desc = e[3] if len(e) > 3 and isinstance(e[3], str) else ''
-            plan = e[1] - e[0] >= MIN_PLAN
+            plan = e[1] - e[0] >= MIN_CLASSIFY
+            weight = only.get(name[:-5], 0) if isinstance(only, dict) else 0
             k = title_key(t)
             prev = titles.get(k)
+            count = 1
             if prev:
-                # La descripción más larga describe mejor; si alguna emisión entra en Tu noche, el título entra.
+                # La descripción más larga describe mejor; si alguna emisión dura lo suficiente, el título entra.
                 t, desc, plan = prev[0], desc if len(desc) > len(prev[1]) else prev[1], plan or prev[2]
-            titles[k] = (t, desc, plan)
+                weight, count = max(weight, prev[3]), prev[4] + 1
+            titles[k] = (t, desc, plan, weight, count)
     return titles
 
 
 def used_files(configs):
-    """Los archivos de programación de los canales que tienen guía en alguna configuración."""
-    files = set()
+    """{archivo de programación: cuántas configuraciones lo usan} de los canales que tienen guía en alguna
+    configuración (una configuración cuenta una vez por canal aunque lo repita)."""
+    files = {}
     for cfg in configs.values():
+        mine = set()
         for edit in (cfg.get('channels') or {}).values():
             epg = edit.get('epg') if isinstance(edit, dict) else None
             if isinstance(epg, str) and epg:
-                files.add(schedule_file(epg))
+                mine.add(schedule_file(epg))
+        for f in mine:
+            files[f] = files.get(f, 0) + 1
     return files
 
 
@@ -110,7 +123,7 @@ def cost(titles):
     """Tokens de entrada y salida y costo en dólares de clasificar estos títulos."""
     if not titles:
         return 0, 0, 0.0
-    tin = sum(tokens(t) + tokens(d[:DESC_CHARS]) if d else tokens(t) for t, d, _ in titles) + PER_TITLE_OVERHEAD * len(titles)
+    tin = sum(tokens(t) + tokens(d[:DESC_CHARS]) if d else tokens(t) for t, d, *_ in titles) + PER_TITLE_OVERHEAD * len(titles)
     tin += SYSTEM_TOKENS * -(-len(titles) // BATCH)
     tout = OUT_TOKENS * len(titles)
     return tin, tout, tin * PRICE_IN + tout * PRICE_OUT
@@ -169,8 +182,8 @@ def usd(x):
 def summary(row, history):
     """El resumen en Markdown para la corrida de GitHub."""
     lines = ['## Clasificar la guía con IA: medición (sin costo)', '',
-             'Lo que costaría clasificar por género con Claude Haiku 5.5 por lotes. Solo cuentan los títulos de '
-             '25 minutos o más (lo que puede sugerir Tu noche).', '']
+             'Lo que costaría clasificar por género con Claude Haiku 5.5 por lotes. Cuentan los títulos de '
+             '5 minutos o más (los cortes y avisos más cortos no son un programa).', '']
     lines += ['| | Toda la guía | Canales en uso |', '|---|---|---|']
     a, u = row['all'], row.get('used') or {}
     def cell(d, k, fmt=str):

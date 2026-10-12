@@ -6,6 +6,10 @@ on:
     # pide bajarlas una vez por día a partir de esa hora; ver planes/licencias-fuentes-epg.md).
     - cron: '30 17 * * *'
   workflow_dispatch:
+    inputs:
+      ai_muestras:
+        description: 'Prueba de la IA: cuántos programas clasificar y mostrar (0 = nada)'
+        default: '0'
 
 permissions:
   contents: write
@@ -22,9 +26,9 @@ concurrency:
 jobs:
   merge:
     runs-on: ubuntu-latest
-    # Una corrida normal tarda ~8 min. Con las corridas en cola, una trabada no puede
-    # bloquear a las siguientes por horas (el límite por defecto de GitHub es 6 h).
-    timeout-minutes: 40
+    # Una corrida normal tarda ~8 min (más hasta 20 si la IA espera su lote). Con las corridas en
+    # cola, una trabada no puede bloquear a las siguientes por horas (el límite de GitHub es 6 h).
+    timeout-minutes: 60
     env:
       PYTHONUNBUFFERED: '1'  # el log muestra el avance en vivo, no todo junto al final
 
@@ -63,9 +67,11 @@ jobs:
       continue-on-error: true
       run: curl -sSfL --retry 3 -o iptv_channels.json https://iptv-org.github.io/api/channels.json
 
-    # Cruza la guía fusionada con la lista de cada perfil de XTREAM_PROFILES: arma el catálogo y la
-    # programación que usa Grilla web y el match_report de cada perfil (out/<perfil>/). Las playlists que
-    # también escribe no se publican en ningún lado: las que usa el reproductor las arma el Worker.
+    # Arma lo compartido de toda la guía a partir de la guía fusionada: el catálogo y la programación que
+    # usa Grilla web (de ahí cuelgan la Guía y Tu plan de todos). No necesita ninguna credencial.
+    # Opcional: si hay perfiles en XTREAM_PROFILES (o XTREAM_USERNAME/PASSWORD/SERVERS), también cruza la
+    # guía con la lista de cada uno y deja su match_report (out/<perfil>/), que usan los bancos de pruebas.
+    # Las playlists que escribe no se publican: las que usa el reproductor las arma el Worker.
     # El JSON con las credenciales nunca se expande en el shell: lo lee el propio Python.
     - name: Generate playlists
       env:
@@ -168,4 +174,33 @@ jobs:
         path: |
           out/*/match_report.json
           out/sources_report.json
+        if-no-files-found: ignore
+
+    # Clasificar con IA (tools/classify_genres.py, planes/ia-tu-plan.md). Solo con el interruptor
+    # prendido (variable del repo AI_CLASSIFY = on) o en una prueba pedida a mano con ai_muestras.
+    # Va al final: si el lote tarda, la guía ya se publicó. Sin ANTHROPIC_API_KEY no hace nada.
+    - name: Classify titles with AI
+      if: vars.AI_CLASSIFY == 'on' || (github.event_name == 'workflow_dispatch' && inputs.ai_muestras != '0')
+      continue-on-error: true
+      timeout-minutes: 25
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        AI_CLASSIFY: ${{ vars.AI_CLASSIFY }}
+        AI_SAMPLE: ${{ inputs.ai_muestras }}
+        AI_MAX_TITLES: ${{ vars.AI_MAX_TITLES }}
+        AI_MONTH_BUDGET: ${{ vars.AI_MONTH_BUDGET }}
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: |
+        pip install anthropic
+        python tools/classify_genres.py
+
+    - name: Upload AI samples
+      if: github.event_name == 'workflow_dispatch' && inputs.ai_muestras != '0'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ia-muestras
+        path: out/ai_sample.html
         if-no-files-found: ignore

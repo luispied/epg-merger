@@ -670,11 +670,21 @@ def test_divisor_24_7_mantiene_el_estilo_decorativo_sin_la_barra(tmp_path, monke
     assert 'tvg-name="▆▆▆２４ ７▆▆▆"' in playlist
 
 
-def test_sin_perfiles_no_genera_nada(proyecto, monkeypatch, capsys):
+def test_sin_perfiles_arma_lo_compartido(proyecto, monkeypatch, capsys):
+    """Sin ningún perfil (ni XTREAM_*) la corrida igual arma la programación y el catálogo: la Guía y
+    Tu plan de todos los usuarios no pueden depender de la cuenta de quien mantiene el repo."""
     monkeypatch.delenv('XTREAM_PROFILES', raising=False)
+    monkeypatch.delenv('XTREAM_USERNAME', raising=False)
     generate_playlist.generate()
-    assert not (proyecto / 'out').exists()
-    assert 'Sin perfiles configurados' in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert 'Sin perfiles configurados' in out
+    # Ningún perfil: ni playlist ni reporte de cruce.
+    assert not list((proyecto / 'out').glob('*/playlist.m3u8'))
+    assert not list((proyecto / 'out').glob('*/match_report.json'))
+    # Lo compartido sí: catálogo de la guía y logos.
+    assert (proyecto / 'out' / 'epg_catalog.json').exists()
+    assert (proyecto / 'out' / 'epg_icons.json').exists()
+    assert (proyecto / 'out' / 'schedule').is_dir()
 
 
 def _con_ediciones(proyecto, overrides=None, renames=None, categorias=None, ocultos=None,

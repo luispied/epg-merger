@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c0d10" media="(prefers-color-scheme: dark)">
-<!-- Modo «solo ver» (ver.tsx): sin manifest, así «Agregar a inicio» guarda esta dirección con su código. -->
-<title>Nowline</title>
+<!-- Modo «solo ver» (ver.tsx): el manifest lo agrega ver.tsx con el código (/ver-app/<código>.webmanifest), así «Agregar a inicio» guarda esta dirección con su código y abre como una app. -->
+<title>nowline</title>
 <meta name="robots" content="noindex">
 <meta name="referrer" content="no-referrer">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Nowline">
+<meta name="apple-mobile-web-app-title" content="nowline">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png?v=__VERSION__">
+<link rel="apple-touch-icon" sizes="180x180" href="img/ver/apple-touch-icon.png?v=__VERSION__">
 <!-- Lo que muestra el iPhone al abrir desde la pantalla de inicio, antes de la página: la misma pantalla de inicio (splash-images.mjs). -->
 <link rel="apple-touch-startup-image" href="img/splash/splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
 <link rel="apple-touch-startup-image" href="img/splash/splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
@@ -29,10 +29,17 @@
 <link rel="apple-touch-startup-image" href="img/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
 <script>
   try {
-    var t = localStorage.getItem('grilla_theme') || 'dark';
+    var t = localStorage.getItem('grilla_theme') || 'auto';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    // Texto grande: el mismo ajuste que la edición (la barra inferior mide y queda igual en los dos).
+    if (localStorage.getItem('grilla_text') === 'lg') document.documentElement.dataset.text = 'lg';
     if (sessionStorage.getItem('nowline_splash') || navigator.webdriver) document.documentElement.classList.add('no-splash');
-    else sessionStorage.setItem('nowline_splash', '1');
+    else {
+      sessionStorage.setItem('nowline_splash', '1');
+      document.documentElement.classList.add('splash-on');
+      // Plan B: si la app no llega a sacar el logo (error de JS, red lenta), a los 5 s se muestra igual.
+      setTimeout(function () { var s = document.getElementById('splash'); if (s) s.remove(); document.documentElement.classList.remove('splash-on'); }, 5000);
+    }
   } catch (e) { /* sin storage: sigue al sistema */ }
 </script>
 <link rel="stylesheet" href="app.css?v=__VERSION__">

@@ -53,10 +53,15 @@ Cómo haría falta armarlo:
   corrida diaria (paso «Measure titles for AI (free)»). Cuenta los títulos distintos de 25 minutos o más (lo que puede
   sugerir Tu noche), en toda la guía y en los canales que usa alguna configuración, recuerda los vistos en
   `ai/seen.json` de R2 y deja cada día en `ai/measure.json` y en el resumen de la corrida, con la proyección mensual.
-- Cuando haya unos días de medición: límite de gasto mensual en la cuenta de Anthropic (por ejemplo US$ 5), tope de
-  títulos por corrida en el script y el secreto `ANTHROPIC_API_KEY` en el repo.
+- 11/10: Luis cargó `ANTHROPIC_API_KEY` en el repo, US$ 5 de crédito sin recarga y un límite de US$ 5 por mes. Pidió
+  una prueba con muestras antes de prender la IA y un interruptor para apagarla (`AI_CLASSIFY`).
 
 ## Estado
 - ✅ 1.36.0: fase 1 (Worker, puntaje, porqué, «Más como esto» / «No me interesa», ayuda y tests).
 - 🔄 Fase 2: midiendo gratis el volumen y el costo (`tools/measure_titles.py`).
+- 🔄 Fase 2: `tools/classify_genres.py` clasifica con Haiku 5.5 por lotes (caché `ai/genres.json`, gasto en
+  `ai/spend.json`, lote sin terminar en `ai/pending.json`). Prueba a mano: Actions → Merge EPGs → Run workflow con
+  `ai_muestras` (página `ia-muestras` en los artefactos). Diaria solo con la variable del repo `AI_CLASSIFY` = `on`
+  (apagada por defecto), con tope `AI_MAX_TITLES` (10000 desde la cobertura de 5 minutos o más; ver `planes/ia-tu-plan.md`). Resumen y decisiones en `planes/ia-tu-plan.md` de los
+  archivos del proyecto.
 - Pendiente: clasificar de verdad, usar géneros y temas en los hábitos y en Tu noche.

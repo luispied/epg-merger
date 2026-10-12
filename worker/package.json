@@ -1,7 +1,7 @@
 {
   "name": "grilla-worker",
   "private": true,
-  "version": "1.41.3",
+  "version": "1.52.1",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
@@ -9,6 +9,7 @@
     "test": "node --test test/*.test.ts",
     "deploy": "wrangler deploy",
     "e2e": "node build.mjs && playwright test",
+    "e2e:real": "playwright test -c playwright.real.config.ts",
     "splash-images": "node build.mjs && node splash-images.mjs"
   },
   "devDependencies": {

@@ -84,3 +84,83 @@ def test_indices_por_hora_desde_el_merged(tmp_path):
     ps.pack_configs(configs, src, str(tmp_path / 'cfg'))
     index = read_channel_from(tmp_path / 'cfg' / 'c', now.strftime('%Y%m%d%H'))
     assert index['t'] == ['Telemundo'] and list(index['c'].values()) == [[[0, 60, 0]]]
+
+
+def test_pack_con_generos(tmp_path):
+    """Los programas clasificados llevan el género como quinto elemento; «Otro» y los no clasificados quedan igual."""
+    from measure_titles import title_key
+    src, dst = tmp_path / 'schedule', tmp_path / 'r2'
+    src.mkdir()
+    entries = [[1, 2, 'Noticiero Central'], [3, 4, 'Cine de Barrio', 'Una película'], [5, 6, 'Sin clasificar'],
+               [7, 8, 'Programa raro'], [9, 10, 'Compre YA']]
+    (src / 'ab00000000000001.json').write_text(json.dumps(entries, ensure_ascii=False), encoding='utf-8')
+    (src / 'cd00000000000002.json').write_text(json.dumps([[1, 2, 'Sin clasificar']]), encoding='utf-8')
+    genres = {
+        title_key('noticiero central'): ['Noticias', ['política'], False, '2026-10-12'],
+        title_key('Cine de Barrio'): ['Película', ['drama'], False, '2026-10-12'],
+        title_key('Programa raro'): ['Otro', [], False, '2026-10-12'],
+        title_key('Compre YA'): ['Publicidad', [], False, '2026-10-12'],
+    }
+    ps.pack(str(src), str(dst), genres)
+    got = read_channel(str(dst), 'ab00000000000001')
+    assert got == [[1, 2, 'Noticiero Central', '', 'Noticias'], [3, 4, 'Cine de Barrio', 'Una película', 'Película'],
+                   [5, 6, 'Sin clasificar'], [7, 8, 'Programa raro'], [9, 10, 'Compre YA', '', 'Publicidad']]
+    assert read_channel(str(dst), 'cd00000000000002') == [[1, 2, 'Sin clasificar']]
+
+
+def test_pack_sin_generos_deja_los_bytes_igual(tmp_path):
+    src, dst = tmp_path / 'schedule', tmp_path / 'r2'
+    src.mkdir()
+    (src / 'ab00000000000001.json').write_text('[[1,2,"Uno"]]', encoding='utf-8')
+    ps.pack(str(src), str(dst), {})
+    assert read_channel(str(dst), 'ab00000000000001') == [[1, 2, 'Uno']]
+
+
+def test_indice_de_temas(tmp_path):
+    """topics.json: los títulos con género o temas, normalizados, con índices a los géneros y a los temas; sin «Otro»."""
+    from measure_titles import title_key
+    src, dst = tmp_path / 'schedule', tmp_path / 'r2'
+    src.mkdir()
+    entries = [[1, 2, 'Noticiero  Central'], [3, 4, 'Cine de Barrio'], [5, 6, 'Programa raro'], [7, 8, 'Sin clasificar'],
+               [9, 10, 'Solo tema']]
+    (src / 'ab00000000000001.json').write_text(json.dumps(entries), encoding='utf-8')
+    genres = {
+        title_key('noticiero central'): ['Noticias', ['política', 'mundial'], False, '2026-10-12'],
+        title_key('Cine de Barrio'): ['Película', ['drama', 'mundial'], False, '2026-10-12'],
+        title_key('Programa raro'): ['Otro', [], False, '2026-10-12'],
+        title_key('Solo tema'): ['Otro', ['cocina'], False, '2026-10-12'],
+    }
+    ps.pack(str(src), str(dst), genres)
+    n, raw, gz = ps.pack_topics(str(src), str(dst), genres)
+    topics = json.loads((dst / 'topics.json').read_text(encoding='utf-8'))
+    assert n == 4 and raw == len((dst / 'topics.json').read_bytes()) and gz > 0
+    assert topics['t'] == ['cine de barrio', 'noticiero central', 'solo tema']
+    by_title = {t: [(topics['g'][r[0]] if r[0] >= 0 else None), [topics['v'][i] for i in r[1:]]]
+                for t, r in zip(topics['t'], topics['r'])}
+    assert by_title == {'cine de barrio': ['Película', ['drama', 'mundial']],
+                        'noticiero central': ['Noticias', ['política', 'mundial']],
+                        'solo tema': [None, ['cocina']]}
+    assert topics['v'].count('mundial') == 1
+
+
+def test_indices_por_hora_con_generos(tmp_path):
+    """El índice por hora (de toda la guía y de cada configuración) lleva "g", paralelo a "t"; sin clasificados, no."""
+    from measure_titles import title_key
+    src, dst, cfg = tmp_path / 'schedule', tmp_path / 'r2', tmp_path / 'cfg'
+    (src / 'hour').mkdir(parents=True)
+    index = {'h': 100, 't': ['Cine de Barrio', 'Sin clasificar', 'Programa raro', 'Compre YA'],
+             'c': {'g0000000000000a.ar': [[0, 30, 0], [30, 60, 1]], 'g0000000000000b.us': [[0, 60, 3], [60, 90, 2]]}}
+    (src / 'hour' / '2026101119.json').write_text(json.dumps(index), encoding='utf-8')
+    (src / 'hour' / '2026101119-d.json').write_text('{"d":[],"c":{}}', encoding='utf-8')
+    (src / 'hour' / '2026101120.json').write_text(json.dumps({'h': 200, 't': ['Sin clasificar'], 'c': {}}), encoding='utf-8')
+    genres = {title_key('Cine de Barrio'): ['Cine', [], False, 'x'], title_key('Programa raro'): ['Otro', [], False, 'x'],
+              title_key('Compre YA'): ['Publicidad', [], False, 'x']}
+    ps.pack(str(src), str(dst), genres)
+    got = json.loads(gzip.decompress((dst / 'hour' / '2026101119.json').read_bytes()))
+    assert got['g'] == ['Cine', '', '', 'Publicidad'] and got['t'] == index['t']
+    assert gzip.decompress((dst / 'hour' / '2026101119-d.json').read_bytes()) == b'{"d":[],"c":{}}'
+    assert 'g' not in json.loads(gzip.decompress((dst / 'hour' / '2026101120.json').read_bytes()))
+    configs = {'x': {'channels': {'B': {'epg': 'g0000000000000b.us'}}}}
+    ps.pack_configs(configs, str(src), str(cfg), genres)
+    assert read_channel_from(cfg / 'x', '2026101119') == {
+        'h': 100, 't': ['Compre YA', 'Programa raro'], 'c': {'g0000000000000b.us': [[0, 60, 0], [60, 90, 1]]}, 'g': ['Publicidad', '']}

@@ -11,7 +11,7 @@ export interface Fake {
   writes: { method: string; path: string; body: unknown }[];
   /** Canales marcados desde el modo ver («la guía no coincide»). */
   reports: { id: string; name: string; epg: string | null; title?: string; by: string; at: string }[];
-  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string }[];
+  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string; kids?: { genres: string[] } }[];
 }
 
 const channels = [
@@ -29,7 +29,7 @@ const guide = [
 
 /** Deja la app con una configuración guardada en este navegador y contesta /api como el Worker. `extra` suma canales
  *  ([nombre, categoría]) a la lista del proveedor; `health` es lo que devuelve la prueba de canales. */
-export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown> } = {}): Promise<Fake> {
+export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?: Record<string, unknown>; devices?: Record<string, unknown>[]; accounts?: Record<string, unknown>; run?: Record<string, unknown> } = {}): Promise<Fake> {
   const list = [...channels, ...(opts.extra ?? []).map(([name, category], i) => ({ name, category, id: String(100 + i), ext: 'ts', icon: '', epgId: null }))];
   const fake: Fake = {
     writes: [],
@@ -39,7 +39,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
       { id: 'p2', name: 'Chicos', filter: { groups: ['Deportes'], channels: [] } },
     ],
   };
-  const devices = [{
+  const devices = opts.devices ?? [{
     code: 'd1', name: 'TV del living', active: true, lastUsed: new Date(Date.now() - 3_600_000).toISOString(), accountKey: 'ak1', profile: 'p1', lastPlay: { t: new Date(Date.now() - 20 * 60_000).toISOString(), ch: '4' },
     playlistUrl: 'https://grilla.test/p/abc123', epgUrl: 'https://grilla.test/e/abc123',
   }];
@@ -63,7 +63,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (path === '/api/cfg/c1/list') return json({ channels: list });
     if (path === '/api/cfg/c1/devices') return json({ devices, profiles: fake.profiles, mainName: 'Luis' });
     if (path === '/api/cfg/c1/accounts') {
-      return json({ accounts: { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });
+      return json({ accounts: opts.accounts ?? { ak1: { expires: new Date(Date.now() + 20.5 * day).toISOString(), maxConnections: 2, activeConnections: 1 } } });
     }
     if (path === '/api/cfg/c1/status') return json({ guideUpToDate: true, guide: '2026-10-10T12:00:00Z', autoRefresh: true });
     if (path === '/api/cfg/c1/refresh') return json({ started: true });
@@ -79,6 +79,7 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (path.startsWith('/api/home/') && method === 'PUT') return json({});
     if (path === '/api/cfg/c1/health' && opts.health) return json(opts.health);
     if (path === '/api/cfg/c1/health/run' && method === 'DELETE') return json({ stopped: true });
+    if (path === '/api/cfg/c1/health/run' && method === 'POST') return json(opts.run ?? { started: true, requested: new Date().toISOString() });
     if (path === '/api/cfg/c1/reports') return json({ items: fake.reports });
     const rp = path.match(/^\/api\/cfg\/c1\/reports\/(\w+)$/);
     if (rp && method === 'DELETE') {
@@ -93,11 +94,26 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
       p.view ??= `Vista${p.id}Abcdefghijklmnop`.slice(0, 22);
       return json({ code: p.view });
     }
+    // Qué se oculta en un perfil infantil (src/kids.ts → kidsReport).
+    const k = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)\/kids$/);
+    if (k) {
+      return fake.profiles.find((x) => x.id === k[1])?.kids
+        ? json({ hours: 6, shown: 5, hidden: 7, by: [
+          { genre: '', n: 4, sample: ['Misterio en la casa', 'Capítulo 12', 'Especial'] },
+          { genre: 'Película', n: 2, sample: ['Terror en la noche', 'La gran fuga'] },
+          { genre: 'Noticias', n: 1, sample: ['Noticiero central'] },
+        ] })
+        : json({ error: 'este perfil no es infantil' }, 404);
+    }
     const m = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)$/);
     if (m && method === 'PUT') {
       const p = fake.profiles.find((x) => x.id === m[1]);
       if (!p) return json({ error: 'no existe' }, 404);
-      Object.assign(p, req.postDataJSON());
+      const { kids, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null };
+      Object.assign(p, rest);
+      // Como el Worker: Infantil y Educativo entran siempre; null lo quita.
+      if (kids === null) delete p.kids;
+      else if (kids) p.kids = { genres: ['Infantil', 'Educativo', ...kids.genres.filter((g) => ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'].includes(g))] };
       return json({});
     }
     return json({ error: 'no está en el Worker de prueba' }, 404);

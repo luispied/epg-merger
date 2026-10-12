@@ -15,8 +15,19 @@ de clase A por archivo todos los días (más de la mitad de las gratis del mes).
   índice de toda la guía pero solo con sus canales (unos cientos de los ~17.500), en el mismo formato de
   tanda con una entrada por hora. Es lo que baja la Guía en el celular: ~20 KB por hora en vez de ~400 KB.
 
-Uso: python tools/pack_schedule.py [out/schedule] [out/schedule_r2]
-     python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
+- Con --genres <ai/genres.json>, cada entrada de un programa que la IA ya clasificó (tools/classify_genres.py) lleva
+  el género como quinto elemento: [inicio, fin, título, descripción o '', género]. Es lo que usa Tu plan para sugerir
+  cosas parecidas a lo que se mira y para dejar afuera la publicidad. «Otro» no se agrega: no dice nada.
+  Los índices por hora (también los de cada configuración) llevan los mismos géneros en "g", una lista paralela a "t"
+  ('' = sin clasificar): es lo que usa el filtro por género de la Guía (Grilla y Próximos), sin bajar nada más.
+
+- Con --genres, además, `topics.json`: el índice para buscar por tema («Mundial», «cocina»). Los temas NO van en cada
+  programa de las tandas (medido: +14 % de las tandas sobre el género, unos 11 MB de los 78): van aparte, una sola vez
+  por título, y la web lo baja recién cuando se busca. Formato (gzip al subir): {"g": [géneros], "v": [temas],
+  "t": [títulos normalizados], "r": [[i_género, i_tema, …] por título]}; el género −1 es «sin género».
+
+Uso: python tools/pack_schedule.py [--genres ai/genres.json] [out/schedule] [out/schedule_r2]
+     python tools/pack_schedule.py [--genres ai/genres.json] --configs out/cfgs out/schedule out/schedule_cfg
 """
 import gzip
 import json
@@ -51,8 +62,97 @@ def write_pack(path, members):
             out.write(member)
 
 
-def pack(src, dst):
-    """Devuelve (canales, tandas, horas) empacados."""
+NO_GENRE = {'Otro'}
+
+
+def tag_genres(raw, genres):
+    """El JSON de un canal con el género de cada programa clasificado como quinto elemento; igual si no hay ninguno."""
+    from measure_titles import title_key
+    try:
+        entries = json.loads(raw)
+    except ValueError:
+        return raw
+    if not isinstance(entries, list):
+        return raw
+    out, tagged = [], 0
+    for e in entries:
+        genre = (genres.get(title_key(e[2])) or [None])[0] if isinstance(e, list) and len(e) >= 3 else None
+        if genre and genre not in NO_GENRE:
+            out.append([e[0], e[1], e[2], e[3] if len(e) > 3 else '', genre])
+            tagged += 1
+        else:
+            out.append(e)
+    if not tagged:
+        return raw
+    return json.dumps(out, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+
+
+def build_topics(titles, genres):
+    """El índice de temas: {"g": géneros, "v": temas, "t": títulos normalizados, "r": [[i_género, i_tema, …]]}.
+    `titles`: {clave: título}. Solo entran los títulos con algo para buscar (un género que no sea «Otro» o algún tema)."""
+    from measure_titles import norm
+    gl, vl, gi, vi = [], [], {}, {}
+    names, rows = [], []
+    for key in sorted(titles, key=lambda k: norm(titles[k])):
+        info = genres.get(key)
+        if not info:
+            continue
+        genre = info[0] if info[0] and info[0] not in NO_GENRE else None
+        topics = [t for t in (info[1] if len(info) > 1 and isinstance(info[1], list) else []) if isinstance(t, str) and t.strip()]
+        if not genre and not topics:
+            continue
+        g = -1
+        if genre:
+            g = gi.setdefault(genre, len(gl))
+            if g == len(gl):
+                gl.append(genre)
+        row = [g]
+        for t in topics:
+            i = vi.setdefault(t, len(vl))
+            if i == len(vl):
+                vl.append(t)
+            row.append(i)
+        names.append(norm(titles[key]))
+        rows.append(row)
+    return {'g': gl, 'v': vl, 't': names, 'r': rows}
+
+
+def pack_topics(src, dst, genres):
+    """Escribe <dst>/topics.json (sin comprimir: r2_upload.sh lo sube con --gzip). Devuelve (títulos, bytes, bytes en gzip)."""
+    from measure_titles import collect
+    titles = {k: v[0] for k, v in collect(src).items() if k in genres}
+    data = json.dumps(build_topics(titles, genres), ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    os.makedirs(dst, exist_ok=True)
+    with open(os.path.join(dst, 'topics.json'), 'wb') as f:
+        f.write(data)
+    return len(titles), len(data), len(_gz(data))
+
+
+def tag_hour(index, genres):
+    """El índice de una hora con "g": el género de cada título de "t" ('' si no está clasificado o es «Otro»). Sin
+    ninguno clasificado, el índice queda igual (sin "g")."""
+    from measure_titles import title_key
+    g = [(genres.get(title_key(t)) or [''])[0] or '' for t in index.get('t', [])]
+    g = ['' if x in NO_GENRE else x for x in g]
+    return {**index, 'g': g} if any(g) else index
+
+
+def tag_hour_bytes(raw, genres):
+    try:
+        index = json.loads(raw)
+    except ValueError:
+        return raw
+    if not isinstance(index, dict) or not isinstance(index.get('t'), list):
+        return raw
+    tagged = tag_hour(index, genres)
+    if tagged is index:
+        return raw
+    return json.dumps(tagged, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+
+
+def pack(src, dst, genres=None):
+    """Devuelve (canales, tandas, horas) empacados. Con `genres` ({clave del título: [género, …]}), los programas
+    clasificados llevan su género."""
     if os.path.isdir(dst):
         shutil.rmtree(dst)
     os.makedirs(os.path.join(dst, 's'))
@@ -66,7 +166,8 @@ def pack(src, dst):
         members = []
         for f in files:
             with open(os.path.join(src, f'{f}.json'), 'rb') as fh:
-                members.append((f, fh.read()))
+                raw = fh.read()
+            members.append((f, tag_genres(raw, genres) if genres else raw))
         write_pack(os.path.join(dst, 's', prefix), members)
         channels += len(files)
 
@@ -77,7 +178,9 @@ def pack(src, dst):
         for name in sorted(os.listdir(hour_src)):
             if name.endswith('.json'):
                 with open(os.path.join(hour_src, name), 'rb') as fh, open(os.path.join(dst, 'hour', name), 'wb') as out:
-                    out.write(_gz(fh.read()))
+                    raw = fh.read()
+                    # Las descripciones (-d.json) no llevan género.
+                    out.write(_gz(tag_hour_bytes(raw, genres) if genres and not name.endswith('-d.json') else raw))
                 hours += 1
     return channels, len(shards), hours
 
@@ -90,21 +193,27 @@ def config_ids(config):
 
 
 def filter_hour(index, ids):
-    """El índice de una hora solo con esos canales, con su propia lista de títulos."""
-    titles, remap, channels = [], {}, {}
+    """El índice de una hora solo con esos canales, con su propia lista de títulos (y de géneros, si los trae)."""
+    titles, genres, remap, channels = [], [], {}, {}
     for cid in sorted(ids & index['c'].keys()):
         rows = []
         for start, stop, t in index['c'][cid]:
             if t not in remap:
                 remap[t] = len(titles)
                 titles.append(index['t'][t])
+                if 'g' in index:
+                    genres.append(index['g'][t])
             rows.append([start, stop, remap[t]])
         channels[cid] = rows
-    return {'h': index['h'], 't': titles, 'c': channels}
+    out = {'h': index['h'], 't': titles, 'c': channels}
+    if any(genres):
+        out['g'] = genres
+    return out
 
 
-def pack_configs(configs, src, dst):
-    """Un archivo por configuración con su índice de cada hora (cfg/<cfgId> en R2). Devuelve cuántos."""
+def pack_configs(configs, src, dst, genres=None):
+    """Un archivo por configuración con su índice de cada hora (cfg/<cfgId> en R2). Devuelve cuántos. Con `genres`,
+    los títulos clasificados llevan su género ("g")."""
     if os.path.isdir(dst):
         shutil.rmtree(dst)
     os.makedirs(dst)
@@ -113,7 +222,8 @@ def pack_configs(configs, src, dst):
     for name in sorted(os.listdir(hour_dir)) if os.path.isdir(hour_dir) else []:
         if name.endswith('.json') and not name.endswith('-d.json'):
             with open(os.path.join(hour_dir, name), encoding='utf-8') as f:
-                hours.append((name[:-len('.json')], json.load(f)))
+                index = json.load(f)
+            hours.append((name[:-len('.json')], tag_hour(index, genres) if genres else index))
     for cfg_id, config in configs.items():
         ids = config_ids(config)
         write_pack(os.path.join(dst, cfg_id), [
@@ -140,13 +250,24 @@ def _size(path):
 
 
 def main(argv):
+    argv = list(argv)
+    genres = None
+    if '--genres' in argv:
+        i = argv.index('--genres')
+        path = argv[i + 1]
+        del argv[i:i + 2]
+        try:
+            with open(path, encoding='utf-8') as f:
+                genres = json.load(f)
+        except (OSError, ValueError):
+            print(f'ℹ️  Sin {path} legible: la programación sale sin géneros.')
     if len(argv) > 1 and argv[1] == '--configs':
         from config_epgs import load_configs
         configs_dir, src, dst = argv[2:5]
         if not os.path.isdir(src) or not os.path.isdir(configs_dir):
             print('ℹ️  Sin programación o sin configuraciones: no hay índices por configuración.')
             return 0
-        n = pack_configs(load_configs(configs_dir), src, dst)
+        n = pack_configs(load_configs(configs_dir), src, dst, genres)
         print(f'📦 Índices por hora de {n} configuración(es): {_size(dst) / 1e6:.1f} MB')
         return 0
     src = argv[1] if len(argv) > 1 else os.path.join('out', 'schedule')
@@ -154,9 +275,13 @@ def main(argv):
     if not os.path.isdir(src):
         print(f'ℹ️  Sin {src}: no hay programación para empacar.')
         return 0
-    channels, shards, hours = pack(src, dst)
+    channels, shards, hours = pack(src, dst, genres)
+    if genres:
+        n, raw, gz = pack_topics(src, dst, genres)
+        print(f'🔎 Índice de temas para buscar: {n} títulos, {raw / 1e3:.0f} KB ({gz / 1e3:.0f} KB en gzip)')
     print(f'📦 Programación para R2: {channels} canales en {shards} tandas y {hours} archivos por hora, '
-          f'{_size(src) / 1e6:.0f} MB → {_size(dst) / 1e6:.0f} MB')
+          f'{_size(src) / 1e6:.0f} MB → {_size(dst) / 1e6:.0f} MB'
+          + (f', con el género de {len(genres)} títulos' if genres else ''))
     return 0
 
 

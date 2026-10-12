@@ -5,6 +5,8 @@ import { expect, test } from '@playwright/test';
 const H = Math.floor(Date.now() / 3_600_000) * 3600; // hora UTC en curso
 const hourKey = (t: number) => new Date(t * 1000).toISOString().slice(0, 13).replace(/\D/g, '');
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
+// Código de la casa de prueba: el Worker lo acepta solo con su clave (ver isHomeCode en ver.tsx).
+const HOME = 'hogarPrueba0123456789.ClaveCasa0123456789abcdef';
 
 const view = {
   name: 'Abuela',
@@ -34,6 +36,8 @@ test.beforeEach(async ({ page }) => {
   errors = [];
   gone = false;
   reported = [];
+  // Reloj fijo a las y 20 de la hora de H: si la prueba cruza una hora, la app no ve los datos de la hora anterior.
+  await page.clock.setFixedTime(new Date(H * 1000 + 20 * 60_000));
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/api/**', (r) => {
     const path = new URL(r.request().url()).pathname;
@@ -41,19 +45,26 @@ test.beforeEach(async ({ page }) => {
     if (r.request().method() !== 'GET' && path !== '/api/ui/again' && path !== `/api/view/${CODE}/report`) errors.push(`escribió ${path}`);
     if (path === `/api/view/${CODE}/connections`) {
       return r.fulfill({ json: { inUse: 2, max: 2, watching: [
-        { name: 'TV del living', channel: 'Canal Uno', t: new Date(Date.now() - 20 * 60_000).toISOString() },
-        { name: 'Tablet', channel: 'Cine Clásico', t: new Date(Date.now() - 3 * 60_000).toISOString() },
+        { name: 'TV del living', channel: 'Canal Uno', t: new Date(H * 1000).toISOString() },
+        { name: 'Tablet', channel: 'Cine Clásico', t: new Date(H * 1000 + 17 * 60_000).toISOString() },
       ] } });
     }
     if (path === `/api/view/${CODE}/report`) {
       reported.push(r.request().postDataJSON());
       return r.fulfill({ json: { ok: true } });
     }
+    if (path.startsWith('/api/home/')) {
+      const ok = r.request().headers().authorization === `Bearer ${HOME.split('.')[1]}`;
+      return ok ? r.fulfill({ json: { data: '' } }) : r.fulfill({ status: 403, json: { error: 'no' } });
+    }
     if (path === `/api/view/${CODE}`) return gone ? r.fulfill({ status: 404, json: { error: 'no' } }) : r.fulfill({ json: view });
     const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})\.json$/);
     if (m) {
       for (const h of [H, H + 3600]) if (hourKey(h) === m[1]) return r.fulfill({ json: hour(h) });
       return r.fulfill({ status: 404, json: {} });
+    }
+    if (path === '/api/ui/schedule/topics.json') {
+      return r.fulfill({ json: { g: ['Película', 'Noticias'], v: ['romántico', 'guerra'], t: ['casablanca', 'noticiero central'], r: [[0, 0, 1], [1]] } });
     }
     if (path.startsWith('/api/ui/schedule/')) {
       return r.fulfill({ json: [[H - 2400, H + 3600, 'Noticiero central', 'Las noticias del día, con todo lo que pasó.'], [H + 3600, H + 7200, 'Pronóstico del tiempo'], [H + 7200, H + 9000, 'Deportes al cierre']] });
@@ -92,6 +103,10 @@ test('los canales del perfil con lo que dan ahora, la hoja del canal y la Guía 
   await page.screenshot({ path: `test-results/ver-${info.project.name}-canales.png` });
   // Buscar por programa.
   await page.getByRole('searchbox').fill('casablanca');
+  await expect(page.locator('.vw-row')).toHaveCount(1);
+  await expect(page.locator('.vw-row')).toContainText('Cine Clásico');
+  // Buscar por tema: el género y los temas del programa, aunque el título no lo diga (índice aparte, se baja al buscar).
+  await page.getByRole('searchbox').fill('película romántico');
   await expect(page.locator('.vw-row')).toHaveCount(1);
   await expect(page.locator('.vw-row')).toContainText('Cine Clásico');
   await page.getByRole('searchbox').fill('');
@@ -140,7 +155,7 @@ test('un link quitado o sin código dice qué hacer', async ({ page }, info) => 
   await expect(page.locator('.vw-problem')).toContainText('Falta el código');
 });
 
-test('pegar el código para ver al abrir Nowline deja el dispositivo en modo ver, hasta salir', async ({ page }) => {
+test('pegar el código para ver al abrir nowline deja el dispositivo en modo ver, hasta salir', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#onboarding')).toBeVisible();
   await page.locator('#homeLink').click();
@@ -148,13 +163,20 @@ test('pegar el código para ver al abrir Nowline deja el dispositivo en modo ver
   await page.locator('#askCheck').click();
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-row')).toHaveCount(4);
-  // Abrir Nowline otra vez (el ícono de inicio) vuelve al modo ver.
+  // Abrir nowline otra vez (el ícono de inicio) vuelve al modo ver.
   await page.goto('/');
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-who')).toContainText('Abuela');
-  // Salir (con confirmación) vuelve a la bienvenida.
-  page.once('dialog', (d) => void d.accept());
-  await page.getByRole('button', { name: 'Salir del modo ver' }).click();
+  // Salir pide el código de la casa: otro código no sirve y el dispositivo sigue en modo ver.
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.locator('dialog.settings-sheet').getByRole('button', { name: 'Salir del modo ver' }).click();
+  await page.getByLabel('Código de la casa').fill('otro0123456789abcdef.otraclave0123456789abcdef');
+  await page.locator('dialog.ask-sheet button[type=submit]').click();
+  await expect(page.locator('dialog.ask-sheet [role=alert]')).toBeVisible();
+  await expect(page).toHaveURL(/\/ver#/);
+  // Con el código de la casa sale y vuelve a la bienvenida.
+  await page.getByLabel('Código de la casa').fill(HOME);
+  await page.locator('dialog.ask-sheet button[type=submit]').click();
   await expect(page.locator('#onboarding')).toBeVisible();
 });
 
@@ -170,4 +192,70 @@ test('el ? del modo ver abre su ayuda, también desde la Guía', async ({ page }
   await page.getByRole('button', { name: 'Guía' }).click();
   await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
   await expect(page.locator('dialog.vw-help')).toBeVisible();
+});
+
+test('filtrar por categoría como en la edición, sin estados', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('.vw-row')).toHaveCount(4);
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await expect(sheet.getByRole('heading', { name: 'Estado' })).toHaveCount(0);
+  await sheet.getByRole('button', { name: /^Películas/ }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+  await expect(page.locator('.vw-row')).toHaveCount(2);
+  await expect(page.locator('.active-filters .chip-btn', { hasText: 'Películas' })).toBeVisible();
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar, 1 activo');
+  await page.locator('.active-filters .chip-btn', { hasText: 'Películas' }).click();
+  await expect(page.locator('.vw-row')).toHaveCount(4);
+  await expect(page.locator('.active-filters')).toBeHidden();
+});
+
+// Igual que la edición: la lista de Canales queda en la página debajo de la Guía (el documento no se vacía al cambiar de
+// pestaña) y la barra de abajo queda a 1rem del borde en las dos. En la app de iPhone, una página vacía sube la barra.
+test('la barra de abajo del modo ver queda a 1rem del borde en Canales y en la Guía, como en la edición', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  const nav = page.getByRole('navigation', { name: 'Secciones' });
+  await expect(page.getByText('Canal Uno').first()).toBeVisible();
+  const pos = () => nav.evaluate((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; });
+  const alto = () => page.evaluate(() => document.documentElement.scrollHeight);
+  const vh = await page.evaluate(() => window.innerHeight);
+  const canales = await pos();
+  if (await page.evaluate(() => innerWidth < 900)) expect(canales[1]).toBe(vh - 16);
+  const h = await alto();
+  await page.getByRole('button', { name: 'Guía', exact: true }).click();
+  await expect(page.locator('#guide')).toBeVisible();
+  expect(await alto()).toBe(h);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe('hidden');
+  expect(await pos()).toEqual(canales);
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('button', { name: 'Canales' }).click();
+  await expect(page.getByText('Canal Uno').first()).toBeVisible();
+  expect(await pos()).toEqual(canales);
+});
+
+// Sin manifest, «Agregar a inicio» abre la PWA de iPhone en un modo viejo y la barra de abajo queda más arriba que en la
+// edición. El modo ver agrega el suyo, con su código (lo arma el Worker en /ver-app/<código>.webmanifest).
+test('el modo ver trae su manifest con el código', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', `/ver-app/${CODE}.webmanifest`);
+  await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible();
+});
+
+test('la app del editor instalada abre el editor aunque el dispositivo tenga un código para ver', async ({ page }) => {
+  // Lo que pasa en iPhone: la app de ver y la del editor comparten localStorage. Instalada, la del editor no se desvía a /ver.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
+  await expect(page).not.toHaveURL(/\/ver/);
+});
+
+test('un dispositivo solo con el código para ver, con la app del editor instalada, no llega al editor', async ({ page }) => {
+  // Sin configuración propia (solo el código para ver): la app del editor muestra el alta, nunca la grilla de la casa.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page.locator('#editor')).toBeHidden();
+  await expect(page.locator('#homeLink')).toBeVisible();
 });

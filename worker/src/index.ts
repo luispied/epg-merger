@@ -17,6 +17,7 @@
 //   GET    /api/push/key                 clave pública VAPID de los avisos push (404 si no están activados)
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
+//   GET/POST /api/cfg/<cfgId>/push/taste (Bearer editKey) avisos por gusto: estado y cambios (taste.ts)
 //   POST   /api/cfg/<cfgId>/profiles/<id>/view  (Bearer editKey) link «solo ver» del perfil → {code} · DELETE: quitarlo
 //   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
 //   GET    /api/view/<código>/connections  conexiones en uso de su cuenta y qué está mirando cada link
@@ -27,10 +28,13 @@
 //   GET    /api/guide/index.json         índice de la guía para @grilla/core (R2)
 //   GET    /api/ui/schedule/<archivo>    programación para la interfaz (R2)
 //   GET    /api/cfg/<cfgId>/hour/<hora>.json · /api/view/<código>/hour/<hora>.json  la de una hora, solo sus canales
+//   GET    /api/view/<código>/schedule/<archivo>.json  la de un canal; en un perfil infantil, ya filtrada (kids.ts)
+//   GET    /api/cfg/<cfgId>/profiles/<id>/kids  (Bearer editKey) qué se ve y qué se oculta en un perfil infantil
 //   POST   /api/ui/again                 {ids} → cuándo vuelve a empezar lo que está en el aire (again.ts)
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
+//   GET    /ver-app/<código>.webmanifest      manifest de la PWA del modo «solo ver», con su código en el start_url (view.ts)
 //   GET    /logo/<clave> · /img/<clave>       logo de canal o imagen de programa, sin mostrar el sitio (logos.ts)
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
@@ -45,16 +49,17 @@ import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './playlist.ts';
-import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport } from './view.ts';
+import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport, viewManifest } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
 import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
-import { cfgHour, type Raw, readStored, scheduleReader } from './schedule.ts';
+import { cfgHour, gunzip, type Raw, readEntries, readStored, scheduleReader } from './schedule.ts';
+import { kidsReport, maskEntries, maskHabits, maskHour, parseKids, type HourShape, type Kids } from './kids.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
-import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
+import { addSub, checkAllPush, currentNames, getTaste, setTaste, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
 /** Misma cuenta del proveedor (vacío o sin dato = la principal). */
@@ -172,7 +177,7 @@ async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: 
 /** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
  *  casi nunca llega a la pantalla). La guía y los streams siguen respondiendo 403. */
 function disabledPlaylist(origin: string, code: string): Response {
-  const text = `#EXTM3U\n#EXTINF:-1 tvg-id="" group-title="Nowline",⚠ Link desactivado: reactivalo en Nowline\n${origin}/s/${code}/desactivado.ts\n`;
+  const text = `#EXTM3U\n#EXTINF:-1 tvg-id="" group-title="nowline",⚠ Link desactivado: reactivalo en nowline\n${origin}/s/${code}/desactivado.ts\n`;
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
@@ -233,6 +238,15 @@ async function viewProfile(env: Env, code: string): Promise<{ cfgId: string; cfg
   return stored && profile && profile.view === code ? { cfgId: rec!.cfgId, cfg: stored.config, profile } : null;
 }
 
+/** El código para ver y, si su perfil es infantil, sus géneros aptos (null si el código no existe). */
+async function viewKids(env: Env, code: string): Promise<{ cfgId: string; kids?: Kids } | null> {
+  const rec = await readView(env.BUCKET, code);
+  if (!rec) return null;
+  const stored = await loadConfig(env.BUCKET, rec.cfgId).catch(() => null);
+  const kids = stored ? findProfile(stored.config, rec.profile)?.kids : undefined;
+  return { cfgId: rec.cfgId, ...(kids ? { kids } : {}) };
+}
+
 /** Modo «solo ver»: el nombre del perfil y sus canales (nombre, categoría, guía y logo por el Worker), en el orden de
  *  la playlist. Sin credenciales, cuentas ni links. Si el código se quitó, 404. */
 async function serveView(code: string, url: URL, env: Env): Promise<Response> {
@@ -251,7 +265,7 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   const channels = rows
     .filter((r) => r.ch && !DIVIDER_RE.test(rawGroup(r)) && !(size.get(rawGroup(r)) === 1 && (cfg.channels[r.ch.name]?.name || r.ch.name) === rawGroup(r)))
     .map((r) => ({ id: r.ch!.id, name: r.name, cat: r.group, epg: r.epg, logo: r.logo, ...(r.quiet ? { quiet: true } : {}) }));
-  return json({ name: profile.name, channels }, 200, { 'Cache-Control': 'private, max-age=60' });
+  return json({ name: profile.name, channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
 }
 
 /** Un link «mira» si abrió un canal en la última hora (como en Conexiones de la web): es la duración mediana de un programa en la guía.
@@ -353,7 +367,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         return json({ channels: (await loadM3u(body.url)).map(({ url: _url, ...ch }) => ch) });
       }
       if (body.type === 'xtream' && Array.isArray(body.servers) && typeof body.username === 'string' && typeof body.password === 'string') {
-        // User-Agent opcional: para diagnosticar proveedores que filtran por él (worker_smoke.py).
+        // User-Agent opcional: para diagnosticar proveedores que filtran por él.
         const ua = typeof body.userAgent === 'string' && body.userAgent ? body.userAgent.slice(0, 120) : undefined;
         const { server, channels } = await loadXtream(body.servers.map(String), body.username, body.password, ua);
         return json({ server, channels });
@@ -410,9 +424,25 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   // Guía. Sin clave: es la misma programación pública de /api/ui/schedule/hour/, recortada.
   const hourKey = /^([0-9]{10})\.json$/.exec(parts[4] ?? '')?.[1];
   if ((section === 'cfg' || section === 'view') && cfgId && action === 'hour' && hourKey && parts.length === 5 && method === 'GET') {
-    const id = section === 'cfg' ? (isId(cfgId) ? cfgId : null) : (await readView(env.BUCKET, cfgId))?.cfgId;
+    const v = section === 'view' ? await viewKids(env, cfgId) : null;
+    const id = section === 'cfg' ? (isId(cfgId) ? cfgId : null) : v?.cfgId;
     if (!id) return fail(404, 'no encontrado');
-    return storedResponse(await cfgHour(env.BUCKET, id, hourKey), 900);
+    const raw = await cfgHour(env.BUCKET, id, hourKey);
+    // Un perfil infantil recibe el índice ya filtrado: lo que no es apto sale sin título (kids.ts).
+    if (v?.kids && raw) {
+      return json(maskHour(JSON.parse(raw.gz ? await gunzip(raw.bytes) : new TextDecoder().decode(raw.bytes)) as HourShape, v.kids), 200, { 'Cache-Control': 'private, max-age=60' });
+    }
+    return storedResponse(raw, 900);
+  }
+  // La programación de un canal para el modo ver. Un perfil infantil la recibe ya filtrada; los demás, tal cual.
+  const channelFile = /^([0-9a-f]{16})\.json$/.exec(parts[4] ?? '')?.[1];
+  if (section === 'view' && cfgId && action === 'schedule' && channelFile && parts.length === 5 && method === 'GET') {
+    const v = await viewKids(env, cfgId);
+    if (!v) return fail(404, 'no encontrado');
+    const read = scheduleReader(env.BUCKET);
+    if (!v.kids) return storedResponse(await read(channelFile), 900);
+    const entries = await readEntries(read, channelFile);
+    return entries ? json(maskEntries(entries, v.kids), 200, { 'Cache-Control': 'private, max-age=60' }) : fail(404, 'no encontrado');
   }
   if (section === 'cfg' && cfgId) {
     const stored = await loadConfig(env.BUCKET, cfgId);
@@ -541,6 +571,14 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         if (typeof body.endpoint === 'string') await removeSub(env.BUCKET, cfgId, body.endpoint);
         return json({ ok: true });
       }
+      if (sub === 'taste') {
+        // Avisos por gusto (taste.ts): GET el estado; POST {on?, tz?, when?, per?, genre?, genreOn?} lo cambia.
+        if (method === 'GET') return json(await getTaste(env.BUCKET, cfgId), 200, { 'Cache-Control': 'no-store' });
+        if (method === 'POST') {
+          const view = await setTaste(env.BUCKET, cfgId, await readJson(request, 4 * 1024) as Record<string, unknown>);
+          return view ? json(view) : fail(400, 'primero activá los avisos en este dispositivo');
+        }
+      }
       if (sub === 'test' && method === 'POST') {
         return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });
       }
@@ -551,7 +589,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (method === 'POST') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
         if (!validFeedback(body)) return fail(400, 'pedido inválido');
-        await feedbackHabit(env.BUCKET, cfgId, '', body.title, body.kind);
+        await feedbackHabit(env.BUCKET, cfgId, '', body.title, body.kind, body.genre);
         return json(await readHabits(env.BUCKET, cfgId));
       }
     }
@@ -711,6 +749,24 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         }
         return fail(405, 'método no permitido');
       }
+      if (parts[5] === 'kids' && method === 'GET') {
+        // Qué se ve y qué se oculta en las próximas horas de los canales del perfil (para «Qué se está ocultando»).
+        if (!p.kids) return fail(404, 'este perfil no es infantil');
+        const list = await env.BUCKET.get(r2ListKey(cfgId));
+        const epgs = new Set<string>();
+        if (list) for (const r of playlistRows((JSON.parse(await list.text()) as LiveList).channels, config, { filter: p.filter, providerLogos: false })) if (r.epg) epgs.add(r.epg);
+        const HOURS = 6;
+        const idxs = await Promise.all([...Array(HOURS).keys()].map(async (k) => {
+          const key = new Date(Date.now() + k * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
+          const raw = await cfgHour(env.BUCKET, cfgId, key);
+          try {
+            return raw ? JSON.parse(raw.gz ? await gunzip(raw.bytes) : new TextDecoder().decode(raw.bytes)) as HourShape : null;
+          } catch {
+            return null;
+          }
+        }));
+        return json(kidsReport(idxs, epgs, p.kids), 200, { 'Cache-Control': 'no-store' });
+      }
       if (method === 'PUT') {
         const next: ProfileDef = { ...p };
         if ('name' in raw) next.name = cleanProfileName(raw.name) || p.name;
@@ -718,6 +774,15 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           const f = parseFilter(raw.filter);
           if (f) next.filter = f;
           else delete next.filter;
+        }
+        // Perfil infantil: solo con la clave de edición (este bloque la exige); el modo ver no llega acá.
+        if ('kids' in raw) {
+          if (raw.kids === null) delete next.kids;
+          else {
+            const kids = parseKids(raw.kids);
+            if (!kids) return fail(400, 'perfil infantil inválido');
+            next.kids = kids;
+          }
         }
         let moved = 0;
         if ('account' in raw && !sameAcc(raw.account, p.account)) {
@@ -829,11 +894,13 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (method === 'POST' && rateLimited(ip)) return fail(429, 'demasiados pedidos, probá en un minuto');
     const v = await viewProfile(env, cfgId);
     if (!v) return fail(404, 'este código para ver ya no existe');
-    if (method === 'GET') return json(await readHabits(env.BUCKET, v.cfgId, v.profile.id), 200, { 'Cache-Control': 'no-store' });
+    // En un perfil infantil, lo que no es apto no vuelve nunca (kids.ts).
+    const safe = <H extends Parameters<typeof maskHabits>[0]>(h: H): H => (v.profile.kids ? maskHabits(h, v.profile.kids) : h);
+    if (method === 'GET') return json(safe(await readHabits(env.BUCKET, v.cfgId, v.profile.id)), 200, { 'Cache-Control': 'no-store' });
     if (method === 'POST') {
       const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
       if (!validFeedback(body)) return fail(400, 'pedido inválido');
-      return json(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind));
+      return json(safe(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind, body.genre)));
     }
   }
   if (section === 'view' && cfgId && action === 'report' && method === 'POST') {
@@ -872,7 +939,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   if (section === 'ui' && method === 'GET') {
     // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path);
+    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path) || path === 'schedule/topics.json'; // topics.json: el índice para buscar por tema
     const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
     if (!hour && !channel) return fail(404, 'no encontrado');
     return storedResponse(hour ? await readStored(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!), 900);
@@ -893,8 +960,14 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
     if (parts[0] === 'api') return await api(request, parts, env, ip, ctx, cache);
     // Lo que apunta el canal de aviso de un separador: no hay nada para reproducir.
     if (request.method === 'GET' && parts.length === 1 && parts[0] === 'sep') {
-      return new Response('Separador de sección de Nowline: no es un canal.\n', {
+      return new Response('Separador de sección de nowline: no es un canal.\n', {
         headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    }
+    // El manifest de la PWA del modo ver, con su código (view.ts → viewManifest).
+    if (request.method === 'GET' && parts[0] === 'ver-app' && parts.length === 2 && parts[1].endsWith('.webmanifest')) {
+      const manifest = viewManifest(parts[1].slice(0, -'.webmanifest'.length));
+      if (!manifest) return fail(404, 'no encontrado');
+      return new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=86400' } });
     }
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {
       if (parts.length === 3 && parts[2] === 'epg.xml.gz') {
@@ -952,17 +1025,19 @@ export function routeKind(pathname: string): string {
   if (a === 'g') return 'epg';
   if (a === 's') return 'stream';
   if (a === 'logo' || a === 'img' || a === 'sep') return a;
+  if (a === 'ver-app') return a;
   return 'otro';
 }
 
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
-    console.log({ route: routeKind(new URL(request.url).pathname) });
+    // JSON en el mensaje: Workers Logs lo lee como campo `route` (consumo.py agrupa por ese campo).
+    console.log(JSON.stringify({ route: routeKind(new URL(request.url).pathname) }));
     return handle(request, env, ctx, caches.default);
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(_event: unknown, env: Env, ctx: Ctx): void {
-    console.log({ route: 'cron' });
+    console.log(JSON.stringify({ route: 'cron' }));
     ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
   },
 };

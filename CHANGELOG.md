@@ -9,13 +9,184 @@ Configuración. Cada PR que cambia la web sube la versión y agrega una entrada 
 
 Lo que va acá también se muestra en la app («Novedades»), así que conviene escribirlo para quien la usa. No se muestran
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
-nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
+nombres de código.
 
-## 1.41.3
+## 1.52.1
 
 - **«Mirando ahora» es más preciso.** Un link figura mirando una hora después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Una hora es la duración mediana de un programa en la guía. Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
 - Worker: el modo «solo ver» usa la misma ventana y el mismo tope.
 - Interno: `WATCHING_MS` (`worker/src/index.ts`) y `RECENT_PLAY_MS` (`worker/web/ui/perfiles.tsx`) en 60 minutos.
+
+## 1.52.0
+
+- **Géneros en Tu plan.** La hoja de filtros de Tu plan (Tu noche, Tu tarde…) ahora también tiene **Géneros**, con los de lo que el plan podría proponer (sin publicidad ni lo que todavía no está clasificado), y el número del botón los cuenta. Con uno o varios elegidos, el plan se arma solo con programas de esos géneros; si no alcanza, dice desde qué hora no encontró nada y **Quitar filtro** lo saca. Es el mismo género de la Grilla y Próximos: lo que elegís en uno vale en los tres.
+- **La Grilla filtrada por género esconde los canales sin nada.** Antes solo se apagaban los programas y las filas seguían todas. Ahora, con un género elegido, quedan solo los canales que tienen algo de ese género en las horas que se ven; mientras esas horas cargan no se esconde nada, y si ningún canal tiene, dice «Ningún canal tiene…» y **Quitar filtros** los saca. Como la IA va clasificando de a poco, al principio quedan pocos canales y se completa solo.
+- Interno: el índice por hora de cada configuración ya trae el género cuando existe `ai/genres.json` (lo arma la corrida diaria y la revisión de configuraciones); los de hoy se rehacen en la próxima corrida.
+
+## 1.51.1
+
+- **El tema por defecto sigue al sistema.** Si nunca elegiste un tema, nowline sigue el claro u oscuro del dispositivo, en la edición y en el modo ver (antes abría siempre oscuro). Si ya elegiste uno, no cambia.
+
+## 1.51.0
+
+- **Perfil infantil.** En la página de un perfil, una fila nueva con interruptor, **Perfil infantil**, lo vuelve un perfil que solo muestra programas aptos para chicos. Al prenderlo se abre una hoja con los géneros: **Infantil** y **Educativo** entran siempre y se pueden sumar Documental, Cocina, Música, Deportes y Estilo de vida; la publicidad, las películas, las series y las noticias nunca entran, ni lo que la IA todavía no clasificó. Ya activo aparecen **Géneros que entran**, para cambiarlos, y **Qué se está ocultando**, que cuenta qué se ve y qué no en las próximas horas, por género y sin clasificar. Se prende y se quita solo desde la edición, con la clave: el modo ver no puede.
+- **El modo ver de un perfil infantil muestra «No disponible en este perfil».** En los canales, en la hoja del canal y en la Guía, lo que no es apto se ve así, con su horario. No aparece en la búsqueda, en Próximos ni en Tu plan, y no se puede ver la descripción. El servidor entrega la programación ya filtrada, así que mirar la red no lo esquiva.
+- Límites: la IA se equivoca a veces y va clasificando de a poco, así que al principio el perfil muestra poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran. En la edición se sigue viendo todo.
+- Worker: `kids` en los perfiles (`{ genres }`, validado en el servidor); `/api/view/<código>/hour` y la nueva `/api/view/<código>/schedule/<archivo>` devuelven lo no apto sin título ni descripción; los hábitos del modo ver dejan afuera lo no apto; `/api/cfg/<id>/profiles/<id>/kids` cuenta lo que se oculta.
+- Interno: `PORT` cambia el puerto de los tests e2e (por si el 4173 lo usa otro servidor de pruebas).
+
+## 1.50.0
+
+- **Avisos por gusto.** Con los avisos prendidos en el dispositivo, Configuración tiene una fila nueva, «Avisos por gusto», que abre una hoja: un interruptor (apagado hasta que lo prendas), los géneros de los que avisar (los que más mirás, con los mismos chips de siempre), cuándo (tarde de 18 a 20 o noche de 20 a 22, en la hora de este dispositivo) y cuántos (1 por día o 3 por semana), y los últimos avisos, cada uno con «Menos así». Nowline manda una notificación como «Hoy a las 20:30: Planeta Tierra» solo si hay un programa bueno del género que más mirás (empieza dentro de las próximas horas, dura 40 minutos o más, no es repetición ni algo que ya viste, ni se avisó en 14 días); si no lo hay, no manda nada. Nunca de noche (de 22 a 9), nunca de noticias ni de publicidad, y los avisos de canales nuevos, vencimientos y campanas no cuentan para el tope. Tocar el aviso abre la Guía con la hoja del programa, que ahora tiene «No avisarme de documentales» (con «Deshacer») cuando ese género está prendido. Cuentan los hábitos de todos los perfiles juntos. En el modo ver no hay avisos ni campana: Tu noche sigue dando el porqué.
+- Worker: `GET/POST /api/cfg/<id>/push/taste` guarda en `push/<id>.json` el interruptor, los géneros apagados, el horario, el tope, la zona horaria del dispositivo (se toma al prenderlo) y los últimos avisos; `notifyTaste` corre en la revisión de cada 30 minutos, después de los recordatorios. No cuesta nada de IA: usa el género que ya trae la programación. La suscripción push sigue atada a la configuración, no al perfil.
+- Interno: el puntaje de gustos (`habitAffinity`, `genreTaste`, `planScore`) pasó de `ui/guide.tsx` a `core/src/taste.ts` para usarlo igual en la web y en el Worker, sin duplicarlo.
+
+## 1.49.0
+
+- **Filtros de la Guía, como los de Canales.** Las categorías y los géneros ya no son filas de chips: hay un botón de filtros arriba, al lado de Grilla y Próximos, con el número de filtros puestos. Abre una hoja con las categorías (en el orden de tu lista) y, en Grilla y Próximos, los géneros; lo que elegís queda debajo del título como chips con su ×, más «Quitar todos». «Tengo tiempo» sigue en Próximos. Es el mismo patrón en la edición y en el modo ver, y la Guía sigue eligiendo aparte de Canales. En Tu noche, «Elegir otras» abre esa hoja.
+
+## 1.48.0
+
+- **Buscar por tema.** Escribir «Mundial» o «cocina» en el buscador de los canales (en la edición y en el modo ver) y en el de «Buscar otra guía» también encuentra los canales que dan algo de eso ahora, aunque el título no lo diga. Usa el género y los temas que nowline ya le puso a cada programa; sin ellos, la búsqueda sigue como siempre, por nombre y por lo que dan.
+- Worker: nuevo `GET /api/ui/schedule/topics.json`, un índice aparte que se baja recién la primera vez que se busca. Los temas no van en cada programa de la programación (`ui/schedule/s`): eso la hacía crecer más del 14 %.
+- Interno: `tools/pack_schedule.py --genres` arma también `topics.json` (títulos con su género y temas, una vez por título) y `r2_upload.sh` lo sube.
+
+## 1.47.1
+
+- **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
+
+## 1.47.0
+
+- **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.
+- Interno: los índices por hora (los de toda la guía y los de cada configuración) llevan el género de cada título en `g`, a partir de `ai/genres.json`, sin gasto nuevo de IA. Con configuraciones armadas antes de este cambio, el filtro aparece cuando la próxima corrida diaria las rehace.
+
+## 1.46.8
+
+- **Dos apps instaladas, cada una en su modo.** En iPhone, la app de editar y la de modo ver comparten los datos: al entrar en modo ver, la de editar también se abría en modo ver. Ahora la app instalada del editor abre el editor, y la de modo ver sigue en modo ver. Desde el navegador, quien mira sigue sin llegar al editor.
+
+## 1.46.7
+
+- **«Salir del modo ver» está en Configuración.** Antes solo estaba al final de la lista de canales, y no se encontraba. Ahora, en el engranaje de Canales, la hoja Configuración tiene la opción. Sigue pidiendo el código de la casa.
+
+## 1.46.6
+
+- Interno: el Worker escribe el tipo de cada pedido en su registro como JSON (`{"route":…}`), para que Workers Logs lo lea como campo y el registro de consumo (`tools/consumo.py`) muestre la CPU por tipo de pedido. No cambia ninguna respuesta.
+
+## 1.46.5
+
+- **El logo de inicio tapa lo que la app ya dibujó debajo.** Al abrir, el esqueleto de carga se veía a través del fundido del logo. Ahora la app queda oculta mientras el logo está, y entra con un fundido corto cuando se va. Igual en la edición y en el modo ver. Si la app no llega a arrancar, a los 5 s el logo se va solo y la pantalla se ve igual.
+
+## 1.46.4
+
+- Modo ver: la barra de abajo queda a 1rem del borde, igual que en la edición, en Canales y en la Guía. La lista de Canales
+  vuelve a estar en la página y queda debajo de la Guía, como en la edición (con la página vacía, la app de iPhone subía la barra).
+
+## 1.46.3
+
+- **El esqueleto de carga en el modo «solo ver» llena toda la pantalla.** Antes mostraba cuatro tarjetas y en el escritorio y en el iPhone quedaba un hueco abajo. Ahora se arma según el alto de la pantalla (y se rehace al girar), igual que en la edición.
+
+## 1.46.2
+
+- **La app del modo ver abre como una app de verdad en el iPhone.** Antes, al agregarla a la pantalla de inicio desde el modo ver, iOS la abría en un modo viejo y la barra de abajo quedaba más arriba que en la edición. Ahora el modo ver trae su propio manifest (con su código), así la barra queda a la misma altura que en la edición. Si ya la tenías en inicio, quitá el ícono y volvé a agregarla desde la pantalla del modo ver: la anterior sigue abriendo en el modo viejo.
+- Worker: nuevo `/ver-app/<código>.webmanifest`.
+
+## 1.46.1
+
+- Worker: se quita la prueba manual `worker-smoke` (workflow y script), que dependía de credenciales del proveedor ya borradas. El relay la reemplazó.
+
+## 1.46.0
+
+- **Se puede abrir el modo «solo ver» desde el editor.** En la página de un perfil, debajo del código para ver, la fila **Abrir en modo ver** abre este dispositivo con ese perfil, sin tener que pegar el código. Para salir hace falta el código de la casa, igual que en el modo ver.
+
+## 1.45.0
+
+- **La barra de abajo del modo ver queda a la misma altura en Canales y en la Guía.** En Safari, desplazar la lista de Canales encogía la barra del navegador y la de abajo cambiaba de altura al pasar a la Guía. Ahora la lista se desplaza dentro de su pantalla, como la Guía, y la página no se mueve ni cambia al pasar de una pestaña a la otra (tampoco en la app instalada en el iPhone).
+- **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
+- Ayuda: el modo ver explica el engranaje y el tema.
+- **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
+
+## 1.44.1
+
+- **La hoja de un programa dice su género.** Arriba del título aparece «Deportes», «Película», «Noticias»… cuando nowline ya lo sabe; en la Guía y en el modo ver.
+
+## 1.44.0
+
+- **«Más como esto» sube todo lo de ese género, no solo el mismo programa.** Si tocás «Más como esto» en un documental, Tu plan sube los documentales de otros canales, aunque nunca los hayas abierto, y debajo de «Más como esto» dice «Tu plan sube también los de documental». La publicidad no entra.
+- Interno: el Worker guarda el género de cada «Más como esto» (`mg` en los hábitos).
+
+## 1.43.0
+
+- **Tu plan sugiere cosas parecidas a lo que mirás.** Si mirás mucho deporte, sube el deporte de otros canales, aunque nunca los hayas abierto, y debajo dice «Como lo que mirás: deportes». La publicidad nunca se sugiere.
+- Interno: la corrida diaria pone el género a cada programa de la programación; el Worker lo guarda en los hábitos.
+
+## 1.42.10
+
+- **La barra inferior del modo ver queda a la misma altura en la Guía que en Canales.** Se saca el bloqueo de scroll de la página de atrás en el modo ver; la edición lo sigue usando.
+
+## 1.42.9
+
+- **La barra de abajo tiene una píldora que se desliza.** Al pasar de Canales a Guía, Categorías o Perfil, la marca de la pestaña elegida viaja hasta el botón nuevo en vez de aparecer de golpe. Igual en la edición y en el modo ver, y con «reducir movimiento» activado no se anima.
+
+## 1.42.8
+
+- **Al abrir la Guía, la página de atrás ya no se mueve.** En el celular, el scroll de la lista de atrás corría la barra inferior y la hacía verse más arriba que en el modo ver.
+- **En el modo ver, el buscador ya no deja un hueco grande debajo del título.** En el celular la distancia se sumaba dos veces con la franja de la hora, y ahora queda igual que en la edición.
+
+## 1.42.7
+
+- **La barra inferior queda igual en el modo ver que en la edición.** El modo ver ahora usa el mismo ajuste de texto grande que la app, así la barra mide y se ubica igual en las dos pantallas.
+
+## 1.42.6
+
+- **Canales ya no muestra el aviso de «conexiones llenas».** El aviso de arriba de la lista queda solo para cuando la cuenta vence pronto o el servicio que habla con tu proveedor no responde. Las conexiones en uso siguen en la página de la cuenta y en Conexiones en uso.
+
+## 1.42.5
+
+- **El modo ver también filtra por categoría.** Aparece el mismo botón de filtro y la misma hoja que en la edición, con solo las categorías visibles. Los filtros de estado (nuevos, a revisar, sin EPG) no están en el modo ver.
+- **Las categorías del filtro salen en el mismo orden que la lista.** Antes seguían el orden del proveedor; ahora aparecen como las ordenaste en Canales, en la grilla y en la Guía.
+
+## 1.42.4
+
+- **La carga ya no dice «sin conexión» cuando hay conexión.** Antes, cualquier error de la app en la carga se mostraba como falta de red. Ahora solo aparece si de verdad no hay conexión; si el servidor tarda, se avisa eso.
+- **Un pedido colgado ya no traba la carga.** Cada pedido tiene un tiempo máximo y, si la respuesta se corta a mitad en el celular, se vuelve a pedir.
+- **La lista de canales se ve aunque la guía no baje.** Arriba aparece «No se pudo bajar la guía» con «Reintentar».
+
+## 1.42.3
+
+- **El filtro de categorías solo ofrece las categorías visibles.** Las ocultas no aparecen en la hoja de filtros, y los estados sin canales (Ocultos, Editados, Elegidos a mano) tampoco salen si no hay nada que mostrar.
+
+## 1.42.2
+
+- **El modo ver carga como la edición.** El logo de inicio se ve al abrir y no vuelve al recargar. Mientras llegan los canales, aparecen tarjetas de carga en vez del texto «Cargando los canales…». Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+
+## 1.42.1
+
+- **En modo ver, el nombre de la categoría ya no deja ver lo que pasa por debajo al hacer scroll.** El encabezado queda con fondo sólido desde arriba.
+
+## 1.42.0
+
+- **Filtros de la lista en una hoja**: al lado del buscador hay un botón de filtros (con un número si hay algo puesto). En la hoja elegís un estado (Todos, A revisar, Sin EPG…) y una o más categorías. Lo que elegiste aparece arriba como chips, cada uno con su ×, y «Quitar todos». Ya no hay una fila fija de filtros.
+- Interno: `ui/filtros.tsx` (Preact) dibuja el botón, los chips y la hoja; app.ts sigue decidiendo qué canales se ven.
+
+## 1.41.6
+
+- **La rueda queda solo para Configuración.** En Perfiles, el proveedor se toca como una fila con flecha (como las cuentas): ahí se cambian su nombre, su dirección, su lista o se quita. Ya no hay un engranaje dentro de Perfil.
+- **Configuración no repite el conteo de canales.** El «3391 canales · 1739 con guía · guardado…» sigue en la lista de Canales.
+
+## 1.41.5
+
+- **El nombre de la app va siempre en minúscula**: «nowline», como en el logo. Sin negrita en el texto corrido. Cambia en la pantalla de bienvenida, la ayuda, Compartir, el aviso de actualización, el ícono de inicio y el título de la pestaña.
+
+## 1.41.4
+
+- **Configuración ya no muestra el commit.** Al pie solo queda la versión de Nowline, que es lo que le sirve a quien usa la app.
+- Interno: el build ya no lee el commit de git.
+
+## 1.41.3
+
+- **Nowline se actualiza sola, sin avisos con la app abierta.** Ya no aparece «Hay una versión nueva» con el botón **Actualizar**, ni llega una notificación push por cada versión nueva. La versión nueva se ve al abrir la app. Al abrirla después de una actualización, un aviso breve dice «Nowline se actualizó» y **Qué hay nuevo** muestra los cambios.
+- Worker: se quitó el aviso push de versión nueva (`notifyNewVersion`).
+- Tests: se quitó la prueba de ese aviso.
 
 ## 1.41.2
 

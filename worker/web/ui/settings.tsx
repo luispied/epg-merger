@@ -12,9 +12,9 @@ import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
 import { BrandFoot } from './kit.tsx';
+import { loadTaste, openTasteSheet, tasteSummary, type TasteView } from './avisos-gusto.tsx';
 
 declare const __APP_VERSION__: string;
-declare const __APP_COMMIT__: string;
 
 const dialog = () => document.getElementById('settingsDialog') as HTMLDialogElement;
 
@@ -26,7 +26,7 @@ export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager'
 export const iosNotInstalled = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator as Navigator & { standalone?: boolean }).standalone;
 const b64urlBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
 
-const PUSH_HINT = 'Canales nuevos, vencimientos y recordatorios';
+const PUSH_HINT = 'Canales nuevos, vencimientos y tus campanas';
 let pushKey = '';
 interface PushView { on: boolean; disabled: boolean; hint: string }
 
@@ -83,7 +83,7 @@ const THEMES: { v: Theme; label: string; icon: string }[] = [
 ];
 function savedTheme(): string {
   try {
-    return localStorage.getItem('grilla_theme') || 'dark';
+    return localStorage.getItem('grilla_theme') || 'auto';
   } catch {
     return 'auto';
   }
@@ -110,10 +110,11 @@ function MenuRow({ icon, title, sub, onClick, hidden }: { icon: string; title: s
   );
 }
 
-function Settings({ summary }: { summary: string }) {
+function Settings() {
   const [health, setHealth] = useState('Calculando…');
   const [guide, setGuide] = useState<GuideStatus | null>(null);
   const [push, setPushState] = useState<PushView | null>(null);
+  const [taste, setTaste] = useState<TasteView | null>(null);
   const [logos, setLogos] = useState(logosOn);
   const [startFilter, setStartFilter] = useState(() => pref('grilla_start_filter', 'last'));
   const [theme, setTheme] = useState(savedTheme);
@@ -131,7 +132,13 @@ function Settings({ summary }: { summary: string }) {
   const refreshPush = async () => {
     const v = await pushView();
     setPushState(v);
-    if (v && !v.disabled) setPushState({ ...v, on: await pushSubscribed() });
+    if (v && !v.disabled) {
+      const on = await pushSubscribed();
+      setPushState({ ...v, on });
+      // Los avisos por gusto cuelgan de los avisos: sin ellos no hay fila.
+      if (on) loadTaste().then(setTaste).catch(() => setTaste(null));
+      else setTaste(null);
+    }
   };
   const showHealth = () => {
     const h = guideHealth();
@@ -167,7 +174,6 @@ function Settings({ summary }: { summary: string }) {
         <span class="title-left"><h2 id="settingsTitle">Configuración</h2>
           <button type="button" class="icon-btn help-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('settings', '#settingsDialog')}><Icon name="circle-help" /></button></span>
         <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
-        <p class="meta-line">{summary}</p>
       </div>
       <h3 class="sec-title">Guía</h3>
       <div class="menu">
@@ -202,6 +208,9 @@ function Settings({ summary }: { summary: string }) {
             <input type="checkbox" class="switch" role="switch" checked={push.on} disabled={push.disabled}
               onChange={(ev) => { void setPush(ev.currentTarget.checked).then(refreshPush); }} />
           </label>
+        )}
+        {push?.on && (
+          <MenuRow icon="sparkles" title="Avisos por gusto" sub={taste ? tasteSummary(taste) : 'Tocá para ver'} onClick={() => openTasteSheet(setTaste)} />
         )}
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="a-large-small" /></span>
@@ -239,7 +248,7 @@ function Settings({ summary }: { summary: string }) {
         </label>
       </div>
       <BrandFoot />
-      <p class="app-version" data-version>{`Versión ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`}</p>
+      <p class="app-version" data-version>{`Versión ${__APP_VERSION__}`}</p>
       <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
     </>
   );
@@ -249,6 +258,6 @@ let seq = 0;
 /** Abre Configuración, armada de cero cada vez (la salud, la guía y los avisos se vuelven a mirar). */
 export function openSettings() {
   const dlg = dialog();
-  render(<Settings key={++seq} summary={document.getElementById('statusLine')?.textContent ?? ''} />, dlg.querySelector('.sheet-body')!);
+  render(<Settings key={++seq} />, dlg.querySelector('.sheet-body')!);
   openDock(dlg);
 }

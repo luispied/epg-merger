@@ -7,7 +7,16 @@
 // Sin ellas la función no existe: /api/push/key responde 404 y la web no muestra el interruptor.
 import { b64urlDecode, b64urlEncode } from './crypto.ts';
 import type { Env, R2Bucket } from './env.ts';
+import { channelAlias } from '../../core/src/alias.ts';
 import { readReminders, REMIND_AHEAD_S, REMIND_GRACE_S, writeReminders } from './remind.ts';
+import { readHabits } from './habits.ts';
+import { scheduleFile } from './again.ts';
+import { readEntries, scheduleReader } from './schedule.ts';
+import {
+  allowedGenres, hasQuota, inWindow, localHm, MAX_SENT, parseTaste, pickProgram, validTz,
+  type TasteChannel, type TastePer, type TasteState, type TasteWhen,
+} from './taste.ts';
+import { tasteGenres } from '../../core/src/taste.ts';
 
 export interface PushSub {
   endpoint: string;
@@ -20,6 +29,8 @@ export interface PushState {
   known?: string[];
   /** Último aviso de vencimiento de la suscripción del proveedor (para avisar una vez por umbral). */
   expiry?: { expires: string; threshold: number };
+  /** Avisos por gusto (taste.ts): interruptor, géneros apagados, horario, tope y los últimos avisos. */
+  taste?: TasteState;
 }
 
 const MAX_SUBS = 10;
@@ -109,6 +120,7 @@ async function readState(bucket: R2Bucket, cfgId: string): Promise<PushState> {
     return {
       subs: Array.isArray(v.subs) ? v.subs : [],
       known: Array.isArray(v.known) ? v.known : undefined,
+      ...(parseTaste(v.taste) ? { taste: parseTaste(v.taste) } : {}),
       ...(e && typeof e.expires === 'string' && typeof e.threshold === 'number' ? { expiry: { expires: e.expires, threshold: e.threshold } } : {}),
     };
   } catch {
@@ -263,63 +275,103 @@ export async function notifyReminders(env: Env, cfgId: string, now = new Date())
   return sent;
 }
 
-/** Versión nueva de la web: la primera vez solo se anota; después, si sube la versión menor o la mayor (una función
- *  nueva, no un parche), se avisa a todos los navegadores con avisos activados, una sola vez por navegador aunque esté
- *  en varias configuraciones. Al tocar el aviso se abre la app con la hoja «Novedades». Lo nuevo sale de
- *  public/novedades.json (lo arma build.mjs con el CHANGELOG). Devuelve a cuántos avisó. */
-export async function notifyNewVersion(env: Env): Promise<number> {
-  if (!env.ASSETS) return 0;
-  let list: { version: string; items: string[] }[];
+/** Los canales visibles de la lista con su guía (el epg que les asignó el editor); sin guía no hay qué avisar. */
+export function visibleGuideChannels(list: { channels?: { name?: string; category?: string }[] }, cfg: Parameters<typeof visibleNames>[1]): TasteChannel[] {
+  const out = new Map<string, TasteChannel>();
+  for (const name of visibleNames(list, cfg)) {
+    const edit = cfg?.channels?.[name] as { epg?: string | null; group?: string } | undefined;
+    if (!edit?.epg) continue;
+    const epg = channelAlias(edit.epg);
+    if (!out.has(epg)) out.set(epg, { epg, name, cat: edit.group || list.channels?.find((c) => c.name === name)?.category || '' });
+  }
+  return [...out.values()];
+}
+
+/** Aviso por gusto (taste.ts): con el interruptor prendido, dentro de la ventana y con cupo, el mejor programa del gusto
+ *  de la casa que empieza pronto; si ninguno es bueno, no manda nada. */
+export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Promise<number> {
+  const st = await readState(env.BUCKET, cfgId);
+  const t = st.taste;
+  if (!st.subs.length || !t?.on || !inWindow(now.getTime(), t) || !hasQuota(t, now.getTime())) return 0;
+  const habits = await readHabits(env.BUCKET, cfgId);
+  const genres = allowedGenres(habits, t, now.getTime());
+  if (!genres.length) return 0;
+  const [listObj, cfgObj] = await Promise.all([env.BUCKET.get(`list/${cfgId}.json`), env.BUCKET.get(`cfg/${cfgId}.json`)]);
+  if (!listObj) return 0;
+  let channels: TasteChannel[];
   try {
-    const r = await env.ASSETS.fetch('https://assets.local/novedades.json');
-    if (!r.ok) return 0;
-    list = await r.json() as typeof list;
+    channels = visibleGuideChannels(JSON.parse(await listObj.text()), cfgObj ? JSON.parse(await cfgObj.text()) : null);
   } catch {
     return 0;
   }
-  const cur = list[0];
-  if (!cur?.version) return 0;
-  const key = 'meta/version.json';
-  let prev: { notified?: string } = {};
-  try {
-    const obj = await env.BUCKET.get(key);
-    if (obj) prev = JSON.parse(await obj.text()) as typeof prev;
-  } catch { /* ilegible: como la primera vez */ }
-  if (prev.notified === cur.version) return 0;
-  // Se anota antes de mandar: si la corrida se corta, no se avisa dos veces.
-  await env.BUCKET.put(key, JSON.stringify({ notified: cur.version, at: new Date().toISOString() }), JSON_TYPE);
-  if (!prev.notified || !isFeatureBump(prev.notified, cur.version)) return 0;
-  const first = (cur.items[0] ?? '').replace(/\*\*/g, '');
-  const body = first.length > 140 ? `${first.slice(0, 137).replace(/\s+\S*$/, '')}…` : first;
-  const message = { title: `Nowline se actualizó a ${cur.version}`, body: body || 'Tocá para ver lo nuevo', url: '/?novedades' };
-  const done = new Set<string>();
-  let sent = 0;
-  let cursor: string | undefined;
-  do {
-    const page = await env.BUCKET.list({ prefix: 'push/', cursor });
-    for (const obj of page.objects) {
-      const st = await readState(env.BUCKET, obj.key.slice('push/'.length).replace(/\.json$/, ''));
-      for (const sub of st.subs) {
-        if (done.has(sub.endpoint)) continue;
-        done.add(sub.endpoint);
-        try { if ((await sendPush(env, sub, message)).ok) sent++; } catch { /* sin red: no se reintenta */ }
-      }
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
+  const read = scheduleReader(env.BUCKET);
+  const schedules = new Map<string, Awaited<ReturnType<typeof readEntries>>>();
+  const files = await Promise.all(channels.map((c) => scheduleFile(c.epg)));
+  for (let k = 0; k < channels.length; k += 25) {
+    const part = await Promise.all(files.slice(k, k + 25).map((f) => readEntries(read, f)));
+    part.forEach((e, i) => schedules.set(channels[k + i].epg, e));
+  }
+  const marks = new Set((await readReminders(env.BUCKET, cfgId)).map((r) => `${channelAlias(r.epg)}|${r.start}`));
+  const pick = pickProgram(channels, { habits, marks, schedules, genres, sent: t.sent, nowMs: now.getTime() });
+  if (!pick) return 0;
+  const [start, , title] = pick.entry;
+  const sent = await pushToConfig(env, cfgId, {
+    title: `Hoy a las ${localHm(start * 1000, t.tz)}: ${title}`,
+    body: `${pick.genre} en ${pick.ch.name}. Es de lo que más mirás.`,
+    url: `/?programa=${encodeURIComponent(pick.ch.epg)}&inicio=${start}`,
+  });
+  if (!sent) return 0;
+  const after = await readState(env.BUCKET, cfgId); // pudo cambiar (suscripciones caídas, o la persona tocó algo)
+  if (after.subs.length && after.taste) {
+    const sentList = [...after.taste.sent, { title, genre: pick.genre, at: now.toISOString(), epg: pick.ch.epg, name: pick.ch.name, start }].slice(-MAX_SENT);
+    await writeState(env.BUCKET, cfgId, { ...after, taste: { ...after.taste, sent: sentList } });
+  }
   return sent;
 }
 
-/** Si `next` sube la versión mayor o la menor respecto de `prev` (1.33.3 → 1.34.0 sí; 1.34.0 → 1.34.1 no). */
-export function isFeatureBump(prev: string, next: string): boolean {
-  const [a1, b1] = prev.split('.').map(Number), [a2, b2] = next.split('.').map(Number);
-  return a2 > a1 || (a2 === a1 && b2 > b1);
+export interface TasteView {
+  on: boolean;
+  when: TasteWhen;
+  per: TastePer;
+  tz: string;
+  /** Los géneros que se pueden elegir: los del gusto de la casa y los que ya se apagaron. `on`: se avisa de ellos. */
+  genres: { name: string; on: boolean }[];
+  sent: { title: string; genre: string; at: string; name: string }[];
+}
+
+async function tasteView(bucket: R2Bucket, cfgId: string, st: PushState, now = new Date()): Promise<TasteView> {
+  const t = st.taste ?? parseTaste({})!;
+  const off = new Set(t.off);
+  const names = new Set([...tasteGenres(await readHabits(bucket, cfgId), now.getTime()), ...t.off]);
+  return {
+    on: t.on, when: t.when, per: t.per, tz: t.tz,
+    genres: [...names].sort((a, b) => a.localeCompare(b, 'es')).map((name) => ({ name, on: !off.has(name) })),
+    sent: t.sent.slice(-5).reverse().map(({ title, genre, at, name }) => ({ title, genre, at, name })),
+  };
+}
+
+export const getTaste = async (bucket: R2Bucket, cfgId: string) => tasteView(bucket, cfgId, await readState(bucket, cfgId));
+
+/** Cambia los avisos por gusto. Hace falta que el dispositivo ya esté suscrito a los avisos (null si no). */
+export async function setTaste(bucket: R2Bucket, cfgId: string, body: Record<string, unknown>): Promise<TasteView | null> {
+  const st = await readState(bucket, cfgId);
+  if (!st.subs.length) return null;
+  const t: TasteState = { ...(st.taste ?? parseTaste({})!) };
+  if (validTz(body.tz)) t.tz = body.tz;
+  if (typeof body.on === 'boolean') t.on = body.on;
+  if (body.when === 'tarde' || body.when === 'noche') t.when = body.when;
+  if (body.per === 'dia' || body.per === 'semana') t.per = body.per;
+  if (typeof body.genre === 'string' && body.genre.length <= 40 && typeof body.genreOn === 'boolean') {
+    t.off = body.genreOn ? t.off.filter((g) => g !== body.genre) : [...new Set([...t.off, body.genre])];
+  }
+  const next = { ...st, taste: t };
+  await writeState(bucket, cfgId, next);
+  return tasteView(bucket, cfgId, next);
 }
 
 /** Corrida programada: revisa cada configuración con avisos. */
 export async function checkAllPush(env: Env): Promise<void> {
   if (!pushConfigured(env)) return;
-  try { await notifyNewVersion(env); } catch { /* el aviso de versión no frena los demás */ }
   let cursor: string | undefined;
   do {
     const page = await env.BUCKET.list({ prefix: 'push/', cursor });
@@ -328,6 +380,7 @@ export async function checkAllPush(env: Env): Promise<void> {
       try { await notifyNewChannels(env, cfgId); } catch { /* una configuración no frena a las demás */ }
       try { await notifyExpiry(env, cfgId); } catch { /* idem */ }
       try { await notifyReminders(env, cfgId); } catch { /* idem */ }
+      try { await notifyTaste(env, cfgId); } catch { /* idem */ }
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);

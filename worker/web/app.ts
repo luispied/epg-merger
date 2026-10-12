@@ -1,4 +1,4 @@
-// Nowline web (Etapa 1, paso 4): la interfaz sobre el Worker. Conectar el proveedor, cruzar los
+// nowline web (Etapa 1, paso 4): la interfaz sobre el Worker. Conectar el proveedor, cruzar los
 // canales con la guía en el navegador (@grilla/core, el mismo matcher que la corrida de
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
@@ -17,18 +17,22 @@ import {
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
-import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
+import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
+import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { placeTabPill } from './ui/tabbar.ts';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
-import { showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
+import { openProgramLink, showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
+import { changeTaste, loadTaste } from './ui/avisos-gusto.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
+import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
@@ -47,7 +51,6 @@ interface Config {
   mainName?: string;
 }
 declare const __APP_VERSION__: string;
-declare const __APP_COMMIT__: string;
 interface Channel { name: string; category: string; id: string; ext: string; icon: string; epgId: string | null }
 interface Local { cfgId: string; editKey: string }
 type Creds = { username: string; password: string } | { url: string };
@@ -62,6 +65,7 @@ const PAGE = 80;
 declare global { interface Window { ICONS: Record<string, string>; qrcode?: (t: number, e: string) => QR } }
 interface QR { addData(s: string): void; make(): void; createSvgTag(o: { cellSize: number; margin: number; scalable?: boolean }): string }
 Object.assign(window.ICONS, {
+  'bell-off': '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/>',
   bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
   ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
   'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
@@ -199,11 +203,14 @@ const saveLocal = (l: Local | null) => {
 
 /** Un GET que falla por la red o por un error pasajero del servidor (5xx) se reintenta dos veces (a los 0,6 y 1,8 s):
  *  con datos móviles el primer pedido a veces se corta y la grilla quedaba sin cargar. Los cambios no se reintentan. */
+/** Un pedido que no contesta en este tiempo se da por caído (en el celular, una conexión colgada dejaba la carga
+ *  esperando para siempre). */
+const GET_TIMEOUT_MS = 20000;
 async function fetchRetry(path: string, init: RequestInit = {}): Promise<Response> {
   const get = !init.method || init.method === 'GET';
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(path, init);
+      const res = await fetch(path, get ? { ...init, signal: AbortSignal.timeout(GET_TIMEOUT_MS) } : init);
       if (!get || res.status < 500 || i >= 2) return res;
     } catch (e) {
       if (!get || i >= 2) throw e;
@@ -211,6 +218,14 @@ async function fetchRetry(path: string, init: RequestInit = {}): Promise<Respons
     await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
   }
 }
+
+/** Sin red de verdad: el navegador no tiene conexión o el pedido falló en el camino. Un error de código (o del
+ *  servidor) no cuenta: antes, cualquier TypeError se mostraba como «sin conexión». */
+const offlineError = (e: unknown) => !navigator.onLine || (e instanceof TypeError && /fetch|network|load failed|aborted/i.test(e.message));
+/** El servidor no contestó a tiempo (y no es falta de conexión). */
+const slowError = (e: unknown) => e instanceof DOMException && e.name === 'TimeoutError';
+/** Lo que se le dice a la persona cuando algo de la carga falla. */
+const loadError = (e: unknown) => (offlineError(e) ? 'sin conexión' : slowError(e) ? 'el servidor tarda en responder' : (e as Error).message);
 
 /** Cuántos cambios de links, perfiles o cuentas se mandaron al Worker: Perfil dibuja con lo que ya tiene solo si no hubo ninguno desde que lo bajó. */
 let apiWrites = 0;
@@ -221,10 +236,24 @@ async function api<T = unknown>(path: string, opts: { method?: string; body?: un
   // `key`: la clave de otra configuración del hogar (otro proveedor); sin eso, la de la que está abierta.
   if (opts.key) headers.Authorization = `Bearer ${opts.key}`;
   else if (opts.auth !== false && state.local) headers.Authorization = `Bearer ${state.local.editKey}`;
-  const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
-  return data as T;
+  const get = (opts.method ?? 'GET') === 'GET';
+  for (let i = 0; ; i++) {
+    const res = await fetchRetry(path, { method: opts.method ?? 'GET', headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+    let data: unknown = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      // Con la respuesta bien pero el cuerpo cortado (pasa en la red del celular), se vuelve a pedir. Un error del
+      // servidor que no trae JSON sigue siendo un error con su código.
+      if (res.ok && get && i < 2) {
+        await new Promise((ok) => setTimeout(ok, 600 * 3 ** i));
+        continue;
+      }
+      if (res.ok) throw e;
+    }
+    if (!res.ok) throw Object.assign(new Error((data as { error?: string }).error || `HTTP ${res.status}`), { data });
+    return data as T;
+  }
 }
 
 // ------------------------------------------------------------------ hogar
@@ -327,7 +356,7 @@ const homeCode = (h: Home) => (h.homeId && h.homeKey ? `${h.homeId}.${h.homeKey}
 /** Trae un hogar con su código y lo junta con el de este navegador. Devuelve cuántas configuraciones suma. */
 async function joinHome(code: string): Promise<number> {
   const m = /^([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{20,})$/.exec(code.trim());
-  if (!m) throw new Error('no es un código de Nowline');
+  if (!m) throw new Error('no es un código de nowline');
   const data = await api<{ data: string }>(`/api/home/${m[1]}`, { key: m[2] });
   const h = loadHome();
   const added = mergeHome(h, await openHome(m[2], data.data));
@@ -529,7 +558,6 @@ let bannerCount = 0;
 function renderNewBanner() {
   newCount = state.channels.filter((c) => state.newNames.has(c.name)).length;
   bannerCount = state.channels.filter((c) => state.bannerNames.has(c.name)).length;
-  $('#filterTabs [data-filter="nuevos"]').hidden = !newCount;
   if (!newCount && state.filter === 'nuevos') state.filter = 'todos';
 }
 
@@ -590,11 +618,9 @@ let guideAt: string | null = null;
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
-  const res = await fetchRetry('/api/guide/index.json');
-  if (!res.ok) throw new Error(`la guía no respondió (HTTP ${res.status})`);
-  const guide = await res.json() as {
+  const guide = await api<{
     matching_rules: MatchingRulesData; sources: Record<string, SourceInfo>; channels: GuideChannel[]; generated_at?: string;
-  };
+  }>('/api/guide/index.json', { auth: false });
   guideAt = guide.generated_at ?? null;
   onStatus('Preparando la guía…');
   await new Promise((r) => setTimeout(r));
@@ -710,7 +736,6 @@ function scheduleSave() {
 }
 // Sin conexión, los cambios quedan en este navegador y se mandan solos cuando vuelve.
 const PENDING_KEY = (cfgId: string) => `grilla_pending_${cfgId}`;
-const offlineError = (e: unknown) => !navigator.onLine || e instanceof TypeError;
 
 async function saveNow(announce = true) {
   clearTimeout(saveTimer);
@@ -982,6 +1007,49 @@ function guideHealth() {
   return { withGuide, ok, gap, dead, none, known: !!healthIdx };
 }
 
+// Los filtros de la lista: un estado (uno solo) y las categorías elegidas (varias). Los dibuja ui/filtros.tsx.
+const STATE_FILTERS: [string, string][] = [
+  ['todos', 'Todos'], ['nuevos', 'Nuevos'], ['revisar', 'A revisar'], ['sin-epg', 'Sin EPG'], ['sin-prog', 'Sin programación'],
+  ['caidos', 'Caídos'], ['manual', 'Elegidos a mano'], ['editados', 'Editados'], ['ocultos', 'Ocultos'],
+];
+// Estos siempre se ofrecen en la hoja; los demás solo cuando hay canales que cumplen.
+const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg']);
+let listCats: string[] = [];
+function renderFilterBar() {
+  const states = STATE_FILTERS
+    .map(([key, label]) => ({ key, label, count: state.channels.filter((c) => matchesFilter(c, key)).length }))
+    .filter((s) => ALWAYS_STATES.has(s.key) || s.count > 0 || s.key === state.filter);
+  // Las categorías ocultas (y los separadores) no se ofrecen: no tienen canales que mostrar.
+  const cats = new Map<string, number>();
+  for (const ch of state.channels) {
+    if (info(ch).divider || state.cfg!.groups.hidden.includes(groupOf(ch))) continue;
+    cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
+  }
+  listCats = listCats.filter((c) => cats.has(c));
+  // En el orden de la lista (el que arregló la persona), no en el del proveedor.
+  const categories = groups().filter((key) => cats.has(key)).map((key) => ({ key, label: groupLabel(key), count: cats.get(key)! }));
+  const model: FilterModel = { filter: state.filter, cats: listCats, states, categories };
+  renderFilterControls(model);
+}
+
+// Los controles de arriba de la lista (el botón de filtros y la fila de chips), dibujados en Preact (ui/filtros.tsx).
+const filterHandlers: FilterHandlers = {
+  onState: (f) => {
+    state.filter = f;
+    setPref('grilla_last_filter', f);
+    state.shown = PAGE;
+    render();
+  },
+  onCats: (cats) => {
+    listCats = cats;
+    state.shown = PAGE;
+    render();
+  },
+};
+function renderFilterControls(model: FilterModel) {
+  drawFilterBar(model, filterHandlers, $('#filterMount'), $('#activeFilters'));
+}
+
 function matchesFilter(ch: Channel, filter: string) {
   const i = info(ch);
   switch (filter) {
@@ -1018,12 +1086,24 @@ function loadHourNowDesc() {
     if (state.search.trim()) render();
   });
 }
+let topicsNow: TopicSearch | null = null;
+/** El índice de temas se baja la primera vez que se busca, no al abrir. */
+function loadTopicsNow() {
+  loadTopics().then((t) => {
+    if (!t || t === topicsNow) return;
+    topicsNow = t;
+    if (state.search.trim()) render();
+  });
+}
 /** El programa en el aire del EPG del canal, si coincide con la búsqueda por título o descripción. */
 function programMatch(ch: Channel, q: string): NowPlaying | null {
   const epg = state.cfg!.channels[ch.name]?.epg;
   if (!q || !hourNow || !epg) return null;
   const cur = nowFromHour(hourNow, epg);
-  return cur && hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q) ? cur : null;
+  if (!cur) return null;
+  // Por título y descripción, o por el género y los temas del programa (ui/ topics.ts): «mundial» encuentra un partido sin decirlo.
+  return hasWords(fold(`${cur.title} ${hourNowDesc ? descFromHour(hourNowDesc, hourNow, epg, cur) : ''}`), q)
+    || topicsNow?.match(q).has(titleKey(cur.title)) ? cur : null;
 }
 
 /** Posición de un canal dentro de su categoría: el orden propio primero, después el del proveedor. */
@@ -1041,6 +1121,7 @@ function visibleChannels(): number[] {
     .filter((i) => {
       const ch = state.channels[i];
       if (!matchesFilter(ch, state.filter)) return false;
+      if (listCats.length && !listCats.includes(groupOf(ch))) return false;
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? '' : '';
@@ -1242,17 +1323,9 @@ function render() {
 function renderNow() {
   headersCache = null;
   renderNewBanner();
-  const noProg = state.channels.filter((c) => matchesFilter(c, 'sin-prog')).length;
-  $('#filterTabs [data-filter="sin-prog"]').hidden = !noProg;
-  if (!noProg && state.filter === 'sin-prog') state.filter = 'todos';
-  const nDown = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
-  $('#filterTabs [data-filter="caidos"]').hidden = !nDown;
-  if (!nDown && state.filter === 'caidos') state.filter = 'todos';
-  for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
-    const f = b.dataset.filter!;
-    b.setAttribute('aria-pressed', String(f === state.filter));
-    renderFilterTab(b, b.dataset.label ?? '', state.channels.filter((c) => matchesFilter(c, f)).length);
-  }
+  if (!state.channels.some((c) => matchesFilter(c, 'sin-prog')) && state.filter === 'sin-prog') state.filter = 'todos';
+  if (!state.channels.some((c) => matchesFilter(c, 'caidos')) && state.filter === 'caidos') state.filter = 'todos';
+  renderFilterBar();
   renderReviewCard();
   const list = visibleChannels();
   const cards = $('#cards');
@@ -1292,8 +1365,12 @@ const guideHost: GuideHost = {
   },
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
   habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
-  feedback: (title, kind) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind } }),
+  feedback: (title, kind, genre) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind, genre } }),
   help: () => openHelp('guide'),
+  tasteAlerts: {
+    state: () => loadTaste().catch(() => null),
+    setGenre: (genre, on) => changeTaste({ genre, genreOn: on }).then(() => {}),
+  },
 };
 // ------------------------------------------------------------------ pestañas de abajo
 // Canales es la página de la lista; Guía, Categorías y Perfil son páginas enteras que la tapan, con la barra de abajo
@@ -1311,6 +1388,7 @@ function markTab(t: Tab) {
     if (k === t) $(sel).setAttribute('aria-current', 'page');
     else $(sel).removeAttribute('aria-current');
   }
+  placeTabPill($('#tabbar'));
 }
 /** La pestaña que se ve: una página abierta o, si no hay, la Guía o la lista. */
 function currentTab(): Tab {
@@ -1335,6 +1413,17 @@ function openPage(t: PageTab) {
 function openProfiles(v: LinksView = { v: 'list' }) {
   openLinksView(v);
   openPage('profile');
+}
+
+/** Venir de un aviso por gusto (/?programa=<guía>&inicio=<segundos>): abre la Guía con la hoja de ese programa. */
+function openProgramFromUrl() {
+  const q = new URLSearchParams(location.search);
+  const epg = q.get('programa');
+  const start = Number(q.get('inicio'));
+  if (!epg || !start) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  openProgramLink(epg, start);
+  setGuide(true);
 }
 
 function setGuide(on: boolean) {
@@ -1861,7 +1950,7 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
   renderChannelOrder(g);
 }
 
-const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Nowline', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
+const HELP_TITLES: Record<string, string> = { main: 'Cómo usar nowline', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
 /** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
 function openHelp(topic: 'main' | 'guide' | 'settings' | 'categories' | 'links', from?: string) {
   const help = $('#helpDialog') as HTMLDialogElement;
@@ -1974,7 +2063,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] } }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];
@@ -2193,7 +2282,7 @@ function restoreDraft() {
 /** El paso de bajar y subir la lista. El link a get.php se arma con lo que está escrito (lleva
  *  la contraseña, por eso no se guarda): si falta algo, se pide completarlo. */
 function showUpload() {
-  $('#uploadWhy').textContent = 'Tu proveedor no deja que Nowline baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
+  $('#uploadWhy').textContent = 'Tu proveedor no deja que nowline baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
   $('#uploadBox').hidden = false;
   updateDownloadLink();
 }
@@ -2474,11 +2563,18 @@ async function openSaved(soft = false) {
       } catch { /* sin storage */ }
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
-    await loadGuide(say);
+    // Si la guía no baja, la lista de canales igual se ve (sin logos ni programa): se avisa arriba y «Reintentar» la vuelve a pedir.
+    let guideError: unknown = null;
+    try {
+      await loadGuide(say);
+    } catch (e) {
+      guideError = e;
+    }
     const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if ((await rematch(say)) || pending || masked) await saveNow(false);
     status(st, null);
+    if (guideError) status(st, `No se pudo bajar la guía: ${loadError(guideError)}`, 'bad', () => void refreshGrid());
     detectNew();
     placeNewCategories();
     main.classList.remove('loading');
@@ -2490,6 +2586,7 @@ async function openSaved(soft = false) {
     loadStreamHealth();
     loadProfiles();
     void loadReports();
+    openProgramFromUrl();
   } catch (e) {
     main.classList.remove('loading');
     const msg = (e as Error).message;
@@ -2500,7 +2597,7 @@ async function openSaved(soft = false) {
       state.creds = null;
       showOnboarding();
     } else {
-      status(st, `No se pudo cargar la grilla: ${offlineError(e) ? 'sin conexión' : msg}`, 'bad', () => void refreshGrid());
+      status(st, `No se pudo cargar la grilla: ${loadError(e)}`, 'bad', () => void refreshGrid());
     }
   }
 }
@@ -2567,7 +2664,7 @@ function exportBackup() {
 async function importBackup(file: File) {
   try {
     const data = JSON.parse(await file.text());
-    if (!data?.cfgId || !data?.editKey) throw new Error('no es un respaldo de Nowline');
+    if (!data?.cfgId || !data?.editKey) throw new Error('no es un respaldo de nowline');
     state.creds = null;
     state.local = { cfgId: data.cfgId, editKey: data.editKey };
     await api(`/api/cfg/${data.cfgId}`);
@@ -2729,19 +2826,12 @@ function wireDownRow() {
 }
 
 function setupEditor() {
-  $('#filterTabs').onclick = (ev) => {
-    const f = (ev.target as HTMLElement).closest<HTMLElement>('[data-filter]')?.dataset.filter;
-    if (!f) return;
-    state.filter = f;
-    setPref('grilla_last_filter', f);
-    state.shown = PAGE;
-    render();
-  };
   let t = 0;
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);
     loadHourNow(); // por si cambió la hora desde que se abrió
     loadHourNowDesc();
+    if ((ev.target as HTMLInputElement).value.trim()) loadTopicsNow();
     t = window.setTimeout(() => {
       state.search = (ev.target as HTMLInputElement).value;
       state.shown = PAGE;
@@ -2905,6 +2995,7 @@ function setupEditor() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   $('#tabGuide').onclick = () => setGuide(true);
+  placeTabPill($('#tabbar'));
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
   let pressTimer = 0;
   let pressed = false;
@@ -2990,23 +3081,19 @@ new MutationObserver((records) => {
 
 // ------------------------------------------------------------------ arranque
 // Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
-// Versión nueva: el service worker nuevo se instala solo; con la app abierta se avisa para recargar, y al volver a
-// abrirla la hoja «Novedades» cuenta qué cambió (ui/novedades.tsx).
+// Versión nueva: el service worker nuevo se instala y toma la página solo (sw.js), y al abrir la app la navegación
+// baja el HTML de la versión nueva; no hay aviso con la app abierta. Al abrirla con una versión nueva, un aviso breve
+// (ui/novedades.tsx) dice que se actualizó y muestra qué cambió.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((reg) => {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch(() => { /* sin SW: anda igual */ }));
-  let controlled = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!controlled) { controlled = true; return; } // la primera instalación no es una versión nueva
-    toast('Hay una versión nueva de Nowline', 'info', 15000, { label: 'Actualizar', run: () => location.reload() });
-  });
 }
-void checkNovedades(__APP_VERSION__, new URLSearchParams(location.search).has('novedades'));
+void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
 addSearchClear(document);
-for (const el of $$('[data-version]')) el.textContent = `Nowline ${__APP_VERSION__}${__APP_COMMIT__ ? ` · ${__APP_COMMIT__}` : ''}`;
+for (const el of $$('[data-version]')) el.textContent = `nowline ${__APP_VERSION__}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 $('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 setupOnboarding();
@@ -3031,10 +3118,14 @@ setupEditor();
     else if (travel < -40) bar.classList.remove('compact');
   }, { passive: true });
 }
-// Un dispositivo que entró con un código para ver (y no tiene configuración propia) abre siempre en ese modo.
+// Un dispositivo que entró con un código para ver abre siempre en ese modo; salir pide el código de la casa (ver.tsx).
 let viewOnly: string | null = null;
-try { viewOnly = state.local ? null : localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
-if (viewOnly) {
+// Aunque el dispositivo tenga configuración propia: quien mira no llega al editor escribiendo la dirección sin «ver».
+try { viewOnly = localStorage.getItem(VIEW_CODE_KEY); } catch { /* sin storage */ }
+// La app instalada en el inicio del editor abre el editor aunque otra app instalada (la de modo ver) use el mismo storage:
+// en iPhone, todas las apps agregadas del mismo sitio comparten localStorage. Quien mira sigue sin llegar al editor desde el navegador.
+const installed = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+if (viewOnly && !installed) {
   try { sessionStorage.removeItem('nowline_splash'); } catch { /* sin storage */ } // que el logo siga en /ver
   location.replace(`/ver#${viewOnly}`);
 } else {
@@ -3057,6 +3148,6 @@ export {
   renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow, schedule, sectionHeaders,
   sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
   showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleGroupHidden, toggleGroupNoEpg,
-  toggleReminder, unrenameGroup, useHomeCode, useOtherAccount, viewMode, visibleChannels, wireDownRow, wireSwipe,
+  toggleReminder, unrenameGroup, useHomeCode, useOtherAccount, useViewCode, viewMode, visibleChannels, wireDownRow, wireSwipe,
 };
 export type { Account, Band, ChannelEdit, NowPlaying, ScheduleEntry, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };

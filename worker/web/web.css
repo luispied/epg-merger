@@ -43,6 +43,11 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .ask-sheet p { margin: 0 0 4px; color: var(--muted); }
 .ask-sheet .field { margin-top: 10px; }
 .ask-sheet .btn-danger { background: var(--red); color: var(--on-danger); padding: 0 24px; }
+.kids-sheet .sec-title { margin-top: 16px; }
+.kids-sheet .filter-chips .chip-btn[disabled] { opacity: .6; }
+.kids-sheet .rules { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.kids-sheet .rules li { display: flex; gap: 10px; align-items: flex-start; }
+.kids-sheet .rules .icon { margin-top: 2px; flex: none; color: var(--faint); }
 .cat-row.section-row { background: var(--surface-2); }
 .cat-row.section-row:not(:first-child) { margin-top: 10px; border-top: .5px solid var(--hairline); }
 .section-row .section-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
@@ -113,6 +118,20 @@ dialog .search-field { background: var(--surface-2); }
 .chip-btn { min-height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--chip-line); font-weight: 500; padding: 0 12px; }
 @media (hover: hover) { .chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .chip-btn[aria-pressed="true"] { box-shadow: none; }
+/* Filtros de la lista de Canales (ui/filtros.tsx): el botón con su contador, los chips de lo puesto y la hoja. */
+.filter-btn { position: relative; flex: none; }
+.filter-btn .count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.active-filters { display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-2) var(--gutter) 0; scrollbar-width: none; }
+.active-filters[hidden] { display: none; }
+.vw-search .active-filters { padding: var(--sp-2) 0 0; }
+.active-filters::-webkit-scrollbar { display: none; }
+.active-filters .chip-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-right: 6px; }
+.active-filters .x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--hairline); color: var(--muted); }
+.active-filters .x .icon { width: 12px; height: 12px; }
+.clear-all { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: 500; padding: 0 var(--sp-1); }
+.filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.filter-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; }
+.filter-chips .n { font-variant-numeric: tabular-nums; color: var(--faint); font-size: var(--fs-sm); }
 .cat-row .chip-btn { min-height: 28px; }
 
 /* Botones segmentados (tipo de proveedor, tema). */
@@ -264,6 +283,9 @@ dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 
 /* Con una hoja abierta no se mueve la página de atrás (ni al llegar al final de la hoja). */
 html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
+/* La Guía de la edición tapa la pantalla: la página de atrás no se mueve (en el celular el scroll de atrás corre la barra inferior).
+   El modo ver no necesita esto (su página no se desplaza) y no lo tiene, para que su barra quede como en Canales. */
+html:has(#guide:not([hidden])) { overflow: hidden; }
 dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
 
 /* Avisos: ocupan todo el ancho de la pantalla (hasta 640 px) y el texto largo baja de renglón. */
@@ -687,7 +709,7 @@ body.onboard-busy #onboarding button[type=submit], body.onboard-busy #onboarding
   border-top: 1px solid var(--hairline); padding: 0 max(8px, calc((100% - 728px) / 2)) env(safe-area-inset-bottom, 0px); }
 body:has(#editor[hidden]) .tabbar { display: none; }
 body.selecting .tabbar { display: none; }
-.tab { flex: 1; min-width: 0; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+.tab { position: relative; z-index: 1; flex: 1; min-width: 0; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
 .tab .icon { width: 24px; height: 24px; }
 .tab.active { color: var(--accent); }
@@ -838,8 +860,15 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
   padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
-.tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: background .15s ease, color .15s ease; }
-.tab.active { background: color-mix(in srgb, var(--fill) 80%, transparent); color: var(--accent); font-weight: 600; }
+.tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: color var(--dur-2) var(--ease-out); }
+.tab.active { color: var(--accent); font-weight: 600; }
+/* La píldora de selección es un solo elemento que se desliza hasta la pestaña elegida (lo mueve ui/tabbar.ts). Hasta
+   la primera medida (`placed`) no se anima, así no viaja desde la esquina al abrir. */
+.tab-pill { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--fill) 80%, transparent);
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out), height var(--dur-3) var(--ease-out), opacity var(--dur-2) ease; }
+.tabbar.placed .tab-pill { opacity: 1; }
+.tabbar:not(.placed) .tab-pill { transition: none; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Lo que pasa por detrás de la cápsula se desvanece antes de llegar (no se lee a través de ella): un degradé del
@@ -858,6 +887,7 @@ body.has-dock::after { right: 440px; }
     -webkit-backdrop-filter: none; backdrop-filter: none; }
   body.has-dock #tabbar { right: auto; }
   .tab { flex: none; width: 100%; height: 68px; border-radius: var(--radius); gap: 4px; font-size: 12px; }
+  .tab-pill { border-radius: var(--radius); }
   body:has(.tabbar)::after { display: none; }
   body:not(.selecting) :is(#editor, #app > section:not(#guide)) { margin-left: var(--rail-w); }
   body:not(.selecting) #guide, body:not(.selecting) dialog.sheet.page { left: var(--rail-w); width: auto; }
@@ -952,7 +982,8 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 .profile-card .device:first-child { border-top: 0; padding-top: 0; }
 .profile-card .device [data-dev=show] { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
 .profile-card .device .icon-btn { width: 40px; height: 40px; }
-.provider-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 -4px; }
+.provider-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin: 20px 0 -4px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.provider-head > svg { flex: none; }
 .provider-head:first-of-type { margin-top: 12px; }
 .provider-tag { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .profile-pick .provider-tag { margin: 8px 2px 0; }
@@ -1006,6 +1037,7 @@ body.guide-open { overflow: hidden; }
 .gd-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px max(var(--gutter), calc((100% - 728px) / 2)) 10px; scrollbar-width: none; flex: none; }
 .gd-chips::-webkit-scrollbar { display: none; }
 .gd-chips .chip-btn { flex: none; }
+.gd-chips.active-filters { align-items: center; }
 .gd { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--hairline); overscroll-behavior: contain; }
 /* Lo último queda arriba de la barra de pestañas (flota sobre la grilla). */
 .gd-inner { margin-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
@@ -1018,7 +1050,7 @@ body.guide-open { overflow: hidden; }
 .gd-tick.day { color: var(--text); font-weight: 700; }
 .gd-now-pill { position: absolute; top: 6px; transform: translateX(-50%); z-index: 2; background: var(--live); color: var(--on-live); font-size: 11.5px; font-weight: 700; line-height: 1.5; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
 .gd-cat { position: absolute; left: 0; height: 30px; background: var(--bg); }
-.gd-cat > span { position: sticky; left: 0; display: inline-block; padding: 0 var(--gutter); line-height: 30px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-cat > span { position: sticky; left: 0; display: inline-block; padding: 0 var(--gutter); background: var(--bg); line-height: 30px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .gd-row { position: absolute; left: 0; display: flex; height: var(--rowh); border-bottom: 1px solid var(--hairline); }
 .gd-ch { position: sticky; left: 0; z-index: 3; flex: none; width: var(--chw); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; background: var(--surface); border: 0; border-right: 1px solid var(--hairline); color: inherit; font: inherit; cursor: pointer; }
 .gd-ch .logo { width: 36px; height: 30px; border-radius: 8px; flex: none; }
@@ -1030,9 +1062,12 @@ body.guide-open { overflow: hidden; }
 .gd-in { display: flex; flex-direction: column; gap: 1px; min-width: 0; width: 100%; box-sizing: border-box; }
 .gd-cell .tt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gd-cell .hh { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+.gd-cell.masked .tt { color: var(--muted); font-weight: 500; }
 .gd-cell.past { background: transparent; }
 .gd-cell.past .tt { color: var(--faint); font-weight: 500; }
 .gd-cell.past .hh { color: var(--faint); }
+/* Con un género elegido en la Grilla, lo que no es de ese género se apaga igual que lo que «no entra» en Próximos (.gd-up-row.dim). */
+.gd-cell.off { opacity: .45; }
 /* Esqueleto mientras baja la programación de esa hora (el mismo brillo que el de Canales). */
 .gd-cell.skel { background: linear-gradient(90deg, var(--surface-2) 25%, var(--fill) 50%, var(--surface-2) 75%); background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite; box-shadow: none; pointer-events: none; }
@@ -1056,6 +1091,8 @@ body.guide-open { overflow: hidden; }
 .gd-sh-ch { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .gd-sh-ch strong { display: block; }
 .gd-sh-ch small { color: var(--muted); font-size: 13px; }
+.gd-sheet .gd-sh-genre { margin: 16px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-sheet .gd-sh-genre + .gd-sh-title { margin-top: 4px; }
 .gd-sheet .gd-sh-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin: 16px 0 4px; }
 .gd-sheet .gd-sh-when { margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .gd-sh-when b { color: var(--live); font-weight: 600; }
@@ -1085,6 +1122,9 @@ body.guide-open { overflow: hidden; }
 
 /* ---- Modo «solo ver» (ver.html / ver.tsx): letra grande, filas altas y nada para editar. ---- */
 body.viewer { font-size: 17px; }
+/* Igual que la edición: la lista de Canales sigue en la página debajo de la Guía (la Guía la tapa y la página no se mueve).
+   En la app de iPhone, una página sin nada adentro hace que la barra de abajo quede más arriba que en la edición. */
+body.viewer #app > section[data-under] { visibility: hidden; }
 .vw-head .title-row { align-items: center; }
 .vw-who { display: inline-flex; align-items: center; gap: 6px; max-width: 55%; padding: 6px 12px; border-radius: 999px;
   background: var(--fill); color: var(--muted); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1093,10 +1133,23 @@ body.viewer { font-size: 17px; }
 .vw-head-r .vw-who { max-width: none; min-width: 0; }
 .vw-help > .sheet-body > p, .vw-help details p { font-size: 17px; line-height: 1.55; }
 .vw-help summary { font-size: 17px; }
-.vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; background: var(--bg); max-width: 760px; margin: 0 auto; }
+.vw-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--hairline); }
+.vw-field-t { display: grid; gap: 2px; min-width: 0; }
+.vw-field-t strong { font-size: 18px; font-weight: 600; }
+.vw-field-t small { font-size: 14px; color: var(--muted); }
+.vw-settings .vw-k { color: var(--muted); } /* el verde es solo para lo que está en vivo */
+.vw-unlock-lead { margin: 0 0 14px; font-size: 17px; line-height: 1.5; color: var(--muted); }
+.vw-unlock-field { display: grid; gap: 6px; margin-bottom: 14px; }
+.vw-unlock-field span { font-size: 14px; font-weight: 600; color: var(--muted); }
+.vw-unlock-field input { height: 52px; font-size: 18px; padding: 0 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--chip-line); }
+.vw-seg { flex: none; }
+.vw-seg button { height: 44px; min-width: 60px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; }
+.vw-seg .icon { width: 20px; height: 20px; }
+.vw-search { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; padding: 10px var(--gutter) 14px; background: var(--bg); max-width: 760px; margin: 0 auto; }
 .vw-search .search-field input { font-size: 18px; min-height: 52px; }
 .vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
-.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 14px 0 4px; padding: 6px 4px;
+/* Lo que pasa por debajo se veía en el hueco entre el buscador (termina en 70px) y el encabezado: el margen queda por fuera del fondo, así que va como padding. */
+.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 0 0 4px; padding: 14px 4px 6px;
   background: var(--bg); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .vw-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 84px; padding: 12px 14px; margin: 0 0 8px;
   border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow); }
@@ -1112,11 +1165,13 @@ body.viewer { font-size: 17px; }
 .vw-bar > i { display: block; height: 100%; background: var(--live); }
 .vw-chev { flex: none; color: var(--faint); }
 .vw-sheet .gd-sh-title { font-size: 24px; }
+.vw-sheet .gd-sh-genre { font-size: 13px; }
 .vw-sheet .gd-sh-when, .vw-sheet .gd-sh-desc { font-size: 17px; }
 .vw-sheet .gd-sh-row { font-size: 17px; padding: 6px 0; }
 .vw-sheet .gd-sh-row b { width: 56px; }
 .vw-k { margin: 8px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--live); }
 .vw-tabbar .tab { font-size: 13.5px; }
+.vw-skel { min-height: 100vh; padding: 80px 16px 16px; display: grid; gap: 12px; align-content: start; }
 .vw-problem, .vw-loading { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
 .vw-problem img { border-radius: var(--radius); }
 .vw-problem h1 { margin: 8px 0 0; font-size: 24px; }
@@ -1236,6 +1291,8 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-taste { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .gd-taste-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
 .gd-taste-btn .icon.sm { width: 15px; height: 15px; }
+.gd-taste-hint { flex-basis: 100%; margin: 0; font-size: var(--fs-md); color: var(--muted); }
+.vw-leave { margin-top: 14px; min-height: 52px; }
 .vw-foot { margin: 28px 4px 0; text-align: center; color: var(--muted); font-size: 14px; }
 .vw-foot .link-btn { display: block; margin: 6px auto 0; font-size: 14px; }
 .vw-conn { margin: 4px 0 6px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
@@ -1269,16 +1326,8 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .cd-text code.muted { color: var(--muted); font-family: inherit; }
 .cd-row .btn { flex: none; }
 
-/* Guía: varias categorías (la raya entre las elegidas y las rápidas, «Más» y su hoja) y el aviso de Tu noche */
-.gd-chips-sep { flex: none; width: 1px; height: 22px; align-self: center; background: var(--hairline); }
-.gd-more-chip { color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
-.gc-sheet .search-field { margin: 4px 0 8px; }
-.gc-list { background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; }
-.gc-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-top: 1px solid var(--hairline); cursor: pointer; }
-.gc-row:first-child { border-top: 0; }
-.gc-row input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+/* Guía: los filtros (hoja de ui/filtros.tsx), el aviso de Tu noche y el pie de las hojas */
 .gc-name { flex: 1; min-width: 0; font-size: 16px; }
-.gc-count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .gc-foot { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; margin-top: 12px; background: linear-gradient(to top, var(--surface) 78%, transparent); }
 .gc-foot .btn { min-height: 48px; }
 .gc-foot .btn-primary { flex: 1; }
@@ -1327,8 +1376,6 @@ dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease back
 .vw-conn-list { animation: slide-down .2s ease backwards; }
 
 /* Novedades (ui/novedades.tsx): lo nuevo de cada versión, en viñetas. */
-.nv-lead { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--muted); }
-.nv-lead .icon { color: var(--accent); flex: none; }
 .nv-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
 .nv-list li { line-height: 1.5; color: var(--text); }
 .nv-list li::marker { color: var(--accent); }
@@ -1382,6 +1429,10 @@ html[data-text="lg"] { zoom: 1.12; }
 .splash .wordmark { font-size: 30px; }
 @media (min-width: 900px) { .splash svg { width: 128px; height: 128px; } .splash .wordmark { font-size: 38px; } }
 .no-splash .splash { display: none; }
+/* Mientras el logo está, lo que la app dibuja debajo queda oculto (no se ve a través del fundido); después entra con un
+   fundido corto. Sin pointer-events: none en la app, los toques igual llegan. */
+body > :not(#splash) { transition: opacity var(--dur-3) var(--ease-out); }
+.splash-on body > :not(#splash) { opacity: 0; }
 .splash.out { opacity: 0; }
 .splash.out svg { transform: scale(1.06); }
 @media (prefers-reduced-motion: reduce) { .splash.out svg { transform: none; } }

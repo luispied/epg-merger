@@ -67,3 +67,28 @@ export async function removeReport(bucket: R2Bucket, cfgId: string, id: string):
 }
 
 export const deleteReports = (bucket: R2Bucket, cfgId: string) => bucket.delete(reportsKey(cfgId));
+
+/** El manifest de la PWA del modo ver, con el código en su start_url: así «Agregar a inicio» abre iOS como una app (con
+ *  la misma ventana que la del editor) y el ícono vuelve a /ver#<código>. Lo arma el Worker porque el código es de cada
+ *  persona; no lee nada de R2 ni dice si el código existe. */
+export function viewManifest(code: string): object | null {
+  if (!VIEW_RE.test(code)) return null;
+  const icon = (src: string, sizes: string, purpose?: string) => ({ src, sizes, type: 'image/png', ...(purpose ? { purpose } : {}) });
+  return {
+    name: 'nowline',
+    short_name: 'nowline',
+    description: 'Lo que dan ahora y la guía de tus canales.',
+    lang: 'es',
+    start_url: `/ver#${code}`,
+    scope: '/',
+    display: 'standalone',
+    background_color: '#0c0d10',
+    theme_color: '#0c0d10',
+    icons: [
+      icon('/img/ver/apple-touch-icon.png', '180x180'),
+      icon('/img/ver/icon-192.png', '192x192'),
+      icon('/img/ver/icon-512.png', '512x512'),
+      icon('/img/ver/icon-maskable-512.png', '512x512', 'maskable'),
+    ],
+  };
+}

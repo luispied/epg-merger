@@ -3,7 +3,7 @@ import { afterEach, test } from 'node:test';
 import { gzipSync } from 'node:zlib';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
-import { checkAllPush, encryptWebPush, expiryThreshold, isFeatureBump, notifyExpiry, notifyNewVersion, notifyReminders } from '../src/push.ts';
+import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited, routeKind } from '../src/index.ts';
@@ -11,6 +11,7 @@ import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { scheduleFile } from '../src/again.ts';
+import { gunzip } from '../src/schedule.ts';
 import { mediaKey, resetMediaMaps } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, MemoryBucket, mockXtream, STREAMS } from './helpers.ts';
@@ -494,7 +495,7 @@ test('dispositivos: cada link tiene nombre, se lista, se renombra y quitarlo cor
   const offList = await handle(new Request(living.playlistUrl), t.env, t.ctx, t.cache);
   assert.equal(offList.status, 200);
   const offText = await offList.text();
-  assert.match(offText, /Link desactivado: reactivalo en Nowline/);
+  assert.match(offText, /Link desactivado: reactivalo en nowline/);
   assert.equal(offText.match(/#EXTINF/g)?.length, 1);
   assert.equal((await handle(new Request(living.epgUrl), t.env, t.ctx, t.cache)).status, 403);
   assert.equal((await handle(new Request(`${BASE}/s/${living.code}/desactivado.ts`), t.env, t.ctx, t.cache)).status, 403);
@@ -1576,53 +1577,6 @@ test('estado del relay: la prueba y la bajada de la lista anotan cuándo respond
   }
 });
 
-test('versión nueva: la primera vez se anota, avisa solo cuando sube la versión menor y una vez por navegador', async () => {
-  const t = makeEnv();
-  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
-  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
-  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
-  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
-  const uaPublic = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
-  const auth = crypto.getRandomValues(new Uint8Array(16));
-  const sub = { endpoint: 'https://push.example/s/v', keys: { p256dh: b64urlEncode(uaPublic), auth: b64urlEncode(auth) }, created: '2026-10-01T00:00:00Z' };
-  // El mismo navegador en dos configuraciones (dos proveedores): un solo aviso.
-  await t.env.BUCKET.put('push/c1.json', JSON.stringify({ subs: [sub] }));
-  await t.env.BUCKET.put('push/c2.json', JSON.stringify({ subs: [sub] }));
-  let novedades = [{ version: '1.34.0', items: ['**Aviso cuando el relay no responde.** Arriba de los canales.'] }];
-  t.env.ASSETS = { fetch: async () => new Response(JSON.stringify(novedades)) };
-  const pushed: Uint8Array[] = [];
-  const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).startsWith('https://push.example/')) {
-      pushed.push(new Uint8Array(init?.body as ArrayBuffer));
-      return new Response(null, { status: 201 });
-    }
-    return real(input, init);
-  }) as typeof fetch;
-  try {
-    // Primera vez: solo se anota la versión.
-    assert.equal(await notifyNewVersion(t.env), 0);
-    assert.equal(pushed.length, 0);
-    // Un parche no avisa.
-    novedades = [{ version: '1.34.1', items: ['Arreglo chico'] }, ...novedades];
-    assert.equal(await notifyNewVersion(t.env), 0);
-    // Una función nueva sí, una vez por navegador, con lo primero de la lista y sin negritas.
-    novedades = [{ version: '1.35.0', items: ['**Novedades al actualizar.** Grilla cuenta qué cambió.'] }, ...novedades];
-    assert.equal(await notifyNewVersion(t.env), 1);
-    const msg = JSON.parse(await decryptPush(pushed[0], ua.privateKey, uaPublic, auth)) as { title: string; body: string; url: string };
-    assert.deepEqual(msg, { title: 'Nowline se actualizó a 1.35.0', body: 'Novedades al actualizar. Grilla cuenta qué cambió.', url: '/?novedades' });
-    // La misma versión no se avisa dos veces.
-    assert.equal(await notifyNewVersion(t.env), 0);
-    assert.equal(pushed.length, 1);
-  } finally {
-    globalThis.fetch = real;
-  }
-  assert.equal(isFeatureBump('1.33.3', '1.34.0'), true);
-  assert.equal(isFeatureBump('1.34.0', '1.34.1'), false);
-  assert.equal(isFeatureBump('1.9.4', '2.0.0'), true);
-  assert.equal(isFeatureBump('1.34.0', '1.33.9'), false);
-});
-
 test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» y «Más como esto»; se borran con la configuración', async () => {
   const t = await setup();
   const code = /\/l\/([^.]+)\.m3u8$/.exec(t.playlistUrl)![1];
@@ -1631,10 +1585,10 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   await t.settle();
   // Lo que pasa ahora en Telefe (la guía por canal que deja la corrida diaria).
   const now = Math.floor(Date.now() / 1000);
-  await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera']]));
+  await t.env.BUCKET.put(`ui/schedule/${await scheduleFile('Telefe.ar')}.json`, JSON.stringify([[now - 600, now + 3000, 'Fútbol de Primera', '', 'Deportes']]));
   const habits = async () => (await handle(req(`/api/cfg/${t.cfgId}/habits`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
-    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string }>; no: Record<string, string>; more: Record<string, string> }>;
-  assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {} });
+    Promise<{ ch: Record<string, { n: number; h: number[] }>; t: Record<string, { n: number; title: string; g?: string }>; no: Record<string, string>; more: Record<string, string>; mg: Record<string, string> }>;
+  assert.deepEqual(await habits(), { ch: {}, t: {}, no: {}, more: {}, mg: {} });
   await handle(new Request(`${BASE}/s/${code}/10.ts`), t.env, t.ctx, t.cache);
   await t.settle();
   // Un canal sin guía (ESPN) no cuenta.
@@ -1648,15 +1602,21 @@ test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» 
   assert.equal(h.ch['Telefe.ar'].n, 2);
   assert.equal(h.ch['Telefe.ar'].h[new Date().getUTCHours()], 2);
   assert.deepEqual(h.t['fútbol de primera'], { ...h.t['fútbol de primera'], n: 1, title: 'Fútbol de Primera' });
+  // El género de la programación (lo agrega la corrida cuando la IA ya lo clasificó) queda anotado con el programa.
+  assert.equal(h.t['fútbol de primera'].g, 'Deportes');
   // Los pedidos: uno saca al otro, y «clear» los deshace.
-  const fb = (kind: string, title = 'Fútbol de Primera') => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind }) }), t.env, t.ctx, t.cache);
+  const fb = (kind: string, title = 'Fútbol de Primera', genre?: string) => handle(req(`/api/cfg/${t.cfgId}/habits`, { method: 'POST', key: t.editKey, body: JSON.stringify({ title, kind, genre }) }), t.env, t.ctx, t.cache);
   assert.equal((await fb('no')).status, 200);
   assert.ok((await habits()).no['fútbol de primera']);
   await fb('more');
   assert.deepEqual(Object.keys((await habits()).no), []);
   assert.ok((await habits()).more['fútbol de primera']);
+  // «Más como esto» con su género: se guarda, y se borra con el pedido.
+  await fb('more', 'Fútbol de Primera', 'Deportes');
+  assert.deepEqual((await habits()).mg, { 'fútbol de primera': 'Deportes' });
   await fb('clear');
   assert.deepEqual((await habits()).more, {});
+  assert.deepEqual((await habits()).mg, {});
   assert.equal((await fb('nada')).status, 400);
   // Sin la clave, nada.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/habits`), t.env, t.ctx, t.cache)).status, 401);
@@ -1676,4 +1636,126 @@ test('tipo de pedido para el registro: sin ids, códigos ni tokens', () => {
   ];
   for (const [path, kind] of cases) assert.equal(routeKind(path), kind, path);
   for (const [path] of cases) assert.ok(!/TOKEN|CODIGO|codigo|abcdef/.test(routeKind(path)), path);
+});
+
+test('el manifest del modo ver lleva el código en su start_url, y un código raro no tiene manifest', async () => {
+  const t = makeEnv();
+  const code = 'AbCdEfGhIjKlMnOpQrStUv';
+  const res = await handle(req(`/ver-app/${code}.webmanifest`), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('Content-Type') ?? '', /manifest\+json/);
+  const m = await res.json() as { start_url: string; display: string; scope: string; icons: { src: string }[] };
+  assert.equal(m.start_url, `/ver#${code}`);
+  assert.equal(m.display, 'standalone');
+  assert.equal(m.scope, '/');
+  assert.ok(m.icons.every((i) => i.src.startsWith('/img/')));
+  assert.equal((await handle(req('/ver-app/corto.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
+  assert.equal((await handle(req('/ver-app/..%2Fx.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
+});
+
+test('perfil infantil: solo con la clave, y el modo ver recibe la programación ya filtrada (sin títulos no aptos)', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const get = (path: string) => handle(req(path), t.env, t.ctx, t.cache);
+  assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  await t.settle();
+  const made = await (await call('/profiles', { method: 'POST', body: JSON.stringify({ name: 'Sofi' }) })).json() as { profile: { id: string } };
+  const pid = made.profile.id;
+  const { code } = await (await call(`/profiles/${pid}/view`, { method: 'POST', body: '{}' })).json() as { code: string };
+  const profile = async () => (await (await call('/devices')).json() as { profiles: { id: string; kids?: { genres: string[] } }[] }).profiles.find((p) => p.id === pid)!;
+
+  // Un perfil común: la programación pasa tal cual y el modo ver no dice que sea infantil.
+  const KEY = '2026101119';
+  const idx = { h: 1, t: ['Dibujitos', 'Película de terror', 'Infomercial', 'Algo sin clasificar', 'Documental de leones'], g: ['Infantil', 'Película', 'Publicidad', '', 'Documental'],
+    c: { x: [[0, 30, 0], [30, 60, 1], [60, 90, 2], [90, 120, 3], [120, 150, 4]] } };
+  await t.env.BUCKET.put(`ui/schedule/hour/${KEY}.json`, gzipSync(JSON.stringify(idx)), { httpMetadata: { contentEncoding: 'gzip' } });
+  const hourText = async () => {
+    const res = await get(`/api/view/${code}/hour/${KEY}.json`);
+    return res.headers.get('Content-Encoding') === 'gzip' ? await gunzip(new Uint8Array(await res.arrayBuffer())) : await res.text();
+  };
+  assert.equal(await hourText(), JSON.stringify(idx));
+  assert.equal(((await (await get(`/api/view/${code}`)).json()) as { kids?: boolean }).kids, undefined);
+
+  // Activar y quitar pide la clave; lo que no está en la lista se descarta y Infantil y Educativo entran siempre.
+  const put = (kids: unknown, key: string | undefined = t.editKey) => handle(req(`/api/cfg/${t.cfgId}/profiles/${pid}`, { method: 'PUT', key, body: JSON.stringify({ kids }) }), t.env, t.ctx, t.cache);
+  assert.equal((await put({ genres: [] }, '')).status, 401);
+  assert.equal((await put({ genres: [] }, 'mala')).status, 401);
+  assert.equal((await put('si')).status, 400);
+  assert.equal((await put({ genres: ['Película', 'Publicidad', 'Humor', 'Música', 'Música'] })).status, 200);
+  assert.deepEqual((await profile()).kids, { genres: ['Infantil', 'Educativo', 'Música'] });
+  assert.equal(((await (await get(`/api/view/${code}`)).json()) as { kids?: boolean }).kids, true);
+
+  // El modo ver recibe los títulos aptos y nada más: el resto queda sin título ni género, con su hora.
+  const masked = await hourText();
+  for (const secret of ['Película', 'terror', 'Infomercial', 'sin clasificar', 'leones', 'Publicidad']) assert.ok(!masked.includes(secret), secret);
+  const m = JSON.parse(masked) as typeof idx;
+  assert.deepEqual(m.t, ['Dibujitos', '', '', '', '']);
+  assert.deepEqual(m.c, idx.c);
+  // Un género opcional que se prende aparece; Publicidad nunca.
+  assert.equal((await put({ genres: ['Documental', 'Publicidad'] })).status, 200);
+  assert.deepEqual((JSON.parse(await hourText()) as typeof idx).t, ['Dibujitos', '', '', '', 'Documental de leones']);
+  // Una hora sin géneros (la corrida todavía no clasificó): todo sale sin título.
+  await t.env.BUCKET.put('ui/schedule/hour/2026101120.json', gzipSync(JSON.stringify({ h: 2, t: ['Algo'], c: { x: [[0, 60, 0]] } })), { httpMetadata: { contentEncoding: 'gzip' } });
+  const bare = await get(`/api/view/${code}/hour/2026101120.json`);
+  assert.deepEqual(((await bare.json()) as typeof idx).t, ['']);
+
+  // La programación de un canal (con descripción): la del modo ver sale filtrada.
+  const file = (await import('node:crypto')).createHash('sha1').update('x').digest('hex').slice(0, 16);
+  const now = Math.floor(Date.now() / 1000);
+  await t.env.BUCKET.put(`ui/schedule/${file}.json`, JSON.stringify([[now, now + 1800, 'Dibujitos', 'Sobre un perro', 'Infantil'], [now + 1800, now + 3600, 'Película de terror', 'Un asesino', 'Película'], [now + 3600, now + 5400, 'Sin género', 'Algo']]));
+  const sched = await get(`/api/view/${code}/schedule/${file}.json`);
+  assert.equal(sched.status, 200);
+  const entries = await sched.json() as unknown[][];
+  assert.deepEqual(entries[0], [now, now + 1800, 'Dibujitos', 'Sobre un perro', 'Infantil']);
+  assert.deepEqual(entries[1], [now + 1800, now + 3600, '']);
+  assert.deepEqual(entries[2], [now + 3600, now + 5400, '']);
+  assert.ok(!JSON.stringify(entries).includes('asesino'));
+  assert.equal((await get(`/api/view/${'x'.repeat(24)}/schedule/${file}.json`)).status, 404);
+  assert.equal((await get(`/api/view/${code}/schedule/nada.json`)).status, 404);
+
+  // Hábitos: los programas y los «Más como esto» de géneros no aptos no vuelven.
+  const at = new Date().toISOString();
+  const habits = { [pid]: { ch: {}, t: { dibujitos: { n: 3, title: 'Dibujitos', at, g: 'Infantil' }, terror: { n: 5, title: 'Película de terror', at, g: 'Película' }, nogenre: { n: 1, title: 'Misterio', at } },
+    no: { x: at }, more: { dibujitos: at, terror: at }, mg: { dibujitos: 'Infantil', terror: 'Película' } } };
+  await t.env.BUCKET.put(`habits/${t.cfgId}.json`, JSON.stringify(habits));
+  const h = await (await get(`/api/view/${code}/habits`)).json() as { t: Record<string, unknown>; more: Record<string, string>; mg: Record<string, string> };
+  assert.deepEqual(Object.keys(h.t), ['dibujitos']);
+  assert.deepEqual(Object.keys(h.more), ['dibujitos']);
+  assert.deepEqual(Object.keys(h.mg), ['dibujitos']);
+  const fb = await (await handle(req(`/api/view/${code}/habits`, { method: 'POST', body: JSON.stringify({ title: 'Película de terror', kind: 'more', genre: 'Película' }) }), t.env, t.ctx, t.cache)).json() as { mg: Record<string, string> };
+  assert.deepEqual(Object.keys(fb.mg), ['dibujitos']);
+
+  // La clave de edición ve qué se oculta (y solo en un perfil infantil).
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/profiles/${pid}/kids`), t.env, t.ctx, t.cache)).status, 401);
+  assert.equal((await call(`/profiles/${pid}/kids`)).status, 200);
+
+  // Quitarlo: el modo ver vuelve a ver todo.
+  assert.equal((await put(null)).status, 200);
+  assert.equal((await profile()).kids, undefined);
+  assert.equal(await hourText(), JSON.stringify(idx));
+  assert.equal((await call(`/profiles/${pid}/kids`)).status, 404);
+});
+
+test('avisos por gusto: la API pide un dispositivo suscrito y guarda zona, horario, tope y géneros', async () => {
+  const t = await setup();
+  const call = (method: string, body?: object, key: string | undefined = t.editKey) =>
+    handle(req(`/api/cfg/${t.cfgId}/push/taste`, { method, key, ...(body ? { body: JSON.stringify(body) } : {}) }), t.env, t.ctx, t.cache);
+  assert.equal((await call('GET')).status, 404); // sin las claves de push no existe
+  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
+  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
+  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/push/taste`), t.env, t.ctx, t.cache)).status, 401);
+  // Sin dispositivo suscrito no se puede prender.
+  assert.equal((await call('POST', { on: true })).status, 400);
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const sub = { endpoint: 'https://push.example/s/gusto', keys: { p256dh: b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey))), auth: b64urlEncode(crypto.getRandomValues(new Uint8Array(16))) } };
+  await handle(req(`/api/cfg/${t.cfgId}/push`, { method: 'POST', key: t.editKey, body: JSON.stringify(sub) }), t.env, t.ctx, t.cache);
+  const off = await (await call('GET')).json() as { on: boolean; when: string; per: string; tz: string };
+  assert.deepEqual([off.on, off.when, off.per, off.tz], [false, 'tarde', 'semana', 'America/Argentina/Buenos_Aires']);
+  const on = await (await call('POST', { on: true, tz: 'Europe/Madrid', per: 'dia', when: 'noche', genre: 'Serie', genreOn: false })).json() as typeof off & { genres: { name: string; on: boolean }[] };
+  assert.deepEqual([on.on, on.when, on.per, on.tz], [true, 'noche', 'dia', 'Europe/Madrid']);
+  assert.deepEqual(on.genres, [{ name: 'Serie', on: false }]);
+  // Una zona inválida se ignora; el interruptor se apaga sin perder el resto.
+  const again = await (await call('POST', { on: false, tz: 'no/existe' })).json() as typeof on;
+  assert.deepEqual([again.on, again.tz], [false, 'Europe/Madrid']);
 });

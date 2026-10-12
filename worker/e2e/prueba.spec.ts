@@ -53,5 +53,5 @@ test('franja de la prueba: en espera sin número y, al terminar, «Listo» con �
   const toast = page.locator('.toasts .toast');
   await expect(toast).toContainText('Listo: 2 canales caídos entre 3 probados');
   await toast.getByRole('button', { name: 'Ver' }).click();
-  await expect(page.locator('#filterTabs [data-filter="caidos"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.active-filters .chip-btn', { hasText: 'Caídos' })).toBeVisible();
 });

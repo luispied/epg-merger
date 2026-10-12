@@ -1,4 +1,4 @@
-// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión. En el
+// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión (también en el modo ver). En el
 // resto de los tests no aparece (navigator.webdriver); acá se hace pasar por un navegador común.
 import { expect, test } from '@playwright/test';
 
@@ -26,4 +26,34 @@ test('en el modo ver se va cuando hay algo para mostrar', async ({ page }) => {
   await expect(page.locator('#splash')).toBeVisible();
   await expect(page.getByText('No se pudo cargar')).toBeVisible();
   await expect(page.locator('#splash')).toHaveCount(0);
+});
+
+test('en el modo ver, al recargar no vuelve el logo: se ve el esqueleto, como en la edición', async ({ page }) => {
+  // Los canales tardan: el logo se ve al abrir y, al recargar, el esqueleto de tarjetas (sin texto de carga).
+  await page.route('**/api/view/**', () => {});
+  await page.goto('/ver#AbCdEfGhIjKlMnOpQrStUv');
+  await expect(page.locator('#splash')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('html')).toHaveClass(/no-splash/);
+  await expect(page.locator('#splash')).toHaveCount(0);
+  // Una tarjeta cada 150 px de pantalla (más una): el esqueleto llena el alto visible en cualquier tamaño.
+  const alto = page.viewportSize()!.height;
+  await expect(page.locator('.vw-skel .skeleton')).toHaveCount(Math.ceil(alto / 150) + 1);
+  await expect(page.getByText('Cargando los canales')).toHaveCount(0);
+});
+
+test('el logo tapa lo que la app ya dibujó debajo: no se ve a través del fundido', async ({ page }) => {
+  await page.goto('/ver#codigo-que-no-existe');
+  await expect(page.locator('#splash')).toBeVisible();
+  await expect(page.locator('#app')).toHaveCSS('opacity', '0');
+  await expect(page.locator('#splash')).toHaveCount(0);
+  await expect(page.locator('#app')).toHaveCSS('opacity', '1');
+});
+
+test('si la app no arranca, el logo se va solo a los 5 s y la pantalla se ve (la primera carga nunca se queda en blanco)', async ({ page }) => {
+  await page.route('**/ver.js*', (r) => r.abort());
+  await page.goto('/ver#codigo-que-no-existe');
+  await expect(page.locator('#splash')).toBeVisible();
+  await expect(page.locator('#splash')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator('#app')).toHaveCSS('opacity', '1');
 });

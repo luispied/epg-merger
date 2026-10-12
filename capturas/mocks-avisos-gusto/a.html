@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mock A · Un interruptor</title>
+<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../../worker/web/base.css"><link rel="stylesheet" href="../../worker/web/web.css"><link rel="stylesheet" href="mock.css">
+<script src="../../worker/web/icons.js"></script><script src="iconos.js"></script>
+</head><body>
+<main class="opcion">
+  <h1>A · Un interruptor en Configuración</h1>
+  <p class="help">Una fila nueva debajo de «Avisos», con el mismo interruptor. Sin opciones: un aviso por día como máximo, entre las 18 y las 21, de los géneros que más mirás. Se apaga ahí o desde la hoja del programa.</p>
+  <div class="pantallas">
+    <section class="pantalla">
+      <h3 class="sec-title">1 · Configuración (editor)</h3>
+      <dialog open class="sheet settings-sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Configuración</h2><button type="button" class="icon-btn help-btn" aria-label="Ayuda"><span data-icon="circle-help"></span></button></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <h3 class="sec-title">Preferencias</h3>
+        <div class="menu">
+          <div class="menu-row static"><span class="menu-icon"><span data-icon="sun-moon"></span></span><span class="menu-text">Tema</span>
+            <div class="seg" role="radiogroup" aria-label="Tema"><button type="button" role="radio" aria-checked="true" aria-label="Automático"><span data-icon="sun-moon"></span></button></div></div>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos<small>Canales nuevos, vencimientos y tus campanas</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Avisos por gusto<small>Hasta uno por día, entre las 18 y las 21 h, de lo que más mirás: «Esta noche dan un documental»</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="a-large-small"></span></span><span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span><input type="checkbox" class="switch" role="switch"></label>
+        </div>
+      </div></dialog>
+    </section>
+
+    <section class="pantalla">
+      <h3 class="sec-title">2 · Así llega (lo dibuja el sistema)</h3>
+      <div class="push-prev"><span class="quien">nowline · ahora</span><b>Esta noche dan un documental</b><small>Planeta Tierra III · 21:30 en Nat Geo. Lo que más mirás.</small></div>
+      <h3 class="sec-title" style="margin-top:28px">3 · Al tocarlo: la hoja del programa</h3>
+      <dialog open class="sheet settings-sheet gd-sheet"><div class="sheet-body">
+        <div class="title-row"><div class="gd-sh-ch"><span class="logo lg">NG</span><div><strong>Nat Geo</strong><small>Documentales</small></div></div><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <p class="gd-sh-genre">Documental</p>
+        <h2 class="gd-sh-title">Planeta Tierra III</h2>
+        <p class="gd-sh-when"><span>Hoy</span> · 21:30 – 22:30</p>
+        <p class="gd-sh-desc">Un recorrido por los ecosistemas más extremos del planeta.</p>
+        <div class="gd-sh-actions"><button type="button" class="btn btn-tonal gd-remind"><span data-icon="bell"></span>Avisarme</button></div>
+        <div class="gd-taste" role="group" aria-label="Para tu plan">
+          <button type="button" class="chip-btn gd-taste-btn"><span data-icon="thumbs-up" class="sm"></span>Más como esto</button>
+          <button type="button" class="chip-btn gd-taste-btn"><span data-icon="thumbs-down" class="sm"></span>No me interesa</button>
+          <button type="button" class="chip-btn gd-taste-btn"><span data-icon="bell" class="sm"></span>No avisarme de documentales</button>
+        </div>
+      </div></dialog>
+      <div class="toasts"><div class="toast ok"><span data-icon="circle-check"></span><span class="msg">Listo: no te aviso más de documentales.</span><button type="button" class="btn btn-plain">Deshacer</button><button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso"><span data-icon="x"></span></button></div></div>
+    </section>
+  </div>
+</main>
+<script src="mock.js"></script>
+</body></html>

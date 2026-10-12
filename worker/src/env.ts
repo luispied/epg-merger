@@ -42,8 +42,6 @@ export interface Env {
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   VAPID_SUBJECT?: string;
-  /** Los archivos de la web (public/): el Worker lee novedades.json para el aviso de versión nueva. */
-  ASSETS?: { fetch(input: Request | string): Promise<Response> };
 }
 
 export interface Ctx {

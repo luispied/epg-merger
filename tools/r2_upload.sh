@@ -8,6 +8,7 @@
 # Estructura en el bucket:
 #   guide/index.json           canales + fuentes + reglas, para @grilla/core (shared_guide.py)
 #   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
+#   ui/schedule/topics.json    índice para buscar por tema (géneros y temas de la IA, una vez por título)
 #   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
 #   ui/schedule/cfg/<cfgId>    la de cada hora con solo los canales de esa configuración
 #   logo/map/<x>.json         {clave: url} de los logos de canal, en gzip como el índice y img/map (privado; el Worker los sirve por /logo/<clave>
@@ -48,25 +49,36 @@ for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/
 # Programación empacada (tools/pack_schedule.py): 256 tandas con los canales y los índices por hora
 # en gzip, unas 320 escrituras por día en vez de un archivo por canal (~17.500). --delete: la hora
 # que ya pasó deja de estar.
-python tools/pack_schedule.py out/schedule out/schedule_r2
+# Los géneros que la IA ya clasificó (ai/genres.json, tools/classify_genres.py) van en cada programa de esos
+# canales; los de hoy entran mañana (la clasificación corre al final de la corrida). Sin el archivo, sin géneros.
+genres=()
+rm -f out/genres.json
+if s3 cp "$BUCKET/ai/genres.json" out/genres.json 2>/dev/null; then genres=(--genres out/genres.json); fi
+python tools/pack_schedule.py "${genres[@]}" out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
   sync out/schedule_r2/s ui/schedule/s
   [ -d out/schedule_r2/hour ] && sync out/schedule_r2/hour ui/schedule/hour --delete "${json[@]}" --encoding gzip
+  # El índice para buscar por tema (topics.json, solo con géneros): la web lo baja recién cuando se busca.
+  [ -f out/schedule_r2/topics.json ] && sync out/schedule_r2/topics.json ui/schedule/topics.json "${json[@]}" --gzip
   # Los archivos por canal de antes del empaque (ui/schedule/<archivo>.json), que ya no se usan.
   # Solo los .json sueltos de ui/schedule/: ni las tandas ni las horas ni nada fuera de ui/schedule/.
-  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*'
+  s3 rm "$BUCKET/ui/schedule/" --recursive --exclude '*' --include '*.json' --exclude 's/*' --exclude 'hour/*' --exclude 'topics.json'
 fi
 echo "✅ Subido a R2 ($BUCKET)"
 
 # Guía de cada configuración: se bajan las configuraciones (sin credenciales), se arman todas
-# en una pasada por la guía y se suben. --delete: la de una configuración borrada deja de estar.
+# en una pasada por la guía y se suben. Las de una configuración borrada las quita tools/delete_cfg.py.
 rm -rf out/cfgs out/cfg_epg
 s3 sync "$BUCKET/cfg" out/cfgs --exclude '*' --include '*.json'
-python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg
-# El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular.
-python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
+# Las configuraciones sin uso (sin edición ni links usados en 30 días, tools/config_activity.py) no reciben guía
+# nueva: su epg/ queda como estaba y no se borra (sin --delete, que la borraría). Si el cálculo falla, se arman todas.
+python tools/config_activity.py --out out/idle.json || rm -f out/idle.json
+python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg --idle out/idle.json
+# El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular. Se arma para todas,
+# también las que no usan: la Guía de la edición lo lee, y sin él mostraría la guía de toda la programación.
+python tools/pack_schedule.py "${genres[@]}" --configs out/cfgs out/schedule out/schedule_cfg
 [ -d out/schedule_cfg ] && sync out/schedule_cfg ui/schedule/cfg --delete
 if [ -d out/cfg_epg ]; then
-  sync out/cfg_epg epg --delete --type application/gzip
+  sync out/cfg_epg epg --type application/gzip
   echo "✅ Guías de Grilla web subidas"
 fi

@@ -1,6 +1,6 @@
 {
-  "name": "Nowline — Guía de canales",
-  "short_name": "Nowline",
+  "name": "nowline — Guía de canales",
+  "short_name": "nowline",
   "description": "Corregí el EPG, los nombres, las categorías y la visibilidad de los canales de tu playlist.",
   "lang": "es",
   "start_url": "./",

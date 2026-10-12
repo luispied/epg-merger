@@ -14,6 +14,7 @@ los mapas de ese mismo `merged.xml.gz`: si no, una guía armada entre corridas d
 apuntar a claves que el Worker todavía no conoce (pasó al estrenar los logos por el Worker y
 TiviMate se quedó sin logos). Si faltan los mapas en R2, se suben aunque no haya guías para armar.
 """
+import json
 import os
 import sys
 import tempfile
@@ -83,7 +84,15 @@ def upload_hour_packs(client, bucket, merged, configs, tmp):
         return 0
     src = pack_schedule.hours_from_merged(merged, os.path.join(tmp, 'schedule'))
     dst = os.path.join(tmp, 'schedule_cfg')
-    pack_schedule.pack_configs(configs, src, dst)
+    genres = None
+    try:  # los géneros que la IA ya clasificó, para el filtro por género de la Guía; sin ellos, el índice sale sin "g"
+        path = os.path.join(tmp, 'genres.json')
+        client.download_file(bucket, 'ai/genres.json', path)
+        with open(path, encoding='utf-8') as f:
+            genres = json.load(f)
+    except Exception:  # noqa: BLE001
+        genres = None
+    pack_schedule.pack_configs(configs, src, dst, genres)
     for cfg_id in configs:
         client.upload_file(os.path.join(dst, cfg_id), bucket, f'ui/schedule/cfg/{cfg_id}',
                            ExtraArgs={'ContentType': 'application/octet-stream'})

@@ -12,10 +12,12 @@ import {
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
   promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
   sectionTitle, setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode,
-  useOtherAccount, wireDownRow,
+  useOtherAccount, useViewCode, wireDownRow,
   type Account, type AccountView, type Device, type DeviceFilter, type LinkResult, type OtherProvider, type ProfileDef, type ProfileView,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
+import { closeSheet } from './sheet.ts';
+import { Skeleton } from './kit.tsx';
 import { toast } from './toast.tsx';
 
 // ------------------------------------------------------------------ navegación
@@ -35,6 +37,7 @@ type LinksSub =
   | { k: 'servers' }
   | { k: 'filter'; p: ProfileView }
   | { k: 'view'; p: ProfileView }
+  | { k: 'kids-hidden'; p: ProfileView }
   | { k: 'result'; result: LinkResult };
 
 let linksView: LinksView = { v: 'list' };
@@ -257,11 +260,10 @@ function ProfileList() {
   const cur = state.local!.cfgId;
   const xtream = state.cfg!.provider.type === 'xtream';
   const Head = ({ name, cfgId, inUse }: { name: string; cfgId: string; inUse: boolean }) => (
-    <div class="provider-head">
+    <button type="button" class="provider-head" onClick={() => openLinksView({ v: 'provider', cfgId })}>
       <span class="provider-tag">{name}{inUse ? ' · en uso' : ''}</span>
-      <button type="button" class="icon-btn" aria-label={`Ajustes de ${name}`} title="Ajustes del proveedor"
-        onClick={() => openLinksView({ v: 'provider', cfgId })}><Icon name="settings" /></button>
-    </div>
+      <Icon name="chevron-right" />
+    </button>
   );
   return (
     <>
@@ -380,7 +382,7 @@ function connectionsPage(account: string) {
   return a ? { title: 'Conexiones', node: <ConnectionsPage a={a} /> } : null;
 }
 
-/** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; Nowline ve cuándo cada
+/** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; nowline ve cuándo cada
  *  link abre un canal (sus streams pasan por el Worker) y pone arriba los que abrieron uno hace poco. */
 function ConnectionsPage({ a }: { a: AccountView }) {
   const acc = accountData(a);
@@ -422,7 +424,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
       {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en la última hora.'}</Help>}
       {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, un mismo link usado en varios dispositivos a la vez (Nowline ve un solo registro por link), o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
-      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta una hora después del último canal que abrió. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
+      <Help>El proveedor dice cuántas conexiones hay, no cuáles. nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta una hora después del último canal que abrió. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, nowline no ve los canales que se abren.' : ''}</Help>
     </>
   );
 }
@@ -485,6 +487,7 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
         <MenuRow ico="key-round" title="Cuenta" sub={a.name} cls={canChangeAccount ? '' : 'static'} chevron={canChangeAccount}
           onClick={canChangeAccount ? () => openSub({ k: 'profile-account', p, a }) : undefined} />
       </div>
+      {other ? null : <KidsRows p={p} />}
       <SubTitle>Links</SubTitle>
       {p.devices.length ? (
         <section class="profile-card">
@@ -515,6 +518,146 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
           </div>
         </>
       )}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ perfil infantil
+// Un interruptor en la página del perfil: al prenderlo se abre una hoja con los géneros y las reglas; ya activo, suma
+// «Géneros que entran» y «Qué se está ocultando». La regla la aplica el Worker en el modo ver del perfil (src/kids.ts);
+// se activa y se quita solo desde acá, con la clave de edición. Ver planes/perfil-infantil.md.
+const KIDS_ALWAYS = ['Infantil', 'Educativo'];
+const KIDS_OPTIONAL = ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'];
+/** «Infantil, Educativo y Documental». */
+const listY = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}` : xs[0] ?? '');
+
+function KidsRows({ p }: { p: ProfileView }) {
+  const toggle = async (on: boolean) => {
+    if (on) return openKidsSheet(p);
+    if (!(await confirmDialog({
+      title: 'Quitar el perfil infantil', danger: true, ok: 'Quitar', icon: 'hand',
+      text: `«${p.name}» va a volver a ver todo lo que dejan sus categorías: películas, noticias, publicidad y también los programas sin clasificar.`,
+    }))) return void renderLinks();
+    try {
+      await profileApi(p.id, 'PUT', { kids: null });
+      toast(`«${p.name}» ya no es un perfil infantil`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  return (
+    <>
+      <SubTitle>Para chicos</SubTitle>
+      <div class="menu">
+        <label class="menu-row static">
+          <span class="menu-icon"><Icon name="hand" /></span>
+          <span class="menu-text">Perfil infantil<small>{p.kids ? 'Activo' : 'Solo programas aptos, nunca publicidad'}</small></span>
+          <input type="checkbox" class="switch" role="switch" aria-label={`Perfil infantil: ${p.name}`} checked={!!p.kids}
+            onChange={(ev) => { const on = ev.currentTarget.checked; ev.currentTarget.checked = !!p.kids; void toggle(on); }} />
+        </label>
+        {p.kids ? (
+          <>
+            <MenuRow ico="check" title="Géneros que entran" sub={listY(p.kids.genres)} onClick={() => openKidsSheet(p)} />
+            <MenuRow ico="eye" title="Qué se está ocultando" sub="Lo que no entra en las próximas horas" onClick={() => openSub({ k: 'kids-hidden', p })} />
+          </>
+        ) : null}
+      </div>
+      {p.kids ? <Help>El modo ver de este perfil aplica las mismas reglas. Para sacarlo hace falta la clave de edición, que el modo ver no tiene.</Help> : null}
+    </>
+  );
+}
+
+/** La hoja del perfil infantil: dice qué cambia y deja elegir los géneros opcionales (Infantil y Educativo entran siempre). */
+function openKidsSheet(p: ProfileView) {
+  const dlg = el<HTMLDialogElement>('#kidsDialog');
+  render(<KidsSheet key={`${p.id}:${Date.now()}`} p={p} dlg={dlg} />, dlg);
+  if (!dlg.open) dlg.showModal();
+}
+
+function KidsSheet({ p, dlg }: { p: ProfileView; dlg: HTMLDialogElement }) {
+  const [on, setOn] = useState(() => new Set((p.kids?.genres ?? []).filter((g) => KIDS_OPTIONAL.includes(g))));
+  const [busy, run] = useBusy();
+  const active = !!p.kids;
+  const save = (ev: Event) => {
+    ev.preventDefault();
+    void run(async () => {
+      try {
+        await profileApi(p.id, 'PUT', { kids: { genres: KIDS_OPTIONAL.filter((g) => on.has(g)) } });
+        toast(active ? 'Géneros guardados' : `«${p.name}» ahora es un perfil infantil`, 'ok');
+        closeSheet(dlg);
+        void renderLinks();
+      } catch (e) {
+        toast((e as Error).message, 'bad', 6000);
+      }
+    });
+  };
+  return (
+    <form class="sheet-body" onSubmit={save}>
+      <div class="title-row">
+        <h2 id="kidsTitle">{active ? 'Géneros que entran' : 'Perfil infantil'}</h2>
+        <button type="button" class="icon-btn" aria-label="Cerrar" onClick={() => closeSheet(dlg)}><Icon name="x" /></button>
+      </div>
+      <p>En «{p.name}» solo se van a ver programas de estos géneros. Lo que la IA no pudo clasificar no se muestra.</p>
+      <h3 class="sec-title">Géneros que entran</h3>
+      <div class="filter-chips">
+        {KIDS_ALWAYS.map((g) => <button type="button" key={g} class="chip-btn" aria-pressed="true" disabled>{g}</button>)}
+        {KIDS_OPTIONAL.map((g) => (
+          <button type="button" key={g} class="chip-btn" aria-pressed={on.has(g)}
+            onClick={() => setOn((cur) => { const next = new Set(cur); if (!next.delete(g)) next.add(g); return next; })}>{g}</button>
+        ))}
+      </div>
+      <ul class="rules">
+        <li><Icon name="check" /><span>Vale en el modo ver de este perfil: la Guía, Tu plan y la lista de canales.</span></li>
+        <li><Icon name="ban" /><span>Nunca entran la publicidad, las películas, las series ni las noticias, ni lo que no tenga género.</span></li>
+        <li><Icon name="info" /><span>La IA se equivoca a veces y va clasificando de a poco: al principio se ve poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran.</span></li>
+      </ul>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-plain" onClick={() => closeSheet(dlg)}>Cancelar</button>
+        <button type="submit" class="btn btn-primary" disabled={busy}>{active ? 'Guardar' : 'Activar'}</button>
+      </div>
+    </form>
+  );
+}
+
+interface KidsReport { hours: number; shown: number; hidden: number; by: { genre: string; n: number; sample: string[] }[] }
+
+/** «Qué se está ocultando»: de lo que dan en las próximas horas en los canales del perfil, cuántos programas se ven y
+ *  cuáles se ocultan, por género (y los sin clasificar). */
+function KidsHidden({ p }: { p: ProfileView }) {
+  const [r, setR] = useState<KidsReport | null | 'bad'>(null);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setR(null);
+    api<KidsReport>(`/api/cfg/${state.local!.cfgId}/profiles/${p.id}/kids`).then((v) => live && setR(v)).catch(() => live && setR('bad'));
+    return () => { live = false; };
+  }, [tries]);
+  if (r === null) return <div aria-busy="true" aria-label="Calculando lo que se oculta"><Skeleton /></div>;
+  if (r === 'bad') {
+    return (
+      <>
+        <SubTitle>Qué se está ocultando</SubTitle>
+        <Help>No se pudo calcular. Revisá la conexión y probá de nuevo.</Help>
+        <button type="button" class="btn btn-tonal btn-block" onClick={() => setTries(tries + 1)}><Icon name="refresh-cw" />Probar de nuevo</button>
+      </>
+    );
+  }
+  return (
+    <>
+      <SubTitle>Qué se está ocultando en «{p.name}»</SubTitle>
+      <Help>
+        En las próximas {r.hours} horas, en los canales de este perfil: {plural(r.shown, 'programa se ve', 'programas se ven')} y {plural(r.hidden, 'se oculta', 'se ocultan')}.
+      </Help>
+      {r.by.length ? (
+        <div class="menu">
+          {r.by.map((x) => (
+            <MenuRow key={x.genre} ico={x.genre ? 'ban' : 'circle-help'} cls="static" chevron={false}
+              title={`${x.genre || 'Sin clasificar'} · ${plural(x.n, 'programa', 'programas')}`} sub={x.sample.join(', ')} />
+          ))}
+        </div>
+      ) : <Help>Por ahora no se oculta nada.</Help>}
+      <Help>Lo «sin clasificar» es lo que la IA todavía no vio: se muestra recién cuando tiene un género apto. Cada día se clasifican más programas, así que este perfil se va completando.</Help>
     </>
   );
 }
@@ -686,6 +829,7 @@ function SubPage({ s }: { s: LinksSub }) {
     case 'servers': return <Servers />;
     case 'filter': return <ProfileFilter p={s.p} />;
     case 'view': return <ViewShare p={s.p} />;
+    case 'kids-hidden': return <KidsHidden p={s.p} />;
     case 'result': return <LinkResultView result={s.result} />;
   }
 }
@@ -1152,7 +1296,7 @@ function ProfileFilter({ p }: { p: ProfileView }) {
   );
 }
 
-/** «Compartir para ver»: un código (ver.<código>) para que otra persona abra Nowline en modo «solo ver» y mire la grilla
+/** «Compartir para ver»: un código (ver.<código>) para que otra persona abra nowline en modo «solo ver» y mire la grilla
  *  y la Guía de este perfil sin poder cambiar nada. Se pega donde va el código del hogar (o se abre como link /ver#…).
  *  Se crea al tocar el botón; quitarlo lo invalida. Los links de reproducción no cambian. */
 function ViewShare({ p }: { p: ProfileView }) {
@@ -1189,12 +1333,19 @@ function ViewShare({ p }: { p: ProfileView }) {
       }
     });
   };
-  const text = `Para ver qué dan en la tele: abrí Nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
+  const openHere = async () => {
+    try {
+      await useViewCode(code);
+    } catch (e) {
+      toast((e as Error).message, 'bad');
+    }
+  };
+  const text = `Para ver qué dan en la tele: abrí nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
   if (!code) {
     return (
       <>
         <SubTitle>Compartir para ver</SubTitle>
-        <Help>Un código para otra persona (por ejemplo, alguien a quien le cuesta usar apps): lo pega al abrir Nowline,
+        <Help>Un código para otra persona (por ejemplo, alguien a quien le cuesta usar apps): lo pega al abrir nowline,
           donde va el código de otro dispositivo, y la app queda en modo «solo ver»: la grilla con lo que dan ahora y la
           Guía, con letra grande, solo con los canales de «{p.name}». No puede cambiar nada, ni ver tus cuentas ni tus
           links.</Help>
@@ -1206,8 +1357,8 @@ function ViewShare({ p }: { p: ProfileView }) {
   return (
     <>
       <SubTitle>Código para ver «{p.name}»</SubTitle>
-      <Help>Copialo y pasáselo. En su celular o tablet: abrí Nowline, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
-        en modo ver. Si después agrega Nowline a la pantalla de inicio, queda como una app.</Help>
+      <Help>Copialo y pasáselo. En su celular o tablet: abrí nowline, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
+        en modo ver. Si después agrega nowline a la pantalla de inicio, queda como una app.</Help>
       <div class="lc-actions">
         <button type="button" class="btn btn-primary" onClick={async () => {
           await copyText(viewCode);
@@ -1220,16 +1371,18 @@ function ViewShare({ p }: { p: ProfileView }) {
         {'share' in navigator ? (
           <button type="button" class="btn btn-tonal" onClick={async () => {
             try {
-              await navigator.share({ title: 'Nowline', text: 'Para ver qué dan en la tele', url });
+              await navigator.share({ title: 'nowline', text: 'Para ver qué dan en la tele', url });
             } catch { /* cancelado */ }
           }}><Icon name="share-2" />Compartir</button>
         ) : null}
         <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('Nowline')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
       </div>
       <div class="qr" id="qr" />
       <Help>Ve solo los canales de este perfil; si cambiás qué ve el perfil, también cambia ahí.</Help>
       <div class="menu">
+        <MenuRow ico="eye" title="Abrir en modo ver" sub={`Este dispositivo pasa a modo ver con «${p.name}». Para salir, el código de la casa`}
+          onClick={() => void openHere()} />
         <MenuRow ico="refresh-cw" title="Hacer un código nuevo" sub="El de ahora deja de funcionar" onClick={() => void remove(true)} />
         <MenuRow ico="eye-off" title="Quitar el acceso" sub="Los links de reproducción no cambian" cls="danger" onClick={() => void remove(false)} />
       </div>
@@ -1263,12 +1416,12 @@ function LinkResultView({ result }: { result: LinkResult }) {
         {'share' in navigator ? (
           <button type="button" class="btn btn-tonal" onClick={async () => {
             try {
-              await navigator.share({ title: 'Nowline: mis links', text });
+              await navigator.share({ title: 'nowline: mis links', text });
             } catch { /* cancelado */ }
           }}><Icon name="share-2" />Compartir</button>
         ) : null}
         <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('Nowline: mis links')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline: mis links')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
       </div>
       <div class="qr" id="qr" />
       <Help>En TiviMate: Agregar playlist → Ingresar URL → pegá la playlist; la guía la toma sola
@@ -1319,8 +1472,9 @@ export function openProfileSwitch() {
   dlg.showModal();
 }
 
-/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto o tiene las conexiones llenas;
- *  si no, si el relay dejó de responder (la lista o la prueba de canales no se actualizan). */
+/** Aviso arriba de los canales, solo si la cuenta en uso necesita atención: vence pronto;
+ *  si no, si el relay dejó de responder (la lista o la prueba de canales no se actualizan). Las conexiones llenas ya no
+ *  avisan acá: se ven en la página de la cuenta y en Conexiones en uso. */
 export function renderProfileNotice() {
   const box = document.querySelector<HTMLButtonElement>('#profileNotice');
   if (!box) return;
@@ -1330,7 +1484,6 @@ export function renderProfileNotice() {
   const who = a && (a.account || state.cfg?.mainName) ? `La cuenta de ${a.name}` : 'Tu cuenta';
   let text = '';
   if (days !== null && days <= 7) text = days < 0 ? `${who} está vencida` : days === 0 ? `${who} vence hoy` : `${who} vence en ${plural(days, 'día', 'días')}`;
-  else if (acc?.maxConnections && (acc.activeConnections ?? 0) >= acc.maxConnections) text = `${who}: conexiones llenas (${connectionsInUse(acc)} de ${acc.maxConnections} en uso)`;
   let sub = 'Tocá para ver la cuenta o cambiar de cuenta';
   let ico = 'clock';
   const trouble = !text && relayTrouble();

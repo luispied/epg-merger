@@ -25,6 +25,14 @@ const row = (page: Page, ch: string) => cards(page).locator('.card', { hasText: 
 const savedEdit = (f: Fake, ch: string) => f.writes.filter((w) => w.path === '/api/cfg/c1' && w.method === 'PUT')
   .map((w) => (w.body as { channels: Record<string, unknown> }).channels[ch]).at(-1);
 
+/** Elige un estado en la hoja de filtros (el botón de filtros, el chip y «Listo»). */
+async function pickState(page: Page, name: string) {
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await sheet.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+}
+
 test('las filas con su categoría y su guía', async ({ page }) => {
   await expect(cards(page).locator('.cat-head')).toHaveText(['Deportes3', 'Noticias2', 'Infantiles2']);
   await expect(cards(page).locator('.card-name')).toHaveText(['ESPN', 'Fox Sports', 'TyC Sports', 'CNN', 'TN', 'Disney Channel', 'Cartoon Network']);
@@ -35,6 +43,19 @@ test('las filas con su categoría y su guía', async ({ page }) => {
   await expect(row(page, 'Fox Sports').locator('.tag.bad')).toHaveText('Sin EPG');
   await expect(row(page, 'ESPN').locator('.mono')).toHaveText('ES');
   await expect(cards(page).locator('.where')).toHaveCount(0);
+});
+
+test('filtrar por categoría: se elige en la hoja y se quita con su ×', async ({ page }) => {
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await sheet.getByRole('button', { name: /^Noticias/ }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+  await expect(cards(page).locator('.card-name')).toHaveText(['CNN', 'TN']);
+  await expect(page.locator('.active-filters .chip-btn', { hasText: 'Noticias' })).toBeVisible();
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar, 1 activo');
+  await page.locator('.active-filters .chip-btn', { hasText: 'Noticias' }).click();
+  await expect(cards(page).locator('.card-name')).toHaveCount(7);
+  await expect(page.locator('.active-filters')).toBeHidden();
 });
 
 test('buscar, el vacío y ver todos', async ({ page }) => {
@@ -50,10 +71,11 @@ test('buscar, el vacío y ver todos', async ({ page }) => {
   await expect(search).toHaveValue('');
   await expect(cards(page).locator('.card')).toHaveCount(7);
 
-  await page.locator('#filterTabs [data-filter="ocultos"]').click();
-  await expect(cards(page).locator('.empty')).toContainText('No ocultaste ningún canal.');
-  await cards(page).getByRole('button', { name: 'Ver todos los canales' }).click();
-  await expect(page.locator('#filterTabs [data-filter="todos"]')).toHaveAttribute('aria-pressed', 'true');
+  // Sin canales ocultos, el estado «Ocultos» no se ofrece en la hoja de filtros (#318).
+  await page.locator('.filter-btn').click();
+  await expect(page.locator('.filter-sheet').getByRole('button', { name: /^Ocultos/ })).toHaveCount(0);
+  await page.locator('.filter-sheet').getByRole('button', { name: 'Listo' }).click();
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar');
   await expect(cards(page).locator('.card')).toHaveCount(7);
 });
 
@@ -76,6 +98,30 @@ test('buscar por el programa en el aire: todas las palabras y también la descri
   await expect(cards(page).locator('.empty')).toBeVisible();
 });
 
+test('buscar por tema: «mundial» o «cocina» encuentran el programa en el aire aunque el título no lo diga', async ({ page }) => {
+  const h = Math.floor(Date.now() / 3_600_000) * 3600;
+  await page.route(/\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/\d{10}(-d)?\.json$/, (r) => r.fulfill({ json: r.request().url().endsWith('-d.json')
+    ? { d: [], c: {} }
+    : { h, t: ['Uruguay vs. Brasil', 'Sabores de casa'], c: { 'g00000000000001.ar': [[-30, 90, 0]] } } }));
+  let asked = 0;
+  // El índice de temas (ui/schedule/topics.json): un solo pedido, recién al buscar.
+  await page.route('**/api/ui/schedule/topics.json', (r) => {
+    asked++;
+    return r.fulfill({ json: { g: ['Deportes', 'Cocina'], v: ['mundial', 'fútbol', 'recetas'], t: ['sabores de casa', 'uruguay vs. brasil'], r: [[1, 2], [0, 0, 1]] } });
+  });
+  await page.reload();
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+  expect(asked).toBe(0);
+  const search = page.locator('#searchBox');
+  await search.fill('mundial');
+  await expect(cards(page).locator('.card-name')).toHaveText(['ESPN']);
+  await search.fill('deportes fútbol'); // el género y los temas, todas las palabras
+  await expect(cards(page).locator('.card-name')).toContainText(['ESPN']);
+  await search.fill('cocina'); // el que da «Sabores de casa» no está en este perfil: nada coincide
+  await expect(cards(page).locator('.empty')).toBeVisible();
+  expect(asked).toBe(1);
+});
+
 test('vista detallada: lo que está dando ahora', async ({ page }) => {
   await expect(cards(page).locator('.row-now')).toHaveCount(0);
   await page.locator('#viewBtn').click();
@@ -91,18 +137,20 @@ test('ocultar desde el menú «…» y elegir varios', async ({ page }) => {
     await row(page, 'TN').locator('.row-more').click();
     await page.locator('.row-menu').getByRole('menuitem', { name: 'Ocultar' }).click();
     await expect.poll(() => savedEdit(fake, 'TN')).toMatchObject({ hidden: true });
-    await page.locator('#filterTabs [data-filter="ocultos"]').click();
+    await pickState(page, 'Ocultos');
     await expect(cards(page).locator('.card-name')).toHaveText(['TN']);
     await expect(row(page, 'TN')).toHaveClass(/is-hidden/);
     await expect(row(page, 'TN').locator('.mark')).toHaveText('oculto');
-    await page.locator('#filterTabs [data-filter="todos"]').click();
+    await pickState(page, 'Todos');
     await row(page, 'CNN').locator('.row-more').click();
     await page.locator('.row-menu').getByRole('menuitem', { name: 'Seleccionar' }).click();
   } else {
+    // El reloj de Playwright: el toque que sigue al mantener apretado no cuenta hasta que pasan 600 ms.
+    await page.clock.install();
     await row(page, 'CNN').dispatchEvent('pointerdown', { button: 0, clientX: 50, clientY: 50 });
     await expect(page.locator('#bulkBar')).toBeVisible();
     await row(page, 'CNN').dispatchEvent('pointerup');
-    await page.waitForTimeout(700); // el toque que sigue al mantener apretado no cuenta
+    await page.clock.runFor(700);
   }
   const n = desk ? 6 : 7;
   await expect(page.locator('#bulkBar')).toBeVisible();
