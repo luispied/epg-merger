@@ -327,6 +327,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <details>
           <summary>Configuración<Icon name="chevron-down" /></summary>
           <p>Tocá el engranaje, arriba a la derecha de Canales, y en <b>Configuración</b> elegí el <b>tema</b>: como el sistema, claro u oscuro. Queda guardado en este dispositivo.</p>
+          <p>El modo ver no manda avisos ni tiene campana: eso es de quien arma la grilla. Los <b>avisos por gusto</b> («esta noche dan un documental») se prenden en la edición, en Configuración; acá, <b>Tu noche</b> te muestra lo mismo, con el porqué de cada sugerencia.</p>
           <p>Más abajo, en la misma hoja, está <b>Salir del modo ver</b>.</p>
         </details>
         <details>

@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.50.0
+
+- **Avisos por gusto.** Con los avisos prendidos en el dispositivo, Configuración tiene una fila nueva, «Avisos por gusto», que abre una hoja: un interruptor (apagado hasta que lo prendas), los géneros de los que avisar (los que más mirás, con los mismos chips de siempre), cuándo (tarde de 18 a 20 o noche de 20 a 22, en la hora de este dispositivo) y cuántos (1 por día o 3 por semana), y los últimos avisos, cada uno con «Menos así». Nowline manda una notificación como «Hoy a las 20:30: Planeta Tierra» solo si hay un programa bueno del género que más mirás (empieza dentro de las próximas horas, dura 40 minutos o más, no es repetición ni algo que ya viste, ni se avisó en 14 días); si no lo hay, no manda nada. Nunca de noche (de 22 a 9), nunca de noticias ni de publicidad, y los avisos de canales nuevos, vencimientos y campanas no cuentan para el tope. Tocar el aviso abre la Guía con la hoja del programa, que ahora tiene «No avisarme de documentales» (con «Deshacer») cuando ese género está prendido. Cuentan los hábitos de todos los perfiles juntos. En el modo ver no hay avisos ni campana: Tu noche sigue dando el porqué.
+- Worker: `GET/POST /api/cfg/<id>/push/taste` guarda en `push/<id>.json` el interruptor, los géneros apagados, el horario, el tope, la zona horaria del dispositivo (se toma al prenderlo) y los últimos avisos; `notifyTaste` corre en la revisión de cada 30 minutos, después de los recordatorios. No cuesta nada de IA: usa el género que ya trae la programación. La suscripción push sigue atada a la configuración, no al perfil.
+- Interno: el puntaje de gustos (`habitAffinity`, `genreTaste`, `planScore`) pasó de `ui/guide.tsx` a `core/src/taste.ts` para usarlo igual en la web y en el Worker, sin duplicarlo.
+
 ## 1.49.0
 
 - **Filtros de la Guía, como los de Canales.** Las categorías y los géneros ya no son filas de chips: hay un botón de filtros arriba, al lado de Grilla y Próximos, con el número de filtros puestos. Abre una hoja con las categorías (en el orden de tu lista) y, en Grilla y Próximos, los géneros; lo que elegís queda debajo del título como chips con su ×, más «Quitar todos». «Tengo tiempo» sigue en Próximos. Es el mismo patrón en la edición y en el modo ver, y la Guía sigue eligiendo aparte de Canales. En Tu noche, «Elegir otras» abre esa hoja.
