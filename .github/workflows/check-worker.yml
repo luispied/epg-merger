@@ -45,8 +45,9 @@ jobs:
         key: pw-${{ hashFiles('worker/package-lock.json') }}
     - name: Tests de humo de la web (Playwright)
       working-directory: worker
-      # En los PR, solo el humo: la alta, el modo ver, la primera carga y la pantalla de inicio. La suite completa corre en
-      # main (push), con SLOW=1 para las pruebas lentas (p. ej. el pedido que no contesta, ~1 min).
+      # En los PR, solo el humo: la alta, el modo ver, la primera carga y la pantalla de inicio. En main (push) corre el
+      # resto de la suite: esas cuatro ya pasaron en el PR, así que no se repiten; de la primera carga solo queda la
+      # prueba lenta (el pedido que no contesta, ~1 min), con SLOW=1.
       env:
         SLOW: ${{ github.event_name == 'push' && '1' || '' }}
         EVENT: ${{ github.event_name }}
@@ -55,7 +56,9 @@ jobs:
         if [ "$EVENT" = "pull_request" ]; then
           npx playwright test e2e/smoke.spec.ts e2e/alta.spec.ts e2e/ver.spec.ts e2e/primera-carga.spec.ts
         else
-          npx playwright test
+          rest=$(ls e2e/*.spec.ts | grep -v -E '/(smoke|alta|ver|primera-carga)\.spec\.ts$')
+          npx playwright test $rest
+          npx playwright test e2e/primera-carga.spec.ts -g "un pedido que no contesta"
         fi
     - name: Punta a punta contra el Worker real (solo en main)
       # wrangler dev con R2 local (worker/e2e-real/): el Worker de verdad, sin simulaciones. Solo en main, como la suite
