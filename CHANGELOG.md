@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.45.0
+
+- **La barra de abajo del modo ver queda a la misma altura en Canales y en la Guía.** En Safari, desplazar la lista de Canales encogía la barra del navegador y la de abajo cambiaba de altura al pasar a la Guía. Ahora la lista se desplaza dentro de su pantalla, como la Guía, y la página no se mueve ni cambia al pasar de una pestaña a la otra (tampoco en la app instalada en el iPhone).
+- **El modo «solo ver» tiene ajustes.** Un engranaje arriba en Canales abre **Configuración**, con el tema (como el sistema, claro u oscuro), igual que en el editor. Queda guardado en este dispositivo.
+- Ayuda: el modo ver explica el engranaje y el tema.
+- **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
+
 ## 1.44.1
 
 - **La hoja de un programa dice su género.** Arriba del título aparece «Deportes», «Película», «Noticias»… cuando nowline ya lo sabe; en la Guía y en el modo ver.

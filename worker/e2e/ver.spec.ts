@@ -5,6 +5,8 @@ import { expect, test } from '@playwright/test';
 const H = Math.floor(Date.now() / 3_600_000) * 3600; // hora UTC en curso
 const hourKey = (t: number) => new Date(t * 1000).toISOString().slice(0, 13).replace(/\D/g, '');
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
+// Código de la casa de prueba: el Worker lo acepta solo con su clave (ver isHomeCode en ver.tsx).
+const HOME = 'hogarPrueba0123456789.ClaveCasa0123456789abcdef';
 
 const view = {
   name: 'Abuela',
@@ -48,6 +50,10 @@ test.beforeEach(async ({ page }) => {
     if (path === `/api/view/${CODE}/report`) {
       reported.push(r.request().postDataJSON());
       return r.fulfill({ json: { ok: true } });
+    }
+    if (path.startsWith('/api/home/')) {
+      const ok = r.request().headers().authorization === `Bearer ${HOME.split('.')[1]}`;
+      return ok ? r.fulfill({ json: { data: '' } }) : r.fulfill({ status: 403, json: { error: 'no' } });
     }
     if (path === `/api/view/${CODE}`) return gone ? r.fulfill({ status: 404, json: { error: 'no' } }) : r.fulfill({ json: view });
     const m = path.match(/^\/api\/(?:ui\/schedule|(?:cfg|view)\/[^/]+)\/hour\/(\d{10})\.json$/);
@@ -152,9 +158,15 @@ test('pegar el código para ver al abrir nowline deja el dispositivo en modo ver
   await page.goto('/');
   await expect(page).toHaveURL(/\/ver#/);
   await expect(page.locator('.vw-who')).toContainText('Abuela');
-  // Salir (con confirmación) vuelve a la bienvenida.
-  page.once('dialog', (d) => void d.accept());
+  // Salir pide el código de la casa: otro código no sirve y el dispositivo sigue en modo ver.
   await page.getByRole('button', { name: 'Salir del modo ver' }).click();
+  await page.getByLabel('Código de la casa').fill('otro0123456789abcdef.otraclave0123456789abcdef');
+  await page.locator('dialog.ask-sheet button[type=submit]').click();
+  await expect(page.locator('dialog.ask-sheet [role=alert]')).toBeVisible();
+  await expect(page).toHaveURL(/\/ver#/);
+  // Con el código de la casa sale y vuelve a la bienvenida.
+  await page.getByLabel('Código de la casa').fill(HOME);
+  await page.locator('dialog.ask-sheet button[type=submit]').click();
   await expect(page.locator('#onboarding')).toBeVisible();
 });
 
@@ -186,4 +198,27 @@ test('filtrar por categoría como en la edición, sin estados', async ({ page })
   await page.locator('.active-filters .chip-btn', { hasText: 'Películas' }).click();
   await expect(page.locator('.vw-row')).toHaveCount(4);
   await expect(page.locator('.active-filters')).toBeHidden();
+});
+
+// En Safari, desplazar la página encoge la barra del navegador y la barra de abajo cambia de altura. En el modo ver la página
+// no se desplaza (la lista de Canales y la Guía lo hacen por dentro), así la barra queda igual en las dos pestañas.
+test('la página del modo ver no se desplaza y la barra de abajo queda igual en Canales y en la Guía', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  const nav = page.getByRole('navigation', { name: 'Secciones' });
+  await expect(page.getByText('Canal Uno').first()).toBeVisible();
+  const pos = () => nav.evaluate((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; });
+  const doc = () => page.evaluate(() => [document.documentElement.scrollHeight, window.innerHeight]);
+  const [h, vh] = await doc();
+  expect(h).toBeLessThanOrEqual(vh);
+  const canales = await pos();
+  const bodyAntes = await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow]);
+  await page.getByRole('button', { name: 'Guía', exact: true }).click();
+  await expect(page.locator('#guide')).toBeVisible();
+  // Nada del documento cambia de una pestaña a la otra (en la PWA de iPhone cualquier diferencia mueve la barra fija).
+  expect(await page.evaluate(() => [document.body.className, getComputedStyle(document.body).overflow, getComputedStyle(document.documentElement).overflow])).toEqual(bodyAntes);
+  expect(await pos()).toEqual(canales);
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('button', { name: 'Canales' }).click();
+  expect(await pos()).toEqual(canales);
+  const [h2, vh2] = await doc();
+  expect(h2).toBeLessThanOrEqual(vh2);
 });
