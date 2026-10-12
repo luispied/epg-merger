@@ -11,9 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.41.8
+## 1.42.1
 
 - **En el modo ver, el logo de inicio vuelve al recargar.** Al abrir o recargar la página de un código para ver, se ve el logo con «nowline» hasta que llegan los canales, y pasa directo a la lista, sin el «Cargando los canales…» en el medio. Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+
+## 1.42.0
+
+- **Filtros de la lista en una hoja**: al lado del buscador hay un botón de filtros (con un número si hay algo puesto). En la hoja elegís un estado (Todos, A revisar, Sin EPG…) y una o más categorías. Lo que elegiste aparece arriba como chips, cada uno con su ×, y «Quitar todos». Ya no hay una fila fija de filtros.
+- Interno: `ui/filtros.tsx` (Preact) dibuja el botón, los chips y la hoja; app.ts sigue decidiendo qué canales se ven.
 
 ## 1.41.6
 
