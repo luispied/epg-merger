@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.47.1
+
+- **La app de modo ver tiene su propio ícono.** Al agregarla a inicio, lleva una marca de ojo en el logo, así no se confunde con la app de editar. Las apps que ya estaban en el inicio conservan el ícono viejo: hay que quitarlas y volver a agregarlas.
+
 ## 1.47.0
 
 - **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.
