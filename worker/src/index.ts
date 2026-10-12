@@ -962,12 +962,13 @@ export function routeKind(pathname: string): string {
 
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
-    console.log({ route: routeKind(new URL(request.url).pathname) });
+    // JSON en el mensaje: Workers Logs lo lee como campo `route` (consumo.py agrupa por ese campo).
+    console.log(JSON.stringify({ route: routeKind(new URL(request.url).pathname) }));
     return handle(request, env, ctx, caches.default);
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(_event: unknown, env: Env, ctx: Ctx): void {
-    console.log({ route: 'cron' });
+    console.log(JSON.stringify({ route: 'cron' }));
     ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
   },
 };

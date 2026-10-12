@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.6
+
+- Interno: el Worker escribe el tipo de cada pedido en su registro como JSON (`{"route":…}`), para que Workers Logs lo lea como campo y el registro de consumo (`tools/consumo.py`) muestre la CPU por tipo de pedido. No cambia ninguna respuesta.
+
 ## 1.46.5
 
 - **El logo de inicio tapa lo que la app ya dibujó debajo.** Al abrir, el esqueleto de carga se veía a través del fundido del logo. Ahora la app queda oculta mientras el logo está, y entra con un fundido corto cuando se va. Igual en la edición y en el modo ver. Si la app no llega a arrancar, a los 5 s el logo se va solo y la pantalla se ve igual.
