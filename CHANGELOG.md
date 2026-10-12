@@ -11,9 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.46.1
+## 1.46.2
 
 - **El esqueleto de carga en el modo «solo ver» llena toda la pantalla.** Antes mostraba cuatro tarjetas y en el escritorio y en el iPhone quedaba un hueco abajo. Ahora se arma según el alto de la pantalla (y se rehace al girar), igual que en la edición.
+
+## 1.46.1
+
+- Worker: se quita la prueba manual `worker-smoke` (workflow y script), que dependía de credenciales del proveedor ya borradas. El relay la reemplazó.
 
 ## 1.46.0
 
