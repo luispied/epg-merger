@@ -6,9 +6,9 @@ import { tasteGenres } from '../../core/src/taste.ts';
 import { scheduleFile } from '../src/again.ts';
 import { channelAlias } from '../../core/src/alias.ts';
 import { b64urlEncode } from '../src/crypto.ts';
-import { addSub, getTaste, notifyTaste, setTaste, visibleGuideChannels, type PushSub } from '../src/push.ts';
+import { addSub, getTaste, notifyTaste, setTaste, profileGuideChannels, type PushSub } from '../src/push.ts';
 import {
-  allowedGenres, emptyTaste, hasQuota, inWindow, localHm, localParts, parseTaste, pickProgram, type TasteChannel, type TasteSent, type TasteState,
+  allowedGenres, emptyTaste, hasQuota, inWindow, localHm, localParts, parseTaste, pickProgram, seenGenres, setGenre, type TasteChannel, type TasteSent, type TasteState,
 } from '../src/taste.ts';
 import { makeEnv } from './helpers.ts';
 
@@ -28,36 +28,36 @@ test('la hora y el día salen de la zona de la persona; con una zona inválida, 
   assert.equal(localHm(NOW + 90 * 60_000, BA), '20:30');
 });
 
-test('ventana de envío: tarde 18 a 20, noche 20 a 22; nunca de noche ni de madrugada, en cualquier zona', () => {
+test('ventana de envío: mañana 9 a 13, tarde 13 a 20, noche 20 a 22; nunca de madrugada, en cualquier zona', () => {
   const t = { ...emptyTaste(BA), on: true };
-  assert.equal(inWindow(NOW, t), true); // 19:00
-  assert.equal(inWindow(NOW + 60 * 60_000, t), false); // 20:00 es de la noche
-  assert.equal(inWindow(NOW + 60 * 60_000, { ...t, when: 'noche' }), true);
+  assert.equal(inWindow(NOW, t), true); // 19:00 es de la tarde
+  assert.equal(inWindow(NOW, { ...t, when: 'noche' }), false);
+  assert.equal(inWindow(NOW + 3_600_000, { ...t, when: 'noche' }), true); // 20:00
   assert.equal(inWindow(NOW + 3 * 3_600_000, { ...t, when: 'noche' }), false); // 22:00
-  // Todas las horas del día, en zonas muy distintas: solo entre las 18 y las 22 locales.
+  assert.equal(inWindow(NOW - 10 * 3_600_000, { ...t, when: 'manana' }), true); // 09:00
+  // Todas las horas del día, en zonas muy distintas: solo entre las 9 y las 22 locales.
   for (const tz of [BA, 'Europe/Madrid', 'Asia/Tokyo', 'America/Mexico_City', 'Pacific/Auckland']) {
-    for (const when of ['tarde', 'noche'] as const) {
+    for (const when of ['manana', 'tarde', 'noche'] as const) {
       for (let h = 0; h < 24; h++) {
         const ms = NOW + h * 3_600_000;
         if (inWindow(ms, { ...t, tz, when })) {
           const hour = localParts(ms, tz).hour;
-          assert.ok(hour >= 18 && hour < 22, `${tz} ${when} ${hour}`);
+          assert.ok(hour >= 9 && hour < 22, `${tz} ${when} ${hour}`);
         }
       }
     }
   }
 });
 
-test('cupo: uno por día y, con «3 por semana», tres en siete días', () => {
+test('cupo: uno por día y tres en siete días', () => {
   const sent = (daysAgo: number): TasteSent => ({ title: `P${daysAgo}`, genre: 'Documental', at: new Date(NOW - daysAgo * 86_400_000).toISOString(), epg: 'g1', name: 'C', start: 1 });
   const t: TasteState = { ...emptyTaste(BA), on: true };
   assert.equal(hasQuota(t, NOW), true);
   assert.equal(hasQuota({ ...t, sent: [sent(0)] }, NOW), false); // ya hubo uno hoy
   assert.equal(hasQuota({ ...t, sent: [sent(1), sent(2)] }, NOW), true);
   assert.equal(hasQuota({ ...t, sent: [sent(1), sent(2), sent(3)] }, NOW), false); // tres esta semana
-  assert.equal(hasQuota({ ...t, per: 'dia', sent: [sent(1), sent(2), sent(3)] }, NOW), true); // «1 por día»
   assert.equal(hasQuota({ ...t, sent: [sent(2), sent(3), sent(8)] }, NOW), true); // el de hace 8 días ya no cuenta
-  // «Hoy» es el día de la persona: 22:30 UTC del 12 sigue siendo hoy en BA, y 03:00 UTC del 13 también.
+  // «Hoy» es el día de la persona: 02:30 UTC del 13 sigue siendo hoy en BA, 04:00 UTC ya es mañana.
   assert.equal(hasQuota({ ...t, sent: [{ ...sent(0), at: '2026-10-13T02:30:00Z' }] }, NOW), false);
   assert.equal(hasQuota({ ...t, sent: [{ ...sent(0), at: '2026-10-13T04:00:00Z' }] }, NOW), true); // 01:00 del 13 en BA
 });
@@ -68,14 +68,28 @@ test('el gusto: el género con peso en los últimos 30 días o un «Más como es
     ch: {}, no: {}, more: {}, mg: {},
     t: { a: t(4, 'Documental'), b: t(1, 'Serie'), c: t(9, 'Noticias'), d: t(9, 'Publicidad'), e: t(9, 'Otro'), f: t(5, 'Deportes', iso(-24 * 40)) },
   };
-  assert.deepEqual(tasteGenres(h, NOW), ['Documental']);
+  assert.deepEqual(allowedGenres(h, emptyTaste(BA), NOW), ['Documental']);
   // 3 de 12 = 25 %: entra; 2 de 12 no.
-  assert.deepEqual(tasteGenres({ ...h, t: { a: t(3, 'Película'), b: t(9, 'Serie') } }, NOW), ['Película', 'Serie']);
-  assert.deepEqual(tasteGenres({ ...h, t: { a: t(2, 'Película'), b: t(9, 'Serie') } }, NOW), ['Serie']);
+  assert.deepEqual(allowedGenres({ ...h, t: { a: t(3, 'Película'), b: t(9, 'Serie') } }, emptyTaste(BA), NOW), ['Película', 'Serie']);
+  assert.deepEqual(allowedGenres({ ...h, t: { a: t(2, 'Película'), b: t(9, 'Serie') } }, emptyTaste(BA), NOW), ['Serie']);
   // «Más como esto» vigente suma su género; uno ya quitado no.
-  assert.deepEqual(tasteGenres({ ...h, more: { x: iso(-1) }, mg: { x: 'Infantil' } }, NOW), ['Documental', 'Infantil']);
-  assert.deepEqual(tasteGenres({ ...h, more: {}, mg: { x: 'Infantil' } }, NOW), ['Documental']);
-  assert.deepEqual(allowedGenres(h, { ...emptyTaste(), off: ['Documental'] }, NOW), []);
+  assert.deepEqual(allowedGenres({ ...h, more: { x: iso(-1) }, mg: { x: 'Infantil' } }, emptyTaste(BA), NOW), ['Documental', 'Infantil']);
+  assert.deepEqual(allowedGenres({ ...h, more: {}, mg: { x: 'Infantil' } }, emptyTaste(BA), NOW), ['Documental']);
+});
+
+test('apagar y prender géneros: el automático se apaga con off, uno ajeno se prende con plus', () => {
+  const h = { ch: {}, no: {}, more: {}, mg: {}, t: { a: { n: 4, g: 'Documental', at: iso(-24) }, b: { n: 4, g: 'Cocina', at: iso(-24) } } };
+  const t0 = emptyTaste(BA);
+  const off = setGenre(t0, h, NOW, 'Documental', false);
+  assert.deepEqual(allowedGenres(h, off, NOW), ['Cocina']);
+  assert.deepEqual(allowedGenres(h, setGenre(off, h, NOW, 'Documental', true), NOW), ['Cocina', 'Documental']);
+  // Un género que no es del gusto se prende con plus, y se apaga quitándolo.
+  const plus = setGenre(t0, h, NOW, 'Deportes', true);
+  assert.deepEqual(plus.plus, ['Deportes']);
+  assert.deepEqual(allowedGenres(h, plus, NOW), ['Cocina', 'Deportes', 'Documental']);
+  assert.deepEqual(setGenre(plus, h, NOW, 'Deportes', false).plus, []);
+  // Lo que se mira o se toca, para la hoja: lo visto, lo apagado y lo prendido; nunca publicidad.
+  assert.deepEqual(seenGenres({ ...h, t: { ...h.t, c: { n: 1, g: 'Publicidad' } } }, plus), ['Cocina', 'Deportes', 'Documental']);
 });
 
 const ch1: TasteChannel = { epg: 'g1', name: 'Canal Uno', cat: 'Cultura' };
@@ -114,15 +128,22 @@ test('qué programa: el mejor por puntaje de hábitos, y sin uno bueno no hay na
   const habits = { ...baseHabits(), ch: { g2: { n: 6, h: Array(24).fill(0).map((_, i) => (i === 22 ? 6 : 0)) } } };
   const sch = new Map([['g1', [prog('Documental largo', 2, 120, 'Documental')]], ['g2', [prog('Documental del canal de siempre', 2, 120, 'Documental')]]]);
   assert.equal(pickProgram([ch1, ch2], ctx({ habits, schedules: sch }))?.ch.name, 'Canal Dos');
-  // Con poco peso (un resumen de 45 minutos, de un género que se mira poco) no alcanza para molestar.
+  // Con poco peso (un resumen de 45 minutos) no alcanza para molestar.
   const weak = { ...baseHabits(), t: { a: { n: 3, g: 'Documental', at: iso(-24) }, b: { n: 9, g: 'Serie', at: iso(-24) } } };
   assert.equal(pickProgram([ch1], ctx({ habits: weak, schedules: new Map([['g1', [prog('Resumen de la semana', 2, 45, 'Documental')]]]) })), null);
 });
 
-test('lo guardado se lee con cuidado', () => {
+test('lo guardado se lee con cuidado; lo de antes (per) se descarta', () => {
   assert.equal(parseTaste(null), undefined);
-  const t = parseTaste({ on: 'sí', off: ['Serie', 3], tz: 'xx', when: 'madrugada', per: 'dia', sent: [{ title: 1 }] })!;
-  assert.deepEqual(t, { on: false, off: ['Serie'], tz: BA, when: 'tarde', per: 'dia', sent: [] });
+  const t = parseTaste({ on: 'sí', off: ['Serie', 3], plus: ['Cocina'], tz: 'xx', when: 'madrugada', per: 'dia', sent: [{ title: 1 }] })!;
+  assert.deepEqual(t, { on: false, off: ['Serie'], plus: ['Cocina'], tz: BA, when: 'tarde', sent: [] });
+  assert.equal(parseTaste({ when: 'manana' })!.when, 'manana');
+});
+
+test('canales de un perfil: lo que ve con su filtro, sin ocultos ni separadores', () => {
+  const list = { channels: [{ name: 'A', category: 'X' }, { name: 'B', category: 'X' }, { name: 'C', category: 'Y' }] };
+  const cfg = { channels: { A: { epg: 'g1' }, B: { epg: 'g2', hidden: true }, C: {} }, groups: { hidden: [] } } as never;
+  assert.deepEqual(profileGuideChannels(list, cfg).map((c) => c.name), ['A']);
 });
 
 // ---- notifyTaste con el servicio de push simulado
@@ -146,66 +167,90 @@ async function world(opts: { tz?: string } = {}) {
   const cfgId = 'cfg-taste';
   const bucket = t.env.BUCKET;
   await bucket.put(`list/${cfgId}.json`, JSON.stringify({ channels: [{ name: 'Canal Uno', category: 'Cultura' }, { name: 'Oculto', category: 'Cultura' }] }));
-  await bucket.put(`cfg/${cfgId}.json`, JSON.stringify({ channels: { 'Canal Uno': { epg: 'g1' }, Oculto: { epg: 'g2', hidden: true } } }));
-  await bucket.put(`habits/${cfgId}.json`, JSON.stringify({ '': { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t }, kids: { ch: {}, no: {}, more: {}, mg: {}, t: {} } }));
+  await bucket.put(`cfg/${cfgId}.json`, JSON.stringify({
+    provider: { type: 'm3u' },
+    channels: { 'Canal Uno': { epg: 'g1' }, Oculto: { epg: 'g2', hidden: true } },
+    profiles: [{ id: 'luis', name: 'Luis' }, { id: 'mama', name: 'Mamá' }],
+  }));
+  await bucket.put(`habits/${cfgId}.json`, JSON.stringify({ luis: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t }, mama: { ch: {}, no: {}, more: {}, mg: {}, t: {} } }));
   const entries = [prog('Planeta Tierra', 2, 90, 'Documental'), prog('Telenoche', 2, 60, 'Noticias')];
   await bucket.put(`ui/schedule/${await scheduleFile(channelAlias('g1'))}.json`, JSON.stringify(entries));
   await bucket.put(`ui/schedule/${await scheduleFile(channelAlias('g2'))}.json`, JSON.stringify([prog('Del oculto', 2, 120, 'Documental')]));
   await addSub(bucket, cfgId, sub);
-  if (opts.tz) await setTaste(bucket, cfgId, { tz: opts.tz });
-  return { ...t, cfgId, bucket, pushed };
+  if (opts.tz) await setTaste(bucket, cfgId, { profile: 'luis', endpoint: sub.endpoint, tz: opts.tz });
+  return { ...t, cfgId, bucket, pushed, endpoint: sub.endpoint };
 }
 
-test('los canales ocultos o sin guía no cuentan', () => {
-  const list = { channels: [{ name: 'A', category: 'X' }, { name: 'B', category: 'X' }, { name: 'C', category: 'Y' }] };
-  const cfg = { channels: { A: { epg: 'g1' }, B: { epg: 'g2', hidden: true }, C: {} }, groups: { hidden: [] } };
-  assert.deepEqual(visibleGuideChannels(list, cfg).map((c) => c.name), ['A']);
-});
-
-test('notifyTaste: apagado por defecto; prendido manda uno y el cupo del día lo frena', async () => {
+test('notifyTaste: apagado por defecto; prendido en un perfil manda uno y el cupo del día lo frena', async () => {
   const w = await world();
-  assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 0); // apagado
-  const view = await setTaste(w.bucket, w.cfgId, { on: true, tz: BA });
-  assert.deepEqual(view?.genres, [{ name: 'Documental', on: true }]);
-  assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW - 3 * 3_600_000)), 0); // 16:00: fuera de la ventana
+  assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 0); // nadie prendido
+  const view = await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true, tz: BA });
+  assert.notEqual(typeof view, 'string');
+  assert.deepEqual((view as { genres: unknown }).genres, [{ name: 'Documental', on: true }]); // el gusto de Luis
+  assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW - 7 * 3_600_000)), 0); // 12:00: fuera de la tarde
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 1);
   assert.equal(w.pushed.length, 1);
-  const after = await getTaste(w.bucket, w.cfgId);
-  assert.equal(after.sent.length, 1);
-  assert.equal(after.sent[0].title, 'Planeta Tierra');
-  // El mismo día no vuelve a mandar; ni tampoco el mismo título dentro de los 14 días.
+  const after = await getTaste(w.bucket, w.cfgId, 'luis', w.endpoint);
+  assert.equal(after?.sent.length, 1);
+  assert.equal(after?.sent[0].title, 'Planeta Tierra');
+  // El mismo día no vuelve a mandar.
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW + 30 * 60_000)), 0);
   assert.equal(w.pushed.length, 1);
 });
 
+test('notifyTaste: los avisos van solo a los dispositivos del perfil', async () => {
+  const w = await world();
+  await w.bucket.put(`habits/${w.cfgId}.json`, JSON.stringify({ mama: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t } }));
+  // Prende Mamá desde el mismo dispositivo: a Luis no le llega nada.
+  await setTaste(w.bucket, w.cfgId, { profile: 'mama', endpoint: w.endpoint, on: true, tz: BA });
+  assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 1);
+  const st = JSON.parse(await (await w.bucket.get(`push/${w.cfgId}.json`))!.text());
+  assert.deepEqual(st.subs[0].profiles, ['mama']);
+  assert.equal(st.tastes.luis, undefined);
+});
+
 test('notifyTaste: un género apagado no se avisa, y volver a prenderlo sí', async () => {
   const w = await world();
-  await setTaste(w.bucket, w.cfgId, { on: true });
-  const off = await setTaste(w.bucket, w.cfgId, { genre: 'Documental', genreOn: false });
-  assert.deepEqual(off?.genres, [{ name: 'Documental', on: false }]);
+  await w.bucket.put(`habits/${w.cfgId}.json`, JSON.stringify({ luis: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t } }));
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true });
+  const off = await setTaste(w.bucket, w.cfgId, { profile: 'luis', genre: 'Documental', genreOn: false });
+  assert.deepEqual((off as { genres: unknown }).genres, [{ name: 'Documental', on: false }]);
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 0);
-  await setTaste(w.bucket, w.cfgId, { genre: 'Documental', genreOn: true });
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', genre: 'Documental', genreOn: true });
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 1);
 });
 
 test('notifyTaste: usa la zona del dispositivo (a las 19:00 de Buenos Aires, en Madrid es de noche)', async () => {
   const w = await world({ tz: 'Europe/Madrid' });
-  await setTaste(w.bucket, w.cfgId, { on: true });
+  await w.bucket.put(`habits/${w.cfgId}.json`, JSON.stringify({ luis: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t } }));
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true });
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 0); // 00:00 en Madrid
   assert.equal(w.pushed.length, 0);
-  await setTaste(w.bucket, w.cfgId, { tz: BA });
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', tz: BA });
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW)), 1);
 });
 
-test('avisos por gusto: hace falta un dispositivo suscrito, y apagar los avisos los apaga todos', async () => {
+test('avisos por gusto: prender pide un dispositivo suscrito; perfiles que no existen se rechazan', async () => {
   const t = makeEnv();
-  assert.equal(await setTaste(t.env.BUCKET, 'sin-subs', { on: true }), null);
+  assert.equal(await setTaste(t.env.BUCKET, 'sin-subs', { profile: 'luis', endpoint: 'x', on: true }), 'sin-perfil');
   const w = await world();
-  await setTaste(w.bucket, w.cfgId, { on: true, when: 'noche', per: 'dia' });
-  const v = await getTaste(w.bucket, w.cfgId);
-  assert.deepEqual([v.on, v.when, v.per], [true, 'noche', 'dia']);
+  assert.equal(await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: 'otro', on: true }), 'sin-dispositivo');
+  assert.equal(await setTaste(w.bucket, w.cfgId, { profile: 'fantasma', endpoint: w.endpoint, on: true }), 'sin-perfil');
+  assert.equal(await getTaste(w.bucket, w.cfgId, 'fantasma'), null);
+  const v = await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true, when: 'noche' });
+  assert.deepEqual([(v as { on: boolean }).on, (v as { when: string }).when, (v as { here: boolean }).here], [true, 'noche', true]);
   // Sin dispositivos no se manda nada, aunque haya quedado prendido.
   const st = JSON.parse(await (await w.bucket.get(`push/${w.cfgId}.json`))!.text());
   await w.bucket.put(`push/${w.cfgId}.json`, JSON.stringify({ ...st, subs: [] }));
   assert.equal(await notifyTaste(w.env, w.cfgId, new Date(NOW + 3_600_000)), 0);
+});
+
+test('lo de antes (avisos de toda la configuración) pasa al perfil principal con sus dispositivos', async () => {
+  const w = await world();
+  const st = JSON.parse(await (await w.bucket.get(`push/${w.cfgId}.json`))!.text());
+  const legacy = { ...emptyTaste(BA), on: true, when: 'noche' };
+  await w.bucket.put(`push/${w.cfgId}.json`, JSON.stringify({ ...st, subs: st.subs.map((s: PushSub) => ({ ...s, profiles: undefined })), taste: legacy }));
+  const v = await getTaste(w.bucket, w.cfgId, 'luis', w.endpoint);
+  assert.deepEqual([v?.on, v?.when, v?.here], [true, 'noche', true]);
+  assert.equal((await getTaste(w.bucket, w.cfgId, 'mama', w.endpoint))?.on, false);
 });

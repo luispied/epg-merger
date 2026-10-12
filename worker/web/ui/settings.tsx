@@ -12,7 +12,6 @@ import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
 import { BrandFoot } from './kit.tsx';
-import { loadTaste, openTasteSheet, tasteSummary, type TasteView } from './avisos-gusto.tsx';
 
 declare const __APP_VERSION__: string;
 
@@ -114,7 +113,6 @@ function Settings() {
   const [health, setHealth] = useState('Calculando…');
   const [guide, setGuide] = useState<GuideStatus | null>(null);
   const [push, setPushState] = useState<PushView | null>(null);
-  const [taste, setTaste] = useState<TasteView | null>(null);
   const [logos, setLogos] = useState(logosOn);
   const [startFilter, setStartFilter] = useState(() => pref('grilla_start_filter', 'last'));
   const [theme, setTheme] = useState(savedTheme);
@@ -135,9 +133,6 @@ function Settings() {
     if (v && !v.disabled) {
       const on = await pushSubscribed();
       setPushState({ ...v, on });
-      // Los avisos por gusto cuelgan de los avisos: sin ellos no hay fila.
-      if (on) loadTaste().then(setTaste).catch(() => setTaste(null));
-      else setTaste(null);
     }
   };
   const showHealth = () => {
@@ -208,9 +203,6 @@ function Settings() {
             <input type="checkbox" class="switch" role="switch" checked={push.on} disabled={push.disabled}
               onChange={(ev) => { void setPush(ev.currentTarget.checked).then(refreshPush); }} />
           </label>
-        )}
-        {push?.on && (
-          <MenuRow icon="sparkles" title="Avisos por gusto" sub={taste ? tasteSummary(taste) : 'Tocá para ver'} onClick={() => openTasteSheet(setTaste)} />
         )}
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="a-large-small" /></span>

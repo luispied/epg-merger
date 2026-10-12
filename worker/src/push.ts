@@ -12,16 +12,20 @@ import { readReminders, REMIND_AHEAD_S, REMIND_GRACE_S, writeReminders } from '.
 import { readHabits } from './habits.ts';
 import { scheduleFile } from './again.ts';
 import { readEntries, scheduleReader } from './schedule.ts';
+import { playlistRows, type DeviceFilter } from './playlist.ts';
+import { parseConfig, parseProfiles, type Config, type ProfileDef } from './config.ts';
+import type { Channel } from './provider.ts';
 import {
-  allowedGenres, hasQuota, inWindow, localHm, MAX_SENT, parseTaste, pickProgram, validTz,
-  type TasteChannel, type TastePer, type TasteState, type TasteWhen,
+  allowedGenres, emptyTaste, hasQuota, inWindow, localHm, MAX_SENT, parseTaste, pickProgram, seenGenres, setGenre, validTz,
+  WHENS, type TasteChannel, type TasteState, type TasteWhen,
 } from './taste.ts';
-import { tasteGenres } from '../../core/src/taste.ts';
 
 export interface PushSub {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   created: string;
+  /** Perfiles que reciben sus avisos por gusto en este dispositivo (ver taste.ts). */
+  profiles?: string[];
 }
 export interface PushState {
   subs: PushSub[];
@@ -29,7 +33,9 @@ export interface PushState {
   known?: string[];
   /** Último aviso de vencimiento de la suscripción del proveedor (para avisar una vez por umbral). */
   expiry?: { expires: string; threshold: number };
-  /** Avisos por gusto (taste.ts): interruptor, géneros apagados, horario, tope y los últimos avisos. */
+  /** Avisos por gusto de cada perfil (taste.ts): interruptor, géneros, horario y los últimos avisos. */
+  tastes?: Record<string, TasteState>;
+  /** Antes eran de la configuración entera; migrateTaste los pasa al perfil principal. */
   taste?: TasteState;
 }
 
@@ -37,6 +43,7 @@ const MAX_SUBS = 10;
 const enc = new TextEncoder();
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 export const pushKey = (cfgId: string) => `push/${cfgId}.json`;
+const cfgKey = (cfgId: string) => `cfg/${cfgId}.json`;
 
 export const pushConfigured = (env: Env) => !!env.VAPID_PUBLIC_KEY && !!env.VAPID_PRIVATE_KEY;
 
@@ -117,9 +124,14 @@ async function readState(bucket: R2Bucket, cfgId: string): Promise<PushState> {
   try {
     const v = JSON.parse(await obj.text()) as PushState;
     const e = v.expiry;
+    const tastes = Object.fromEntries(Object.entries(v.tastes ?? {}).flatMap(([id, t]) => {
+      const p = parseTaste(t);
+      return p ? [[id, p]] : [];
+    }));
     return {
-      subs: Array.isArray(v.subs) ? v.subs : [],
+      subs: Array.isArray(v.subs) ? v.subs.map((s) => ({ ...s, profiles: Array.isArray(s.profiles) ? s.profiles.filter((x) => typeof x === 'string') : undefined })) : [],
       known: Array.isArray(v.known) ? v.known : undefined,
+      ...(Object.keys(tastes).length ? { tastes } : {}),
       ...(parseTaste(v.taste) ? { taste: parseTaste(v.taste) } : {}),
       ...(e && typeof e.expires === 'string' && typeof e.threshold === 'number' ? { expiry: { expires: e.expires, threshold: e.threshold } } : {}),
     };
@@ -143,7 +155,8 @@ export function parseSubscription(raw: unknown, now = new Date()): PushSub | nul
 
 export async function addSub(bucket: R2Bucket, cfgId: string, sub: PushSub, known?: string[]): Promise<boolean> {
   const st = await readState(bucket, cfgId);
-  const subs = [...st.subs.filter((s) => s.endpoint !== sub.endpoint), sub];
+  const old = st.subs.find((s) => s.endpoint === sub.endpoint);
+  const subs = [...st.subs.filter((s) => s.endpoint !== sub.endpoint), { ...sub, ...(old?.profiles ? { profiles: old.profiles } : {}) }];
   if (subs.length > MAX_SUBS) subs.shift();
   await writeState(bucket, cfgId, { ...st, subs, known: st.known ?? known });
   return true;
@@ -154,11 +167,20 @@ export async function removeSub(bucket: R2Bucket, cfgId: string, endpoint: strin
   await writeState(bucket, cfgId, { ...st, subs: st.subs.filter((s) => s.endpoint !== endpoint) });
 }
 
-export async function pushToConfig(env: Env, cfgId: string, message: { title: string; body: string; url?: string }): Promise<number> {
+export const pushToConfig = (env: Env, cfgId: string, message: PushMessage) => pushTo(env, cfgId, () => true, message);
+
+type PushMessage = { title: string; body: string; url?: string };
+
+/** Manda a los dispositivos que cumplen `pick`; quita los que el servicio dio de baja. */
+export async function pushTo(env: Env, cfgId: string, pick: (s: PushSub) => boolean, message: PushMessage): Promise<number> {
   const st = await readState(env.BUCKET, cfgId);
   let sent = 0;
   const alive: PushSub[] = [];
   for (const sub of st.subs) {
+    if (!pick(sub)) {
+      alive.push(sub);
+      continue;
+    }
     try {
       const r = await sendPush(env, sub, message);
       if (r.ok) sent++;
@@ -287,44 +309,104 @@ export function visibleGuideChannels(list: { channels?: { name?: string; categor
   return [...out.values()];
 }
 
-/** Aviso por gusto (taste.ts): con el interruptor prendido, dentro de la ventana y con cupo, el mejor programa del gusto
- *  de la casa que empieza pronto; si ninguno es bueno, no manda nada. */
-export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Promise<number> {
-  const st = await readState(env.BUCKET, cfgId);
-  const t = st.taste;
-  if (!st.subs.length || !t?.on || !inWindow(now.getTime(), t) || !hasQuota(t, now.getTime())) return 0;
-  const habits = await readHabits(env.BUCKET, cfgId);
-  const genres = allowedGenres(habits, t, now.getTime());
-  if (!genres.length) return 0;
-  const [listObj, cfgObj] = await Promise.all([env.BUCKET.get(`list/${cfgId}.json`), env.BUCKET.get(`cfg/${cfgId}.json`)]);
-  if (!listObj) return 0;
-  let channels: TasteChannel[];
+/** Canales que ve un perfil (con su filtro «Qué ve», las ediciones y la guía elegida), como la playlist. */
+export function profileGuideChannels(list: { channels?: Channel[] }, cfg: Config, filter?: DeviceFilter): TasteChannel[] {
+  const out = new Map<string, TasteChannel>();
+  for (const r of playlistRows(list.channels ?? [], cfg, { filter, providerLogos: false })) {
+    if (!r.epg || r.separator) continue;
+    const epg = channelAlias(r.epg);
+    if (!out.has(epg)) out.set(epg, { epg, name: r.name, cat: r.group });
+  }
+  return [...out.values()];
+}
+
+/** Los perfiles de la configuración (el primero es el principal). */
+async function readProfiles(bucket: R2Bucket, cfgId: string): Promise<ProfileDef[]> {
+  const obj = await bucket.get(cfgKey(cfgId));
+  if (!obj) return [];
   try {
-    channels = visibleGuideChannels(JSON.parse(await listObj.text()), cfgObj ? JSON.parse(await cfgObj.text()) : null);
+    return parseProfiles((JSON.parse(await obj.text()) as { profiles?: unknown }).profiles);
+  } catch {
+    return [];
+  }
+}
+
+/** Antes los avisos por gusto eran de la configuración entera: lo que había pasa al perfil principal, con sus
+ *  dispositivos. Se hace al leer, y se guarda la próxima vez que cambie algo. */
+function migrateTaste(st: PushState, profiles: ProfileDef[]): PushState {
+  const main = profiles[0]?.id;
+  if (!st.taste || !main) return st;
+  const { taste, ...rest } = st;
+  return {
+    ...rest,
+    tastes: { [main]: taste, ...st.tastes },
+    subs: st.subs.map((s) => (s.profiles ? s : { ...s, profiles: [main] })),
+  };
+}
+
+async function loadTastes(bucket: R2Bucket, cfgId: string): Promise<{ st: PushState; profiles: ProfileDef[] }> {
+  const [st, profiles] = await Promise.all([readState(bucket, cfgId), readProfiles(bucket, cfgId)]);
+  return { st: migrateTaste(st, profiles), profiles };
+}
+
+const tasteOf = (st: PushState, profile: string): TasteState => st.tastes?.[profile] ?? emptyTaste();
+
+/** Aviso por gusto de un perfil (taste.ts): con el interruptor prendido, dentro de la ventana y con cupo, el mejor
+ *  programa de sus canales y de su gusto que empieza pronto; si ninguno es bueno, no manda nada. Solo a los
+ *  dispositivos suscritos a ese perfil. */
+export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Promise<number> {
+  const { st, profiles } = await loadTastes(env.BUCKET, cfgId);
+  if (!st.tastes || !st.subs.some((s) => s.profiles?.length)) return 0;
+  const [listObj, cfgObj] = await Promise.all([env.BUCKET.get(`list/${cfgId}.json`), env.BUCKET.get(cfgKey(cfgId))]);
+  if (!listObj) return 0;
+  let list: { channels?: Channel[] };
+  let cfg: Config;
+  try {
+    list = JSON.parse(await listObj.text());
+    cfg = parseConfig(cfgObj ? JSON.parse(await cfgObj.text()) : {});
   } catch {
     return 0;
   }
-  const read = scheduleReader(env.BUCKET);
+  let sent = 0;
+  for (const p of profiles) {
+    if (!tasteOf(st, p.id).on) continue;
+    sent += await notifyProfileTaste(env, cfgId, p, st, list, cfg, now);
+  }
+  return sent;
+}
+
+async function notifyProfileTaste(env: Env, cfgId: string, p: ProfileDef, st: PushState, list: { channels?: Channel[] }, cfg: Config, now: Date): Promise<number> {
+  const bucket = env.BUCKET;
+  const t = tasteOf(st, p.id);
+  const member = (s: PushSub) => !!s.profiles?.includes(p.id);
+  if (!st.subs.some(member) || !inWindow(now.getTime(), t) || !hasQuota(t, now.getTime())) return 0;
+  const habits = await readHabits(bucket, cfgId, p.id);
+  const kids = p.kids ? new Set(p.kids.genres) : null;
+  const genres = allowedGenres(habits, t, now.getTime()).filter((g) => !kids || kids.has(g));
+  if (!genres.length) return 0;
+  const channels = profileGuideChannels(list, cfg, p.filter);
+  const read = scheduleReader(bucket);
   const schedules = new Map<string, Awaited<ReturnType<typeof readEntries>>>();
   const files = await Promise.all(channels.map((c) => scheduleFile(c.epg)));
   for (let k = 0; k < channels.length; k += 25) {
     const part = await Promise.all(files.slice(k, k + 25).map((f) => readEntries(read, f)));
     part.forEach((e, i) => schedules.set(channels[k + i].epg, e));
   }
-  const marks = new Set((await readReminders(env.BUCKET, cfgId)).map((r) => `${channelAlias(r.epg)}|${r.start}`));
+  const marks = new Set((await readReminders(bucket, cfgId)).map((r) => `${channelAlias(r.epg)}|${r.start}`));
   const pick = pickProgram(channels, { habits, marks, schedules, genres, sent: t.sent, nowMs: now.getTime() });
   if (!pick) return 0;
   const [start, , title] = pick.entry;
-  const sent = await pushToConfig(env, cfgId, {
+  const sent = await pushTo(env, cfgId, member, {
     title: `Hoy a las ${localHm(start * 1000, t.tz)}: ${title}`,
     body: `${pick.genre} en ${pick.ch.name}. Es de lo que más mirás.`,
     url: `/?programa=${encodeURIComponent(pick.ch.epg)}&inicio=${start}`,
   });
   if (!sent) return 0;
-  const after = await readState(env.BUCKET, cfgId); // pudo cambiar (suscripciones caídas, o la persona tocó algo)
-  if (after.subs.length && after.taste) {
-    const sentList = [...after.taste.sent, { title, genre: pick.genre, at: now.toISOString(), epg: pick.ch.epg, name: pick.ch.name, start }].slice(-MAX_SENT);
-    await writeState(env.BUCKET, cfgId, { ...after, taste: { ...after.taste, sent: sentList } });
+  const after = (await loadTastes(bucket, cfgId)).st; // pudo cambiar (suscripciones caídas, o la persona tocó algo)
+  const cur = after.tastes?.[p.id];
+  if (after.subs.length && cur) {
+    const sentList = [...cur.sent, { title, genre: pick.genre, at: now.toISOString(), epg: pick.ch.epg, name: pick.ch.name, start }].slice(-MAX_SENT);
+    await writeState(bucket, cfgId, { ...after, tastes: { ...after.tastes, [p.id]: { ...cur, sent: sentList } } });
   }
   return sent;
 }
@@ -332,41 +414,58 @@ export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Pr
 export interface TasteView {
   on: boolean;
   when: TasteWhen;
-  per: TastePer;
   tz: string;
-  /** Los géneros que se pueden elegir: los del gusto de la casa y los que ya se apagaron. `on`: se avisa de ellos. */
+  /** Este dispositivo recibe los avisos de este perfil. */
+  here: boolean;
+  /** Los géneros del perfil. `on`: se avisa de ellos. */
   genres: { name: string; on: boolean }[];
   sent: { title: string; genre: string; at: string; name: string }[];
 }
 
-async function tasteView(bucket: R2Bucket, cfgId: string, st: PushState, now = new Date()): Promise<TasteView> {
-  const t = st.taste ?? parseTaste({})!;
-  const off = new Set(t.off);
-  const names = new Set([...tasteGenres(await readHabits(bucket, cfgId), now.getTime()), ...t.off]);
+/** Lo que muestra la hoja de un perfil. Null si el perfil no existe. */
+export async function getTaste(bucket: R2Bucket, cfgId: string, profile: string, endpoint = '', now = new Date()): Promise<TasteView | null> {
+  const { st, profiles } = await loadTastes(bucket, cfgId);
+  if (!profiles.some((p) => p.id === profile)) return null;
+  return tasteView(bucket, cfgId, st, profile, endpoint, now);
+}
+
+async function tasteView(bucket: R2Bucket, cfgId: string, st: PushState, profile: string, endpoint: string, now: Date): Promise<TasteView> {
+  const t = tasteOf(st, profile);
+  const h = await readHabits(bucket, cfgId, profile);
+  const allowed = new Set(allowedGenres(h, t, now.getTime()));
   return {
-    on: t.on, when: t.when, per: t.per, tz: t.tz,
-    genres: [...names].sort((a, b) => a.localeCompare(b, 'es')).map((name) => ({ name, on: !off.has(name) })),
+    on: t.on, when: t.when, tz: t.tz,
+    here: st.subs.some((s) => s.endpoint === endpoint && !!s.profiles?.includes(profile)),
+    genres: seenGenres(h, t).map((name) => ({ name, on: allowed.has(name) })),
     sent: t.sent.slice(-5).reverse().map(({ title, genre, at, name }) => ({ title, genre, at, name })),
   };
 }
 
-export const getTaste = async (bucket: R2Bucket, cfgId: string) => tasteView(bucket, cfgId, await readState(bucket, cfgId));
-
-/** Cambia los avisos por gusto. Hace falta que el dispositivo ya esté suscrito a los avisos (null si no). */
-export async function setTaste(bucket: R2Bucket, cfgId: string, body: Record<string, unknown>): Promise<TasteView | null> {
-  const st = await readState(bucket, cfgId);
-  if (!st.subs.length) return null;
-  const t: TasteState = { ...(st.taste ?? parseTaste({})!) };
-  if (validTz(body.tz)) t.tz = body.tz;
-  if (typeof body.on === 'boolean') t.on = body.on;
-  if (body.when === 'tarde' || body.when === 'noche') t.when = body.when;
-  if (body.per === 'dia' || body.per === 'semana') t.per = body.per;
-  if (typeof body.genre === 'string' && body.genre.length <= 40 && typeof body.genreOn === 'boolean') {
-    t.off = body.genreOn ? t.off.filter((g) => g !== body.genre) : [...new Set([...t.off, body.genre])];
+/** Cambia los avisos por gusto de un perfil. Prender pide que este dispositivo (`endpoint`) ya esté suscrito a los
+ *  avisos, y lo deja recibiendo los de este perfil. Devuelve el estado, o el motivo por el que no se pudo. */
+export async function setTaste(bucket: R2Bucket, cfgId: string, body: Record<string, unknown>, now = new Date()):
+  Promise<TasteView | 'sin-perfil' | 'sin-dispositivo'> {
+  const { st, profiles } = await loadTastes(bucket, cfgId);
+  const profile = typeof body.profile === 'string' ? body.profile : '';
+  if (!profiles.some((p) => p.id === profile)) return 'sin-perfil';
+  const endpoint = typeof body.endpoint === 'string' ? body.endpoint : '';
+  let t: TasteState = { ...tasteOf(st, profile) };
+  let subs = st.subs;
+  if (body.on === true) {
+    if (!st.subs.some((s) => s.endpoint === endpoint)) return 'sin-dispositivo';
+    t.on = true;
+    subs = st.subs.map((s) => (s.endpoint === endpoint ? { ...s, profiles: [...new Set([...(s.profiles ?? []), profile])] } : s));
+  } else if (body.on === false) {
+    t.on = false;
   }
-  const next = { ...st, taste: t };
+  if (validTz(body.tz)) t.tz = body.tz;
+  if (WHENS.includes(body.when as TasteWhen)) t.when = body.when as TasteWhen;
+  if (typeof body.genre === 'string' && body.genre.length <= 40 && typeof body.genreOn === 'boolean') {
+    t = setGenre(t, await readHabits(bucket, cfgId, profile), now.getTime(), body.genre, body.genreOn);
+  }
+  const next: PushState = { ...st, subs, tastes: { ...st.tastes, [profile]: t } };
   await writeState(bucket, cfgId, next);
-  return tasteView(bucket, cfgId, next);
+  return tasteView(bucket, cfgId, next, profile, endpoint, now);
 }
 
 /** Corrida programada: revisa cada configuración con avisos. */

@@ -17,7 +17,7 @@
 //   GET    /api/push/key                 clave pública VAPID de los avisos push (404 si no están activados)
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
-//   GET/POST /api/cfg/<cfgId>/push/taste (Bearer editKey) avisos por gusto: estado y cambios (taste.ts)
+//   GET/POST /api/cfg/<cfgId>/push/taste (Bearer editKey) avisos por gusto de un perfil: estado y cambios (taste.ts)
 //   POST   /api/cfg/<cfgId>/profiles/<id>/view  (Bearer editKey) link «solo ver» del perfil → {code} · DELETE: quitarlo
 //   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
 //   GET    /api/view/<código>/connections  conexiones en uso de su cuenta y qué está mirando cada link
@@ -572,11 +572,17 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         return json({ ok: true });
       }
       if (sub === 'taste') {
-        // Avisos por gusto (taste.ts): GET el estado; POST {on?, tz?, when?, per?, genre?, genreOn?} lo cambia.
-        if (method === 'GET') return json(await getTaste(env.BUCKET, cfgId), 200, { 'Cache-Control': 'no-store' });
+        // Avisos por gusto de un perfil (taste.ts): GET ?profile=&endpoint= da su estado; POST {profile, endpoint?, on?, tz?,
+        // when?, genre?, genreOn?} lo cambia. Prender exige este dispositivo suscrito (su endpoint).
+        if (method === 'GET') {
+          const q = new URL(request.url).searchParams;
+          const view = await getTaste(env.BUCKET, cfgId, q.get('profile') ?? '', q.get('endpoint') ?? '');
+          return view ? json(view, 200, { 'Cache-Control': 'no-store' }) : fail(404, 'perfil no encontrado');
+        }
         if (method === 'POST') {
-          const view = await setTaste(env.BUCKET, cfgId, await readJson(request, 4 * 1024) as Record<string, unknown>);
-          return view ? json(view) : fail(400, 'primero activá los avisos en este dispositivo');
+          const r = await setTaste(env.BUCKET, cfgId, await readJson(request, 4 * 1024) as Record<string, unknown>);
+          if (r === 'sin-perfil') return fail(404, 'perfil no encontrado');
+          return r === 'sin-dispositivo' ? fail(400, 'primero activá los avisos en este dispositivo') : json(r);
         }
       }
       if (sub === 'test' && method === 'POST') {

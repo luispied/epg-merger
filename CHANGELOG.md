@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.53.0
+
+- **Avisos por gusto, dentro de cada perfil.** Ya no están en Configuración: cada perfil tiene su interruptor en su página, igual que el perfil infantil, y arranca apagado. Los avisos salen solo a los dispositivos de ese perfil, con sus canales, sus géneros y sus hábitos.
+- **Géneros, horario y últimos avisos** está en la página de cada perfil. Los géneros se eligen solos según lo que más mira ese perfil (podés cambiarlos tocándolos). El horario es Mañana (de 9 a 13), Tarde (de 13 a 20) o Noche (de 20 a 22). Los últimos avisos tienen **Menos así**.
+- **«No avisarme de…» en la Guía** apaga ese género en todos los perfiles que lo tienen prendido, y **Deshacer** lo vuelve a prender solo para esos perfiles.
+- Worker: `GET/POST /api/cfg/<id>/push/taste` pide el perfil (`?profile=` / `profile`). Lo que estaba para toda la configuración pasa al primer perfil la primera vez que se lee. La suscripción push guarda a qué perfiles pertenece el dispositivo.
+
 ## 1.52.2
 
 - Interno: el aviso para armar la guía de una configuración nueva o cambiada (la corrida de GitHub) se lanza como mucho una vez cada 15 minutos. El momento de la última se guarda en R2, no en el caché del edge, que no frenaba las corridas repetidas. Si se guarda otra configuración dentro de esos 15 minutos, su guía se arma en la próxima corrida (como mucho, la del cron de 3 horas).

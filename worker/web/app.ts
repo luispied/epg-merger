@@ -27,7 +27,7 @@ import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
 import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { openProgramLink, showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
-import { changeTaste, loadTaste } from './ui/avisos-gusto.tsx';
+import { setGenreAll, tasteAll } from './ui/avisos-gusto.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
 import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
@@ -1368,8 +1368,8 @@ const guideHost: GuideHost = {
   feedback: (title, kind, genre) => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind, genre } }),
   help: () => openHelp('guide'),
   tasteAlerts: {
-    state: () => loadTaste().catch(() => null),
-    setGenre: (genre, on) => changeTaste({ genre, genreOn: on }).then(() => {}),
+    state: () => tasteAll().catch(() => null),
+    setGenre: (genre, on) => setGenreAll(genre, on),
   },
 };
 // ------------------------------------------------------------------ pestañas de abajo

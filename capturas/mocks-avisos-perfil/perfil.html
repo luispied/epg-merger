@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mock · Avisos por gusto en Perfil</title>
+<link rel="stylesheet" href="../mocks-avisos-gusto/tokens.css"><link rel="stylesheet" href="../../worker/web/base.css"><link rel="stylesheet" href="../../worker/web/web.css"><link rel="stylesheet" href="../mocks-avisos-gusto/mock.css">
+<script src="../../worker/web/icons.js"></script><script src="../mocks-avisos-gusto/iconos.js"></script>
+</head><body>
+<main class="opcion">
+  <h1>Avisos por gusto, dentro de cada perfil</h1>
+  <p class="help">Un interruptor por perfil en su página, igual que el perfil infantil. Los avisos salen solo a los dispositivos de ese perfil, con sus géneros y sus hábitos. Un perfil nuevo arranca apagado.</p>
+  <div class="pantallas">
+
+    <section class="pantalla">
+      <h3 class="sec-title">1 · Perfil «Luis», con avisos prendidos</h3>
+      <div class="profile-hero"><span class="avatar big" aria-hidden="true">L</span><strong>Luis</strong><small>Perfil de Cuenta principal · Proveedor</small></div>
+      <div class="menu">
+        <div class="menu-row"><span class="menu-icon"><span data-icon="list-filter"></span></span><span class="menu-text">Qué ve<small>Todos los canales menos Noticias</small></span><span class="chev" data-icon="chevron-right"></span></div>
+        <div class="menu-row"><span class="menu-icon"><span data-icon="key-round"></span></span><span class="menu-text">Cuenta<small>Cuenta principal</small></span><span class="chev" data-icon="chevron-right"></span></div>
+      </div>
+      <div class="menu">
+        <div class="menu-row"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos por gusto<small>1 por día · Documental, Película</small></span><input type="checkbox" class="switch" role="switch" checked aria-label="Avisos por gusto: Luis"></div>
+        <div class="menu-row" data-open="hoja"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Géneros, horario y últimos avisos<small>Tarde · de 13 a 20</small></span><span class="chev" data-icon="chevron-right"></span></div>
+      </div>
+      <h3 class="sec-title">Links</h3>
+      <p class="help">Un mismo link sirve para varios dispositivos.</p>
+    </section>
+
+    <section class="pantalla">
+      <h3 class="sec-title">2 · Hoja «Avisos por gusto» (perfil Luis)</h3>
+      <dialog open class="sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Avisos por gusto</h2><button type="button" class="icon-btn help-btn" aria-label="Ayuda"><span data-icon="circle-help"></span></button></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <h3 class="sec-title">Géneros que avisan</h3>
+        <p class="help">Automático: se eligen solos según lo que más mira este perfil. Tocá uno para cambiarlo.</p>
+        <div class="chips">
+          <button type="button" class="chip-btn" aria-pressed="true">Documental</button>
+          <button type="button" class="chip-btn" aria-pressed="true">Película</button>
+          <button type="button" class="chip-btn" aria-pressed="false">Deportes</button>
+          <button type="button" class="chip-btn" aria-pressed="false">Cocina</button>
+        </div>
+        <p class="help">Publicidad y Noticias nunca avisan.</p>
+        <h3 class="sec-title">Cuándo</h3>
+        <div class="seg" role="group" aria-label="Cuándo avisar"><button type="button" aria-pressed="false">Mañana</button><button type="button" aria-pressed="true">Tarde</button><button type="button" aria-pressed="false">Noche</button></div>
+        <h3 class="sec-title">Últimos avisos</h3>
+        <div class="menu">
+          <div class="menu-row static"><span class="menu-icon"><span data-icon="clock"></span></span><span class="menu-text">Esta noche dan un documental<small>Hoy 19:40 · Canal de la lista</small></span><button type="button" class="chip-btn">Menos así</button></div>
+        </div>
+        <p class="help">Historial de esta persona. Los hábitos de este perfil se aprenden de sus links.</p>
+      </div></dialog>
+    </section>
+
+    <section class="pantalla">
+      <h3 class="sec-title">3 · Perfil «Mamá», con avisos apagados</h3>
+      <div class="profile-hero"><span class="avatar big" aria-hidden="true">M</span><strong>Mamá</strong><small>Perfil de Cuenta principal · Proveedor</small></div>
+      <div class="menu">
+        <div class="menu-row"><span class="menu-icon"><span data-icon="list-filter"></span></span><span class="menu-text">Qué ve<small>Todos los canales</small></span><span class="chev" data-icon="chevron-right"></span></div>
+      </div>
+      <div class="menu">
+        <div class="menu-row"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos por gusto<small>Apagados</small></span><input type="checkbox" class="switch" role="switch" aria-label="Avisos por gusto: Mamá"></div>
+      </div>
+      <p class="help">Sin avisos hasta que lo prendas. Cada perfil tiene el suyo.</p>
+    </section>
+
+  </div>
+</main>
+<script src="../mocks-avisos-gusto/mock.js"></script>
+</body></html>

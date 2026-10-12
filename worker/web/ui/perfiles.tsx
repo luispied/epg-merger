@@ -17,6 +17,7 @@ import {
 } from '../app.ts';
 import { Icon } from './icon.tsx';
 import { closeSheet } from './sheet.ts';
+import { changeTaste, deviceTz, loadTaste, openTasteSheet, pushEndpoint, tasteSummary, WHEN_HOURS, WHEN_LABEL, type TasteView } from './avisos-gusto.tsx';
 import { Skeleton } from './kit.tsx';
 import { toast } from './toast.tsx';
 
@@ -488,6 +489,7 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
           onClick={canChangeAccount ? () => openSub({ k: 'profile-account', p, a }) : undefined} />
       </div>
       {other ? null : <KidsRows p={p} />}
+      {other ? null : <TasteRows p={p} />}
       <SubTitle>Links</SubTitle>
       {p.devices.length ? (
         <section class="profile-card">
@@ -569,6 +571,44 @@ function KidsRows({ p }: { p: ProfileView }) {
 }
 
 /** La hoja del perfil infantil: dice qué cambia y deja elegir los géneros opcionales (Infantil y Educativo entran siempre). */
+// ------------------------------------------------------------------ avisos por gusto
+// Un interruptor por perfil: prende los avisos de este perfil en este dispositivo, con la misma fila que el perfil infantil.
+// La hoja (géneros, horario, últimos avisos) está en ui/avisos-gusto.tsx; el Worker manda solo a los dispositivos del perfil.
+function TasteRows({ p }: { p: ProfileView }) {
+  const [endpoint, setEndpoint] = useState<string | null>(null);
+  const [v, setV] = useState<TasteView | null>(null);
+  const [failed, setFailed] = useState(false);
+  const load = () => {
+    setFailed(false);
+    void pushEndpoint()
+      .then((ep) => { setEndpoint(ep); return ep ? loadTaste(p.id, ep) : null; })
+      .then((r) => { if (r) setV(r); })
+      .catch(() => setFailed(true));
+  };
+  useEffect(load, [p.id]);
+  if (endpoint === null && !failed) return <Skeleton rows={1} />;
+  const toggle = (on: boolean) => {
+    if (!v || !endpoint) return;
+    changeTaste(p.id, { endpoint, on, ...(on ? { tz: deviceTz() } : {}) })
+      .then(setV)
+      .catch(() => toast('No se pudo guardar. Probá de nuevo.', 'bad'));
+  };
+  const hint = !endpoint ? 'Primero prendé Avisos en Configuración' : failed ? 'No se pudo cargar. Probá de nuevo.' : '';
+  return (
+    <div class="menu">
+      <label class="menu-row static">
+        <span class="menu-icon"><Icon name="bell" /></span>
+        <span class="menu-text">Avisos por gusto<small>{hint || tasteSummary(v)}</small></span>
+        <input type="checkbox" class="switch" role="switch" aria-label={`Avisos por gusto: ${p.name}`} checked={!!v?.on}
+          disabled={!v || !endpoint} onChange={(ev) => toggle(ev.currentTarget.checked)} />
+      </label>
+      {v ? <MenuRow ico="sparkles" title="Géneros, horario y últimos avisos" sub={`${WHEN_LABEL[v.when]} · ${WHEN_HOURS[v.when]} horas`}
+        onClick={() => openTasteSheet(p, setV)} /> : null}
+      {failed ? <button type="button" class="btn btn-tonal btn-block" onClick={load}><Icon name="refresh-cw" />Probar de nuevo</button> : null}
+    </div>
+  );
+}
+
 function openKidsSheet(p: ProfileView) {
   const dlg = el<HTMLDialogElement>('#kidsDialog');
   render(<KidsSheet key={`${p.id}:${Date.now()}`} p={p} dlg={dlg} />, dlg);
