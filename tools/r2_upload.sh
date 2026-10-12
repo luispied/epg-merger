@@ -64,14 +64,18 @@ fi
 echo "✅ Subido a R2 ($BUCKET)"
 
 # Guía de cada configuración: se bajan las configuraciones (sin credenciales), se arman todas
-# en una pasada por la guía y se suben. --delete: la de una configuración borrada deja de estar.
+# en una pasada por la guía y se suben. Las de una configuración borrada las quita tools/delete_cfg.py.
 rm -rf out/cfgs out/cfg_epg
 s3 sync "$BUCKET/cfg" out/cfgs --exclude '*' --include '*.json'
-python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg
-# El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular.
+# Las configuraciones sin uso (sin edición ni links usados en 30 días, tools/config_activity.py) no reciben guía
+# nueva: su epg/ queda como estaba y no se borra (sin --delete, que la borraría). Si el cálculo falla, se arman todas.
+python tools/config_activity.py --out out/idle.json || rm -f out/idle.json
+python tools/config_epgs.py --configs out/cfgs --out out/cfg_epg --idle out/idle.json
+# El índice por hora de cada configuración (solo sus canales), lo que baja la Guía en el celular. Se arma para todas,
+# también las que no usan: la Guía de la edición lo lee, y sin él mostraría la guía de toda la programación.
 python tools/pack_schedule.py --configs out/cfgs out/schedule out/schedule_cfg
 [ -d out/schedule_cfg ] && sync out/schedule_cfg ui/schedule/cfg --delete
 if [ -d out/cfg_epg ]; then
-  sync out/cfg_epg epg --delete --type application/gzip
+  sync out/cfg_epg epg --type application/gzip
   echo "✅ Guías de Grilla web subidas"
 fi

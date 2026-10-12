@@ -95,7 +95,8 @@ flowchart TD
   programación en 256 tandas para no hacer miles de escrituras por día.
 - **Guía y índice por configuración:** `tools/config_epgs.py` abre una guía por cada `cfg/<cfgId>.json` y recorre la
   guía fusionada **una sola vez** escribiendo todas a la vez. Cada una lleva los canales de guía elegidos en esa
-  configuración.
+  configuración. Las que no tienen edición ni links usados en 30 días (`tools/config_activity.py`) no reciben guía
+  nueva: su `epg/` queda como estaba y sus links no se tocan. Su índice por hora sí se arma, porque lo lee la Guía.
 - **`refresh-lists.yml`** (cada 3 horas y cuando el Worker la pide) arma solo las guías de configuraciones nuevas o
   editadas, para que una persona nueva no espere a la corrida del día siguiente.
 - **Fuentes automáticas:** la demanda sale de los canales sin guía de las configuraciones; se activan las fuentes del

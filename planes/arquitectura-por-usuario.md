@@ -46,8 +46,8 @@ credenciales de usuarios en GitHub**.
   miles puede acercarse al tope de 60 minutos del trabajo o al límite de archivos abiertos.
 - **Tamaño en R2**: una guía por configuración cada día (almacenamiento y escrituras ~1 por configuración por día, y
   otro tanto para el índice por hora). Hay que medir el tamaño real de una guía típica para proyectar los 10 GB gratis.
-- **Configuraciones abandonadas**: no encontré nada que deje de armar la guía de una configuración sin uso; con el
-  tiempo se armarían para siempre.
+- **Configuraciones abandonadas**: resuelto: las que no se editan ni usan un link en 30 días dejan de recibir guía
+  nueva (`tools/config_activity.py`, ver `docs/pipeline-epg.md`). Sus links y su guía existente no se tocan.
 - **Minutos de Actions**: depende de si el repo es público (gratis) o privado (tope mensual).
 
 ## Plan propuesto
