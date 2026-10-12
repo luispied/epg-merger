@@ -53,6 +53,15 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt boto3
 
+    # Las fuentes de guía son privadas: viven en R2 (tools/fuentes_r2.py), no en el repo. Si no se bajan, la corrida falla.
+    - name: Bajar las fuentes de R2
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/fuentes_r2.py pull
+
     - name: Run tests
       run: python -m pytest tests/ -q
 

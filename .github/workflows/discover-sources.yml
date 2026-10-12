@@ -1,8 +1,8 @@
 name: Discover EPG sources
 
 # Una vez por semana recorre los proveedores públicos de EPG (epgshare01, open-epg,
-# iptv-epg.org y repos sueltos), prueba cada archivo y actualiza epg_sources_catalog.json en
-# main: qué fuentes existen, de qué país son y si están al día (fresh), abandonadas (stale) o
+# iptv-epg.org y repos sueltos), prueba cada archivo y actualiza el catálogo en
+# R2 (privado, fuentes/): qué fuentes existen, de qué país son y si están al día (fresh), abandonadas (stale) o
 # caídas (down). epg_urls.json puede referenciar estas fuentes solo por id.
 on:
   schedule:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: discover-sources
@@ -30,12 +30,12 @@ jobs:
     - run: pip install -r requirements.txt
     - name: Discover and evaluate sources
       run: python tools/discover_epg_sources.py --out epg_sources_catalog.json
-    - name: Commit the catalog if it changed
+    - name: Subir el catálogo a R2 (privado, no se commitea)
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
       run: |
-        git config user.email "actions@github.com"
-        git config user.name "github-actions"
-        git add epg_sources_catalog.json
-        if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
-        git commit -q -m "Actualizar catálogo de fuentes EPG (descubrimiento semanal)"
-        # Otro commit (p. ej. una edición desde la interfaz) pudo entrar mientras corría.
-        for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
+        pip install boto3
+        python tools/fuentes_r2.py push epg_sources_catalog.json
