@@ -21,6 +21,7 @@ import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.t
 import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { placeTabPill } from './ui/tabbar.ts';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
 import { openCodes } from './ui/codes.tsx';
 import { openCategories, renderCategories, renderChannelOrder } from './ui/categorias.tsx';
@@ -1368,6 +1369,7 @@ function markTab(t: Tab) {
     if (k === t) $(sel).setAttribute('aria-current', 'page');
     else $(sel).removeAttribute('aria-current');
   }
+  placeTabPill($('#tabbar'));
 }
 /** La pestaña que se ve: una página abierta o, si no hay, la Guía o la lista. */
 function currentTab(): Tab {
@@ -2961,6 +2963,7 @@ function setupEditor() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   $('#tabGuide').onclick = () => setGuide(true);
+  placeTabPill($('#tabbar'));
   // Pestaña Perfil: un toque abre Perfiles; mantenerla apretada (o clic derecho) cambia de perfil sin entrar.
   let pressTimer = 0;
   let pressed = false;
