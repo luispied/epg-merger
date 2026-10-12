@@ -13,7 +13,7 @@ nombres de código.
 
 ## 1.46.4
 
-- **El logo de inicio tapa lo que la app ya dibujó debajo.** Al abrir, el esqueleto de carga se veía a través del fundido del logo. Ahora la app queda oculta mientras el logo está, y entra con un fundido corto cuando se va. Igual en la edición y en el modo ver.
+- **El logo de inicio tapa lo que la app ya dibujó debajo.** Al abrir, el esqueleto de carga se veía a través del fundido del logo. Ahora la app queda oculta mientras el logo está, y entra con un fundido corto cuando se va. Igual en la edición y en el modo ver. Si la app no llega a arrancar, a los 5 s el logo se va solo y la pantalla se ve igual.
 
 ## 1.46.3
 
