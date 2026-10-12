@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><filter id="gris"><feColorMatrix type="saturate" values="0"/></filter><g filter="url(#gris)">
+  <!-- Nowline: la grilla de programación con la línea de «ahora». Los bloques claros son lo que está al aire. -->
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22252d"/><stop offset="1" stop-color="#0c0d10"/></linearGradient>
+    <mask id="m"><rect width="512" height="512" fill="#fff"/><line x1="262" y1="132" x2="262" y2="384" stroke="#000" stroke-width="34" stroke-linecap="round"/><circle cx="262" cy="120" r="30" fill="#000"/></mask></defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <g mask="url(#m)"><g fill="#3a3f4a"><rect x="104" y="150" width="120" height="60" rx="16"/><rect x="104" y="226" width="76" height="60" rx="16"/><rect x="336" y="226" width="72" height="60" rx="16"/><rect x="288" y="302" width="120" height="60" rx="16"/></g>
+  <g fill="#eceef2"><rect x="240" y="150" width="168" height="60" rx="16"/><rect x="196" y="226" width="124" height="60" rx="16"/><rect x="104" y="302" width="168" height="60" rx="16"/></g></g>
+  <line x1="262" y1="132" x2="262" y2="384" stroke="#ffb224" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="262" cy="120" r="22" fill="#ffb224"/>
+
+</g></svg>
