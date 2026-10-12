@@ -1032,7 +1032,7 @@ body.guide-open { overflow: hidden; }
 .gd-tick.day { color: var(--text); font-weight: 700; }
 .gd-now-pill { position: absolute; top: 6px; transform: translateX(-50%); z-index: 2; background: var(--live); color: var(--on-live); font-size: 11.5px; font-weight: 700; line-height: 1.5; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
 .gd-cat { position: absolute; left: 0; height: 30px; background: var(--bg); }
-.gd-cat > span { position: sticky; left: 0; display: inline-block; padding: 0 var(--gutter); line-height: 30px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-cat > span { position: sticky; left: 0; display: inline-block; padding: 0 var(--gutter); background: var(--bg); line-height: 30px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .gd-row { position: absolute; left: 0; display: flex; height: var(--rowh); border-bottom: 1px solid var(--hairline); }
 .gd-ch { position: sticky; left: 0; z-index: 3; flex: none; width: var(--chw); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; background: var(--surface); border: 0; border-right: 1px solid var(--hairline); color: inherit; font: inherit; cursor: pointer; }
 .gd-ch .logo { width: 36px; height: 30px; border-radius: 8px; flex: none; }
@@ -1107,10 +1107,11 @@ body.viewer { font-size: 17px; }
 .vw-head-r .vw-who { max-width: none; min-width: 0; }
 .vw-help > .sheet-body > p, .vw-help details p { font-size: 17px; line-height: 1.55; }
 .vw-help summary { font-size: 17px; }
-.vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; background: var(--bg); max-width: 760px; margin: 0 auto; }
+.vw-search { position: sticky; top: 0; z-index: 4; padding: calc(8px + env(safe-area-inset-top, 0px)) var(--gutter) 14px; background: var(--bg); max-width: 760px; margin: 0 auto; }
 .vw-search .search-field input { font-size: 18px; min-height: 52px; }
 .vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
-.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 14px 0 4px; padding: 6px 4px;
+/* Lo que pasa por debajo se veía en el hueco entre el buscador (termina en 70px) y el encabezado: el margen queda por fuera del fondo, así que va como padding. */
+.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 0 0 4px; padding: 14px 4px 6px;
   background: var(--bg); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .vw-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 84px; padding: 12px 14px; margin: 0 0 8px;
   border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow); }
