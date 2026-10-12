@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código. Una versión menor o mayor (no un parche) manda además un aviso push a quien tenga los avisos activados.
 
+## 1.41.3
+
+- **«Mirando ahora» es más preciso.** Un link figura mirando 30 minutos después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
+- Worker: el modo «solo ver» usa la misma ventana y el mismo tope.
+- Interno: `WATCHING_MS` (`worker/src/index.ts`) y `RECENT_PLAY_MS` (`worker/web/ui/perfiles.tsx`) en 30 minutos.
+
 ## 1.41.2
 
 - **La Guía y la lista abren más rápido.** El cruce de cada canal con la guía se guarda en este navegador: se vuelve a calcular solo cuando cambia la guía del día, tu lista o tus preferencias.

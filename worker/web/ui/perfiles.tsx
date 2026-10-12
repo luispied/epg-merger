@@ -369,7 +369,7 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
 
 /** Un link «está mirando» si abrió un canal hace menos de esto. El Worker solo ve cuándo empieza cada canal, no cuándo
  *  se deja, así que es una estimación. */
-const RECENT_PLAY_MS = 3 * 3600 * 1000;
+const RECENT_PLAY_MS = 30 * 60 * 1000;
 const sinceText = (iso: string) => {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : min < 1440 ? `hace ${Math.round(min / 60)} h` : `hace ${Math.round(min / 1440)} d`;
@@ -388,8 +388,10 @@ function ConnectionsPage({ a }: { a: AccountView }) {
   const chName = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
   const recent = (d: Device) => d.active && !!d.lastPlay && Date.now() - Date.parse(d.lastPlay.t) < RECENT_PLAY_MS;
   const byPlay = (x: Device, y: Device) => (y.lastPlay?.t ?? '').localeCompare(x.lastPlay?.t ?? '');
-  const watching = a.devices.filter(recent).sort(byPlay);
-  const rest = a.devices.filter((d) => !recent(d)).sort(byPlay);
+  // El proveedor dice cuántas conexiones hay: no se muestran más links mirando que conexiones.
+  const candidates = a.devices.filter(recent).sort(byPlay);
+  const watching = inUse === undefined ? candidates : candidates.slice(0, inUse);
+  const rest = a.devices.filter((d) => !watching.includes(d)).sort(byPlay);
   const unseen = inUse === undefined ? 0 : inUse - watching.length;
   const Row = ({ d }: { d: Device }) => {
     const prof = a.profiles.find((p) => p.id === d.profile)?.name;
@@ -417,10 +419,10 @@ function ConnectionsPage({ a }: { a: AccountView }) {
         <div class="pc-stat"><b class={watching.length ? 'ok' : ''}>{watching.length}</b><small>{watching.length === 1 ? 'Link mirando' : 'Links mirando'}</small></div>
       </div>
       <SubTitle>Mirando ahora</SubTitle>
-      {watching.length ? <List ds={watching} /> : <Help>Ningún link de esta cuenta abrió un canal en las últimas 3 horas.</Help>}
-      {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
+      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en los últimos 30 minutos.'}</Help>}
+      {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, un mismo link usado en varios dispositivos a la vez (Nowline ve un solo registro por link), o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
-      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 3 horas después del último canal que abrió.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
+      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 30 minutos después del último canal que abrió. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
     </>
   );
 }
