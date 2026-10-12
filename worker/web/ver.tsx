@@ -8,6 +8,7 @@ import { Icon } from './ui/icon.tsx';
 import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
 import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
 import { Logo, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 
@@ -426,8 +427,9 @@ function App() {
     <>
       <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
-      <nav class="tabbar vw-tabbar" aria-label="Secciones">
+      <nav class="tabbar vw-tabbar" aria-label="Secciones" ref={(el) => { if (el) placeTabPill(el); }}>
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
+        <span class="tab-pill" aria-hidden="true" />
         <button type="button" class={`tab${tab === 'canales' ? ' active' : ''}`} aria-current={tab === 'canales' ? 'page' : undefined} onClick={() => setTab('canales')}>
           <Icon name="tv" /><span>Canales</span>
         </button>
