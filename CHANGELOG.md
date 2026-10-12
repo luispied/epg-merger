@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.42.9
+
+- **La barra inferior del modo ver queda a la misma altura en la Guía que en Canales.** Se saca el bloqueo de scroll de la página de atrás en el modo ver; la edición lo sigue usando.
+
 ## 1.42.8
 
 - **Al abrir la Guía, la página de atrás ya no se mueve.** En el celular, el scroll de la lista de atrás corría la barra inferior y la hacía verse más arriba que en el modo ver.
