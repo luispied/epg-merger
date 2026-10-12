@@ -152,6 +152,12 @@ function loadHours(from: number, to: number, done: () => void) {
 }
 
 const fold = (t: string) => t.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerCase();
+/** «cine», «cine y deportes», «cine, deportes e infantil»; más de tres, «4 géneros». */
+function genresLabel(gs: string[]): string {
+  const l = gs.map((g) => g.toLowerCase());
+  if (l.length > 3) return `${l.length} géneros`;
+  return l.length > 1 ? `${l.slice(0, -1).join(', ')} y ${l.at(-1)}` : l[0] ?? '';
+}
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 /** «Deportes», «Deportes y Películas», «Deportes, Cine y Series»; más de tres, «4 categorías». */
 export function catsLabel(cats: string[]): string {
@@ -265,23 +271,12 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const [openSig, setOpenSig] = useState(0);
   // Géneros: otro filtro, aparte de las categorías (se pueden combinar) y propio de la Guía. Se recuerdan en este navegador.
   const [gsel, setGselState] = useState<string[]>(savedGenres);
-  const setGsel = (next: string[]) => { setGselState(next); pref.set('genres', JSON.stringify(next)); };
+  const setGsel = (next: string[]) => { setGselState(next); pref.set('genres', JSON.stringify(next)); box.current?.scrollTo({ top: 0 }); };
+  // Los géneros que Tu plan podría proponer (los calcula el plan con lo que carga): son las opciones de la hoja en ese modo.
+  const [planGenres, setPlanGenres] = useState<string[]>([]);
   const toggleGenre = (g: string) => setGsel(gsel.includes(g) ? gsel.filter((x) => x !== g) : [...gsel, g]);
   // Memo: una lista nueva en cada render volvería a disparar la carga de Tu noche.
   const shown = useMemo(() => (sel.length ? channels.filter((c) => sel.includes(c.cat)) : channels), [channels, sel]);
-
-  // Filas: un encabezado por categoría (salvo con una sola elegida) y una fila por canal.
-  const rows = useMemo(() => {
-    const out: ({ top: number; cat: string } | { top: number; ch: GuideChannel })[] = [];
-    let top = 0;
-    let last = '';
-    for (const ch of shown) {
-      if (sel.length !== 1 && ch.cat !== last) { out.push({ top, cat: ch.cat }); top += CAT_H; last = ch.cat; }
-      out.push({ top, ch });
-      top += ROWH;
-    }
-    return { out, height: top };
-  }, [shown, sel, ROWH]);
 
   const sync = () => {
     const el = box.current;
@@ -316,7 +311,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   // Géneros de la programación que se ve (la Grilla, las horas a la vista; Próximos, las próximas horas) en los canales
   // de las categorías elegidas. Sin clasificar y Publicidad no ofrecen chip. Los elegidos se ven siempre, para poder sacarlos.
   const genres = useMemo(() => {
-    if (mode === 'plan') return [];
+    if (mode === 'plan') return [...new Set([...planGenres, ...gsel])].sort((a, b) => a.localeCompare(b, 'es'));
     const from = mode === 'grid' ? visFrom : now - HOUR;
     const to = mode === 'grid' ? visTo : now + (NEXT_H + 1) * HOUR;
     const epgs = new Set(shown.flatMap((c) => (c.epg ? [c.epg] : [])));
@@ -333,17 +328,17 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       }
     }
     return [...found].sort((a, b) => a.localeCompare(b, 'es'));
-  }, [mode, shown, ver, gsel, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR), Math.floor(now / HOUR)]);
+  }, [mode, shown, ver, gsel, planGenres, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR), Math.floor(now / HOUR)]);
 
   // Los filtros de la Guía, con el mismo botón, chips y hoja que Canales (ui/filtros.tsx): las categorías en el orden
-  // de la app y los géneros de lo que se ve. En Tu noche solo valen las categorías.
+  // de la app y los géneros de lo que se ve (en Tu noche, de lo que el plan podría proponer).
   const filterModel: FilterModel = {
     filter: 'todos', states: [], cats: sel,
     categories: cats.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
-    ...(mode === 'plan' ? {} : { genres: gsel, genreOptions: genres.map((g) => ({ key: g, label: g })) }),
+    genres: gsel, genreOptions: genres.map((g) => ({ key: g, label: g })),
   };
   const filterHandlers: FilterHandlers = { onState: () => {}, onCats: setSel, onGenres: setGsel };
-  const filterCount = sel.length + (mode === 'plan' ? 0 : gsel.length);
+  const filterCount = sel.length + gsel.length;
 
   // Horas visibles que todavía se están bajando: cada fila con guía muestra un bloque gris con brillo (esqueleto) en su
   // lugar, en vez de quedar vacía.
@@ -353,6 +348,47 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const v = hours.get(h);
     if (v === undefined || v === 'loading') pendingHours.push(h);
   }
+
+  // Con géneros elegidos, la Grilla muestra solo los canales que tienen algún programa de esos géneros en lo que se ve.
+  // Mientras las horas visibles todavía bajan no se esconde nada (o se deja lo último calculado): sin parpadeos ni vacío.
+  const lastKeep = useRef<{ key: string; epgs: Set<string> } | null>(null);
+  const keepKey = `${gsel.join('|')}#${sel.join('|')}#${channels.length}`;
+  const gridShown = useMemo(() => {
+    if (!gsel.length) return shown;
+    let epgs: Set<string> | undefined;
+    const idxs: HourIndex[] = [];
+    for (let h = Math.floor(visFrom / HOUR) * HOUR; h < visTo; h += HOUR) {
+      const idx = hours.get(h);
+      if (idx && idx !== 'loading') idxs.push(idx);
+    }
+    if (!pendingHours.length && idxs.length) {
+      epgs = new Set();
+      for (const idx of idxs) {
+        if (!idx.g) continue;
+        for (const [epg, rs] of Object.entries(idx.c)) {
+          if (epgs.has(epg)) continue;
+          if (rs.some((r) => { const g = idx.g![r[2]]; return !!g && gsel.includes(g) && idx.h + r[1] * 60 > visFrom && idx.h + r[0] * 60 < visTo; })) epgs.add(epg);
+        }
+      }
+      lastKeep.current = { key: keepKey, epgs };
+    } else if (lastKeep.current?.key === keepKey) epgs = lastKeep.current.epgs;
+    const keep = epgs;
+    return keep ? shown.filter((c) => !!c.epg && keep.has(c.epg)) : shown;
+  }, [shown, gsel, keepKey, ver, pendingHours.length, Math.floor(visFrom / HOUR), Math.floor(visTo / HOUR)]);
+  const noChannels = mode === 'grid' && gsel.length > 0 && channels.length > 0 && gridShown.length === 0;
+
+  // Filas: un encabezado por categoría (salvo con una sola elegida) y una fila por canal.
+  const rows = useMemo(() => {
+    const out: ({ top: number; cat: string } | { top: number; ch: GuideChannel })[] = [];
+    let top = 0;
+    let last = '';
+    for (const ch of gridShown) {
+      if (sel.length !== 1 && ch.cat !== last) { out.push({ top, cat: ch.cat }); top += CAT_H; last = ch.cat; }
+      out.push({ top, ch });
+      top += ROWH;
+    }
+    return { out, height: top };
+  }, [gridShown, sel, ROWH]);
 
   // Programas de un canal en el rango, desde las horas ya bajadas; los huecos de 10 min o más
   // dentro de horas bajadas se marcan («Sin programación»): así se ven las guías flojas.
@@ -494,10 +530,18 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       )}
       {mode === 'plan' && channels.length > 0 && (
         <Plan channels={shown} now={now} host={host} habits={habits} open={(ch, p) => setOpen({ ch, p })} filter={sel}
+          genres={gsel} offer={setPlanGenres} clearGenres={() => setGsel([])}
           suggest={cats.filter((c) => !sel.includes(c) && counts.get(c)).sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))[0]}
           add={(c) => setSel([...sel, c])} pick={() => setOpenSig((n) => n + 1)} />
       )}
-      <div class="gd" ref={box} hidden={mode !== 'grid'} onScroll={() => requestAnimationFrame(sync)}
+      {noChannels && (
+        <div class="empty">
+          <strong>Ningún canal tiene {genresLabel(gsel)} ahora</strong>
+          <p>En las horas que se ven no hay programas de {gsel.length > 1 ? 'esos géneros' : 'ese género'}{sel.length ? ` en ${catsLabel(sel)}` : ''}.</p>
+          <button type="button" class="btn btn-tonal" onClick={() => { setSel([]); setGsel([]); }}>Quitar filtros</button>
+        </div>
+      )}
+      <div class="gd" ref={box} hidden={mode !== 'grid' || noChannels} onScroll={() => requestAnimationFrame(sync)}
         style={{ '--chw': `${CHW}px`, '--rowh': `${ROWH}px` }}>
         <div class="gd-inner" style={{ width: `${CHW + W}px`, height: `${RULER + rows.height}px` }}>
           <div class="gd-ruler">
@@ -711,8 +755,10 @@ export function buildPlan(cands: Cand[], now: number, end: number, forced: Map<n
 
 const MAX_PLAN_CHANNELS = 150;
 
-function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }: {
+function Plan({ channels, now, host, habits, open, filter, genres, offer, clearGenres, suggest, add, pick }: {
   channels: GuideChannel[]; now: number; host: GuideHost; habits: Habits | null; open: (ch: GuideChannel, p: Prog) => void;
+  /** Los géneros elegidos (vacío = todos), avisar cuáles podría proponer el plan (son las opciones de la hoja) y quitarlos. */
+  genres: string[]; offer: (g: string[]) => void; clearGenres: () => void;
   /** Las categorías elegidas (vacío = todas), la que conviene sumar si no alcanza, sumarla y abrir la hoja. */
   filter: string[]; suggest?: string; add: (c: string) => void; pick: () => void;
 }) {
@@ -731,19 +777,32 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
   }, [withGuide]);
   const loaded = withGuide.every((c) => scheds.has(c.epg!));
 
-  const plan = useMemo(() => {
+  // Todo lo que el plan podría proponer en el rato que queda (sin título: no apto en un perfil infantil).
+  const all = useMemo(() => {
     const cands: { ch: GuideChannel; p: Prog }[] = [];
     for (const ch of withGuide) {
       for (const [s, e, t, , g] of scheds.get(ch.epg!) ?? []) {
-        if (t && e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } }); // sin título: no apto en un perfil infantil
+        if (t && e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } });
       }
     }
+    return cands;
+  }, [scheds, Math.floor(now / 300), part.end]);
+  // Géneros que ofrece la hoja: los de esos programas, sin Publicidad ni sin clasificar.
+  const offered = useMemo(
+    () => [...new Set(all.flatMap((c) => (c.p.g && c.p.g !== NEVER_SUGGEST ? [c.p.g] : [])))].sort((a, b) => a.localeCompare(b, 'es')).join('\n'),
+    [all]);
+  useEffect(() => { offer(offered ? offered.split('\n') : []); }, [offered]);
+  useEffect(() => { setForced(new Map()); }, [genres.join('|')]);
+  // Con géneros elegidos, el plan se arma solo con programas de esos géneros (los sin clasificar no entran).
+  const plan = useMemo(() => {
+    const cands = genres.length ? all.filter((c) => !!c.p.g && genres.includes(c.p.g)) : all;
     return buildPlan(cands, now, part.end, forced, habitAffinity(habits, marks));
-  }, [scheds, forced, Math.floor(now / 300), part.end, habits, marks]);
+  }, [all, genres.join('|'), forced, Math.floor(now / 300), part.end, habits, marks]);
   const learned = !!habits && Object.keys(habits.ch).length > 0;
   // Con categorías elegidas, si el plan termina más de media hora antes del final del rato, se dice y se ofrece sumar.
   const lastEnd = plan.reduce((m, sl) => Math.max(m, sl.p.e), now);
-  const short = filter.length > 0 && loaded && part.end - lastEnd > 30 * 60;
+  const short = (filter.length > 0 || genres.length > 0) && loaded && part.end - lastEnd > 30 * 60;
+  const what = [...(filter.length ? [catsLabel(filter)] : []), ...(genres.length ? [genresLabel(genres)] : [])].join(' y ');
 
   const bell = (ch: GuideChannel, p: Prog) => {
     if (host.viewer) return null;
@@ -759,9 +818,9 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
 
   return (
     <div class="gd-up gd-plan">
-      <p class="gd-plan-lead">Armé tu {part.name} con {learned ? 'lo que solés mirar y ' : ''}lo mejor de {filter.length ? <b>{catsLabel(filter)}</b> : 'tus canales'}, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata o decir si te interesa, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
+      <p class="gd-plan-lead">Armé tu {part.name} con {learned ? 'lo que solés mirar y ' : ''}lo mejor de {filter.length ? <b>{catsLabel(filter)}</b> : 'tus canales'}{genres.length > 0 && <>, solo de <b>{genresLabel(genres)}</b></>}, sin que nada se pise. {host.viewer ? 'Tocá un programa para ver de qué se trata o decir si te interesa, o una de las opciones para cambiarlo.' : 'Tocá la campana y te aviso en cada cambio.'}</p>
       {!loaded ? <p class="gd-up-empty">Armando tu {part.name}…</p> : !plan.length
-        ? !filter.length && <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
+        ? !filter.length && !genres.length && <p class="gd-up-empty">No encontré programas para armar tu {part.name} en estos canales.</p>
         : (
           <ol class="gd-plan-list">
             {plan.map((sl, i) => {
@@ -797,10 +856,11 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
       {short && (
         <div class="gd-plan-gap">
           <p class="t">De las {hm(Math.max(now, lastEnd))} a las {hm(part.end)} no encontré nada</p>
-          <p class="d">Con {catsLabel(filter)} {plan.length ? `solo hay ${plural(plan.length, 'programa', 'programas')}` : 'no hay programas'} para
-            tu {part.name}. Sumá otra categoría para completar el plan.</p>
+          <p class="d">Con {what} {plan.length ? `solo hay ${plural(plan.length, 'programa', 'programas')}` : 'no hay programas'} para
+            tu {part.name}. {genres.length ? 'Quitá el filtro de género o elegí otro para completar el plan.' : 'Sumá otra categoría para completar el plan.'}</p>
           <div class="acts">
-            {suggest && <button type="button" class="btn btn-tonal sm" onClick={() => add(suggest)}><Icon name="plus" class="sm" />Sumar {suggest}</button>}
+            {genres.length > 0 && <button type="button" class="btn btn-tonal sm" onClick={clearGenres}><Icon name="x" class="sm" />Quitar filtro</button>}
+            {!genres.length && suggest && <button type="button" class="btn btn-tonal sm" onClick={() => add(suggest)}><Icon name="plus" class="sm" />Sumar {suggest}</button>}
             <button type="button" class="btn btn-gray sm" onClick={pick}>Elegir otras</button>
           </div>
         </div>

@@ -90,6 +90,6 @@ test('Tu noche: con lo elegido no alcanza, lo dice y ofrece sumar una categoría
   await expect(page.locator('#guide .gd-plan-lead')).toContainText('Cultura y Deportes');
   await gap.getByRole('button', { name: 'Elegir otras' }).click();
   await expect(sheet(page)).toBeVisible();
-  // En Tu noche solo valen las categorías: la hoja no ofrece géneros.
-  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías']);
+  // En Tu noche la hoja también ofrece géneros (los del plan).
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías', 'Géneros']);
 });

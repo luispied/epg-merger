@@ -1,8 +1,13 @@
 // Filtro por género de la Guía (ui/guide.tsx), probado en el modo ver (la Guía es el mismo componente en la edición):
 // con el botón y la hoja de filtros de Canales (ui/filtros.tsx), las opciones salen de la programación a la vista, sin
-// Publicidad ni «sin clasificar»; lo puesto queda en chips con su ×; en la Grilla apaga lo que no es del género y en
-// Próximos lo saca; se combina con las categorías, se recuerda y es de la Guía.
+// Publicidad ni «sin clasificar»; lo puesto queda en chips con su ×; en la Grilla apaga lo que no es del género y
+// esconde los canales que no tienen nada de él, en Próximos lo saca y en Tu plan arma el plan solo con esos géneros;
+// se combina con las categorías, se recuerda y es el mismo estado en las tres vistas.
+import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+
+const NOW = Math.floor(Date.now() / 1000);
+const file = (epg: string) => createHash('sha1').update(epg).digest('hex').slice(0, 16);
 
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv';
 
@@ -15,6 +20,13 @@ const ROWS = {
   [CHANNELS[0].epg]: [[0, 30, 0], [30, 60, 1]],
   [CHANNELS[1].epg]: [[0, 30, 2], [30, 60, 3]],
   [CHANNELS[2].epg]: [[0, 30, 4], [30, 60, 4]],
+};
+
+// La programación por canal (lo que arma Tu plan), con el género de cada programa; vacío = sin clasificar.
+const SCHED: Record<string, (string | number)[][]> = {
+  [file(CHANNELS[0].epg)]: [[NOW - 600, NOW + 1800, 'Cine de Barrio', '', 'Cine'], [NOW + 1800, NOW + 5400, 'Dibujos Locos', '', 'Infantil']],
+  [file(CHANNELS[1].epg)]: [[NOW - 600, NOW + 1800, 'Sin clasificar'], [NOW + 1800, NOW + 5400, 'Peli de la tarde', '', 'Cine']],
+  [file(CHANNELS[2].epg)]: [[NOW - 600, NOW + 5400, 'Compre YA', '', 'Publicidad']],
 };
 
 let errors: string[] = [];
@@ -44,6 +56,8 @@ async function open(page: Page, prefs: Record<string, string> = {}) {
       const h = Date.UTC(+hour[1], +hour[2] - 1, +hour[3], +hour[4]) / 1000;
       return r.fulfill({ json: { h, t: TITLES, g: GENRES, c: ROWS } });
     }
+    const sched = /^\/api\/ui\/schedule\/([0-9a-f]{16})\.json$/.exec(path);
+    if (sched) return r.fulfill({ json: SCHED[sched[1]] ?? [] });
     if (path.startsWith('/api/ui/schedule/')) return r.fulfill({ json: [] });
     if (path === '/api/ui/again') return r.fulfill({ json: { ids: [], r: [] } });
     return r.fulfill({ status: 404, json: { error: 'sin red en el test' } });
@@ -68,7 +82,7 @@ async function pick(page: Page, ...names: string[]) {
 test.beforeEach(() => { errors = []; });
 test.afterEach(() => { expect(errors).toEqual([]); });
 
-test('los chips salen de la programación, sin Publicidad ni sin clasificar; la Grilla apaga el resto', async ({ page }, info) => {
+test('los chips salen de la programación, sin Publicidad ni sin clasificar; la Grilla apaga el resto y esconde los canales sin nada', async ({ page }, info) => {
   await open(page);
   await btn(page).click();
   await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías', 'Géneros']);
@@ -88,9 +102,28 @@ test('los chips salen de la programación, sin Publicidad ni sin clasificar; la 
   for (const label of await page.locator('#guide .gd-cell.off').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''))) {
     expect(label).not.toMatch(/Cine de Barrio|Peli de la tarde/);
   }
+  // Compras solo tiene publicidad: su fila no se muestra; las otras dos sí.
+  await expect(page.locator('#guide .gd-row')).toHaveCount(2);
+  await expect(page.locator('#guide .gd-row .nm')).toHaveText(['Deportes 1', 'Noticias 2']);
   await shots(page, 'grilla', info.project.name);
   await active(page).getByRole('button', { name: /^Cine/ }).click();
   await expect(page.locator('#guide .gd-cell.off')).toHaveCount(0);
+  await expect(page.locator('#guide .gd-row')).toHaveCount(3);
+  // Infantil solo está en un canal.
+  await pick(page, 'Infantil');
+  await expect(page.locator('#guide .gd-row .nm')).toHaveText(['Deportes 1']);
+});
+
+test('Grilla: si ningún canal tiene el género, lo dice y se quitan los filtros', async ({ page }, info) => {
+  await open(page, { grilla_guide_genres: '["Deportes en vivo"]' });
+  const empty = page.locator('#guide .empty');
+  await expect(empty).toContainText('Ningún canal tiene deportes en vivo ahora');
+  await expect(page.locator('#guide .gd-row')).toHaveCount(0);
+  await shots(page, 'grilla-vacia', info.project.name);
+  await empty.getByRole('button', { name: 'Quitar filtros' }).click();
+  await expect(empty).toHaveCount(0);
+  await expect(page.locator('#guide .gd-row')).toHaveCount(3);
+  await expect(active(page)).toHaveCount(0);
 });
 
 test('Próximos: solo lo del género; combina con las categorías; se recuerda', async ({ page }, info) => {
@@ -123,7 +156,7 @@ test('Próximos: solo lo del género; combina con las categorías; se recuerda',
   await shots(page, 'chips', info.project.name);
 });
 
-test('un género elegido sin nada en esas horas se puede sacar; Tu noche no lleva géneros', async ({ page }) => {
+test('un género elegido sin nada en esas horas se puede sacar', async ({ page }) => {
   await open(page, { grilla_guide_genres: '["Deportes en vivo","Publicidad"]', grilla_guide_mode: 'next' });
   // Publicidad nunca es un filtro; el otro no está en la programación pero se ve para poder sacarlo.
   await btn(page).click();
@@ -133,9 +166,46 @@ test('un género elegido sin nada en esas horas se puede sacar; Tu noche no llev
   await expect(page.locator('#guide .gd-up-empty')).toContainText('Nada de deportes en vivo empieza');
   await active(page).getByRole('button', { name: /^Deportes en vivo/ }).click();
   await expect(page.locator('#guide .gd-up-row').first()).toBeVisible();
-  await page.getByRole('button', { name: /armada para vos/ }).click();
-  await expect(page.locator('#guide .gd-plan')).toBeVisible();
-  // En Tu noche solo valen las categorías: ni chips de género ni sección en la hoja.
+});
+
+test('Tu plan: la hoja ofrece los géneros del plan y arma el plan solo con ellos; es el mismo estado de la Guía', async ({ page }, info) => {
+  await open(page, { grilla_guide_mode: 'plan' });
+  const slots = page.locator('#guide .gd-plan-slot .tt');
+  await expect(slots.first()).toBeVisible();
+  // Sin filtro entra todo (también lo sin clasificar); la hoja ofrece Cine e Infantil, sin Publicidad ni sin clasificar.
+  await expect(btn(page)).toHaveAccessibleName('Filtrar');
   await btn(page).click();
-  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías']);
+  await expect(sheet(page).locator('.sec-title')).toHaveText(['Categorías', 'Géneros']);
+  await expect(options(page)).toHaveText(['Cine', 'Infantil']);
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await pick(page, 'Infantil');
+  await expect(btn(page)).toHaveAccessibleName('Filtrar, 1 activo');
+  await expect(active(page).getByRole('button')).toHaveText(['Infantil Quitar']);
+  await expect(slots).toHaveText(['Dibujos Locos']);
+  await expect(page.locator('#guide .gd-plan-lead')).toContainText('solo de infantil');
+  expect(await page.evaluate(() => localStorage.getItem('grilla_guide_genres'))).toBe('["Infantil"]');
+  await shots(page, 'plan', info.project.name);
+  // Con dos géneros entran los dos; sin clasificar y publicidad, nunca.
+  await pick(page, 'Cine');
+  await expect(slots.filter({ hasText: /Cine de Barrio|Peli de la tarde/ }).first()).toBeVisible();
+  await expect(slots.filter({ hasText: /Sin clasificar|Compre/ })).toHaveCount(0);
+  // El mismo filtro vale en la Grilla: vuelve a la Grilla con él.
+  await page.getByRole('button', { name: 'Volver a Grilla' }).click();
+  await expect(active(page).getByRole('button')).toHaveText(['Infantil Quitar', 'Cine Quitar', 'Quitar todos']);
+});
+
+test('Tu plan: si el género elegido no tiene nada en el rato, lo dice y «Quitar filtro» lo saca', async ({ page }, info) => {
+  await open(page, { grilla_guide_mode: 'plan', grilla_guide_genres: '["Deportes en vivo"]' });
+  const gap = page.locator('#guide .gd-plan-gap');
+  await expect(gap).toContainText('no hay programas');
+  await expect(gap).toContainText('deportes en vivo');
+  // El elegido sin datos sigue en la hoja para poder sacarlo.
+  await btn(page).click();
+  await expect(options(page)).toHaveText(['Cine', 'Deportes en vivo', 'Infantil']);
+  await sheet(page).getByRole('button', { name: 'Listo' }).click();
+  await shots(page, 'plan-vacio', info.project.name);
+  await gap.getByRole('button', { name: 'Quitar filtro' }).click();
+  await expect(gap).toHaveCount(0);
+  await expect(page.locator('#guide .gd-plan-slot').first()).toBeVisible();
+  await expect(active(page)).toHaveCount(0);
 });
