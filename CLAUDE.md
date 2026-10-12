@@ -9,3 +9,4 @@
   `CHANGELOG.md` (el criterio de mayor, menor y parche está al principio de ese archivo).
 - **Merge automático.** Cuando un PR propio tiene el CI en verde, sin conflictos y sin comentarios pendientes, se
   mergea solo (squash), sin preguntar. Si hay PRs apilados, en orden, trayendo `main` a cada uno antes de mergearlo.
+- **Design system en toda interfaz y mock.** Todo cambio de interfaz y todo mock usa los tokens de `worker/web/tokens.css` y los componentes y clases que ya existen (`chip-btn`, `segmented`, `ui/kit.tsx`), según `planes/auditoria-diseno.md`. Un solo «elegido» (relleno `--fill`, letra 600); el ámbar es solo para acción y selección, y el verde para lo que está en vivo. Si falta un componente, se agrega a `ui/kit.tsx` en vez de inventar un estilo en la pantalla.

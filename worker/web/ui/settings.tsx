@@ -109,7 +109,7 @@ function MenuRow({ icon, title, sub, onClick, hidden }: { icon: string; title: s
   );
 }
 
-function Settings({ summary }: { summary: string }) {
+function Settings() {
   const [health, setHealth] = useState('Calculando…');
   const [guide, setGuide] = useState<GuideStatus | null>(null);
   const [push, setPushState] = useState<PushView | null>(null);
@@ -166,7 +166,6 @@ function Settings({ summary }: { summary: string }) {
         <span class="title-left"><h2 id="settingsTitle">Configuración</h2>
           <button type="button" class="icon-btn help-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('settings', '#settingsDialog')}><Icon name="circle-help" /></button></span>
         <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
-        <p class="meta-line">{summary}</p>
       </div>
       <h3 class="sec-title">Guía</h3>
       <div class="menu">
@@ -248,6 +247,6 @@ let seq = 0;
 /** Abre Configuración, armada de cero cada vez (la salud, la guía y los avisos se vuelven a mirar). */
 export function openSettings() {
   const dlg = dialog();
-  render(<Settings key={++seq} summary={document.getElementById('statusLine')?.textContent ?? ''} />, dlg.querySelector('.sheet-body')!);
+  render(<Settings key={++seq} />, dlg.querySelector('.sheet-body')!);
   openDock(dlg);
 }
