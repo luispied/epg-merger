@@ -1,4 +1,4 @@
-// Service worker de Nowline web: la app abre y se puede editar sin conexión.
+// Service worker de nowline web: la app abre y se puede editar sin conexión.
 // - La app (HTML, JS, CSS, íconos): de la red si hay; si no, la última guardada.
 // - Datos para mirar y editar (guía, programación, tu configuración y tu lista): igual,
 //   red primero y la copia guardada si no hay conexión.
@@ -59,7 +59,7 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     data = { body: event.data ? event.data.text() : '' };
   }
-  event.waitUntil(self.registration.showNotification(data.title || 'Nowline', {
+  event.waitUntil(self.registration.showNotification(data.title || 'nowline', {
     body: data.body || '', icon: '/img/icon-192.png', badge: '/img/badge-96.png', tag: 'grilla', data: { url: data.url || '/' },
   }));
 });

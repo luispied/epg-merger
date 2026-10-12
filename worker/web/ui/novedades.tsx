@@ -1,6 +1,6 @@
-// Novedades: al abrir Nowline después de una actualización, un aviso breve («Nowline se actualizó») y, si se
+// Novedades: al abrir nowline después de una actualización, un aviso breve («nowline se actualizó») y, si se
 // quiere, la hoja con lo nuevo de cada versión desde la última que se vio en este navegador (sale de
-// public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez que se abre Nowline no se muestra
+// public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez que se abre nowline no se muestra
 // nada: solo se anota la versión. La hoja también se abre desde Configuración.
 import { render } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
@@ -39,7 +39,7 @@ export async function checkNovedades(current: string) {
   if (!fresh.length) return;
   // Espera a que se vaya la pantalla de inicio (450 ms y el fundido), así el aviso no queda debajo del logo.
   await new Promise((r) => setTimeout(r, document.getElementById('splash') ? 900 : 0));
-  toast('Nowline se actualizó', 'info', 6000, { label: 'Qué hay nuevo', run: () => open(fresh.slice(0, 5), current) });
+  toast('nowline se actualizó', 'info', 6000, { label: 'Qué hay nuevo', run: () => open(fresh.slice(0, 5), current) });
 }
 
 /** Desde Configuración: las últimas versiones, aunque ya se hayan visto. */

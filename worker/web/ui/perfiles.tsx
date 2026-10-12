@@ -380,7 +380,7 @@ function connectionsPage(account: string) {
   return a ? { title: 'Conexiones', node: <ConnectionsPage a={a} /> } : null;
 }
 
-/** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; Nowline ve cuándo cada
+/** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; nowline ve cuándo cada
  *  link abre un canal (sus streams pasan por el Worker) y pone arriba los que abrieron uno hace poco. */
 function ConnectionsPage({ a }: { a: AccountView }) {
   const acc = accountData(a);
@@ -420,7 +420,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
       {watching.length ? <List ds={watching} /> : <Help>Ningún link de esta cuenta abrió un canal en las últimas 3 horas.</Help>}
       {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
-      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 3 horas después del último canal que abrió.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
+      <Help>El proveedor dice cuántas conexiones hay, no cuáles. nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 3 horas después del último canal que abrió.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, nowline no ve los canales que se abren.' : ''}</Help>
     </>
   );
 }
@@ -1150,7 +1150,7 @@ function ProfileFilter({ p }: { p: ProfileView }) {
   );
 }
 
-/** «Compartir para ver»: un código (ver.<código>) para que otra persona abra Nowline en modo «solo ver» y mire la grilla
+/** «Compartir para ver»: un código (ver.<código>) para que otra persona abra nowline en modo «solo ver» y mire la grilla
  *  y la Guía de este perfil sin poder cambiar nada. Se pega donde va el código del hogar (o se abre como link /ver#…).
  *  Se crea al tocar el botón; quitarlo lo invalida. Los links de reproducción no cambian. */
 function ViewShare({ p }: { p: ProfileView }) {
@@ -1187,12 +1187,12 @@ function ViewShare({ p }: { p: ProfileView }) {
       }
     });
   };
-  const text = `Para ver qué dan en la tele: abrí Nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
+  const text = `Para ver qué dan en la tele: abrí nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
   if (!code) {
     return (
       <>
         <SubTitle>Compartir para ver</SubTitle>
-        <Help>Un código para otra persona (por ejemplo, alguien a quien le cuesta usar apps): lo pega al abrir Nowline,
+        <Help>Un código para otra persona (por ejemplo, alguien a quien le cuesta usar apps): lo pega al abrir nowline,
           donde va el código de otro dispositivo, y la app queda en modo «solo ver»: la grilla con lo que dan ahora y la
           Guía, con letra grande, solo con los canales de «{p.name}». No puede cambiar nada, ni ver tus cuentas ni tus
           links.</Help>
@@ -1204,8 +1204,8 @@ function ViewShare({ p }: { p: ProfileView }) {
   return (
     <>
       <SubTitle>Código para ver «{p.name}»</SubTitle>
-      <Help>Copialo y pasáselo. En su celular o tablet: abrí Nowline, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
-        en modo ver. Si después agrega Nowline a la pantalla de inicio, queda como una app.</Help>
+      <Help>Copialo y pasáselo. En su celular o tablet: abrí nowline, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
+        en modo ver. Si después agrega nowline a la pantalla de inicio, queda como una app.</Help>
       <div class="lc-actions">
         <button type="button" class="btn btn-primary" onClick={async () => {
           await copyText(viewCode);
@@ -1218,12 +1218,12 @@ function ViewShare({ p }: { p: ProfileView }) {
         {'share' in navigator ? (
           <button type="button" class="btn btn-tonal" onClick={async () => {
             try {
-              await navigator.share({ title: 'Nowline', text: 'Para ver qué dan en la tele', url });
+              await navigator.share({ title: 'nowline', text: 'Para ver qué dan en la tele', url });
             } catch { /* cancelado */ }
           }}><Icon name="share-2" />Compartir</button>
         ) : null}
         <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('Nowline')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
       </div>
       <div class="qr" id="qr" />
       <Help>Ve solo los canales de este perfil; si cambiás qué ve el perfil, también cambia ahí.</Help>
@@ -1261,12 +1261,12 @@ function LinkResultView({ result }: { result: LinkResult }) {
         {'share' in navigator ? (
           <button type="button" class="btn btn-tonal" onClick={async () => {
             try {
-              await navigator.share({ title: 'Nowline: mis links', text });
+              await navigator.share({ title: 'nowline: mis links', text });
             } catch { /* cancelado */ }
           }}><Icon name="share-2" />Compartir</button>
         ) : null}
         <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('Nowline: mis links')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline: mis links')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
       </div>
       <div class="qr" id="qr" />
       <Help>En TiviMate: Agregar playlist → Ingresar URL → pegá la playlist; la guía la toma sola

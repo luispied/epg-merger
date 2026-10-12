@@ -1,4 +1,4 @@
-// Nowline web (Etapa 1, paso 4): la interfaz sobre el Worker. Conectar el proveedor, cruzar los
+// nowline web (Etapa 1, paso 4): la interfaz sobre el Worker. Conectar el proveedor, cruzar los
 // canales con la guía en el navegador (@grilla/core, el mismo matcher que la corrida de
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
@@ -326,7 +326,7 @@ const homeCode = (h: Home) => (h.homeId && h.homeKey ? `${h.homeId}.${h.homeKey}
 /** Trae un hogar con su código y lo junta con el de este navegador. Devuelve cuántas configuraciones suma. */
 async function joinHome(code: string): Promise<number> {
   const m = /^([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]{20,})$/.exec(code.trim());
-  if (!m) throw new Error('no es un código de Nowline');
+  if (!m) throw new Error('no es un código de nowline');
   const data = await api<{ data: string }>(`/api/home/${m[1]}`, { key: m[2] });
   const h = loadHome();
   const added = mergeHome(h, await openHome(m[2], data.data));
@@ -1860,7 +1860,7 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
   renderChannelOrder(g);
 }
 
-const HELP_TITLES: Record<string, string> = { main: 'Cómo usar Nowline', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
+const HELP_TITLES: Record<string, string> = { main: 'Cómo usar nowline', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
 /** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
 function openHelp(topic: 'main' | 'guide' | 'settings' | 'categories' | 'links', from?: string) {
   const help = $('#helpDialog') as HTMLDialogElement;
@@ -2192,7 +2192,7 @@ function restoreDraft() {
 /** El paso de bajar y subir la lista. El link a get.php se arma con lo que está escrito (lleva
  *  la contraseña, por eso no se guarda): si falta algo, se pide completarlo. */
 function showUpload() {
-  $('#uploadWhy').textContent = 'Tu proveedor no deja que Nowline baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
+  $('#uploadWhy').textContent = 'Tu proveedor no deja que nowline baje la lista directamente (pasa con muchos: solo atienden a los reproductores). No es un error: hacelo en dos pasos.';
   $('#uploadBox').hidden = false;
   updateDownloadLink();
 }
@@ -2566,7 +2566,7 @@ function exportBackup() {
 async function importBackup(file: File) {
   try {
     const data = JSON.parse(await file.text());
-    if (!data?.cfgId || !data?.editKey) throw new Error('no es un respaldo de Nowline');
+    if (!data?.cfgId || !data?.editKey) throw new Error('no es un respaldo de nowline');
     state.creds = null;
     state.local = { cfgId: data.cfgId, editKey: data.editKey };
     await api(`/api/cfg/${data.cfgId}`);
@@ -3001,7 +3001,7 @@ void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
 addSearchClear(document);
-for (const el of $$('[data-version]')) el.textContent = `Nowline ${__APP_VERSION__}`;
+for (const el of $$('[data-version]')) el.textContent = `nowline ${__APP_VERSION__}`;
 $('#askCancel').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 $('#askClose').onclick = () => ($('#askDialog') as HTMLDialogElement).close('');
 setupOnboarding();

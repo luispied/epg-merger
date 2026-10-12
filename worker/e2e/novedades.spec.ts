@@ -1,5 +1,5 @@
 // Humo de Novedades (ui/novedades.tsx): la primera vez no aparece nada; con una versión vieja anotada, al abrir sale un
-// aviso breve («Nowline se actualizó») con «Qué hay nuevo», que abre lo nuevo; y desde Configuración se abre siempre.
+// aviso breve («nowline se actualizó») con «Qué hay nuevo», que abre lo nuevo; y desde Configuración se abre siempre.
 import { expect, test } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
 
@@ -25,7 +25,7 @@ test('después de actualizar: aviso breve con «Qué hay nuevo», y no vuelve a 
   await fakeWorker(page);
   await page.goto('/');
   const toast = page.locator('.toasts .toast');
-  await expect(toast.locator('.msg')).toHaveText('Nowline se actualizó');
+  await expect(toast.locator('.msg')).toHaveText('nowline se actualizó');
   await page.screenshot({ path: `test-results/novedades-aviso-${info.project.name}.png` });
   await toast.getByRole('button', { name: 'Qué hay nuevo' }).click();
   await expect(sheet(page)).toBeVisible();
