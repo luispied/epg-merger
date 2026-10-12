@@ -91,6 +91,9 @@ flowchart TD
   ~1,4 GB aunque la guía llegue a 3 millones de programas.
 - **`generate_playlist.py`:** indexa los canales de la guía y recorre los programas una vez para armar la programación
   de la interfaz (ventana de -1 h a +30 h). Con perfiles configurados (opcional) también cruza la lista de esa cuenta.
+- **Clasificación con IA (`classify_genres.py`):** clasifica por género los títulos de 5 minutos o más de los canales en
+  uso que no están en `ai/genres.json`, primero los de los canales que más configuraciones usan y los que más aparecen,
+  hasta `AI_MAX_TITLES` por corrida (10.000) y mientras el gasto del mes (`ai/spend.json`) no pase `AI_MONTH_BUDGET`.
 - **Subida a R2:** `tools/r2_sync.py` sube solo lo que cambió y en gzip; `tools/pack_schedule.py` empaca la
   programación en 256 tandas para no hacer miles de escrituras por día.
 - **Guía y índice por configuración:** `tools/config_epgs.py` abre una guía por cada `cfg/<cfgId>.json` y recorre la
@@ -275,6 +278,7 @@ claro y oscuro con tokens en `worker/web/tokens.css`. Cada cambio de interfaz ac
 | GitHub (secreto) | `ANTHROPIC_API_KEY` | clasificación con IA |
 | GitHub (secreto) | `CLOUDFLARE_ANALYTICS_TOKEN`, `FLY_READ_TOKEN` | registro de consumo |
 | GitHub (variable) | `R2_BUCKET`, `AI_CLASSIFY` | nombre del bucket e interruptor de la IA (`on`) |
+| GitHub (variable) | `AI_MAX_TITLES`, `AI_MONTH_BUDGET` | opcionales: tope de títulos por corrida (10.000) y de gasto del mes en dólares (2) de la IA |
 | Worker (secreto) | `TOKEN_KEY` | cifrar las credenciales de los links |
 | Worker (secreto) | `RELAY_URL`, `RELAY_SECRET` | hablar con el relay |
 | Worker (secreto) | `GITHUB_TOKEN` | lanzar `refresh-lists` al instante (opcional) |

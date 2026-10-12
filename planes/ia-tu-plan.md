@@ -21,6 +21,31 @@ del repo (que sigue siendo el plan técnico de la función).
 - Interruptor: variable del repo `AI_CLASSIFY` = `on` (Settings → Secrets and variables → Actions → Variables).
   Apagada mientras no exista. Alcance recomendado: (a) solo Tu plan.
 
+## Cobertura: dibujitos, programas cortos y catálogo completo (PR de la rama `claude/ia-cobertura`)
+Antes: solo se clasificaban los títulos de 25 minutos o más y hasta 3.000 por corrida, y la variable `AI_MAX_TITLES` ni
+siquiera llegaba al workflow. Resultado medido el 12/10 (corrida 160): ~6 % de las emisiones y ~11 % de los títulos
+distintos de los canales en uso con género (3.208 títulos), así que el filtro por género de la Guía, la búsqueda por tema
+y un futuro perfil infantil quedaban casi vacíos.
+
+- **Umbral: 5 minutos** (antes 25). Medido sobre la programación de producción (19.094 canales, 587.137 emisiones):
+  menos de 5 min son 6.000 emisiones y ~1.200 títulos que son avances, sorteos y clips; de 5 a 25 min hay ~16.000
+  títulos más (Peppa Pig, Cuquín, Teen Titans Go!, Adventure Time, noticieros breves, magazines) que son justo lo que
+  faltaba. Tu plan sigue sin sugerir menos de 25 minutos: eso lo decide la web.
+- **Prioridad**: primero los títulos de los canales que más configuraciones usan (`used_files` cuenta cuántas
+  configuraciones tiene cada canal; el título toma el peso de su canal más usado) y, a igual peso, los programas que
+  más veces aparecen en la programación.
+- **Tope por corrida: 10.000** títulos (antes 3.000), variable del repo `AI_MAX_TITLES` (ahora sí llega al workflow).
+  Son 200 tandas de 50 por lote, que la API de lotes termina bien dentro de los 20 minutos de espera.
+- **Tope de gasto del mes**: variable del repo `AI_MONTH_BUDGET` (dólares, 2 si no se define). Antes de mandar, la
+  corrida suma lo gastado en el mes en `ai/spend.json` y recorta el lote hasta que el costo estimado (con un margen de
+  1,5 sobre la estimación, porque lo medido en #302 salió así) no pase lo que queda. El límite de US$ 5 del workspace
+  sigue siendo la red de seguridad.
+- **Costo (medido en #302: ~US$ 0,05 cada 3.000 títulos)**: toda la guía (129.000 títulos de 5 min o más, todos los
+  canales) saldría ~US$ 2,20 una sola vez. Lo que importa son los canales en uso: ~29.000 títulos (3.208 es el 11 %),
+  ~28.000 pendientes ≈ **US$ 0,45** y **3 corridas** con el tope de 10.000. Después solo quedan los nuevos de cada día.
+- Para completar antes: poner `AI_MAX_TITLES` más alto (por ejemplo 30.000 = 1 corrida, ~US$ 0,50). El costo no cambia,
+  solo se junta en un lote; el riesgo es que el lote pase los 20 minutos y se recoja en la corrida siguiente.
+
 ## Estado en una línea
 La IA **no está prendida**. Solo está mergeada la **medición gratis** (#279), que todavía no corrió ni una vez: la última
 corrida «Merge EPGs» es del 10/10 a las 20:38 UTC, antes del merge, y la del 11/10 todavía no había arrancado a las
@@ -86,7 +111,7 @@ salida (con lotes, US$ 0,05 y US$ 0,25). Es lo que usa `tools/measure_titles.py`
 
 ## La medición gratis (#279, ya en main)
 - `tools/measure_titles.py`, paso «Measure titles for AI (free)» de `merge-epgs.yml` (cron 17:30 UTC, `continue-on-error`).
-- Cuenta los títulos distintos de **25 minutos o más** (lo que puede sugerir Tu plan), sin relleno («Programa pagado»,
+- Cuenta los títulos distintos de **5 minutos o más** (desde la cobertura, ver abajo; antes 25), sin relleno («Programa pagado»,
   infomerciales), en **toda la guía** y en los **canales que usa alguna configuración** (el número que importa).
 - Recuerda los vistos en R2 (`ai/seen.json`, olvida a los 60 días). Desde el **segundo día** cuenta los **nuevos**.
 - Deja la historia en R2 (`ai/measure.json`, 90 días) y la tabla «Clasificar la guía con IA: medición (sin costo)» en el
@@ -109,8 +134,8 @@ salida (con lotes, US$ 0,05 y US$ 0,25). Es lo que usa `tools/measure_titles.py`
   etiqueta no suma puntos. Esto sí se habló.
 - **Bandera (propuesta, no se habló ni existe)**: una variable del repo en Actions, por ejemplo `AI_CLASSIFY` = `on`/`off`,
   que el paso lee antes de llamar a la IA. Apagarla no borra el caché; Tu plan sigue usando lo ya clasificado.
-- **Tope por corrida (propuesto, no hecho)**: como mucho N títulos por corrida (por ejemplo 10.000). Si un día la guía trae
-  algo raro, corta ahí y sigue al día siguiente.
+- **Tope por corrida (hecho)**: `AI_MAX_TITLES` (10.000 por defecto). Si un día la guía trae algo raro, corta ahí y sigue
+  al día siguiente. Además, `AI_MONTH_BUDGET` corta por gasto del mes.
 - **Registro de gasto (propuesto, no hecho)**: cada corrida anota en su resumen cuántos títulos mandó y cuánto costó.
 
 ## Privacidad
