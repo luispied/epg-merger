@@ -20,6 +20,7 @@ Object.assign(window.ICONS, {
   'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   'layout-grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
   // Los íconos del tema, como en el editor (app.ts).
+  'arrow-right-left': '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
   monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
@@ -250,7 +251,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
   );
 }
 
-/** Ajustes de este dispositivo: el tema claro u oscuro, como en el editor. Queda guardado en el navegador. */
+/** Configuración de este dispositivo: la misma hoja y la misma fila de Tema que en el editor (ui/settings.tsx). */
 function SettingsSheet({ close }: { close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [theme, setTheme] = useState<Theme>(savedTheme);
@@ -265,20 +266,23 @@ function SettingsSheet({ close }: { close: () => void }) {
     try { localStorage.setItem(THEME_KEY, t); } catch { /* sin storage: vale por esta vez */ }
   };
   return (
-    <dialog class="sheet settings-sheet vw-settings" ref={dlg} onClose={close} aria-labelledby="vwSetTitle">
+    <dialog class="sheet settings-sheet" ref={dlg} onClose={close} aria-labelledby="vwSetTitle">
       <div class="sheet-body">
         <div class="title-row">
-          <h2 id="vwSetTitle">Ajustes</h2>
+          <span class="title-left"><h2 id="vwSetTitle">Configuración</h2></span>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        <p class="vw-k">Este dispositivo</p>
-        <div class="vw-field">
-          <span class="vw-field-t"><strong>Tema</strong></span>
-          <div class="seg vw-seg" role="radiogroup" aria-label="Tema">
-            {THEMES.map((t) => (
-              <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} aria-label={t.label} title={t.label}
-                onClick={() => pick(t.v)}><Icon name={t.icon} /></button>
-            ))}
+        <h3 class="sec-title">Preferencias</h3>
+        <div class="menu">
+          <div class="menu-row static">
+            <span class="menu-icon"><Icon name="sun-moon" /></span>
+            <span class="menu-text">Tema</span>
+            <div class="seg" role="radiogroup" aria-label="Tema">
+              {THEMES.map((t) => (
+                <button key={t.v} type="button" role="radio" aria-checked={theme === t.v} aria-label={t.label} title={t.label}
+                  onClick={() => pick(t.v)}><Icon name={t.icon} /></button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -316,8 +320,8 @@ function HelpSheet({ close }: { close: () => void }) {
           <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
-          <summary>Ajustes<Icon name="chevron-down" /></summary>
-          <p>Tocá el engranaje, arriba a la derecha de Canales, para elegir el tema: <b>como el sistema</b>, <b>claro</b> u <b>oscuro</b>. Queda guardado en este dispositivo.</p>
+          <summary>Configuración<Icon name="chevron-down" /></summary>
+          <p>Tocá el engranaje, arriba a la derecha de Canales, y en <b>Configuración</b> elegí el <b>tema</b>: como el sistema, claro u oscuro. Queda guardado en este dispositivo.</p>
         </details>
         <details>
           <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
@@ -370,7 +374,7 @@ function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }:
             <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
           <span class="vw-head-r">
-            <button type="button" class="icon-btn" aria-label="Ajustes" title="Ajustes" onClick={onSettings}><Icon name="settings" /></button>
+            <button type="button" class="icon-btn" aria-label="Configuración" title="Configuración" onClick={onSettings}><Icon name="settings" /></button>
             <span class="vw-who"><Icon name="eye" class="sm" />{data.name}</span>
           </span>
         </div>
@@ -408,7 +412,7 @@ async function isHomeCode(code: string): Promise<boolean> {
   } catch { return false; }
 }
 
-/** Salir del modo ver pide el código de la casa: quien solo mira no puede salir ni llegar al editor. */
+/** Salir del modo ver pide el código de la casa: la misma hoja que «Pegar un código» en el editor (ask-sheet). */
 function UnlockSheet({ close }: { close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [code, setCode] = useState('');
@@ -426,22 +430,19 @@ function UnlockSheet({ close }: { close: () => void }) {
     location.href = '/';
   };
   return (
-    <dialog class="sheet settings-sheet vw-settings" ref={dlg} onClose={close} aria-labelledby="vwUnlockTitle">
+    <dialog class="sheet ask-sheet" ref={dlg} onClose={close} aria-labelledby="vwUnlockTitle">
       <form class="sheet-body" onSubmit={submit}>
         <div class="title-row">
           <h2 id="vwUnlockTitle">Salir del modo ver</h2>
           <button type="button" class="icon-btn" aria-label="Cerrar" onClick={() => dlg.current?.close()}><Icon name="x" /></button>
         </div>
-        <p class="vw-unlock-lead">Para salir hace falta el código de la casa, el que usa quien arma la grilla. Sin ese código, este dispositivo sigue en modo «solo ver».</p>
-        <label class="vw-unlock-field">
-          <span>Código de la casa</span>
-          <input type="password" autocomplete="off" autocapitalize="off" spellcheck={false} value={code}
+        <p>Para salir hace falta el código de la casa, el que usa quien arma la grilla. Sin ese código, este dispositivo sigue en modo «solo ver».</p>
+        <label class="ch-field"><Icon name="arrow-right-left" />
+          <input class="input" autocomplete="off" enterkeyhint="done" aria-label="Código de la casa" placeholder="Código de la casa" value={code}
             onInput={(e) => { setCode((e.currentTarget as HTMLInputElement).value); setState('idle'); }} />
+          <button class="icon-btn" type="submit" aria-label="Salir del modo ver" disabled={!code.trim() || state === 'busy'}><Icon name="check" /></button>
         </label>
-        {state === 'bad' && <p class="vw-report-bad" role="alert">Ese código no es el de la casa.</p>}
-        <button type="submit" class="btn btn-primary btn-block" disabled={!code.trim() || state === 'busy'}>
-          {state === 'busy' ? 'Revisando…' : 'Salir del modo ver'}
-        </button>
+        {state === 'bad' && <p class="help" role="alert">Ese código no es el de la casa.</p>}
       </form>
     </dialog>
   );
