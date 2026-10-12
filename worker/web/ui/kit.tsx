@@ -1,5 +1,6 @@
 // Piezas comunes de la interfaz (auditoría de diseño, paso 3b). Las pantallas las usan en vez de armar el mismo marcado
 // cada una: así se ven y se comportan igual en todos lados.
+import { useEffect, useState } from 'preact/hooks';
 
 /** Barra de cuánto va (0 a 100). `cls` elige el tamaño de la pantalla (np-bar: fila y hoja; vw-bar: modo ver; rv-bar:
  *  revisión). Con `label` es una barra de progreso para el lector de pantalla; sin, es decorativa (el texto de al lado ya
@@ -23,11 +24,24 @@ export function BrandFoot() {
   );
 }
 
-/** Mientras cargan las tarjetas de canales: el mismo esqueleto en la edición y en el modo ver (sin texto de carga). */
+/** Alto mínimo de una tarjeta del esqueleto (con su separación): con menos no alcanza a cubrir la pantalla. */
+const SKEL_ROW = 150;
+
+/** Cuántas tarjetas hacen falta para cubrir el alto de la pantalla (y un poco más, así no queda hueco al bajar). */
+const skelRows = () => Math.ceil(window.innerHeight / SKEL_ROW) + 1;
+
+/** Mientras cargan las tarjetas de canales: el mismo esqueleto en la edición y en el modo ver (sin texto de carga). Se
+ *  arma según el alto de la pantalla y se rehace al girar o cambiar el tamaño. */
 export function Skeleton() {
+  const [rows, setRows] = useState(skelRows);
+  useEffect(() => {
+    const resize = () => setRows(skelRows());
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
   return (
     <>
-      {[0, 1, 2, 3].map((k) => <div key={k} class="skeleton"><div class="bar w60" /><div class="bar w40" /><div class="bar block" /></div>)}
+      {Array.from({ length: rows }, (_, k) => <div key={k} class="skeleton"><div class="bar w60" /><div class="bar w40" /><div class="bar block" /></div>)}
     </>
   );
 }
