@@ -18,6 +18,10 @@ nombres de código.
 - Ayuda: el modo ver explica el engranaje y el tema.
 - **Quien mira no llega al editor.** Un dispositivo en modo «solo ver» abre siempre ahí, aunque se escriba la dirección sin «ver». Para salir hace falta el código de la casa.
 
+## 1.44.1
+
+- **La hoja de un programa dice su género.** Arriba del título aparece «Deportes», «Película», «Noticias»… cuando nowline ya lo sabe; en la Guía y en el modo ver.
+
 ## 1.44.0
 
 - **«Más como esto» sube todo lo de ese género, no solo el mismo programa.** Si tocás «Más como esto» en un documental, Tu plan sube los documentales de otros canales, aunque nunca los hayas abierto, y debajo de «Más como esto» dice «Tu plan sube también los de documental». La publicidad no entra.

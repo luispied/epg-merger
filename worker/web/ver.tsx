@@ -318,7 +318,7 @@ function HelpSheet({ close }: { close: () => void }) {
           <summary>Guía<Icon name="chevron-down" /></summary>
           <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba, al lado del título, elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es) o <b>Próximos</b> (lo que empieza pronto). La tarjeta <b>Tu noche, armada para vos</b> (de día, tu mañana o tu tarde) abre lo mejor de tus canales para lo que queda de ese rato; la flecha de arriba te devuelve.</p>
           <p>Tu plan también sube programas parecidos a lo que mirás, según el género («Como lo que mirás: deportes»), aunque sean de un canal que nunca abriste. La publicidad nunca se sugiere.</p>
-          <p>Tocá un programa para leer de qué se trata. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos y también lo de su mismo género; tocándolos otra vez se deshacen.</p>
+          <p>Tocá un programa para leer de qué se trata; arriba del título dice su género cuando lo sabemos. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos y también lo de su mismo género; tocándolos otra vez se deshacen.</p>
         </details>
         <details>
           <summary>Configuración<Icon name="chevron-down" /></summary>
