@@ -222,3 +222,11 @@ test('la página del modo ver no se desplaza y la barra de abajo queda igual en 
   const [h2, vh2] = await doc();
   expect(h2).toBeLessThanOrEqual(vh2);
 });
+
+// Sin manifest, «Agregar a inicio» abre la PWA de iPhone en un modo viejo y la barra de abajo queda más arriba que en la
+// edición. El modo ver agrega el suyo, con su código (lo arma el Worker en /ver-app/<código>.webmanifest).
+test('el modo ver trae su manifest con el código', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', `/ver-app/${CODE}.webmanifest`);
+  await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible();
+});

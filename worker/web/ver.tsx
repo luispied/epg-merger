@@ -463,6 +463,15 @@ function Problem({ title, text, retry, other }: { title: string; text: string; r
 
 function App() {
   const code = useMemo(readCode, []);
+  // El manifest de esta PWA lleva el código: «Agregar a inicio» abre iOS como una app (la misma ventana que la del editor) y el
+  // ícono vuelve acá. Sin manifest, iOS la abre en un modo viejo y la barra de abajo queda más arriba que en la edición.
+  useEffect(() => {
+    if (!code || document.querySelector('link[rel="manifest"]')) return;
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = `/ver-app/${encodeURIComponent(code)}.webmanifest`;
+    document.head.append(link);
+  }, [code]);
   if (code) hourPath = `/api/view/${code}/hour`;
   const [data, setData] = useState<ViewData | null>(null);
   const [err, setErr] = useState<{ status: number } | null>(null);

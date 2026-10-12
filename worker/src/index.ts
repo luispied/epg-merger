@@ -31,6 +31,7 @@
 //   GET    /p/<cfgId>/<token>/playlist.m3u8   playlist en vivo con las ediciones
 //   GET    /p/<cfgId>/epg.xml.gz              guía de la configuración (la arma la corrida diaria)
 //   GET    /s/<cfgId>/<token>/<id>.<ext>      302 al primer servidor sano del balanceador
+//   GET    /ver-app/<código>.webmanifest      manifest de la PWA del modo «solo ver», con su código en el start_url (view.ts)
 //   GET    /logo/<clave> · /img/<clave>       logo de canal o imagen de programa, sin mostrar el sitio (logos.ts)
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
@@ -45,7 +46,7 @@ import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './playlist.ts';
-import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport } from './view.ts';
+import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport, viewManifest } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
 import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
@@ -893,6 +894,12 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       return new Response('Separador de sección de nowline: no es un canal.\n', {
         headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     }
+    // El manifest de la PWA del modo ver, con su código (view.ts → viewManifest).
+    if (request.method === 'GET' && parts[0] === 'ver-app' && parts.length === 2 && parts[1].endsWith('.webmanifest')) {
+      const manifest = viewManifest(parts[1].slice(0, -'.webmanifest'.length));
+      if (!manifest) return fail(404, 'no encontrado');
+      return new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=86400' } });
+    }
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {
       if (parts.length === 3 && parts[2] === 'epg.xml.gz') {
         return await serveR2(env, `epg/${parts[1]}.xml.gz`, 'application/gzip', 3600);
@@ -949,6 +956,7 @@ export function routeKind(pathname: string): string {
   if (a === 'g') return 'epg';
   if (a === 's') return 'stream';
   if (a === 'logo' || a === 'img' || a === 'sep') return a;
+  if (a === 'ver-app') return a;
   return 'otro';
 }
 
