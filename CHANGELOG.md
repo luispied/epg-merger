@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.1
+
+- **La app del modo ver abre como una app de verdad en el iPhone.** Antes, al agregarla a la pantalla de inicio desde el modo ver, iOS la abría en un modo viejo y la barra de abajo quedaba más arriba que en la edición. Ahora el modo ver trae su propio manifest (con su código), así la barra queda a la misma altura que en la edición. Si ya la tenías en inicio, quitá el ícono y volvé a agregarla desde la pantalla del modo ver: la anterior sigue abriendo en el modo viejo.
+- Worker: nuevo `/ver-app/<código>.webmanifest`.
+
 ## 1.46.0
 
 - **Se puede abrir el modo «solo ver» desde el editor.** En la página de un perfil, debajo del código para ver, la fila **Abrir en modo ver** abre este dispositivo con ese perfil, sin tener que pegar el código. Para salir hace falta el código de la casa, igual que en el modo ver.
