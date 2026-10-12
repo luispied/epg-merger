@@ -3,7 +3,7 @@ import { afterEach, test } from 'node:test';
 import { gzipSync } from 'node:zlib';
 import { parseConfig } from '../src/config.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
-import { checkAllPush, encryptWebPush, expiryThreshold, isFeatureBump, notifyExpiry, notifyNewVersion, notifyReminders } from '../src/push.ts';
+import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited, routeKind } from '../src/index.ts';
@@ -1574,53 +1574,6 @@ test('estado del relay: la prueba y la bajada de la lista anotan cuándo respond
   } finally {
     globalThis.fetch = base;
   }
-});
-
-test('versión nueva: la primera vez se anota, avisa solo cuando sube la versión menor y una vez por navegador', async () => {
-  const t = makeEnv();
-  const vapid = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']) as CryptoKeyPair;
-  t.env.VAPID_PUBLIC_KEY = b64urlEncode(new Uint8Array(await crypto.subtle.exportKey('raw', vapid.publicKey)));
-  t.env.VAPID_PRIVATE_KEY = (await crypto.subtle.exportKey('jwk', vapid.privateKey)).d;
-  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
-  const uaPublic = new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey));
-  const auth = crypto.getRandomValues(new Uint8Array(16));
-  const sub = { endpoint: 'https://push.example/s/v', keys: { p256dh: b64urlEncode(uaPublic), auth: b64urlEncode(auth) }, created: '2026-10-01T00:00:00Z' };
-  // El mismo navegador en dos configuraciones (dos proveedores): un solo aviso.
-  await t.env.BUCKET.put('push/c1.json', JSON.stringify({ subs: [sub] }));
-  await t.env.BUCKET.put('push/c2.json', JSON.stringify({ subs: [sub] }));
-  let novedades = [{ version: '1.34.0', items: ['**Aviso cuando el relay no responde.** Arriba de los canales.'] }];
-  t.env.ASSETS = { fetch: async () => new Response(JSON.stringify(novedades)) };
-  const pushed: Uint8Array[] = [];
-  const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).startsWith('https://push.example/')) {
-      pushed.push(new Uint8Array(init?.body as ArrayBuffer));
-      return new Response(null, { status: 201 });
-    }
-    return real(input, init);
-  }) as typeof fetch;
-  try {
-    // Primera vez: solo se anota la versión.
-    assert.equal(await notifyNewVersion(t.env), 0);
-    assert.equal(pushed.length, 0);
-    // Un parche no avisa.
-    novedades = [{ version: '1.34.1', items: ['Arreglo chico'] }, ...novedades];
-    assert.equal(await notifyNewVersion(t.env), 0);
-    // Una función nueva sí, una vez por navegador, con lo primero de la lista y sin negritas.
-    novedades = [{ version: '1.35.0', items: ['**Novedades al actualizar.** Grilla cuenta qué cambió.'] }, ...novedades];
-    assert.equal(await notifyNewVersion(t.env), 1);
-    const msg = JSON.parse(await decryptPush(pushed[0], ua.privateKey, uaPublic, auth)) as { title: string; body: string; url: string };
-    assert.deepEqual(msg, { title: 'Nowline se actualizó a 1.35.0', body: 'Novedades al actualizar. Grilla cuenta qué cambió.', url: '/?novedades' });
-    // La misma versión no se avisa dos veces.
-    assert.equal(await notifyNewVersion(t.env), 0);
-    assert.equal(pushed.length, 1);
-  } finally {
-    globalThis.fetch = real;
-  }
-  assert.equal(isFeatureBump('1.33.3', '1.34.0'), true);
-  assert.equal(isFeatureBump('1.34.0', '1.34.1'), false);
-  assert.equal(isFeatureBump('1.9.4', '2.0.0'), true);
-  assert.equal(isFeatureBump('1.34.0', '1.33.9'), false);
 });
 
 test('hábitos: abrir un canal anota canal, hora y programa; «No me interesa» y «Más como esto»; se borran con la configuración', async () => {

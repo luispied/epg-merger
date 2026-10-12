@@ -1327,8 +1327,6 @@ dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease back
 .vw-conn-list { animation: slide-down .2s ease backwards; }
 
 /* Novedades (ui/novedades.tsx): lo nuevo de cada versión, en viñetas. */
-.nv-lead { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--muted); }
-.nv-lead .icon { color: var(--accent); flex: none; }
 .nv-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
 .nv-list li { line-height: 1.5; color: var(--text); }
 .nv-list li::marker { color: var(--accent); }

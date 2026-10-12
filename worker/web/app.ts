@@ -2990,19 +2990,15 @@ new MutationObserver((records) => {
 
 // ------------------------------------------------------------------ arranque
 // Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
-// Versión nueva: el service worker nuevo se instala solo; con la app abierta se avisa para recargar, y al volver a
-// abrirla la hoja «Novedades» cuenta qué cambió (ui/novedades.tsx).
+// Versión nueva: el service worker nuevo se instala y toma la página solo (sw.js), y al abrir la app la navegación
+// baja el HTML de la versión nueva; no hay aviso con la app abierta. Al abrirla con una versión nueva, un aviso breve
+// (ui/novedades.tsx) dice que se actualizó y muestra qué cambió.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((reg) => {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch(() => { /* sin SW: anda igual */ }));
-  let controlled = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!controlled) { controlled = true; return; } // la primera instalación no es una versión nueva
-    toast('Hay una versión nueva de Nowline', 'info', 15000, { label: 'Actualizar', run: () => location.reload() });
-  });
 }
-void checkNovedades(__APP_VERSION__, new URLSearchParams(location.search).has('novedades'));
+void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
 addSearchClear(document);

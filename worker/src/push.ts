@@ -263,63 +263,9 @@ export async function notifyReminders(env: Env, cfgId: string, now = new Date())
   return sent;
 }
 
-/** Versión nueva de la web: la primera vez solo se anota; después, si sube la versión menor o la mayor (una función
- *  nueva, no un parche), se avisa a todos los navegadores con avisos activados, una sola vez por navegador aunque esté
- *  en varias configuraciones. Al tocar el aviso se abre la app con la hoja «Novedades». Lo nuevo sale de
- *  public/novedades.json (lo arma build.mjs con el CHANGELOG). Devuelve a cuántos avisó. */
-export async function notifyNewVersion(env: Env): Promise<number> {
-  if (!env.ASSETS) return 0;
-  let list: { version: string; items: string[] }[];
-  try {
-    const r = await env.ASSETS.fetch('https://assets.local/novedades.json');
-    if (!r.ok) return 0;
-    list = await r.json() as typeof list;
-  } catch {
-    return 0;
-  }
-  const cur = list[0];
-  if (!cur?.version) return 0;
-  const key = 'meta/version.json';
-  let prev: { notified?: string } = {};
-  try {
-    const obj = await env.BUCKET.get(key);
-    if (obj) prev = JSON.parse(await obj.text()) as typeof prev;
-  } catch { /* ilegible: como la primera vez */ }
-  if (prev.notified === cur.version) return 0;
-  // Se anota antes de mandar: si la corrida se corta, no se avisa dos veces.
-  await env.BUCKET.put(key, JSON.stringify({ notified: cur.version, at: new Date().toISOString() }), JSON_TYPE);
-  if (!prev.notified || !isFeatureBump(prev.notified, cur.version)) return 0;
-  const first = (cur.items[0] ?? '').replace(/\*\*/g, '');
-  const body = first.length > 140 ? `${first.slice(0, 137).replace(/\s+\S*$/, '')}…` : first;
-  const message = { title: `Nowline se actualizó a ${cur.version}`, body: body || 'Tocá para ver lo nuevo', url: '/?novedades' };
-  const done = new Set<string>();
-  let sent = 0;
-  let cursor: string | undefined;
-  do {
-    const page = await env.BUCKET.list({ prefix: 'push/', cursor });
-    for (const obj of page.objects) {
-      const st = await readState(env.BUCKET, obj.key.slice('push/'.length).replace(/\.json$/, ''));
-      for (const sub of st.subs) {
-        if (done.has(sub.endpoint)) continue;
-        done.add(sub.endpoint);
-        try { if ((await sendPush(env, sub, message)).ok) sent++; } catch { /* sin red: no se reintenta */ }
-      }
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  return sent;
-}
-
-/** Si `next` sube la versión mayor o la menor respecto de `prev` (1.33.3 → 1.34.0 sí; 1.34.0 → 1.34.1 no). */
-export function isFeatureBump(prev: string, next: string): boolean {
-  const [a1, b1] = prev.split('.').map(Number), [a2, b2] = next.split('.').map(Number);
-  return a2 > a1 || (a2 === a1 && b2 > b1);
-}
-
 /** Corrida programada: revisa cada configuración con avisos. */
 export async function checkAllPush(env: Env): Promise<void> {
   if (!pushConfigured(env)) return;
-  try { await notifyNewVersion(env); } catch { /* el aviso de versión no frena los demás */ }
   let cursor: string | undefined;
   do {
     const page = await env.BUCKET.list({ prefix: 'push/', cursor });
