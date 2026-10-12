@@ -1,6 +1,6 @@
 # Tests E2E de punta a punta: plan
 
-Estado: **propuesta** (2026-10-12). Solo el plan; no se implementa nada todavía. Decisiones pendientes de Luis en la
+Estado: **plan aprobado en sus decisiones** (2026-10-12). No se implementa nada todavía; las decisiones de Luis están en la
 última sección.
 
 ## 1. Lo que ya hay
@@ -92,8 +92,7 @@ Estado: **propuesta** (2026-10-12). Solo el plan; no se implementa nada todavía
 - Las animaciones ya dieron flakies. Mitigación: reloj fijo, sin pausas, aserciones que esperan estado.
 - Los `waitForTimeout` que quedan (`canales`, `seleccion`) se reemplazan en Fase 0.
 - Datos fijos en `fake-worker.ts` (IDs, horas). Ya hay hora fija en `visual.spec` y `ver.spec` usa la real.
-- `retries`: hoy es 0 en local y en CI no está configurado (queda el default de Playwright, que es 0). Propongo dejarlo en
-  0 y arreglar cada flaky en vez de reintentar: un reintento que pasa esconde el problema.
+- `retries`: cero, decidido: cada flaky se arregla en vez de reintentar, porque un reintento que pasa esconde el problema.
 - El filtro de 404 de consola en `perfiles.spec` es una excepción puntual. No conviene extenderlo.
 
 ## 6. Costo en CI (estimado; sin medir)
@@ -103,13 +102,12 @@ Estado: **propuesta** (2026-10-12). Solo el plan; no se implementa nada todavía
 - Fase 1 suma pocos tests (decenas de segundos). Fase 2 suma el arranque de `wrangler dev` y un subconjunto corto.
 - El trabajo `visual` compila dos veces y saca 20 capturas. Solo corre en PRs.
 - Si la suite completa pasa de unos minutos, usar `--shard` en la matriz de proyectos.
-- Opción: smoke corto en cada PR, suite completa en `main`. Ver decisiones.
+- Decidido: smoke corto en cada PR, suite completa en `main` (ver decisiones).
 
-## 7. Decisiones que necesito de Luis
+## 7. Decisiones (Luis, 2026-10-12)
 
-1. **Fase 2 con Worker real local**: ¿sí? Recomiendo sí, con 6 a 8 flujos. Sin esto, la prueba no es punta a punta.
-2. **Cuándo corre la suite completa**: ¿en cada PR, o un smoke corto en PR y la suite completa en `main`? Recomiendo lo
-   segundo si el tiempo supera unos minutos.
-3. **Retries**: ¿cero (arreglar flakies) o uno en CI? Recomiendo cero.
-4. **Capturas**: ¿la prueba visual pasa a bloqueante en algún momento? Recomiendo esperar a que sea estable.
-5. **Confirmar la regla**: los tests nunca tocan producción (Worker, R2, relay). Lo dejo escrito como regla del plan.
+1. **Fase 2 con Worker real local: sí.** 6 a 8 flujos contra `wrangler dev` con R2 local.
+2. **Cuándo corre la suite completa: smoke corto en cada PR y suite completa en `main`.**
+3. **Retries: cero.** Cada flaky se arregla; no se reintenta.
+4. **Capturas: informativas hasta que sean estables.** Recién después se pasan a bloqueantes.
+5. **Regla confirmada: los tests nunca tocan producción** (Worker, R2 ni relay de Fly; no se tocan `short/` ni `devices/`).
