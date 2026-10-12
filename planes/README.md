@@ -21,3 +21,4 @@ está en [`../docs/arquitectura.md`](../docs/arquitectura.md).
 | [`evaluacion-app-nativa.md`](evaluacion-app-nativa.md) | evaluación: la PWA alcanza por ahora |
 | [`licencias-fuentes-epg.md`](licencias-fuentes-epg.md) | revisión de licencias de las fuentes de guía |
 | [`tests-e2e.md`](tests-e2e.md) | propuesta: plan de tests de punta a punta (fases, huecos, decisiones) |
+| [`perfil-infantil.md`](perfil-infantil.md) | propuesta: perfil que solo muestra géneros aptos (reglas, límites y 3 pantallas) |
