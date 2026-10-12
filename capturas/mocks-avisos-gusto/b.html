@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mock B · Hoja con control</title>
+<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="../../worker/web/base.css"><link rel="stylesheet" href="../../worker/web/web.css"><link rel="stylesheet" href="mock.css">
+<script src="../../worker/web/icons.js"></script><script src="iconos.js"></script>
+</head><body>
+<main class="opcion">
+  <h1>B · Hoja propia con géneros y horario</h1>
+  <p class="help">La fila de Configuración abre una hoja: se elige de qué géneros avisar (los que aprendió de lo que mirás), cuándo y cuántos por semana, y se ven los últimos avisos para deshacer uno.</p>
+  <div class="pantallas">
+    <section class="pantalla">
+      <h3 class="sec-title">1 · Configuración (editor)</h3>
+      <dialog open class="sheet settings-sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Configuración</h2><button type="button" class="icon-btn help-btn" aria-label="Ayuda"><span data-icon="circle-help"></span></button></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <h3 class="sec-title">Preferencias</h3>
+        <div class="menu">
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos<small>Canales nuevos, vencimientos y tus campanas</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <button type="button" class="menu-row"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Avisos por gusto<small>Prendidos · Documental, Película</small></span><span data-icon="chevron-right"></span></button>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="a-large-small"></span></span><span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span><input type="checkbox" class="switch" role="switch"></label>
+        </div>
+      </div></dialog>
+    </section>
+
+    <section class="pantalla">
+      <h3 class="sec-title">2 · La hoja «Avisos por gusto»</h3>
+      <dialog open class="sheet settings-sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Avisos por gusto</h2><button type="button" class="icon-btn help-btn" aria-label="Ayuda"><span data-icon="circle-help"></span></button></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <div class="menu">
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Avisarme lo que me gusta<small>Como mucho uno por día; nunca de noche</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+        </div>
+        <h3 class="sec-title">De qué géneros</h3>
+        <div class="filter-chips" style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="chip-btn" aria-pressed="true">Documental</button>
+          <button type="button" class="chip-btn" aria-pressed="true">Película</button>
+          <button type="button" class="chip-btn" aria-pressed="false">Deportes</button>
+          <button type="button" class="chip-btn" aria-pressed="false">Serie</button>
+        </div>
+        <p class="help">Los que más mirás, de lo que abriste con nowline. Noticias y publicidad nunca.</p>
+        <h3 class="sec-title">Cuándo</h3>
+        <div class="segmented" role="group" aria-label="Cuándo">
+          <button type="button" aria-pressed="true">Tarde · 18 a 20</button>
+          <button type="button" aria-pressed="false">Noche · 20 a 22</button>
+        </div>
+        <h3 class="sec-title">Cuántos</h3>
+        <div class="segmented" role="group" aria-label="Cuántos">
+          <button type="button" aria-pressed="false">1 por día</button>
+          <button type="button" aria-pressed="true">3 por semana</button>
+        </div>
+        <h3 class="sec-title">Últimos avisos</h3>
+        <div class="menu">
+          <div class="menu-row static"><span class="menu-text">Planeta Tierra III<small>Ayer · 19:00 · Documental</small></span><button type="button" class="chip-btn">Menos así</button></div>
+          <div class="menu-row static"><span class="menu-text">El día de la marmota<small>Domingo · 19:00 · Película</small></span><button type="button" class="chip-btn">Menos así</button></div>
+        </div>
+      </div></dialog>
+    </section>
+  </div>
+</main>
+<script src="mock.js"></script>
+</body></html>
