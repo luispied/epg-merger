@@ -369,7 +369,7 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
 
 /** Un link «está mirando» si abrió un canal hace menos de esto. El Worker solo ve cuándo empieza cada canal, no cuándo
  *  se deja, así que es una estimación. */
-const RECENT_PLAY_MS = 30 * 60 * 1000;
+const RECENT_PLAY_MS = 60 * 60 * 1000;
 const sinceText = (iso: string) => {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : min < 1440 ? `hace ${Math.round(min / 60)} h` : `hace ${Math.round(min / 1440)} d`;
@@ -419,10 +419,10 @@ function ConnectionsPage({ a }: { a: AccountView }) {
         <div class="pc-stat"><b class={watching.length ? 'ok' : ''}>{watching.length}</b><small>{watching.length === 1 ? 'Link mirando' : 'Links mirando'}</small></div>
       </div>
       <SubTitle>Mirando ahora</SubTitle>
-      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en los últimos 30 minutos.'}</Help>}
+      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en la última hora.'}</Help>}
       {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, un mismo link usado en varios dispositivos a la vez (Nowline ve un solo registro por link), o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
-      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta 30 minutos después del último canal que abrió. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
+      <Help>El proveedor dice cuántas conexiones hay, no cuáles. Nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta una hora después del último canal que abrió. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, Nowline no ve los canales que se abren.' : ''}</Help>
     </>
   );
 }

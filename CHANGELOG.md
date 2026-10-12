@@ -13,9 +13,9 @@ nombres de código. Una versión menor o mayor (no un parche) manda además un a
 
 ## 1.41.3
 
-- **«Mirando ahora» es más preciso.** Un link figura mirando 30 minutos después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
+- **«Mirando ahora» es más preciso.** Un link figura mirando una hora después del último canal que abrió (antes eran 3 horas, y quedaban marcados links que ya no miraban). Una hora es la duración mediana de un programa en la guía. Nunca se muestran más links mirando que conexiones dice el proveedor. Si hay más conexiones que links mirando, la pantalla aclara que puede ser un mismo link usado en varios dispositivos a la vez.
 - Worker: el modo «solo ver» usa la misma ventana y el mismo tope.
-- Interno: `WATCHING_MS` (`worker/src/index.ts`) y `RECENT_PLAY_MS` (`worker/web/ui/perfiles.tsx`) en 30 minutos.
+- Interno: `WATCHING_MS` (`worker/src/index.ts`) y `RECENT_PLAY_MS` (`worker/web/ui/perfiles.tsx`) en 60 minutos.
 
 ## 1.41.2
 

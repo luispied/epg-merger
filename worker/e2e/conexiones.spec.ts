@@ -1,4 +1,4 @@
-// Conexiones: qué links figuran mirando. Ventana de 30 minutos, tope por lo que dice el proveedor y el aviso cuando un
+// Conexiones: qué links figuran mirando. Ventana de una hora, tope por lo que dice el proveedor y el aviso cuando un
 // link compartido explica más conexiones que links mirando.
 import { expect, test, type Page } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
@@ -51,7 +51,7 @@ test('sin conexiones en el proveedor no hay links mirando', async ({ page }) => 
   await expect(page.locator('#linksBody')).toContainText('El proveedor no tiene conexiones abiertas ahora.');
 });
 
-test('un canal de hace más de 30 minutos ya no figura mirando', async ({ page }) => {
-  await openConexiones(page, [dev('a', 'TV Living', 45)], 1);
-  await expect(page.locator('#linksBody')).toContainText('Ningún link de esta cuenta abrió un canal en los últimos 30 minutos.');
+test('un canal de hace más de una hora ya no figura mirando', async ({ page }) => {
+  await openConexiones(page, [dev('a', 'TV Living', 90)], 1);
+  await expect(page.locator('#linksBody')).toContainText('Ningún link de esta cuenta abrió un canal en la última hora.');
 });
