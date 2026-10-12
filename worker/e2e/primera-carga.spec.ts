@@ -44,3 +44,22 @@ test('un 500 de la guía se reintenta solo: la Guía carga sin aviso de error', 
   await expect(page.locator('.status-bar.bad')).toHaveCount(0);
   expect(hits).toBe(3);
 });
+
+// Lenta: el pedido que no contesta tarda 20 s por intento y se reintenta dos veces (~1 min). Solo corre en main (SLOW=1,
+// check-worker.yml) y en un proyecto, porque el tiempo de espera no depende de la pantalla.
+test('un pedido que no contesta: a los 20 s dice «el servidor tarda en responder» y «Reintentar» la vuelve a pedir', async ({ page }, info) => {
+  test.skip(!process.env.SLOW, 'lenta (~1 min): solo en main, con SLOW=1');
+  test.skip(info.project.name !== 'iphone', 'un solo proyecto alcanza: el tiempo de espera no depende de la pantalla');
+  test.setTimeout(150_000);
+  await fakeWorker(page);
+  let hang = true;
+  // Mientras «hang» esté, la configuración no contesta nunca; después, el Worker responde como siempre.
+  await page.route('**/api/cfg/c1', (route) => {
+    if (route.request().method() !== 'GET' || !hang) return route.fallback();
+  });
+  await page.goto('/');
+  await expect(page.locator('.status-bar.bad .lead')).toContainText('el servidor tarda en responder', { timeout: 120_000 });
+  hang = false;
+  await page.getByRole('button', { name: 'Reintentar' }).click();
+  await expect(page.locator('#cards .card').first()).toBeVisible();
+});
