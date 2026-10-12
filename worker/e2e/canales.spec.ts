@@ -25,6 +25,14 @@ const row = (page: Page, ch: string) => cards(page).locator('.card', { hasText: 
 const savedEdit = (f: Fake, ch: string) => f.writes.filter((w) => w.path === '/api/cfg/c1' && w.method === 'PUT')
   .map((w) => (w.body as { channels: Record<string, unknown> }).channels[ch]).at(-1);
 
+/** Elige un estado en la hoja de filtros (el botón de filtros, el chip y «Listo»). */
+async function pickState(page: Page, name: string) {
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await sheet.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+}
+
 test('las filas con su categoría y su guía', async ({ page }) => {
   await expect(cards(page).locator('.cat-head')).toHaveText(['Deportes3', 'Noticias2', 'Infantiles2']);
   await expect(cards(page).locator('.card-name')).toHaveText(['ESPN', 'Fox Sports', 'TyC Sports', 'CNN', 'TN', 'Disney Channel', 'Cartoon Network']);
@@ -35,6 +43,19 @@ test('las filas con su categoría y su guía', async ({ page }) => {
   await expect(row(page, 'Fox Sports').locator('.tag.bad')).toHaveText('Sin EPG');
   await expect(row(page, 'ESPN').locator('.mono')).toHaveText('ES');
   await expect(cards(page).locator('.where')).toHaveCount(0);
+});
+
+test('filtrar por categoría: se elige en la hoja y se quita con su ×', async ({ page }) => {
+  await page.locator('.filter-btn').click();
+  const sheet = page.locator('.filter-sheet');
+  await sheet.getByRole('button', { name: /^Noticias/ }).click();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+  await expect(cards(page).locator('.card-name')).toHaveText(['CNN', 'TN']);
+  await expect(page.locator('.active-filters .chip-btn', { hasText: 'Noticias' })).toBeVisible();
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar, 1 activo');
+  await page.locator('.active-filters .chip-btn', { hasText: 'Noticias' }).click();
+  await expect(cards(page).locator('.card-name')).toHaveCount(7);
+  await expect(page.locator('.active-filters')).toBeHidden();
 });
 
 test('buscar, el vacío y ver todos', async ({ page }) => {
@@ -50,10 +71,10 @@ test('buscar, el vacío y ver todos', async ({ page }) => {
   await expect(search).toHaveValue('');
   await expect(cards(page).locator('.card')).toHaveCount(7);
 
-  await page.locator('#filterTabs [data-filter="ocultos"]').click();
+  await pickState(page, 'Ocultos');
   await expect(cards(page).locator('.empty')).toContainText('No ocultaste ningún canal.');
   await cards(page).getByRole('button', { name: 'Ver todos los canales' }).click();
-  await expect(page.locator('#filterTabs [data-filter="todos"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.filter-btn')).toHaveAttribute('aria-label', 'Filtrar');
   await expect(cards(page).locator('.card')).toHaveCount(7);
 });
 
@@ -91,11 +112,11 @@ test('ocultar desde el menú «…» y elegir varios', async ({ page }) => {
     await row(page, 'TN').locator('.row-more').click();
     await page.locator('.row-menu').getByRole('menuitem', { name: 'Ocultar' }).click();
     await expect.poll(() => savedEdit(fake, 'TN')).toMatchObject({ hidden: true });
-    await page.locator('#filterTabs [data-filter="ocultos"]').click();
+    await pickState(page, 'Ocultos');
     await expect(cards(page).locator('.card-name')).toHaveText(['TN']);
     await expect(row(page, 'TN')).toHaveClass(/is-hidden/);
     await expect(row(page, 'TN').locator('.mark')).toHaveText('oculto');
-    await page.locator('#filterTabs [data-filter="todos"]').click();
+    await pickState(page, 'Todos');
     await row(page, 'CNN').locator('.row-more').click();
     await page.locator('.row-menu').getByRole('menuitem', { name: 'Seleccionar' }).click();
   } else {
