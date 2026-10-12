@@ -232,3 +232,12 @@ test('el modo ver trae su manifest con el código', async ({ page }) => {
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', `/ver-app/${CODE}.webmanifest`);
   await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible();
 });
+
+test('la app del editor instalada abre el editor aunque el dispositivo tenga un código para ver', async ({ page }) => {
+  // Lo que pasa en iPhone: la app de ver y la del editor comparten localStorage. Instalada, la del editor no se desvía a /ver.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await page.addInitScript((c) => localStorage.setItem('grilla_ver_code', c), CODE);
+  await page.goto('/');
+  await expect(page.locator('#onboarding')).toBeVisible();
+  await expect(page).not.toHaveURL(/\/ver/);
+});

@@ -333,7 +333,7 @@ function HelpSheet({ close }: { close: () => void }) {
         </details>
         <details>
           <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>nowline abre siempre así en este dispositivo. Para salir, tocá el engranaje de Canales y después <b>Salir del modo ver</b> (también está al final de la lista de canales). Hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
+          <p>Esta app abre siempre así. La de editar, si la tenés instalada aparte, sigue como siempre. Para salir, tocá el engranaje de Canales y después <b>Salir del modo ver</b> (también está al final de la lista de canales). Hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
         </details>
       </div>
     </dialog>

@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.8
+
+- **Dos apps instaladas, cada una en su modo.** En iPhone, la app de editar y la de modo ver comparten los datos: al entrar en modo ver, la de editar también se abría en modo ver. Ahora la app instalada del editor abre el editor, y la de modo ver sigue en modo ver. Desde el navegador, quien mira sigue sin llegar al editor.
+
 ## 1.46.7
 
 - **«Salir del modo ver» está en Configuración.** Antes solo estaba al final de la lista de canales, y no se encontraba. Ahora, en el engranaje de Canales, la hoja Configuración tiene la opción. Sigue pidiendo el código de la casa.
