@@ -12,7 +12,7 @@ import {
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
   promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
   sectionTitle, setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode,
-  useOtherAccount, wireDownRow,
+  useOtherAccount, useViewCode, wireDownRow,
   type Account, type AccountView, type Device, type DeviceFilter, type LinkResult, type OtherProvider, type ProfileDef, type ProfileView,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
@@ -1186,6 +1186,13 @@ function ViewShare({ p }: { p: ProfileView }) {
       }
     });
   };
+  const openHere = async () => {
+    try {
+      await useViewCode(code);
+    } catch (e) {
+      toast((e as Error).message, 'bad');
+    }
+  };
   const text = `Para ver qué dan en la tele: abrí nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
   if (!code) {
     return (
@@ -1227,6 +1234,8 @@ function ViewShare({ p }: { p: ProfileView }) {
       <div class="qr" id="qr" />
       <Help>Ve solo los canales de este perfil; si cambiás qué ve el perfil, también cambia ahí.</Help>
       <div class="menu">
+        <MenuRow ico="eye" title="Abrir en modo ver" sub={`Este dispositivo pasa a modo ver con «${p.name}». Para salir, el código de la casa`}
+          onClick={() => void openHere()} />
         <MenuRow ico="refresh-cw" title="Hacer un código nuevo" sub="El de ahora deja de funcionar" onClick={() => void remove(true)} />
         <MenuRow ico="eye-off" title="Quitar el acceso" sub="Los links de reproducción no cambian" cls="danger" onClick={() => void remove(false)} />
       </div>

@@ -3113,6 +3113,6 @@ export {
   renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow, schedule, sectionHeaders,
   sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,
   showOnboarding, showQr, startGuideRefresh, state, switchProvider, toggleGroupHidden, toggleGroupNoEpg,
-  toggleReminder, unrenameGroup, useHomeCode, useOtherAccount, viewMode, visibleChannels, wireDownRow, wireSwipe,
+  toggleReminder, unrenameGroup, useHomeCode, useOtherAccount, useViewCode, viewMode, visibleChannels, wireDownRow, wireSwipe,
 };
 export type { Account, Band, ChannelEdit, NowPlaying, ScheduleEntry, AccountView, Device, DeviceFilter, GuideStatus, LinkResult, OtherProvider, ProfileDef, ProfileView };
