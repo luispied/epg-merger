@@ -1,9 +1,9 @@
 name: Check worker
 
 # Worker de Grilla (worker/): tipos, tests y la web compilada. La publicación la hace Cloudflare Workers Builds.
+# Sin filtro de ruta en PRs: el check «worker» es requerido en main y tiene que reportar en todo PR.
 on:
   pull_request:
-    paths: ['worker/**', 'core/**', '.github/workflows/check-worker.yml']
   push:
     branches: [main]
     paths: ['worker/**', 'core/**', '.github/workflows/check-worker.yml']
