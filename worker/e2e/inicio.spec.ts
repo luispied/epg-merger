@@ -1,4 +1,4 @@
-// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión. En el
+// La pantalla de inicio (#splash): el logo al abrir, que se va solo y no vuelve al recargar en la misma sesión (en la app; en el modo ver sí vuelve). En el
 // resto de los tests no aparece (navigator.webdriver); acá se hace pasar por un navegador común.
 import { expect, test } from '@playwright/test';
 
@@ -26,4 +26,15 @@ test('en el modo ver se va cuando hay algo para mostrar', async ({ page }) => {
   await expect(page.locator('#splash')).toBeVisible();
   await expect(page.getByText('No se pudo cargar')).toBeVisible();
   await expect(page.locator('#splash')).toHaveCount(0);
+});
+
+test('en el modo ver el logo vuelve al recargar y no pasa por «Cargando los canales…»', async ({ page }) => {
+  // Los canales tardan: el logo se queda hasta que llegan (o hasta que la carga falla), sin el texto debajo.
+  await page.route('**/api/view/**', () => {});
+  await page.goto('/ver#codigo-que-tarda');
+  await expect(page.locator('#splash')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('html')).not.toHaveClass(/no-splash/);
+  await expect(page.locator('#splash')).toBeVisible();
+  await expect(page.locator('#splash .wordmark')).toHaveText('nowlıne');
 });

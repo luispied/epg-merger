@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.41.7
+
+- **En el modo ver, el logo de inicio vuelve al recargar.** Al abrir o recargar la página de un código para ver, se ve el logo con «nowline» hasta que llegan los canales, y pasa directo a la lista, sin el «Cargando los canales…» en el medio. Si la carga tarda más de 15 segundos, aparece el aviso para probar de nuevo.
+
 ## 1.41.6
 
 - **La rueda queda solo para Configuración.** En Perfiles, el proveedor se toca como una fila con flecha (como las cuentas): ahí se cambian su nombre, su dirección, su lista o se quita. Ya no hay un engranaje dentro de Perfil.

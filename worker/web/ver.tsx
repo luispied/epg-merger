@@ -357,7 +357,8 @@ function App() {
   const load = () => {
     if (!code) return;
     setErr(null);
-    fetch(`/api/view/${code}`)
+    // Con un tiempo máximo: el logo se queda mientras carga, así que una conexión colgada tiene que terminar en un aviso.
+    fetch(`/api/view/${code}`, { signal: AbortSignal.timeout(15_000) })
       .then(async (r) => {
         if (!r.ok) return setErr({ status: r.status });
         setData(await r.json() as ViewData);
@@ -397,9 +398,8 @@ function App() {
     if (tab === 'canales') window.scrollTo(0, 0);
   }, [tab, host]);
 
-  // El logo de inicio se va cuando hay canales o un problema que mostrar (o a los 5 s, y queda «Cargando los canales…»).
+  // El logo de inicio se va cuando hay canales o un problema que mostrar: no pasa por «Cargando los canales…».
   useEffect(() => { if (data || err || !code) hideSplash(); }, [data, err]);
-  useEffect(() => { const t = setTimeout(hideSplash, 5000); return () => clearTimeout(t); }, []);
 
   if (!code) return <Problem title="Falta el código" text="Abrí nowline y tocá «Pegá el código» con el que te pasaron." other />;
   if (err?.status === 404) return <Problem title="Este código ya no funciona" text="Pedile uno nuevo a quien te lo pasó." other />;
