@@ -285,14 +285,8 @@ function SettingsSheet({ close, leave }: { close: () => void; leave: () => void 
             </div>
           </div>
         </div>
-        <h3 class="sec-title">Modo ver</h3>
-        <div class="menu">
-          <button type="button" class="menu-row" onClick={leave}>
-            <span class="menu-icon"><Icon name="key-round" /></span>
-            <span class="menu-text">Salir del modo ver</span>
-            <Icon name="chevron-right" />
-          </button>
-        </div>
+        <button type="button" class="btn btn-tonal btn-block vw-leave" onClick={leave}><Icon name="key-round" />Salir del modo ver</button>
+        <p class="help">Para salir hace falta el código de la casa.</p>
       </div>
     </dialog>
   );
