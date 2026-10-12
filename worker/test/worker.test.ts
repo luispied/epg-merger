@@ -1636,3 +1636,18 @@ test('tipo de pedido para el registro: sin ids, códigos ni tokens', () => {
   for (const [path, kind] of cases) assert.equal(routeKind(path), kind, path);
   for (const [path] of cases) assert.ok(!/TOKEN|CODIGO|codigo|abcdef/.test(routeKind(path)), path);
 });
+
+test('el manifest del modo ver lleva el código en su start_url, y un código raro no tiene manifest', async () => {
+  const t = makeEnv();
+  const code = 'AbCdEfGhIjKlMnOpQrStUv';
+  const res = await handle(req(`/ver-app/${code}.webmanifest`), t.env, t.ctx, t.cache);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('Content-Type') ?? '', /manifest\+json/);
+  const m = await res.json() as { start_url: string; display: string; scope: string; icons: { src: string }[] };
+  assert.equal(m.start_url, `/ver#${code}`);
+  assert.equal(m.display, 'standalone');
+  assert.equal(m.scope, '/');
+  assert.ok(m.icons.every((i) => i.src.startsWith('/img/')));
+  assert.equal((await handle(req('/ver-app/corto.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
+  assert.equal((await handle(req('/ver-app/..%2Fx.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
+});
