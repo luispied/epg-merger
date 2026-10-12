@@ -1,0 +1,142 @@
+/* Tokens de Nowline web: el único lugar que define colores, sombras, radios y escalas. El resto de los estilos (base.css
+   y web.css) solo piden tokens con var(). Paleta «Guía de TV»: oscuro con acento ámbar por defecto; el claro es cálido
+   (papel y ámbar oscuro). Colores por rol, al estilo Material 3: los componentes piden un rol, no un color.
+
+   light-dark(claro, oscuro): cada token que cambia con el tema se escribe una sola vez. No es el light-dark() de CSS:
+   lo expande build.mjs en los bloques de siempre (claro en :root; oscuro con el sistema en oscuro y con el tema forzado
+   en oscuro), así anda en cualquier navegador (también iPhones viejos) y vale para cualquier valor, no solo colores.
+   Un valor con comas propias (una sombra de varias capas) separa el claro del oscuro con « | ». */
+:root {
+  color-scheme: light dark;
+
+  /* Fondos y texto */
+  --bg: #f5f2ec;
+  --surface: #ffffff;
+  --surface-2: #efebe3;
+  --fill: #e4dfd4;
+  --text: #1c1a15;
+  --muted: #4d4a40;
+  --faint: #6f6a5f;
+  --hairline: #d9d3c6;
+  --chip-line: #8f887a; /* borde de chips y filtros sin elegir (3:1 contra el fondo) */
+  --toolbar-bg: rgba(245, 242, 236, .92);
+
+  /* Acento (ámbar): lo que se toca y lo elegido */
+  --accent: #8f5200;
+  --on-accent: #ffffff;
+  --accent-soft: #ffe3b8;
+  --on-accent-soft: #3b2400;
+
+  /* El botón principal: el mismo ámbar en los dos temas (con texto casi negro) */
+  --amber: #ffb224;
+  --on-amber: #1d1300;
+
+  /* Fondos fijos: el recuadro de los logos con imagen (claro también en el tema oscuro, porque las fuentes traen logos
+     oscuros y claros) y el del código QR (siempre blanco, para que lo lea cualquier cámara) */
+  --logo-tile: #f2f2f7;
+  --logo-ink: #aeaeb2;
+  --qr-bg: #ffffff;
+
+  /* Estados */
+  --green: #17683a;
+  --live: var(--green); /* lo que pasa ahora (en el aire, en vivo): siempre verde, nunca ámbar */
+  --on-live: #ffffff;
+  --orange: #b03a10;
+  --red: #b3261e;
+  --on-danger: #ffffff;
+  --blue: #1d5fb8;
+  --gray: #6a665b;
+
+  /* Superficie invertida (avisos) */
+  --inverse-surface: #2b2820;
+  --inverse-text: #f1ede3;
+  --inverse-accent: #ffc15c;
+
+  /* Sombras */
+  --shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 1px 3px 1px rgba(0, 0, 0, .05);
+  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .18);
+  --shadow-logo: 0 10px 30px rgba(60, 40, 0, .16), 0 2px 6px rgba(0, 0, 0, .08); /* el ícono grande de la pantalla de inicio */
+
+  /* Formas */
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  /* Medidas de la app */
+  --gutter: calc(16px + env(safe-area-inset-left, 0px));
+  --tab-h: 56px;
+  --rail-w: 92px; /* barra lateral de las pestañas en el escritorio ancho */
+
+  /* Escalas (las pantallas las van adoptando; ver planes/auditoria-diseno.md) */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 28px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
+  --z-sticky: 3; --z-toolbar: 5; --z-page: 7; --z-tabbar: 8; --z-toast: 20; --z-sheet: 60; --z-menu: 200; --z-splash: 1000;
+  --dur-1: 120ms; --dur-2: 200ms; --dur-3: 280ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-in: cubic-bezier(.4, 0, 1, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0d10;
+    --surface: #15171c;
+    --surface-2: #1d2026;
+    --fill: #272b33;
+    --text: #eceef2;
+    --muted: #b4bac6;
+    --faint: #8a91a0;
+    --hairline: #2a2e37;
+    --chip-line: #626a77;
+    --toolbar-bg: rgba(12, 13, 16, .92);
+    --accent: #ffb224;
+    --on-accent: #1d1300;
+    --accent-soft: #3d2d09;
+    --on-accent-soft: #ffd98a;
+    --logo-tile: #e5e5ea;
+    --logo-ink: #8e8e93;
+    --green: #52d49a;
+    --on-live: #06281a;
+    --orange: #ff8566;
+    --red: #ff7b72;
+    --on-danger: #3c0a07;
+    --blue: #7fb2ff;
+    --gray: #98a0ae;
+    --inverse-surface: #2d3139;
+    --inverse-text: #eceef2;
+    --inverse-accent: #ffb224;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+    --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
+    --shadow-logo: 0 12px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .04);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0d10;
+  --surface: #15171c;
+  --surface-2: #1d2026;
+  --fill: #272b33;
+  --text: #eceef2;
+  --muted: #b4bac6;
+  --faint: #8a91a0;
+  --hairline: #2a2e37;
+  --chip-line: #626a77;
+  --toolbar-bg: rgba(12, 13, 16, .92);
+  --accent: #ffb224;
+  --on-accent: #1d1300;
+  --accent-soft: #3d2d09;
+  --on-accent-soft: #ffd98a;
+  --logo-tile: #e5e5ea;
+  --logo-ink: #8e8e93;
+  --green: #52d49a;
+  --on-live: #06281a;
+  --orange: #ff8566;
+  --red: #ff7b72;
+  --on-danger: #3c0a07;
+  --blue: #7fb2ff;
+  --gray: #98a0ae;
+  --inverse-surface: #2d3139;
+  --inverse-text: #eceef2;
+  --inverse-accent: #ffb224;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
+  --shadow-logo: 0 12px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .04);
+}
