@@ -11,9 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.42.8
+## 1.42.9
 
 - **La barra de abajo tiene una píldora que se desliza.** Al pasar de Canales a Guía, Categorías o Perfil, la marca de la pestaña elegida viaja hasta el botón nuevo en vez de aparecer de golpe. Igual en la edición y en el modo ver, y con «reducir movimiento» activado no se anima.
+
+## 1.42.8
+
+- **Al abrir la Guía, la página de atrás ya no se mueve.** En el celular, el scroll de la lista de atrás corría la barra inferior y la hacía verse más arriba que en el modo ver.
+- **En el modo ver, el buscador ya no deja un hueco grande debajo del título.** En el celular la distancia se sumaba dos veces con la franja de la hora, y ahora queda igual que en la edición.
 
 ## 1.42.7
 
