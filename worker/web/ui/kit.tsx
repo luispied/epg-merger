@@ -22,3 +22,12 @@ export function BrandFoot() {
     </div>
   );
 }
+
+/** Mientras cargan las tarjetas de canales: el mismo esqueleto en la edición y en el modo ver (sin texto de carga). */
+export function Skeleton() {
+  return (
+    <>
+      {[0, 1, 2, 3].map((k) => <div key={k} class="skeleton"><div class="bar w60" /><div class="bar w40" /><div class="bar block" /></div>)}
+    </>
+  );
+}
