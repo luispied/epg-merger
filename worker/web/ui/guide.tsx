@@ -8,6 +8,8 @@ import { Icon } from './icon.tsx';
 import { Progress } from './kit.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
+import { type Affinity, habitAffinity, type Habits, NEVER_SUGGEST, normTitle, planScore } from '../../../core/src/taste.ts';
+export { type Affinity, genreTaste, habitAffinity, moreGenres, normTitle, planScore } from '../../../core/src/taste.ts';
 
 export interface GuideChannel {
   i: number; // índice en la lista de canales de app.ts
@@ -34,6 +36,11 @@ export interface GuideHost {
   habits?(): Promise<Habits | null>;
   /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
   feedback?(title: string, kind: Feedback, genre?: string): Promise<Habits | null>;
+  /** Avisos por gusto (solo en la edición): cómo están y apagar o prender un género. Null = no hay avisos en este dispositivo. */
+  tasteAlerts?: {
+    state(): Promise<{ on: boolean; genres: { name: string; on: boolean }[] } | null>;
+    setGenre(genre: string, on: boolean): Promise<void>;
+  };
   /** La ayuda de la Guía (el ? del título). */
   help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
@@ -43,15 +50,17 @@ export interface GuideHost {
   hourPath?: string;
 }
 export type Feedback = 'no' | 'more' | 'clear';
-/** Por epg: veces que se abrió el canal y por hora UTC; por título normalizado: emisiones vistas; y los pedidos. */
-export interface Habits {
-  ch: Record<string, { n: number; h: number[] }>;
-  t: Record<string, { n: number; g?: string }>;
-  no: Record<string, string>;
-  more: Record<string, string>;
-  /** El género de cada «Más como esto» (por título normalizado): sube ese género en el plan. */
-  mg?: Record<string, string>;
+export type { Habits };
+
+/** «documental» → «documentales»: para «No avisarme de documentales». */
+export function genrePlural(g: string): string {
+  const w = g.toLowerCase();
+  return /s$/.test(w) ? w : /[aeiouáéíóú]$/.test(w) ? `${w}s` : `${w}es`;
 }
+
+/** El programa que pidió abrir un aviso (?programa=…): la Guía abre su hoja apenas tiene los canales. */
+let pendingProgram: { epg: string; start: number } | null = null;
+export const openProgramLink = (epg: string, start: number) => { pendingProgram = { epg, start }; };
 
 /** El índice de una hora; `g` (género de cada título de `t`, '' = sin clasificar) viene cuando la IA ya clasificó alguno. */
 interface HourIndex { h: number; t: string[]; g?: string[]; c: Record<string, [number, number, number][]> }
@@ -219,6 +228,16 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   const [habits, setHabits] = useState<Habits | null>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { host.habits?.().then(setHabits).catch(() => {}); }, []);
+  useEffect(() => {
+    const want = pendingProgram;
+    const ch = want && channels.find((c) => c.epg === want.epg);
+    if (!want || !ch) return;
+    pendingProgram = null;
+    host.schedule(want.epg).then((list) => {
+      const e = list?.find(([s]) => s === want.start);
+      if (e) setOpen({ ch, p: { s: e[0], e: e[1], t: e[2], ...(e[4] ? { g: e[4] } : {}) } });
+    }).catch(() => {});
+  }, [channels]);
   useEffect(() => { loadAgain(channels.flatMap((c) => (c.epg ? [c.epg] : []))).then(setAgain); }, [channels]);
 
   const cats = useMemo(() => [...new Set(channels.map((c) => c.cat))], [channels]);
@@ -668,86 +687,9 @@ export function partOfDay(t: number): Part {
   return cur.end - t < 90 * 60 ? at((i < 0 ? 0 : i) + 1) : cur;
 }
 
-const FILLER = /canal no disponible|se[ñn]al no disponible|paid programming|programa pagado|programación pagada|no data|sin información|infomercial|televenta|fuera del aire|off air|cierre de emisi/i;
-const LIVE = /\b(en vivo|vivo|live|vs\.?|final|semifinal|cl[aá]sico|gran premio|grand prix)\b/i;
-const RERUN = /(-\s*rep\.?\s*$|\(r\)|\brepetici[oó]n\b|\bresumen\b)/i;
-const NEWS = /\b(noticias|noticiero|news|sportscenter|informativo|el tiempo)\b/i;
-const MOVIE_CAT = /pel[ií]cul|cine|movie|film/i;
 
 interface Slot { ch: GuideChannel; p: Prog; alt?: { ch: GuideChannel; p: Prog }; why?: string }
 type Cand = { ch: GuideChannel; p: Prog };
-/** Lo que suma un programa por los gustos de la casa, y por qué; null = «No me interesa». */
-export type Affinity = (c: Cand) => { bonus: number; why?: string } | null;
-
-/** Como el Worker (again.ts): el mismo programa aunque cambien mayúsculas o espacios. */
-export const normTitle = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
-
-/** Afinidad por hábitos: el programa que se mira seguido, el canal a esa hora (±1 h) y en general, la campana y lo
- *  pedido. Pesa como mucho lo que un partido en vivo: lo de siempre sube, pero no tapa todo lo demás. */
-export function habitAffinity(h: Habits | null, marks: Set<string> | null): Affinity {
-  const taste = genreTaste(h);
-  const asked = moreGenres(h);
-  return ({ ch, p }) => {
-    const k = normTitle(p.t);
-    if (h?.no[k]) return null;
-    const reasons: [number, string][] = [];
-    let bonus = 0;
-    const add = (v: number, why: string, min = 0) => { bonus += v; if (v > min) reasons.push([v, why]); };
-    if (h?.more[k]) add(3, 'Pediste más como esto');
-    if (p.g && asked.has(p.g) && !h?.more[k]) add(2, `Pediste más de ${p.g.toLowerCase()}`, 0.9);
-    if (marks?.has(`${ch.epg}|${p.s}`)) add(3, 'Le pusiste la campana');
-    const tn = h?.t[k]?.n ?? 0;
-    if (tn) add(Math.min(4, 1.5 * Math.log2(1 + tn)), tn >= 3 ? 'Lo mirás seguido' : 'Ya lo miraste', 1);
-    const c = ch.epg ? h?.ch[ch.epg] : undefined;
-    if (c) {
-      const hr = new Date(p.s * 1000).getUTCHours();
-      const at = [-1, 0, 1].reduce((n, d) => n + (c.h[(hr + d + 24) % 24] ?? 0), 0);
-      add(Math.min(3, 0.75 * at), 'Tu canal a esta hora', 1.4);
-      add(Math.min(1.5, 0.5 * Math.log2(1 + c.n)), 'De tus canales', 0.9);
-    }
-    const gs = p.g ? taste.get(p.g) ?? 0 : 0;
-    if (gs) add(gs, `Como lo que mirás: ${p.g!.toLowerCase()}`, 0.9);
-    reasons.sort((a, b) => b[0] - a[0]);
-    return { bonus, why: reasons[0]?.[1] };
-  };
-}
-
-/** Géneros que ya se pueden sugerir y cuánto pesan en la casa: el género de los programas que se miraron (la
- *  corrida lo anota en los hábitos cuando la IA ya lo clasificó). Hasta +2,5 según qué parte de lo mirado es de ese
- *  género; con menos de dos veces no cuenta. */
-export function genreTaste(h: Habits | null): Map<string, number> {
-  const n = new Map<string, number>();
-  let total = 0;
-  for (const v of Object.values(h?.t ?? {})) {
-    if (!v.g || v.g === NEVER_SUGGEST) continue;
-    n.set(v.g, (n.get(v.g) ?? 0) + v.n);
-    total += v.n;
-  }
-  const out = new Map<string, number>();
-  for (const [g, c] of n) if (c >= 2) out.set(g, Math.min(2.5, (6 * c) / total));
-  return out;
-}
-
-/** Los géneros de los «Más como esto» que siguen vigentes: sube todo lo de ese género, no solo el mismo título. */
-export function moreGenres(h: Habits | null): Set<string> {
-  const out = new Set<string>();
-  for (const [k, g] of Object.entries(h?.mg ?? {})) if (h?.more[k] && g !== NEVER_SUGGEST) out.add(g);
-  return out;
-}
-
-/** La publicidad (infomerciales, televenta) que la IA reconoce nunca se sugiere. */
-const NEVER_SUGGEST = 'Publicidad';
-
-/** Puntaje de un programa para el plan (más es mejor); null si no va. */
-export function planScore(t: string, len: number, cat: string): number | null {
-  if (len < 25 * 60 || FILLER.test(t)) return null;
-  let sc = Math.min(len, 150 * 60) / 1800;
-  if (LIVE.test(t)) sc += 4;
-  if (MOVIE_CAT.test(cat) && len >= 80 * 60) sc += 2;
-  if (RERUN.test(t)) sc -= 3;
-  if (NEWS.test(t)) sc -= 2;
-  return sc;
-}
 
 /** Encadena programas desde `now` hasta `end`: en cada paso, el mejor de los que empiezan cerca de donde
  *  terminó el anterior (el primero puede haber empezado hace un rato). `forced` fija la elección de un paso. */
@@ -1025,6 +967,24 @@ function Taste({ title, genre, host, habits, setHabits }: { title: string; genre
       : 'Listo: lo dejé como antes.';
     toast(msg, 'ok', 3500, kind === 'clear' ? undefined : () => send(prev, true));
   };
+  // «No avisarme de X»: solo si los avisos por gusto están prendidos para este género.
+  const [alertOn, setAlertOn] = useState(false);
+  useEffect(() => {
+    if (!genre || !host.tasteAlerts) return;
+    host.tasteAlerts.state().then((v) => setAlertOn(!!v?.on && !!v.genres.find((x) => x.name === genre)?.on));
+  }, [genre]);
+  const stopAlerts = async () => {
+    try {
+      await host.tasteAlerts!.setGenre(genre!, false);
+    } catch {
+      toast('No se pudo guardar. Probá de nuevo.', 'bad');
+      return;
+    }
+    setAlertOn(false);
+    toast(`Listo: no te aviso más de ${genrePlural(genre!)}.`, 'ok', 3500, {
+      label: 'Deshacer', run: () => { host.tasteAlerts!.setGenre(genre!, true).then(() => setAlertOn(true)).catch(() => toast('No se pudo guardar. Probá de nuevo.', 'bad')); },
+    });
+  };
   const btn = (kind: 'more' | 'no', icon: string, label: string) => (
     <button type="button" class={`chip-btn gd-taste-btn${cur === kind ? ' on' : ''}`} aria-pressed={cur === kind}
       onClick={() => send(cur === kind ? 'clear' : kind)}>
@@ -1035,6 +995,11 @@ function Taste({ title, genre, host, habits, setHabits }: { title: string; genre
     <div class="gd-taste" role="group" aria-label="Para tu plan">
       {btn('more', 'thumbs-up', 'Más como esto')}
       {btn('no', 'thumbs-down', 'No me interesa')}
+      {alertOn && genre && (
+        <button type="button" class="chip-btn gd-taste-btn" onClick={() => void stopAlerts()}>
+          <Icon name="bell-off" class="sm" />No avisarme de {genrePlural(genre)}
+        </button>
+      )}
       {cur === 'more' && g && <p class="gd-taste-hint">Tu plan sube también los de {g}.</p>}
     </div>
   );

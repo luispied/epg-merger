@@ -17,6 +17,7 @@
 //   GET    /api/push/key                 clave pública VAPID de los avisos push (404 si no están activados)
 //   POST   /api/cfg/<cfgId>/push         (Bearer editKey) suscribir este navegador a los avisos · DELETE: darlo de baja
 //   POST   /api/cfg/<cfgId>/push/test    (Bearer editKey) mandar un aviso de prueba
+//   GET/POST /api/cfg/<cfgId>/push/taste (Bearer editKey) avisos por gusto: estado y cambios (taste.ts)
 //   POST   /api/cfg/<cfgId>/profiles/<id>/view  (Bearer editKey) link «solo ver» del perfil → {code} · DELETE: quitarlo
 //   GET    /api/view/<código>            canales del perfil para el modo «solo ver» (view.ts)
 //   GET    /api/view/<código>/connections  conexiones en uso de su cuenta y qué está mirando cada link
@@ -55,7 +56,7 @@ import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './hom
 import { againFor, validAgainIds } from './again.ts';
 import { cfgHour, type Raw, readStored, scheduleReader } from './schedule.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
-import { addSub, checkAllPush, currentNames, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
+import { addSub, checkAllPush, currentNames, getTaste, setTaste, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
 /** Misma cuenta del proveedor (vacío o sin dato = la principal). */
@@ -538,6 +539,14 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         const body = await readJson(request, 8 * 1024) as { endpoint?: unknown };
         if (typeof body.endpoint === 'string') await removeSub(env.BUCKET, cfgId, body.endpoint);
         return json({ ok: true });
+      }
+      if (sub === 'taste') {
+        // Avisos por gusto (taste.ts): GET el estado; POST {on?, tz?, when?, per?, genre?, genreOn?} lo cambia.
+        if (method === 'GET') return json(await getTaste(env.BUCKET, cfgId), 200, { 'Cache-Control': 'no-store' });
+        if (method === 'POST') {
+          const view = await setTaste(env.BUCKET, cfgId, await readJson(request, 4 * 1024) as Record<string, unknown>);
+          return view ? json(view) : fail(400, 'primero activá los avisos en este dispositivo');
+        }
       }
       if (sub === 'test' && method === 'POST') {
         return json({ sent: await pushToConfig(env, cfgId, { title: 'Avisos activados', body: 'Te avisamos cuando haya canales nuevos en tu lista.', url: '/' }) });

@@ -12,6 +12,7 @@ import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
 import { BrandFoot } from './kit.tsx';
+import { loadTaste, openTasteSheet, tasteSummary, type TasteView } from './avisos-gusto.tsx';
 
 declare const __APP_VERSION__: string;
 
@@ -25,7 +26,7 @@ export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager'
 export const iosNotInstalled = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator as Navigator & { standalone?: boolean }).standalone;
 const b64urlBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
 
-const PUSH_HINT = 'Canales nuevos, vencimientos y recordatorios';
+const PUSH_HINT = 'Canales nuevos, vencimientos y tus campanas';
 let pushKey = '';
 interface PushView { on: boolean; disabled: boolean; hint: string }
 
@@ -113,6 +114,7 @@ function Settings() {
   const [health, setHealth] = useState('Calculando…');
   const [guide, setGuide] = useState<GuideStatus | null>(null);
   const [push, setPushState] = useState<PushView | null>(null);
+  const [taste, setTaste] = useState<TasteView | null>(null);
   const [logos, setLogos] = useState(logosOn);
   const [startFilter, setStartFilter] = useState(() => pref('grilla_start_filter', 'last'));
   const [theme, setTheme] = useState(savedTheme);
@@ -130,7 +132,13 @@ function Settings() {
   const refreshPush = async () => {
     const v = await pushView();
     setPushState(v);
-    if (v && !v.disabled) setPushState({ ...v, on: await pushSubscribed() });
+    if (v && !v.disabled) {
+      const on = await pushSubscribed();
+      setPushState({ ...v, on });
+      // Los avisos por gusto cuelgan de los avisos: sin ellos no hay fila.
+      if (on) loadTaste().then(setTaste).catch(() => setTaste(null));
+      else setTaste(null);
+    }
   };
   const showHealth = () => {
     const h = guideHealth();
@@ -200,6 +208,9 @@ function Settings() {
             <input type="checkbox" class="switch" role="switch" checked={push.on} disabled={push.disabled}
               onChange={(ev) => { void setPush(ev.currentTarget.checked).then(refreshPush); }} />
           </label>
+        )}
+        {push?.on && (
+          <MenuRow icon="sparkles" title="Avisos por gusto" sub={taste ? tasteSummary(taste) : 'Tocá para ver'} onClick={() => openTasteSheet(setTaste)} />
         )}
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="a-large-small" /></span>
