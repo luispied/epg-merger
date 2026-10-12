@@ -9,6 +9,7 @@
     "test": "node --test test/*.test.ts",
     "deploy": "wrangler deploy",
     "e2e": "node build.mjs && playwright test",
+    "e2e:real": "playwright test -c playwright.real.config.ts",
     "splash-images": "node build.mjs && node splash-images.mjs"
   },
   "devDependencies": {
