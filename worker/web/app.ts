@@ -17,7 +17,8 @@ import {
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
-import { renderFilterTab, renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
+import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
+import { renderFilters, setupFilters } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { openRowMenu as openRowMenuView, refreshCards, renderCards, renderReviewCard as renderReviewCardView, renderSkeleton } from './ui/canales.tsx';
@@ -528,7 +529,6 @@ let bannerCount = 0;
 function renderNewBanner() {
   newCount = state.channels.filter((c) => state.newNames.has(c.name)).length;
   bannerCount = state.channels.filter((c) => state.bannerNames.has(c.name)).length;
-  $('#filterTabs [data-filter="nuevos"]').hidden = !newCount;
   if (!newCount && state.filter === 'nuevos') state.filter = 'todos';
 }
 
@@ -981,6 +981,28 @@ function guideHealth() {
   return { withGuide, ok, gap, dead, none, known: !!healthIdx };
 }
 
+// Los filtros de la lista: un estado (uno solo) y las categorías elegidas (varias). Los dibuja ui/filtros.tsx.
+const STATE_FILTERS: [string, string][] = [
+  ['todos', 'Todos'], ['nuevos', 'Nuevos'], ['revisar', 'A revisar'], ['sin-epg', 'Sin EPG'], ['sin-prog', 'Sin programación'],
+  ['caidos', 'Caídos'], ['manual', 'Elegidos a mano'], ['editados', 'Editados'], ['ocultos', 'Ocultos'],
+];
+// Estos siempre se ofrecen en la hoja; los demás solo cuando hay canales que cumplen.
+const ALWAYS_STATES = new Set(['todos', 'revisar', 'sin-epg', 'manual', 'editados', 'ocultos']);
+let listCats: string[] = [];
+function renderFilterBar() {
+  const states = STATE_FILTERS
+    .map(([key, label]) => ({ key, label, count: state.channels.filter((c) => matchesFilter(c, key)).length }))
+    .filter((s) => ALWAYS_STATES.has(s.key) || s.count > 0 || s.key === state.filter);
+  const cats = new Map<string, number>();
+  for (const ch of state.channels) {
+    if (info(ch).divider) continue;
+    cats.set(groupOf(ch), (cats.get(groupOf(ch)) ?? 0) + 1);
+  }
+  listCats = listCats.filter((c) => cats.has(c));
+  const categories = [...cats].map(([key, count]) => ({ key, label: groupLabel(key), count }));
+  renderFilters({ filter: state.filter, cats: listCats, states, categories });
+}
+
 function matchesFilter(ch: Channel, filter: string) {
   const i = info(ch);
   switch (filter) {
@@ -1040,6 +1062,7 @@ function visibleChannels(): number[] {
     .filter((i) => {
       const ch = state.channels[i];
       if (!matchesFilter(ch, state.filter)) return false;
+      if (listCats.length && !listCats.includes(groupOf(ch))) return false;
       if (!q) return true;
       const edit = state.cfg!.channels[ch.name] ?? {};
       const guideName = edit.epg ? state.index?.displayName.get(edit.epg) ?? '' : '';
@@ -1241,17 +1264,9 @@ function render() {
 function renderNow() {
   headersCache = null;
   renderNewBanner();
-  const noProg = state.channels.filter((c) => matchesFilter(c, 'sin-prog')).length;
-  $('#filterTabs [data-filter="sin-prog"]').hidden = !noProg;
-  if (!noProg && state.filter === 'sin-prog') state.filter = 'todos';
-  const nDown = state.channels.filter((c) => matchesFilter(c, 'caidos')).length;
-  $('#filterTabs [data-filter="caidos"]').hidden = !nDown;
-  if (!nDown && state.filter === 'caidos') state.filter = 'todos';
-  for (const b of $$<HTMLButtonElement>('#filterTabs button')) {
-    const f = b.dataset.filter!;
-    b.setAttribute('aria-pressed', String(f === state.filter));
-    renderFilterTab(b, b.dataset.label ?? '', state.channels.filter((c) => matchesFilter(c, f)).length);
-  }
+  if (!state.channels.some((c) => matchesFilter(c, 'sin-prog')) && state.filter === 'sin-prog') state.filter = 'todos';
+  if (!state.channels.some((c) => matchesFilter(c, 'caidos')) && state.filter === 'caidos') state.filter = 'todos';
+  renderFilterBar();
   renderReviewCard();
   const list = visibleChannels();
   const cards = $('#cards');
@@ -2728,14 +2743,19 @@ function wireDownRow() {
 }
 
 function setupEditor() {
-  $('#filterTabs').onclick = (ev) => {
-    const f = (ev.target as HTMLElement).closest<HTMLElement>('[data-filter]')?.dataset.filter;
-    if (!f) return;
-    state.filter = f;
-    setPref('grilla_last_filter', f);
-    state.shown = PAGE;
-    render();
-  };
+  setupFilters({
+    onState: (f) => {
+      state.filter = f;
+      setPref('grilla_last_filter', f);
+      state.shown = PAGE;
+      render();
+    },
+    onCats: (cats) => {
+      listCats = cats;
+      state.shown = PAGE;
+      render();
+    },
+  });
   let t = 0;
   $<HTMLInputElement>('#searchBox').oninput = (ev) => {
     clearTimeout(t);

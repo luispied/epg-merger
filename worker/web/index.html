@@ -129,18 +129,9 @@
         <span data-icon="search"></span>
         <input type="search" id="searchBox" placeholder="Buscar canal, categoría o programa" enterkeyhint="search" aria-label="Buscar canal, categoría o programa que está dando ahora">
       </label>
+      <div id="filterMount"></div>
     </div>
-    <nav class="segmented" id="filterTabs" aria-label="Filtros">
-      <button data-filter="todos" data-label="Todos">Todos</button>
-      <button data-filter="nuevos" data-label="Nuevos" hidden>Nuevos</button>
-      <button data-filter="revisar" data-label="A revisar">A revisar</button>
-      <button data-filter="sin-epg" data-label="Sin EPG">Sin EPG</button>
-      <button data-filter="sin-prog" data-label="Sin programación" hidden>Sin programación</button>
-      <button data-filter="caidos" data-label="Caídos" hidden>Caídos</button>
-      <button data-filter="manual" data-label="Elegidos a mano">Elegidos a mano</button>
-      <button data-filter="editados" data-label="Editados">Editados</button>
-      <button data-filter="ocultos" data-label="Ocultos">Ocultos</button>
-    </nav>
+    <div class="active-filters" id="activeFilters" hidden></div>
     <div class="probe-strip" id="probeStrip" role="status" hidden>
       <div class="probe-line"><span data-icon="loader-circle" class="spin"></span><b id="probeText">Prueba de canales en espera</b><small id="probeDown"></small><button type="button" class="btn btn-plain probe-stop" id="probeStop">Detener</button></div>
       <div class="probe-bar" id="probeBar"><i></i></div>
@@ -187,6 +178,8 @@
   <button class="icon-btn filled" id="bulkActions" title="Acciones" aria-label="Acciones para los seleccionados" disabled><span data-icon="ellipsis"></span></button>
 </div>
 
+<!-- Filtros de la lista de Canales (ui/filtros.tsx). -->
+<div id="filterSheetMount"></div>
 <dialog class="sheet settings-sheet" id="bulkDialog" aria-labelledby="bulkTitle">
   <div class="sheet-body">
     <div class="title-row">
@@ -307,6 +300,11 @@
     <details>
       <summary>¿Qué son SD, HD, FHD y 4K?<span data-icon="chevron-down"></span></summary>
       <p>Es la <b>resolución real</b> del canal, junto a su guía en Canales y en la Guía: <b>SD</b> (menos de 720 líneas), <b>HD</b> (720), <b>FHD</b> (1080) y <b>4K</b>. No sale del nombre del canal: nowline la mide en el video que manda el proveedor, junto con la prueba de canales caídos: cada canal que anda una vez por semana, de a unos 100 canales por día, así que en una lista grande las etiquetas van apareciendo de a poco. Un canal nuevo, caído o que todavía no se midió no lleva etiqueta. Con el mouse encima ves el ancho × alto exacto.</p>
+    </details>
+
+    <details>
+      <summary>¿Cómo filtro la lista?<span data-icon="chevron-down"></span></summary>
+      <p>Tocá el botón <span class="inline-icon" data-icon="list-filter"></span> al lado del buscador. En la hoja elegís <b>un estado</b> (Todos, A revisar, Sin EPG…) y <b>una o más categorías</b>. Lo que elegiste aparece arriba de la lista como chips; tocá la <b>×</b> de cada uno para quitarlo, o <b>Quitar todos</b>. El número sobre el botón cuenta los filtros puestos. Los filtros de la lista no cambian la Guía.</p>
     </details>
 
     <details>

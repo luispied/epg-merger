@@ -113,6 +113,19 @@ dialog .search-field { background: var(--surface-2); }
 .chip-btn { min-height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--chip-line); font-weight: 500; padding: 0 12px; }
 @media (hover: hover) { .chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .chip-btn[aria-pressed="true"] { box-shadow: none; }
+/* Filtros de la lista de Canales (ui/filtros.tsx): el botón con su contador, los chips de lo puesto y la hoja. */
+.filter-btn { position: relative; flex: none; }
+.filter-btn .count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.active-filters { display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-2) var(--gutter) 0; scrollbar-width: none; }
+.active-filters[hidden] { display: none; }
+.active-filters::-webkit-scrollbar { display: none; }
+.active-filters .chip-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-right: 6px; }
+.active-filters .x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--hairline); color: var(--muted); }
+.active-filters .x .icon { width: 12px; height: 12px; }
+.clear-all { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: 500; padding: 0 var(--sp-1); }
+.filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.filter-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; }
+.filter-chips .n { font-variant-numeric: tabular-nums; color: var(--faint); font-size: var(--fs-sm); }
 .cat-row .chip-btn { min-height: 28px; }
 
 /* Botones segmentados (tipo de proveedor, tema). */
