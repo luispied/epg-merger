@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
+import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
 import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { hideSplash } from './ui/splash.ts';
@@ -246,7 +247,7 @@ function HelpSheet({ close }: { close: () => void }) {
         <details open>
           <summary>Canales<Icon name="chevron-down" /></summary>
           <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
-          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo.</p>
+          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias» o el nombre de un equipo. Al lado de la búsqueda, el botón <span class="inline-icon"><Icon name="list-filter" /></span> <b>filtra por categoría</b>: elegís una o más y quedan arriba como chips; tocá la <b>×</b> de cada uno para quitarlo.</p>
         </details>
         <details>
           <summary>Conexiones en uso<Icon name="chevron-down" /></summary>
@@ -274,12 +275,22 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
+  // Las categorías que se ofrecen son las de los canales que ve este perfil (ya vienen sin las ocultas): mismo filtro que en la edición.
+  const [cats, setCats] = useState<string[]>([]);
+  const categories = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of channels) m.set(c.cat, (m.get(c.cat) ?? 0) + 1);
+    return [...m].map(([key, count]) => ({ key, label: key, count }));
+  }, [channels]);
+  const picked = cats.filter((c) => categories.some((x) => x.key === c));
+  const model: FilterModel = { filter: 'todos', cats: picked, states: [], categories };
   const shown = useMemo(() => {
+    const inCats = picked.length ? channels.filter((c) => picked.includes(c.cat)) : channels;
     const f = fold(q.trim());
-    if (!f) return channels;
-    return channels.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
+    if (!f) return inCats;
+    return inCats.filter((c) => fold(c.name).includes(f) || fold(c.cat).includes(f)
       || (c.epg && info?.get(c.epg)?.cur && fold(info.get(c.epg)!.cur!.t).includes(f)));
-  }, [q, channels, info]);
+  }, [q, channels, info, picked.join('|')]);
   const out = [];
   let last = '';
   for (const ch of shown) {
@@ -303,11 +314,15 @@ function Channels({ code, data, channels, onOpen, onHelp }: { code: string; data
         </div>
       </header>
       <div class="vw-search">
-        <label class="search-field">
-          <Icon name="search" />
-          <input type="search" placeholder="Buscar canal o programa" enterkeyhint="search" aria-label="Buscar canal o programa"
-            value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
-        </label>
+        <div class="toolbar-row">
+          <label class="search-field">
+            <Icon name="search" />
+            <input type="search" placeholder="Buscar canal o programa" enterkeyhint="search" aria-label="Buscar canal o programa"
+              value={q} onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)} />
+          </label>
+          {categories.length > 1 && <FilterToggle model={model} handlers={{ onState: () => {}, onCats: setCats }} />}
+        </div>
+        {picked.length > 0 && <div class="active-filters"><ActiveFilters model={model} handlers={{ onState: () => {}, onCats: setCats }} /></div>}
       </div>
       <main class="vw-list">
         {!q.trim() && <Connections code={code} />}
