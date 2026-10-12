@@ -55,7 +55,13 @@ export interface Habits {
 
 /** El índice de una hora; `g` (género de cada título de `t`, '' = sin clasificar) viene cuando la IA ya clasificó alguno. */
 interface HourIndex { h: number; t: string[]; g?: string[]; c: Record<string, [number, number, number][]> }
-interface Prog { s: number; e: number; t: string; g?: string; gap?: boolean }
+interface Prog { s: number; e: number; t: string; g?: string; gap?: boolean; m?: boolean }
+
+/** En un perfil infantil, el Worker manda sin título lo que no es apto (o no tiene género): se dibuja con su hora y este
+ *  texto, igual que si faltara el dato. No entra en la búsqueda, en Próximos ni en Tu plan. */
+export const MASKED = 'No disponible en este perfil';
+const progOf = (s: number, e: number, t: string, g?: string): Prog => (t ? { s, e, t, ...(g ? { g } : {}) } : { s, e, t: MASKED, m: true });
+const fromHour = (idx: HourIndex, [s, e, t]: [number, number, number]): Prog => progOf(idx.h + s * 60, idx.h + e * 60, idx.t[t], idx.g?.[t]);
 
 type Mode = 'grid' | 'next' | 'plan';
 const HOUR = 3600;
@@ -335,8 +341,8 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       const idx = hours.get(h);
       if (!idx || idx === 'loading') continue;
       loaded.push(h);
-      for (const [s, e, t] of idx.c[epg] ?? []) {
-        const p: Prog = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t], ...(idx.g?.[t] ? { g: idx.g[t] } : {}) };
+      for (const r of idx.c[epg] ?? []) {
+        const p = fromHour(idx, r);
         if (!seen.has(p.s)) seen.set(p.s, p);
       }
     }
@@ -389,7 +395,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     const shift = Math.max(0, Math.min(lx - l, r - l - 56)); // el título queda pegado al borde visible
     const tiny = r - l - 4 < TINY; // angosta: sin texto (se lee al tocarla), no letras sueltas
     const off = gsel.length > 0 && (p.gap || !p.g || !gsel.includes(p.g)); // fuera del género elegido
-    const cls = `gd-cell${tiny ? ' tiny' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${off ? ' off' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
+    const cls = `gd-cell${p.m ? ' masked' : ''}${tiny ? ' tiny' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${p.gap ? ' gap' : ''}${off ? ' off' : ''}${open?.ch === ch && open.p.s === p.s ? ' sel' : ''}`;
     const re = live && now - p.s >= AGAIN_AFTER ? again.get(`${ch.epg}|${p.s}`)?.[0] : undefined;
     const label = p.gap ? `${ch.name}: sin programación de ${hm(p.s)} a ${hm(p.e)}`
       : `${ch.name}: ${p.t}, de ${hm(p.s)} a ${hm(p.e)}${re ? `; vuelve a empezar a las ${hm(re.s)}` : ''}`;
@@ -571,9 +577,9 @@ function Upcoming({ channels, genres, now, again, open, budget, setBudget }: {
       for (let h = Math.floor(from / HOUR) * HOUR; h < to; h += HOUR) {
         const idx = hours.get(h);
         if (!idx || idx === 'loading') continue;
-        for (const [s, e, t] of idx.c[ch.epg] ?? []) {
-          const p: Prog = { s: idx.h + s * 60, e: idx.h + e * 60, t: idx.t[t], ...(idx.g?.[t] ? { g: idx.g[t] } : {}) };
-          if (p.e - p.s < MIN_UP) continue;
+        for (const r of idx.c[ch.epg] ?? []) {
+          const p = fromHour(idx, r);
+          if (p.m || p.e - p.s < MIN_UP) continue; // lo que no es apto en un perfil infantil no se lista
           if (genres.length && !(p.g && genres.includes(p.g))) continue; // sin género (sin clasificar) no entra en un filtro de género
           const isRecent = p.s <= now && now < p.e && now - p.s <= RECENT;
           if (!isRecent && !(p.s > now && p.s <= now + NEXT_H * HOUR)) continue;
@@ -803,7 +809,7 @@ function Plan({ channels, now, host, habits, open, filter, suggest, add, pick }:
     const cands: { ch: GuideChannel; p: Prog }[] = [];
     for (const ch of withGuide) {
       for (const [s, e, t, , g] of scheds.get(ch.epg!) ?? []) {
-        if (e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } });
+        if (t && e > now && s < part.end) cands.push({ ch, p: { s, e, t, ...(g ? { g } : {}) } }); // sin título: no apto en un perfil infantil
       }
     }
     return buildPlan(cands, now, part.end, forced, habitAffinity(habits, marks));
@@ -968,14 +974,15 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
           <div class="gd-sh-ch"><Logo ch={ch} cls="lg" /><div><strong>{ch.name}</strong><small>{ch.cat}</small></div></div>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        {mine?.[4] && <p class="gd-sh-genre">{mine[4]}</p>}
+        {mine?.[4] && !p.m && <p class="gd-sh-genre">{mine[4]}</p>}
         <h2 class="gd-sh-title">{p.t}</h2>
         <p class="gd-sh-when">
           {live ? <b>En el aire</b> : <span>{dayLabel(p.s, now)}</span>} · {hm(p.s)} – {hm(p.e)}{live ? ` · ${left(p.e - now)}` : ''}
         </p>
         {live && <Progress cls="np-bar gd-sh-bar" value={((now - p.s) / (p.e - p.s)) * 100} />}
-        {entries === undefined ? <p class="gd-sh-desc muted">Cargando…</p> : mine?.[3] && <p class="gd-sh-desc">{mine[3]}</p>}
-        {first && (
+        {p.m ? <p class="gd-sh-desc muted">Este perfil solo muestra programas de los géneros que eligió quien lo armó.</p>
+          : entries === undefined ? <p class="gd-sh-desc muted">Cargando…</p> : mine?.[3] && <p class="gd-sh-desc">{mine[3]}</p>}
+        {first && !p.m && (
           <section class="gd-again" aria-label="Llegás desde el principio">
             <p class="k"><Icon name="refresh-cw" class="sm" />Llegás desde el principio</p>
             <p class="big">Vuelve a empezar {dayLabel(first.s, now) === 'Hoy' ? '' : `${dayLabel(first.s, now).toLowerCase()} `}a las {hm(first.s)}</p>
@@ -986,13 +993,13 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
             ))}
           </section>
         )}
-        {!live && p.s > now && ch.epg && !host.viewer && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
-        {host.feedback && <Taste title={p.t} genre={p.g} host={host} habits={habits} setHabits={setHabits} />}
+        {!live && p.s > now && ch.epg && !host.viewer && !p.m && <div class="gd-sh-actions">{bell(p.s, p.t, true)}</div>}
+        {host.feedback && !p.m && <Taste title={p.t} genre={p.g} host={host} habits={habits} setHabits={setHabits} />}
         {next.length > 0 && (
           <div class="gd-sh-next">
             <h3>Después</h3>
             {next.map(([s, , t]) => (
-              <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t}</span>{bell(s, t)}</div>
+              <div key={s} class="gd-sh-row"><b>{hm(s)}</b><span>{t || MASKED}</span>{t ? bell(s, t) : null}</div>
             ))}
           </div>
         )}

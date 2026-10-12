@@ -11,7 +11,7 @@ export interface Fake {
   writes: { method: string; path: string; body: unknown }[];
   /** Canales marcados desde el modo ver («la guía no coincide»). */
   reports: { id: string; name: string; epg: string | null; title?: string; by: string; at: string }[];
-  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string }[];
+  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string; kids?: { genres: string[] } }[];
 }
 
 const channels = [
@@ -93,11 +93,26 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
       p.view ??= `Vista${p.id}Abcdefghijklmnop`.slice(0, 22);
       return json({ code: p.view });
     }
+    // Qué se oculta en un perfil infantil (src/kids.ts → kidsReport).
+    const k = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)\/kids$/);
+    if (k) {
+      return fake.profiles.find((x) => x.id === k[1])?.kids
+        ? json({ hours: 6, shown: 5, hidden: 7, by: [
+          { genre: '', n: 4, sample: ['Misterio en la casa', 'Capítulo 12', 'Especial'] },
+          { genre: 'Película', n: 2, sample: ['Terror en la noche', 'La gran fuga'] },
+          { genre: 'Noticias', n: 1, sample: ['Noticiero central'] },
+        ] })
+        : json({ error: 'este perfil no es infantil' }, 404);
+    }
     const m = path.match(/^\/api\/cfg\/c1\/profiles\/(\w+)$/);
     if (m && method === 'PUT') {
       const p = fake.profiles.find((x) => x.id === m[1]);
       if (!p) return json({ error: 'no existe' }, 404);
-      Object.assign(p, req.postDataJSON());
+      const { kids, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null };
+      Object.assign(p, rest);
+      // Como el Worker: Infantil y Educativo entran siempre; null lo quita.
+      if (kids === null) delete p.kids;
+      else if (kids) p.kids = { genres: ['Infantil', 'Educativo', ...kids.genres.filter((g) => ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'].includes(g))] };
       return json({});
     }
     return json({ error: 'no está en el Worker de prueba' }, 404);

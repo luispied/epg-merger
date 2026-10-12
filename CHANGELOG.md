@@ -11,6 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.48.0
+
+- **Perfil infantil.** En la página de un perfil, una fila nueva con interruptor, **Perfil infantil**, lo vuelve un perfil que solo muestra programas aptos para chicos. Al prenderlo se abre una hoja con los géneros: **Infantil** y **Educativo** entran siempre y se pueden sumar Documental, Cocina, Música, Deportes y Estilo de vida; la publicidad, las películas, las series y las noticias nunca entran, ni lo que la IA todavía no clasificó. Ya activo aparecen **Géneros que entran**, para cambiarlos, y **Qué se está ocultando**, que cuenta qué se ve y qué no en las próximas horas, por género y sin clasificar. Se prende y se quita solo desde la edición, con la clave: el modo ver no puede.
+- **El modo ver de un perfil infantil muestra «No disponible en este perfil».** En los canales, en la hoja del canal y en la Guía, lo que no es apto se ve así, con su horario. No aparece en la búsqueda, en Próximos ni en Tu plan, y no se puede ver la descripción. El servidor entrega la programación ya filtrada, así que mirar la red no lo esquiva.
+- Límites: la IA se equivoca a veces y va clasificando de a poco, así que al principio el perfil muestra poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran. En la edición se sigue viendo todo.
+- Worker: `kids` en los perfiles (`{ genres }`, validado en el servidor); `/api/view/<código>/hour` y la nueva `/api/view/<código>/schedule/<archivo>` devuelven lo no apto sin título ni descripción; los hábitos del modo ver dejan afuera lo no apto; `/api/cfg/<id>/profiles/<id>/kids` cuenta lo que se oculta.
+- Interno: `PORT` cambia el puerto de los tests e2e (por si el 4173 lo usa otro servidor de pruebas).
+
 ## 1.47.0
 
 - **Filtro por género en la Guía.** Debajo de las categorías, en Grilla y Próximos, hay una fila con los géneros de lo que se ve (Cine, Deportes, Infantil…). Se eligen uno o varios con los mismos chips de las categorías y se combinan con ellas. En la Grilla lo que no es de ese género se apaga; en Próximos se saca de la lista. Lo que todavía no tiene género no aparece mientras haya uno elegido, y la publicidad no tiene chip. Queda elegido en cada dispositivo y es solo de la Guía. Igual en la edición y en el modo ver.

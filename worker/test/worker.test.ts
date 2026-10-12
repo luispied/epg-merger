@@ -11,6 +11,7 @@ import { accountKey } from '../src/account.ts';
 import { checkAllHealth, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { scheduleFile } from '../src/again.ts';
+import { gunzip } from '../src/schedule.ts';
 import { mediaKey, resetMediaMaps } from '../src/logos.ts';
 import { channelsFromXtreamM3u, parseM3u } from '../src/provider.ts';
 import { CATEGORIES, makeEnv, MemoryBucket, mockXtream, STREAMS } from './helpers.ts';
@@ -1650,4 +1651,87 @@ test('el manifest del modo ver lleva el código en su start_url, y un código ra
   assert.ok(m.icons.every((i) => i.src.startsWith('/img/')));
   assert.equal((await handle(req('/ver-app/corto.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
   assert.equal((await handle(req('/ver-app/..%2Fx.webmanifest'), t.env, t.ctx, t.cache)).status, 404);
+});
+
+test('perfil infantil: solo con la clave, y el modo ver recibe la programación ya filtrada (sin títulos no aptos)', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const get = (path: string) => handle(req(path), t.env, t.ctx, t.cache);
+  assert.equal((await handle(new Request(t.playlistUrl), t.env, t.ctx, t.cache)).status, 200);
+  await t.settle();
+  const made = await (await call('/profiles', { method: 'POST', body: JSON.stringify({ name: 'Sofi' }) })).json() as { profile: { id: string } };
+  const pid = made.profile.id;
+  const { code } = await (await call(`/profiles/${pid}/view`, { method: 'POST', body: '{}' })).json() as { code: string };
+  const profile = async () => (await (await call('/devices')).json() as { profiles: { id: string; kids?: { genres: string[] } }[] }).profiles.find((p) => p.id === pid)!;
+
+  // Un perfil común: la programación pasa tal cual y el modo ver no dice que sea infantil.
+  const KEY = '2026101119';
+  const idx = { h: 1, t: ['Dibujitos', 'Película de terror', 'Infomercial', 'Algo sin clasificar', 'Documental de leones'], g: ['Infantil', 'Película', 'Publicidad', '', 'Documental'],
+    c: { x: [[0, 30, 0], [30, 60, 1], [60, 90, 2], [90, 120, 3], [120, 150, 4]] } };
+  await t.env.BUCKET.put(`ui/schedule/hour/${KEY}.json`, gzipSync(JSON.stringify(idx)), { httpMetadata: { contentEncoding: 'gzip' } });
+  const hourText = async () => {
+    const res = await get(`/api/view/${code}/hour/${KEY}.json`);
+    return res.headers.get('Content-Encoding') === 'gzip' ? await gunzip(new Uint8Array(await res.arrayBuffer())) : await res.text();
+  };
+  assert.equal(await hourText(), JSON.stringify(idx));
+  assert.equal(((await (await get(`/api/view/${code}`)).json()) as { kids?: boolean }).kids, undefined);
+
+  // Activar y quitar pide la clave; lo que no está en la lista se descarta y Infantil y Educativo entran siempre.
+  const put = (kids: unknown, key: string | undefined = t.editKey) => handle(req(`/api/cfg/${t.cfgId}/profiles/${pid}`, { method: 'PUT', key, body: JSON.stringify({ kids }) }), t.env, t.ctx, t.cache);
+  assert.equal((await put({ genres: [] }, '')).status, 401);
+  assert.equal((await put({ genres: [] }, 'mala')).status, 401);
+  assert.equal((await put('si')).status, 400);
+  assert.equal((await put({ genres: ['Película', 'Publicidad', 'Humor', 'Música', 'Música'] })).status, 200);
+  assert.deepEqual((await profile()).kids, { genres: ['Infantil', 'Educativo', 'Música'] });
+  assert.equal(((await (await get(`/api/view/${code}`)).json()) as { kids?: boolean }).kids, true);
+
+  // El modo ver recibe los títulos aptos y nada más: el resto queda sin título ni género, con su hora.
+  const masked = await hourText();
+  for (const secret of ['Película', 'terror', 'Infomercial', 'sin clasificar', 'leones', 'Publicidad']) assert.ok(!masked.includes(secret), secret);
+  const m = JSON.parse(masked) as typeof idx;
+  assert.deepEqual(m.t, ['Dibujitos', '', '', '', '']);
+  assert.deepEqual(m.c, idx.c);
+  // Un género opcional que se prende aparece; Publicidad nunca.
+  assert.equal((await put({ genres: ['Documental', 'Publicidad'] })).status, 200);
+  assert.deepEqual((JSON.parse(await hourText()) as typeof idx).t, ['Dibujitos', '', '', '', 'Documental de leones']);
+  // Una hora sin géneros (la corrida todavía no clasificó): todo sale sin título.
+  await t.env.BUCKET.put('ui/schedule/hour/2026101120.json', gzipSync(JSON.stringify({ h: 2, t: ['Algo'], c: { x: [[0, 60, 0]] } })), { httpMetadata: { contentEncoding: 'gzip' } });
+  const bare = await get(`/api/view/${code}/hour/2026101120.json`);
+  assert.deepEqual(((await bare.json()) as typeof idx).t, ['']);
+
+  // La programación de un canal (con descripción): la del modo ver sale filtrada.
+  const file = (await import('node:crypto')).createHash('sha1').update('x').digest('hex').slice(0, 16);
+  const now = Math.floor(Date.now() / 1000);
+  await t.env.BUCKET.put(`ui/schedule/${file}.json`, JSON.stringify([[now, now + 1800, 'Dibujitos', 'Sobre un perro', 'Infantil'], [now + 1800, now + 3600, 'Película de terror', 'Un asesino', 'Película'], [now + 3600, now + 5400, 'Sin género', 'Algo']]));
+  const sched = await get(`/api/view/${code}/schedule/${file}.json`);
+  assert.equal(sched.status, 200);
+  const entries = await sched.json() as unknown[][];
+  assert.deepEqual(entries[0], [now, now + 1800, 'Dibujitos', 'Sobre un perro', 'Infantil']);
+  assert.deepEqual(entries[1], [now + 1800, now + 3600, '']);
+  assert.deepEqual(entries[2], [now + 3600, now + 5400, '']);
+  assert.ok(!JSON.stringify(entries).includes('asesino'));
+  assert.equal((await get(`/api/view/${'x'.repeat(24)}/schedule/${file}.json`)).status, 404);
+  assert.equal((await get(`/api/view/${code}/schedule/nada.json`)).status, 404);
+
+  // Hábitos: los programas y los «Más como esto» de géneros no aptos no vuelven.
+  const at = new Date().toISOString();
+  const habits = { [pid]: { ch: {}, t: { dibujitos: { n: 3, title: 'Dibujitos', at, g: 'Infantil' }, terror: { n: 5, title: 'Película de terror', at, g: 'Película' }, nogenre: { n: 1, title: 'Misterio', at } },
+    no: { x: at }, more: { dibujitos: at, terror: at }, mg: { dibujitos: 'Infantil', terror: 'Película' } } };
+  await t.env.BUCKET.put(`habits/${t.cfgId}.json`, JSON.stringify(habits));
+  const h = await (await get(`/api/view/${code}/habits`)).json() as { t: Record<string, unknown>; more: Record<string, string>; mg: Record<string, string> };
+  assert.deepEqual(Object.keys(h.t), ['dibujitos']);
+  assert.deepEqual(Object.keys(h.more), ['dibujitos']);
+  assert.deepEqual(Object.keys(h.mg), ['dibujitos']);
+  const fb = await (await handle(req(`/api/view/${code}/habits`, { method: 'POST', body: JSON.stringify({ title: 'Película de terror', kind: 'more', genre: 'Película' }) }), t.env, t.ctx, t.cache)).json() as { mg: Record<string, string> };
+  assert.deepEqual(Object.keys(fb.mg), ['dibujitos']);
+
+  // La clave de edición ve qué se oculta (y solo en un perfil infantil).
+  assert.equal((await handle(req(`/api/cfg/${t.cfgId}/profiles/${pid}/kids`), t.env, t.ctx, t.cache)).status, 401);
+  assert.equal((await call(`/profiles/${pid}/kids`)).status, 200);
+
+  // Quitarlo: el modo ver vuelve a ver todo.
+  assert.equal((await put(null)).status, 200);
+  assert.equal((await profile()).kids, undefined);
+  assert.equal(await hourText(), JSON.stringify(idx));
+  assert.equal((await call(`/profiles/${pid}/kids`)).status, 404);
 });
