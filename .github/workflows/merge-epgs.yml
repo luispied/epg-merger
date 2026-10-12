@@ -7,6 +7,11 @@ on:
     - cron: '30 17 * * *'
   workflow_dispatch:
     inputs:
+      # Cada corrida gasta minutos de Actions: para no lanzarla por error desde «Run workflow», hay que escribir «si».
+      confirmar:
+        description: 'Escribí «si» para correrla (si no, no hace nada)'
+        default: ''
+        required: false
       ai_muestras:
         description: 'Prueba de la IA: cuántos programas clasificar y mostrar (0 = nada)'
         default: '0'
@@ -25,6 +30,8 @@ concurrency:
 
 jobs:
   merge:
+    # A mano, solo si se confirma («si») en el formulario de «Run workflow».
+    if: github.event_name != 'workflow_dispatch' || inputs.confirmar == 'si'
     runs-on: ubuntu-latest
     # Una corrida normal tarda ~8 min (más hasta 20 si la IA espera su lote). Con las corridas en
     # cola, una trabada no puede bloquear a las siguientes por horas (el límite de GitHub es 6 h).
