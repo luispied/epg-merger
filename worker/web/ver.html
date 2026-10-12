@@ -29,7 +29,7 @@
 <link rel="apple-touch-startup-image" href="img/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
 <script>
   try {
-    var t = localStorage.getItem('grilla_theme') || 'dark';
+    var t = localStorage.getItem('grilla_theme') || 'auto';
     if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     // Texto grande: el mismo ajuste que la edición (la barra inferior mide y queda igual en los dos).
     if (localStorage.getItem('grilla_text') === 'lg') document.documentElement.dataset.text = 'lg';

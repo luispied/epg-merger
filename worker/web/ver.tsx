@@ -43,13 +43,13 @@ const THEMES = [
   { v: 'dark', label: 'Oscuro', icon: 'moon' },
 ] as const;
 type Theme = typeof THEMES[number]['v'];
-/** El tema que tiene guardado el dispositivo: «auto» sigue al sistema; sin nada guardado, oscuro (como el editor). */
+/** El tema que tiene guardado el dispositivo: «auto» sigue al sistema; sin nada guardado, también (como el editor). */
 function savedTheme(): Theme {
   try {
     const v = localStorage.getItem(THEME_KEY);
     if (v === 'auto' || v === 'light' || v === 'dark') return v;
   } catch { /* sin storage */ }
-  return 'dark';
+  return 'auto';
 }
 const RE = /^[A-Za-z0-9_-]{20,32}$/;
 

@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.51.1
+
+- **El tema por defecto sigue al sistema.** Si nunca elegiste un tema, nowline sigue el claro u oscuro del dispositivo, en la edición y en el modo ver (antes abría siempre oscuro). Si ya elegiste uno, no cambia.
+
 ## 1.51.0
 
 - **Perfil infantil.** En la página de un perfil, una fila nueva con interruptor, **Perfil infantil**, lo vuelve un perfil que solo muestra programas aptos para chicos. Al prenderlo se abre una hoja con los géneros: **Infantil** y **Educativo** entran siempre y se pueden sumar Documental, Cocina, Música, Deportes y Estilo de vida; la publicidad, las películas, las series y las noticias nunca entran, ni lo que la IA todavía no clasificó. Ya activo aparecen **Géneros que entran**, para cambiarlos, y **Qué se está ocultando**, que cuenta qué se ve y qué no en las próximas horas, por género y sin clasificar. Se prende y se quita solo desde la edición, con la clave: el modo ver no puede.

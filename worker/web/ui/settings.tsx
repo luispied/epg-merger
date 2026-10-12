@@ -83,7 +83,7 @@ const THEMES: { v: Theme; label: string; icon: string }[] = [
 ];
 function savedTheme(): string {
   try {
-    return localStorage.getItem('grilla_theme') || 'dark';
+    return localStorage.getItem('grilla_theme') || 'auto';
   } catch {
     return 'auto';
   }
