@@ -9,8 +9,12 @@ Cada título se clasifica una sola vez: el resultado queda en R2 (ai/genres.json
 Dos formas de correr:
 - **Prueba** (`AI_SAMPLE=<n>`, desde «Run workflow» de Merge EPGs): clasifica n títulos de ejemplo y deja
   una página con las muestras (out/ai_sample.html, en los artefactos de la corrida) y una tabla en el resumen.
-- **Diaria**, solo con el interruptor prendido (variable del repo `AI_CLASSIFY` = `on`): los títulos nuevos,
-  como mucho `AI_MAX_TITLES` por corrida.
+- **Diaria**, solo con el interruptor prendido (variable del repo `AI_CLASSIFY` = `on`): los títulos que faltan,
+  como mucho `AI_MAX_TITLES` por corrida (10.000 si no se define). Entran los programas de 5 minutos o más (también
+  los dibujitos) y van primero los de los canales que más configuraciones usan, y dentro de ellos los que más veces
+  aparecen. Así el catálogo de los canales en uso se completa en pocas corridas y después solo quedan los nuevos.
+- **Tope de gasto**: `AI_MONTH_BUDGET` (dólares por mes, 2 si no se define). Antes de mandar, suma lo gastado en el
+  mes en ai/spend.json y recorta el lote para no pasarse (con un margen sobre el costo estimado).
 
 Usa Claude Haiku 5.5 por la API de lotes (la mitad del precio). Si el lote no termina en `AI_WAIT_MIN`
 minutos, queda anotado en ai/pending.json y lo recoge la corrida siguiente. Sin `ANTHROPIC_API_KEY` no hace
@@ -35,10 +39,13 @@ SPEND_KEY = 'ai/spend.json'
 SAMPLE_PAGE = os.path.join('out', 'ai_sample.html')
 PER_REQUEST = 50
 MAX_TOPICS = 3
+DEFAULT_MAX_TITLES = 10000   # por corrida; la variable del repo AI_MAX_TITLES lo cambia
+DEFAULT_MONTH_BUDGET = 2.0   # dólares por mes; la variable del repo AI_MONTH_BUDGET lo cambia (el límite del workspace es US$ 5)
+COST_MARGIN = 1.5            # lo medido (PR #302) salió ~1,5 veces la estimación de measure_titles
 
 GENRES = ['Película', 'Serie', 'Telenovela', 'Deportes', 'Noticias', 'Documental', 'Infantil', 'Entretenimiento',
           'Reality', 'Música', 'Cocina', 'Estilo de vida', 'Humor', 'Religión', 'Educativo', 'Publicidad', 'Otro']
-# Lo que Tu plan nunca sugiere aunque el programa dure 25 minutos o más.
+# Lo que Tu plan nunca sugiere aunque el programa dure 25 minutos o más (los dibujitos más cortos tampoco: lo decide la web).
 NEVER_SUGGEST = {'Publicidad'}
 
 SYSTEM = f"""Clasificás programas de una guía de TV de Latinoamérica para un recomendador.
@@ -143,12 +150,38 @@ def wait(client, batch_id, minutes):
 
 
 def pick(titles, genres, sample, limit):
-    """Las claves a mandar. Prueba: `sample` títulos de Tu plan en un orden que mezcla canales y géneros
-    (por la clave, que es un hash). Diaria: los que no están en el caché, hasta `limit`."""
-    plan = sorted(k for k, v in titles.items() if v[2])
+    """Las claves a mandar. Prueba: `sample` títulos en un orden que mezcla canales y géneros (por la clave, que es un
+    hash). Diaria: los que no están en el caché, primero los de los canales que más configuraciones usan, luego los que
+    más veces aparecen en la programación (la clave desempata), hasta `limit`."""
+    ok = sorted(k for k, v in titles.items() if v[2])
     if sample:
-        return plan[:sample]
-    return [k for k in plan if k not in genres][:limit]
+        return ok[:sample]
+    todo = [k for k in ok if k not in genres]
+    todo.sort(key=lambda k: (-titles[k][3], -titles[k][4]))
+    return todo[:limit]
+
+
+def title_cost(title, desc):
+    """Costo estimado de clasificar un título (con el margen), en dólares."""
+    tin = mt.tokens(title) + (mt.tokens(desc[:mt.DESC_CHARS]) if desc else 0) + mt.PER_TITLE_OVERHEAD
+    tin += mt.SYSTEM_TOKENS / PER_REQUEST
+    return (tin * mt.PRICE_IN + mt.OUT_TOKENS * mt.PRICE_OUT) * COST_MARGIN
+
+
+def month_spent(spend, today):
+    """Lo gastado en el mes de `today` según ai/spend.json (pruebas incluidas)."""
+    return sum(r.get('cost', 0) for r in spend if str(r.get('date', ''))[:7] == today[:7])
+
+
+def within_budget(keys, titles, left):
+    """El prefijo de `keys` (ya en orden de prioridad) cuyo costo estimado cabe en `left` dólares."""
+    out, total = [], 0.0
+    for k in keys:
+        total += title_cost(titles[k][0], titles[k][1])
+        if total > left:
+            break
+        out.append(k)
+    return out
 
 
 def money(x):
@@ -177,8 +210,10 @@ vertical-align:top}}small{{display:block;color:var(--mute)}}</style></head><body
 """
 
 
-def summary(rows, spent, pending, sample):
+def summary(rows, spent, pending, sample, cut=None):
     lines = ['## Clasificar la guía con IA' + (' (prueba)' if sample else ''), '']
+    if cut:
+        lines.append(cut)
     if pending:
         lines.append(f'El lote sigue en proceso: lo recoge la corrida siguiente ({pending} títulos).')
     if spent:
@@ -226,7 +261,19 @@ def main(argv=None):
         got.update(g)
         tin, tout, errors, pending = tin + i, tout + o, errors + e, None
 
-    keys = [] if pending else pick(titles, genres, sample, int(os.environ.get('AI_MAX_TITLES') or 3000))
+    limit = int(os.environ.get('AI_MAX_TITLES') or DEFAULT_MAX_TITLES)
+    keys = [] if pending else pick(titles, genres, sample, limit)
+    cut = None
+    if keys and not sample:
+        budget = float(os.environ.get('AI_MONTH_BUDGET') or DEFAULT_MONTH_BUDGET)
+        left = max(0.0, budget - month_spent(spend, today))
+        fit = within_budget(keys, titles, left)
+        if len(fit) < len(keys):
+            cut = (f'Tope de gasto del mes ({money(budget)}): quedan {money(left)}, se mandan {len(fit)} de '
+                   f'{len(keys)} títulos. El resto espera al mes que viene o a que suba AI_MONTH_BUDGET.')
+            print('⚠️ ' + cut)
+        keys = fit
+    remaining = sum(1 for v in titles.values() if v[2]) - sum(1 for k, v in titles.items() if v[2] and k in genres)
     # La prueba vuelve a clasificar sus muestras aunque estén en el caché: sirve para ver un cambio en las instrucciones.
     todo = [k for k in keys if k not in got and (sample or k not in genres)]
     if todo:
@@ -258,7 +305,8 @@ def main(argv=None):
         os.makedirs(os.path.dirname(SAMPLE_PAGE), exist_ok=True)
         with open(SAMPLE_PAGE, 'w', encoding='utf-8') as f:
             f.write(sample_page(rows))
-    text = summary(rows if sample else [], spent, left, sample)
+    note = f'Faltan {max(0, remaining - len(got))} títulos de los canales en uso por clasificar (tope por corrida: {limit}).'
+    text = summary(rows if sample else [], spent, left, sample, ((cut + ' ') if cut else '') + (note if not sample else ''))
     print(text)
     out = os.environ.get('GITHUB_STEP_SUMMARY')
     if out:

@@ -33,6 +33,9 @@ jobs:
       run: node --test worker/test/*.test.ts
     - name: Tests de humo de la web (Playwright)
       working-directory: worker
+      # SLOW=1 solo en main: corre las pruebas lentas (p. ej. el pedido que no contesta, ~1 min), que no corren en los PR.
+      env:
+        SLOW: ${{ github.event_name == 'push' && '1' || '' }}
       run: |
         npx playwright install --with-deps chromium
         npx playwright test
