@@ -522,7 +522,6 @@ function App() {
 
   useEffect(() => {
     if (tab === 'guia' && guideEl.current) showGuide(guideEl.current, host);
-    if (tab === 'canales') document.querySelector('#app > section:not(#guide)')?.scrollTo(0, 0);
   }, [tab, host]);
 
   // El logo de inicio se va apenas la pantalla dibuja, igual que en la edición: el esqueleto ya es la pantalla.
@@ -542,7 +541,7 @@ function App() {
 
   return (
     <>
-      <section hidden={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} onLeave={() => setUnlock(true)} /></section>
+      <section data-under={tab !== 'canales' ? '' : undefined} inert={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} onLeave={() => setUnlock(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones" ref={(el) => { if (el) placeTabPill(el); }}>
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
