@@ -34,8 +34,7 @@ usuario (su guía y su índice) ya se deriva de lo compartido en una sola pasada
    configuración; el perfil de Luis es redundante (Luis también tiene configuración).
 3. **Pruebas con la lista de Luis**: `match_benchmark.py --errors 3` y `core_parity.py --luis` usan su reporte como
    referencia. Es un banco de pruebas, no producción, pero hoy comparte el mismo secreto.
-4. **`worker-smoke.yml`** corre a mano con las credenciales de Luis: es un ensayo, no producción.
-5. **`GIST_TOKEN` y `XTREAM_GIST_ID`**: nada los usa; sobras de cuando las playlists iban por gists.
+4. **`GIST_TOKEN` y `XTREAM_GIST_ID`**: nada los usa; sobras de cuando las playlists iban por gists.
 
 Un secreto con credenciales de una persona en un repo que sirve a otras es además un riesgo en sí: la meta es **cero
 credenciales de usuarios en GitHub**.

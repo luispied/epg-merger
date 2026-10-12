@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.46.1
+
+- Worker: se quita la prueba manual `worker-smoke` (workflow y script), que dependía de credenciales del proveedor ya borradas. El relay la reemplazó.
+
 ## 1.46.0
 
 - **Se puede abrir el modo «solo ver» desde el editor.** En la página de un perfil, debajo del código para ver, la fila **Abrir en modo ver** abre este dispositivo con ese perfil, sin tener que pegar el código. Para salir hace falta el código de la casa, igual que en el modo ver.
