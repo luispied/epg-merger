@@ -41,8 +41,9 @@ test('un 500 de la guía se reintenta solo: la Guía carga sin aviso de error', 
   });
   await page.goto('/');
   await expect(page.locator('#cards .card').first()).toBeVisible();
+  // La lista se pinta antes de que llegue la guía: los reintentos siguen después.
+  await expect.poll(() => hits).toBe(3);
   await expect(page.locator('.status-bar.bad')).toHaveCount(0);
-  expect(hits).toBe(3);
 });
 
 // Lenta: el pedido que no contesta tarda 20 s por intento y se reintenta dos veces (~1 min). Solo corre en main (SLOW=1,

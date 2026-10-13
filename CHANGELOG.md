@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.55.1
+
+- **La lista aparece antes que la guía.** Al abrir, Canales se pinta enseguida con lo guardado; la guía y el cruce llegan después y actualizan las filas. Mientras el cruce no corre, las filas no muestran «Sin EPG» ni «Dudoso».
+- Interno: el índice por hora de la Guía ya es el de tu configuración (#298); esta versión solo cambia el orden de carga al abrir.
+
 ## 1.55.0
 
 - **Tres «No me interesa» seguidos apagan ese género para el perfil.** Si tocás **No me interesa** en tres programas seguidos del mismo género, ese perfil deja de recibir avisos de ese género. Se dice al momento, y se prende de nuevo en la página del perfil, en Géneros. Un «Más como esto» en el medio, u otro género, corta la cuenta.
