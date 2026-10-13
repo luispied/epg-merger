@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mock · Avisos por gusto en Configuración</title>
+<link rel="stylesheet" href="../mocks-avisos-gusto/tokens.css"><link rel="stylesheet" href="../../worker/web/base.css"><link rel="stylesheet" href="../../worker/web/web.css"><link rel="stylesheet" href="../mocks-avisos-gusto/mock.css">
+<script src="../../worker/web/icons.js"></script><script src="../mocks-avisos-gusto/iconos.js"></script>
+</head><body>
+<main class="opcion">
+  <h1>Avisos por gusto en Configuración</h1>
+  <p class="help">Dos formas de poner la fila «Avisos por gusto» en Configuración, con la misma fila de «Avisos» de arriba. Las dos usan
+    componentes que ya existen (menu-row, switch, hoja de perfil, toast con Deshacer). «No avisarme de X» sigue en la hoja del programa.</p>
+  <div class="pantallas">
+
+    <section class="pantalla">
+      <h3 class="sec-title">A · Un interruptor en la fila</h3>
+      <dialog open class="sheet settings-sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Configuración</h2></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <h3 class="sec-title">Preferencias</h3>
+        <div class="menu">
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos<small>Canales nuevos, vencimientos y tus campanas</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Avisos por gusto<small>Documentales y Películas · 18 a 21 h</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="a-large-small"></span></span><span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span><input type="checkbox" class="switch" role="switch"></label>
+        </div>
+      </div></dialog>
+      <div class="toasts"><div class="toast ok"><span data-icon="circle-check"></span><span class="msg">Listo: no te aviso más de documentales.</span><button type="button" class="btn btn-plain">Deshacer</button><button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso"><span data-icon="x"></span></button></div></div>
+      <p class="help">Apagar el interruptor apaga todos los géneros. Para un solo género, usá «No avisarme de documentales» en la hoja del programa.</p>
+    </section>
+
+    <section class="pantalla">
+      <h3 class="sec-title">B · Fila que abre la hoja</h3>
+      <dialog open class="sheet settings-sheet"><div class="sheet-body">
+        <div class="title-row"><span class="title-left"><h2>Configuración</h2></span><button class="icon-btn" aria-label="Cerrar"><span data-icon="x"></span></button></div>
+        <h3 class="sec-title">Preferencias</h3>
+        <div class="menu">
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="bell"></span></span><span class="menu-text">Avisos<small>Canales nuevos, vencimientos y tus campanas</small></span><input type="checkbox" class="switch" role="switch" checked></label>
+          <button type="button" class="menu-row"><span class="menu-icon"><span data-icon="sparkles"></span></span><span class="menu-text">Avisos por gusto<small>Documentales y Películas · 18 a 21 h</small></span><span data-icon="chevron-right"></span></button>
+          <label class="menu-row static"><span class="menu-icon"><span data-icon="a-large-small"></span></span><span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span><input type="checkbox" class="switch" role="switch"></label>
+        </div>
+        <h3 class="sec-title">Avisos por gusto · vista de la hoja</h3>
+        <div class="filter-chips">
+          <button type="button" class="chip-btn" aria-pressed="true">Documentales</button>
+          <button type="button" class="chip-btn" aria-pressed="true">Películas</button>
+          <button type="button" class="chip-btn" aria-pressed="false">Deportes</button>
+        </div>
+        <p class="help">Automático: se eligen solos según lo que más mirás. Tocá uno para cambiarlo. Publicidad y noticias nunca avisan.</p>
+        <div class="segmented" role="group" aria-label="Cuándo avisar"><button type="button">Mañana</button><button type="button" aria-pressed="true">Tarde</button><button type="button">Noche</button></div>
+      </div></dialog>
+      <div class="toasts"><div class="toast ok"><span data-icon="circle-check"></span><span class="msg">Listo: no te aviso más de documentales.</span><button type="button" class="btn btn-plain">Deshacer</button><button type="button" class="icon-btn toast-close" aria-label="Cerrar el aviso"><span data-icon="x"></span></button></div></div>
+      <p class="help">La fila abre la hoja que ya usa cada perfil (géneros, cuándo y últimos avisos). Deshacer vuelve a prender el género al momento.</p>
+    </section>
+
+  </div>
+</main>
+<script src="../mocks-avisos-gusto/mock.js"></script>
+</body></html>

@@ -6,8 +6,9 @@ import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openDock, openHelp, openProfiles, PAGE, plural, pref,
-  render as renderGrid, setPref, startGuideRefresh, state, type GuideStatus,
+  profileDefs, render as renderGrid, setPref, startGuideRefresh, state, type GuideStatus,
 } from '../app.ts';
+import { loadTaste, openTasteSheet, pushEndpoint, tasteSummary } from './avisos-gusto.tsx';
 import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
@@ -97,6 +98,27 @@ function healthText() {
   if (h.dead) parts.push(`${plural(h.dead, 'canal', 'canales')} sin programación en las próximas ${HEALTH_AHEAD_H} h`);
   if (h.none) parts.push(`${h.none} sin guía`);
   return parts.join(' · ');
+}
+
+/** Avisos por gusto: con un solo perfil abre su hoja; con varios, Perfil, donde cada uno tiene la suya (ui/avisos-gusto.tsx). */
+function TasteRow() {
+  const [sub, setSub] = useState('');
+  useEffect(() => {
+    if (profileDefs.length !== 1) {
+      setSub('Se prenden en cada perfil');
+      return;
+    }
+    void pushEndpoint()
+      .then((ep) => (ep ? loadTaste(profileDefs[0].id, ep).then(tasteSummary) : 'Primero prendé Avisos'))
+      .then(setSub)
+      .catch(() => setSub('No se pudo cargar. Probá de nuevo.'));
+  }, []);
+  const open = () => {
+    dialog().close();
+    if (profileDefs.length === 1) openTasteSheet(profileDefs[0], () => {});
+    else openProfiles();
+  };
+  return <MenuRow icon="sparkles" title="Avisos por gusto" sub={sub} onClick={open} />;
 }
 
 function MenuRow({ icon, title, sub, onClick, hidden }: { icon: string; title: string; sub?: string; onClick: () => void; hidden?: boolean }) {
@@ -204,6 +226,7 @@ function Settings() {
               onChange={(ev) => { void setPush(ev.currentTarget.checked).then(refreshPush); }} />
           </label>
         )}
+        {push && <TasteRow />}
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="a-large-small" /></span>
           <span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span>
