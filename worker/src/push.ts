@@ -10,6 +10,7 @@ import type { Env, R2Bucket } from './env.ts';
 import { channelAlias } from '../../core/src/alias.ts';
 import { readReminders, REMIND_AHEAD_S, REMIND_GRACE_S, writeReminders } from './remind.ts';
 import { readHabits } from './habits.ts';
+import { type Habits, noStreak, NO_STREAK_OFF } from '../../core/src/taste.ts';
 import { scheduleFile } from './again.ts';
 import { readEntries, scheduleReader } from './schedule.ts';
 import { playlistRows, type DeviceFilter } from './playlist.ts';
@@ -439,6 +440,19 @@ async function tasteView(bucket: R2Bucket, cfgId: string, st: PushState, profile
     genres: seenGenres(h, t).map((name) => ({ name, on: allowed.has(name) })),
     sent: t.sent.slice(-5).reverse().map(({ title, genre, at, name }) => ({ title, genre, at, name })),
   };
+}
+
+/** Tres «No me interesa» seguidos de un mismo género (noStreak, core/src/taste.ts) apagan ese género en los avisos de
+ *  este perfil. Devuelve el género apagado ahora, o null si no hizo falta. */
+export async function autoOffGenre(bucket: R2Bucket, cfgId: string, profile: string, h: Habits, now = new Date()): Promise<string | null> {
+  const s = noStreak(h);
+  if (!s || s.n < NO_STREAK_OFF) return null;
+  const { st, profiles } = await loadTastes(bucket, cfgId);
+  if (!profiles.some((p) => p.id === profile)) return null;
+  const t = tasteOf(st, profile);
+  if (!allowedGenres(h, t, now.getTime()).includes(s.genre)) return null;
+  await writeState(bucket, cfgId, { ...st, tastes: { ...st.tastes, [profile]: setGenre(t, h, now.getTime(), s.genre, false) } });
+  return s.genre;
 }
 
 /** Cambia los avisos por gusto de un perfil. Prender pide que este dispositivo (`endpoint`) ya esté suscrito a los

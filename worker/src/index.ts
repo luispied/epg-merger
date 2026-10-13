@@ -60,7 +60,7 @@ import { cfgHour, gunzip, type Raw, readEntries, readStored, scheduleReader } fr
 import { kidsReport, maskEntries, maskHabits, maskHour, parseKids, type HourShape, type Kids } from './kids.ts';
 import { aptTitles, filterGuide } from './guide-kids.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
-import { addSub, checkAllPush, currentNames, getTaste, setTaste, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
+import { addSub, autoOffGenre, checkAllPush, currentNames, getTaste, setTaste, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
 
 /** Misma cuenta del proveedor (vacío o sin dato = la principal). */
@@ -921,7 +921,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     if (method === 'POST') {
       const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
       if (!validFeedback(body)) return fail(400, 'pedido inválido');
-      return json(safe(await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind, body.genre)));
+      const h = await feedbackHabit(env.BUCKET, v.cfgId, v.profile.id, body.title, body.kind, body.genre);
+      // Tres «No me interesa» seguidos del mismo género apagan ese género en los avisos del perfil (push.ts): se avisa.
+      const autoOff = body.kind === 'no' ? await autoOffGenre(env.BUCKET, v.cfgId, v.profile.id, h) : null;
+      return json({ ...safe(h), ...(autoOff ? { autoOff } : {}) });
     }
   }
   if (section === 'view' && cfgId && action === 'report' && method === 'POST') {

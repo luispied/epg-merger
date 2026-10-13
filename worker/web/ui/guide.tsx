@@ -36,7 +36,8 @@ export interface GuideHost {
   /** Lo que se suele mirar (habits.ts del Worker), para «Tu noche». */
   habits?(): Promise<Habits | null>;
   /** «No me interesa», «Más como esto» o deshacer, para un título: devuelve los hábitos al día. */
-  feedback?(title: string, kind: Feedback, genre?: string): Promise<Habits | null>;
+  /** `autoOff`: tres «No me interesa» seguidos apagaron ese género en los avisos del perfil. */
+  feedback?(title: string, kind: Feedback, genre?: string): Promise<(Habits & { autoOff?: string }) | null>;
   /** Avisos por gusto (solo en la edición): cómo están y apagar o prender un género. Null = no hay avisos en este dispositivo. */
   tasteAlerts?: {
     state(): Promise<{ on: boolean; genres: { name: string; on: boolean }[] } | null>;
@@ -955,14 +956,20 @@ function Taste({ title, genre, host, habits, setHabits }: { title: string; genre
   const g = genre && genre !== NEVER_SUGGEST ? genre.toLowerCase() : '';
   const send = async (kind: Feedback, quiet = false) => {
     const prev = cur;
+    let h: (Habits & { autoOff?: string }) | null = null;
     try {
-      const h = await host.feedback!(title, kind, g ? genre : undefined);
+      h = await host.feedback!(title, kind, g ? genre : undefined);
       if (h) setHabits(h);
     } catch {
       toast('No se pudo guardar. Probá de nuevo.', 'bad');
       return;
     }
     if (quiet) return;
+    // Tres seguidos del mismo género: se apaga ese género para los avisos del perfil, y se dice (sin Deshacer).
+    if (h?.autoOff) {
+      toast(`Ya van tres «No me interesa» seguidos de ${genrePlural(h.autoOff)}: no se avisan más en este perfil.`, 'ok', 5000);
+      return;
+    }
     const msg = kind === 'no' ? 'Listo: no te lo sugiero más en tu plan.'
       : kind === 'more' ? (g ? `Listo: te voy a sugerir más de ${g}.` : 'Listo: te lo voy a sugerir más.')
       : 'Listo: lo dejé como antes.';

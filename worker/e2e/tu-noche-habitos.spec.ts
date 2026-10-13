@@ -18,7 +18,7 @@ const hours = Array(24).fill(0) as number[];
 hours[new Date((NOW - 600) * 1000).getUTCHours()] = 4;
 // El género que la corrida le puso a cada programa (la IA), por archivo del canal; vacío = sin clasificar.
 let genres: Record<string, string> = {};
-const HABITS = { ch: { [CHANNELS[1].epg]: { n: 6, h: hours } }, t: { dibujitos: { n: 5 } } as Record<string, { n: number; g?: string }>, no: {} as Record<string, string>, more: {} };
+const HABITS = { ch: { [CHANNELS[1].epg]: { n: 6, h: hours } }, t: { dibujitos: { n: 5 } } as Record<string, { n: number; g?: string }>, no: {} as Record<string, string>, more: {}, ng: {} as Record<string, string> };
 
 let errors: string[] = [];
 let posts: { title: string; kind: string; genre?: string }[] = [];
@@ -40,6 +40,10 @@ async function open(page: Page, habits: typeof HABITS | null) {
         delete h.no[k];
         delete h.more[k];
         if (body.kind === 'no' || body.kind === 'more') h[body.kind === 'no' ? 'no' : 'more'][k] = new Date().toISOString();
+        if (body.kind === 'no' && body.genre) h.ng[k] = body.genre;
+        // Tres «No me interesa» seguidos del mismo género: el Worker apaga ese género y lo avisa (push.ts).
+        const streak = body.kind === 'no' && body.genre && Object.values(h.ng).filter((g) => g === body.genre).length >= 3;
+        return r.fulfill({ json: streak ? { ...h, autoOff: body.genre } : h });
       }
       return r.fulfill({ json: h });
     }
@@ -93,6 +97,22 @@ test('con hábitos sube lo de siempre con el porqué, y «No me interesa» lo sa
   await sheet.getByRole('button', { name: 'No me interesa' }).click();
   await expect(sheet.getByRole('button', { name: 'No me interesa' })).toHaveAttribute('aria-pressed', 'false');
   expect(posts.slice(1).map((p) => p.kind)).toEqual(['no', 'clear']);
+});
+
+test('tres «No me interesa» seguidos del mismo género: se apaga ese género y se dice', async ({ page }, info) => {
+  genres = { [file(CHANNELS[1].epg)]: 'Infantil' };
+  const antes = new Date(Date.now() - 3_600_000).toISOString();
+  await open(page, { ...HABITS, no: { 'serie a': antes, 'serie b': antes }, ng: { 'serie a': 'Infantil', 'serie b': 'Infantil' } });
+  await expect(first(page).locator('.gd-plan-card .tt')).toHaveText('Dibujitos');
+  await first(page).locator('.gd-plan-card').click();
+  const sheet = page.locator('dialog.gd-sheet');
+  await sheet.getByRole('button', { name: 'No me interesa' }).click();
+  await expect(sheet.locator('.toast')).toContainText('Ya van tres «No me interesa» seguidos de infantiles: no se avisan más en este perfil.');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.screenshot({ path: `test-results/habitos-${info.project.name}-corte-claro.png` });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.screenshot({ path: `test-results/habitos-${info.project.name}-corte-oscuro.png` });
+  expect(posts).toEqual([{ title: 'Dibujitos', kind: 'no', genre: 'Infantil' }]);
 });
 
 test('la publicidad que la IA reconoce no se sugiere', async ({ page }) => {
