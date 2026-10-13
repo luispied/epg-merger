@@ -24,3 +24,15 @@ class FakeS3:
     def delete_objects(self, Bucket, Delete):
         for o in Delete['Objects']:
             self.objects.pop(o['Key'], None)
+
+    def copy_object(self, Bucket, CopySource, Key):
+        self.objects[Key] = self.objects[CopySource['Key']]
+
+    def download_file(self, Bucket, Key, Filename):
+        with open(Filename, 'wb') as f:
+            f.write(self.objects[Key][0])
+
+    def upload_file(self, Filename, Bucket, Key):
+        with open(Filename, 'rb') as f:
+            self.objects[Key] = (f.read(), {})
+        self.puts.append(Key)
