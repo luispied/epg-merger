@@ -1765,3 +1765,25 @@ test('avisos por gusto: la API es por perfil; pide un dispositivo suscrito y gua
   const again = await (await call('POST', '', { profile: 'luis', on: false, tz: 'no/existe' })).json() as typeof on;
   assert.deepEqual([again.on, again.tz, again.when], [false, 'Europe/Madrid', 'noche']);
 });
+
+test('perfil infantil: la guía que baja el reproductor sale sin lo que no es apto (guide-kids.ts)', async () => {
+  const t = await setup();
+  const call = (path: string, init: RequestInit = {}) => handle(req(`/api/cfg/${t.cfgId}${path}`, { key: t.editKey, ...init }), t.env, t.ctx, t.cache);
+  const pid = (await (await call('/profiles', { method: 'POST', body: JSON.stringify({ name: 'Sofi' }) })).json() as { profile: { id: string } }).profile.id;
+  assert.equal((await call(`/profiles/${pid}`, { method: 'PUT', body: JSON.stringify({ kids: { genres: [] } }) })).status, 200);
+  const kidsLink = await (await call('/token', { method: 'POST', body: JSON.stringify({ name: 'TV Sofi', profile: pid }) })).json() as { epgUrl: string };
+  const plainLink = await (await call('/token', { method: 'POST', body: JSON.stringify({ name: 'TV Papá' }) })).json() as { epgUrl: string };
+
+  const prog = (start: string, title: string) => `  <programme start="${start} +0000" stop="${start} +0000" channel="x">\n    <title lang="es">${title}</title>\n  </programme>\n`;
+  const xml = `<?xml version="1.0" encoding="UTF-8" ?>\n<tv>\n${prog('20261013100000', 'Dibujitos')}${prog('20261013110000', 'Película de terror')}${prog('20261013120000', 'Leones &amp; más')}</tv>\n`;
+  await t.env.BUCKET.put(`epg/${t.cfgId}.xml.gz`, gzipSync(xml));
+  // Índice de temas: «Dibujitos» es Infantil, «Leones & más» Documental (opcional, apagado: no entra) y la película no se clasifica como apta.
+  await t.env.BUCKET.put('ui/schedule/topics.json', JSON.stringify({ g: ['Infantil', 'Película', 'Documental'], t: ['dibujitos', 'película de terror', 'leones & más'], r: [[0], [1], [2]] }));
+
+  const kidsText = await gunzip(new Uint8Array(await (await handle(new Request(kidsLink.epgUrl), t.env, t.ctx, t.cache)).arrayBuffer()));
+  assert.ok(kidsText.includes('Dibujitos'));
+  assert.ok(!kidsText.includes('terror') && !kidsText.includes('Leones'));
+  // El link de un perfil común recibe la guía entera, como antes.
+  const plainText = await gunzip(new Uint8Array(await (await handle(new Request(plainLink.epgUrl), t.env, t.ctx, t.cache)).arrayBuffer()));
+  assert.ok(plainText.includes('terror') && plainText.includes('Dibujitos'));
+});
