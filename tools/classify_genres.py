@@ -287,7 +287,7 @@ def main(argv=None):
             got.update(g)
             tin, tout, errors = tin + i, tout + o, errors + e
         else:
-            pending, left = {'id': batch.id, 'chunks': chunks, 'date': today}, len(todo)
+            pending = {'id': batch.id, 'chunks': chunks, 'date': today}
 
     genres.update(got)
     spent = None
@@ -306,7 +306,8 @@ def main(argv=None):
         with open(SAMPLE_PAGE, 'w', encoding='utf-8') as f:
             f.write(sample_page(rows))
     note = f'Faltan {max(0, remaining - len(got))} títulos de los canales en uso por clasificar (tope por corrida: {limit}).'
-    text = summary(rows if sample else [], spent, left, sample, ((cut + ' ') if cut else '') + (note if not sample else ''))
+    waiting = sum(len(c) for c in pending['chunks'].values()) if pending else 0
+    text = summary(rows if sample else [], spent, waiting, sample, ((cut + ' ') if cut else '') + (note if not sample else ''))
     print(text)
     out = os.environ.get('GITHUB_STEP_SUMMARY')
     if out:
