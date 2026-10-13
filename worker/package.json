@@ -15,7 +15,7 @@
   "devDependencies": {
     "@playwright/test": "1.56.1",
     "esbuild": "^0.25.0",
-    "wrangler": "^4.143.1"
+    "wrangler": "^4.149.0"
   },
   "dependencies": {
     "preact": "10.29.8"
