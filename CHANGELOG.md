@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.54.0
+
+- **Tres «No me interesa» seguidos apagan ese género para el perfil.** Si tocás **No me interesa** en tres programas seguidos del mismo género, ese perfil deja de recibir avisos de ese género. Se dice al momento, y se prende de nuevo en la página del perfil, en Géneros. Un «Más como esto» en el medio, u otro género, corta la cuenta.
+
 ## 1.53.0
 
 - **Avisos por gusto, dentro de cada perfil.** Ya no están en Configuración: cada perfil tiene su interruptor en su página, igual que el perfil infantil, y arranca apagado. Los avisos salen solo a los dispositivos de ese perfil, con sus canales, sus géneros y sus hábitos.

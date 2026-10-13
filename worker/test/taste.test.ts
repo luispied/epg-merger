@@ -2,11 +2,12 @@
 // notificación real.
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { tasteGenres } from '../../core/src/taste.ts';
+import { noStreak, tasteGenres } from '../../core/src/taste.ts';
 import { scheduleFile } from '../src/again.ts';
 import { channelAlias } from '../../core/src/alias.ts';
 import { b64urlEncode } from '../src/crypto.ts';
-import { addSub, getTaste, notifyTaste, setTaste, profileGuideChannels, type PushSub } from '../src/push.ts';
+import { addSub, autoOffGenre, getTaste, notifyTaste, setTaste, profileGuideChannels, type PushSub } from '../src/push.ts';
+import { feedbackHabit } from '../src/habits.ts';
 import {
   allowedGenres, emptyTaste, hasQuota, inWindow, localHm, localParts, parseTaste, pickProgram, seenGenres, setGenre, type TasteChannel, type TasteSent, type TasteState,
 } from '../src/taste.ts';
@@ -253,4 +254,37 @@ test('lo de antes (avisos de toda la configuración) pasa al perfil principal co
   const v = await getTaste(w.bucket, w.cfgId, 'luis', w.endpoint);
   assert.deepEqual([v?.on, v?.when, v?.here], [true, 'noche', true]);
   assert.equal((await getTaste(w.bucket, w.cfgId, 'mama', w.endpoint))?.on, false);
+});
+
+test('racha de «No me interesa»: tres seguidos del mismo género; un «Más como esto», otro género o sin género la corta', () => {
+  const at = (m: number) => new Date(NOW + m * 60_000).toISOString();
+  const h = (no: Record<string, string>, more: Record<string, string>, ng: Record<string, string>) => ({ ch: {}, t: {}, no, more, mg: {}, ng });
+  assert.equal(noStreak(null), null);
+  assert.deepEqual(noStreak(h({ a: at(1), b: at(2), c: at(3) }, {}, { a: 'Documental', b: 'Documental', c: 'Documental' })), { genre: 'Documental', n: 3 });
+  // Dos seguidos no alcanzan.
+  assert.deepEqual(noStreak(h({ a: at(1), b: at(2) }, {}, { a: 'Documental', b: 'Documental' })), { genre: 'Documental', n: 2 });
+  // Un «Más como esto» entre medio la corta.
+  assert.deepEqual(noStreak(h({ a: at(1), c: at(3) }, { b: at(2) }, { a: 'Documental', c: 'Documental' })), { genre: 'Documental', n: 1 });
+  // Otro género, o un «No me interesa» sin género, la corta.
+  assert.deepEqual(noStreak(h({ a: at(1), b: at(2), c: at(3) }, {}, { a: 'Documental', b: 'Cocina', c: 'Documental' })), { genre: 'Documental', n: 1 });
+  assert.deepEqual(noStreak(h({ a: at(1), b: at(2), c: at(3) }, {}, { a: 'Documental', c: 'Documental' })), { genre: 'Documental', n: 1 });
+});
+
+test('tres «No me interesa» seguidos del mismo género apagan ese género para el perfil, y lo dice', async () => {
+  const w = await world();
+  const at = new Date(NOW);
+  await w.bucket.put(`habits/${w.cfgId}.json`, JSON.stringify({ luis: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t } }));
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true });
+  const pedir = async (title: string, genre: string) => {
+    const h = await feedbackHabit(w.bucket, w.cfgId, 'luis', title, 'no', genre, at);
+    return autoOffGenre(w.bucket, w.cfgId, 'luis', h, at);
+  };
+  assert.equal(await pedir('Película uno', 'Documental'), null);
+  assert.equal(await pedir('Película dos', 'Documental'), null);
+  assert.equal(await pedir('Película tres', 'Documental'), 'Documental');
+  const view = await getTaste(w.bucket, w.cfgId, 'luis', w.endpoint, at);
+  assert.deepEqual(view?.genres.find((g) => g.name === 'Documental'), { name: 'Documental', on: false });
+  assert.equal(await notifyTaste(w.env, w.cfgId, at), 0);
+  // Ya apagado: otro «No me interesa» del mismo género no vuelve a avisar.
+  assert.equal(await pedir('Película cuatro', 'Documental'), null);
 });

@@ -19,6 +19,8 @@ export interface Habits {
   more: Record<string, string>;
   /** Género de cada «Más como esto» (por título normalizado), para subir ese género en el plan. */
   mg: Record<string, string>;
+  /** El género de cada «No me interesa» (para cortar avisos de un género tras tres seguidos, taste.ts). */
+  ng: Record<string, string>;
 }
 type Store = Record<string, Habits>;
 
@@ -29,7 +31,7 @@ const FORGET_MS = 90 * 24 * 3600 * 1000; // lo que no se mira hace tres meses ya
 const key = (cfgId: string) => `habits/${cfgId}.json`;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 
-export const emptyHabits = (): Habits => ({ ch: {}, t: {}, no: {}, more: {}, mg: {} });
+export const emptyHabits = (): Habits => ({ ch: {}, t: {}, no: {}, more: {}, mg: {}, ng: {} });
 
 async function readStore(bucket: R2Bucket, cfgId: string): Promise<Store> {
   try {
@@ -41,7 +43,7 @@ async function readStore(bucket: R2Bucket, cfgId: string): Promise<Store> {
   }
 }
 
-const fix = (h: Partial<Habits> | undefined): Habits => ({ ch: h?.ch ?? {}, t: h?.t ?? {}, no: h?.no ?? {}, more: h?.more ?? {}, mg: h?.mg ?? {} });
+const fix = (h: Partial<Habits> | undefined): Habits => ({ ch: h?.ch ?? {}, t: h?.t ?? {}, no: h?.no ?? {}, more: h?.more ?? {}, mg: h?.mg ?? {}, ng: h?.ng ?? {} });
 
 /** Se queda con lo más visto y reciente, y olvida lo viejo. */
 function prune(h: Habits, now: number): Habits {
@@ -51,7 +53,9 @@ function prune(h: Habits, now: number): Habits {
   const more = recent(h.more);
   // Un género solo cuenta mientras su pedido siga vigente.
   const mg = Object.fromEntries(Object.entries(h.mg).filter(([k]) => k in more));
-  return { ch: fresh(h.ch, MAX_CH), t: fresh(h.t, MAX_T), no: recent(h.no), more, mg };
+  const no = recent(h.no);
+  const ng = Object.fromEntries(Object.entries(h.ng).filter(([k]) => k in no));
+  return { ch: fresh(h.ch, MAX_CH), t: fresh(h.t, MAX_T), no, more, mg, ng };
 }
 
 /** Lo que vale para la guía de un perfil. Sin perfil (el editor): todos juntos, con los pedidos del editor. */
@@ -73,7 +77,7 @@ export async function readHabits(bucket: R2Bucket, cfgId: string, profile?: stri
       if (v.g) cur.g = v.g;
       if (v.at > cur.at) cur.at = v.at;
     }
-    if (p === '') Object.assign(all, { no: h.no, more: h.more, mg: h.mg });
+    if (p === '') Object.assign(all, { no: h.no, more: h.more, mg: h.mg, ng: h.ng });
   }
   return all;
 }
@@ -120,8 +124,10 @@ export async function feedbackHabit(bucket: R2Bucket, cfgId: string, profile: st
   delete h.no[k];
   delete h.more[k];
   delete h.mg[k];
+  delete h.ng[k];
   if (kind !== 'clear') h[kind][k] = now.toISOString();
   if (kind === 'more' && genre) h.mg[k] = genre;
+  if (kind === 'no' && genre) h.ng[k] = genre;
   store[profile] = prune(h, now.getTime());
   await bucket.put(key(cfgId), JSON.stringify(store), JSON_TYPE);
   return store[profile];

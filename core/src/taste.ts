@@ -10,6 +10,8 @@ export interface Habits {
   more: Record<string, string>;
   /** El género de cada «Más como esto» (por título normalizado): sube ese género en el plan. */
   mg?: Record<string, string>;
+  /** El género de cada «No me interesa» (por título normalizado): tres seguidos del mismo apagan ese género en avisos. */
+  ng?: Record<string, string>;
 }
 
 /** Lo mínimo de un canal y de un programa para puntuarlos. */
@@ -82,6 +84,28 @@ export function moreGenres(h: Habits | null): Set<string> {
   const out = new Set<string>();
   for (const [k, g] of Object.entries(h?.mg ?? {})) if (h?.more[k] && g !== NEVER_SUGGEST) out.add(g);
   return out;
+}
+
+/** Cuántos «No me interesa» seguidos del mismo género hacen falta para apagar ese género en avisos. */
+export const NO_STREAK_OFF = 3;
+
+/** Los últimos pedidos del perfil, del más nuevo al más viejo: «No me interesa» (con su género, si lo tenía) y
+ *  «Más como esto». La racha es cuántos «No me interesa» seguidos son del mismo género; un «Más como esto», un
+ *  «No me interesa» sin género o de otro género la corta. Null si no hay racha. */
+export function noStreak(h: Habits | null): { genre: string; n: number } | null {
+  const events = [
+    ...Object.entries(h?.no ?? {}).map(([k, at]) => ({ k, at, no: true })),
+    ...Object.entries(h?.more ?? {}).map(([k, at]) => ({ k, at, no: false })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  let genre = '';
+  let n = 0;
+  for (const e of events) {
+    const g = e.no ? h?.ng?.[e.k] : undefined;
+    if (!e.no || !g || (genre && g !== genre)) break;
+    genre = g;
+    n++;
+  }
+  return n ? { genre, n } : null;
 }
 
 /** Puntaje de un programa para el plan (más es mejor); null si no va. */
