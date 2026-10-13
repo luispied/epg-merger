@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.54.0
+
+- **La guía del reproductor también filtra en el perfil infantil.** La guía que baja el reproductor para los links de un perfil infantil sale sin los programas que no son aptos (y sin los que no tienen género), igual que en el modo ver. La playlist y el canal en vivo que abre el reproductor no se filtran por programa: eso se dice en la ayuda.
+- Worker: `/g/<código>.xml.gz` filtra la guía XMLTV de los perfiles infantiles con el índice de temas (`ui/schedule/topics.json`). Sin ese índice, la guía sale vacía (lo seguro).
+
 ## 1.53.0
 
 - **Avisos por gusto, dentro de cada perfil.** Ya no están en Configuración: cada perfil tiene su interruptor en su página, igual que el perfil infantil, y arranca apagado. Los avisos salen solo a los dispositivos de ese perfil, con sus canales, sus géneros y sus hábitos.

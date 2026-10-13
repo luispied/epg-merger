@@ -648,9 +648,9 @@ function KidsSheet({ p, dlg }: { p: ProfileView; dlg: HTMLDialogElement }) {
         ))}
       </div>
       <ul class="rules">
-        <li><Icon name="check" /><span>Vale en el modo ver de este perfil: la Guía, Tu plan y la lista de canales.</span></li>
+        <li><Icon name="check" /><span>Vale en el modo ver de este perfil y en la guía de sus links del reproductor: la Guía, Tu plan y la lista de canales.</span></li>
         <li><Icon name="ban" /><span>Nunca entran la publicidad, las películas, las series ni las noticias, ni lo que no tenga género.</span></li>
-        <li><Icon name="info" /><span>La IA se equivoca a veces y va clasificando de a poco: al principio se ve poco y se completa solo. No es control parental: la playlist y la guía del reproductor no se filtran.</span></li>
+        <li><Icon name="info" /><span>La IA se equivoca a veces y va clasificando de a poco: al principio se ve poco y se completa solo. No es control parental: la playlist y el canal en vivo que abre el reproductor no se filtran por programa.</span></li>
       </ul>
       <div class="sheet-actions">
         <button type="button" class="btn btn-plain" onClick={() => closeSheet(dlg)}>Cancelar</button>

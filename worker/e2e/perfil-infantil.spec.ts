@@ -60,7 +60,7 @@ for (const theme of ['light', 'dark'] as const) {
       for (const g of ['Película', 'Serie', 'Noticias', 'Publicidad']) await expect(dlg.getByRole('button', { name: g, exact: true })).toHaveCount(0);
       await expect(dlg).toContainText('Lo que la IA no pudo clasificar no se muestra');
       await expect(dlg).toContainText('va clasificando de a poco');
-      await expect(dlg).toContainText('la playlist y la guía del reproductor no se filtran');
+      await expect(dlg).toContainText('la playlist y el canal en vivo que abre el reproductor no se filtran por programa');
       await dlg.getByRole('button', { name: 'Documental', exact: true }).click();
       await expect(dlg.getByRole('button', { name: 'Documental', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await shot('2-hoja');
