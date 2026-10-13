@@ -171,5 +171,36 @@ for (const theme of ['light', 'dark']) {
       await still(page, '#guide .gd');
       await shot(page, `${theme}-ver-guia`);
     });
+
+    test('alta: el formulario de Xtream', async ({ page }) => {
+      await setup(page, theme);
+      await page.route('**/api/**', (r) => r.fulfill({ status: 502, json: { error: 'sin red' } }));
+      await page.goto('/');
+      await expect(page.locator('#onboarding')).toBeVisible();
+      await page.locator('#servers').fill('http://proveedor.test:8080');
+      await page.locator('#username').fill('usuario');
+      await page.locator('#password').fill('clave');
+      await shot(page, `${theme}-alta`);
+    });
+
+    test('ayuda, Perfil y Conexiones', async ({ page }) => {
+      await setup(page, theme);
+      await fakeWorker(page);
+      await schedules(page);
+      await page.goto('/');
+      await expect(page.locator('#cards .card').first()).toBeVisible();
+      await page.locator('#helpTopBtn').click();
+      await expect(page.locator('#helpDialog')).toBeVisible();
+      await shot(page, `${theme}-ayuda`);
+      await page.keyboard.press('Escape');
+      await page.locator('#tabLinks').click();
+      await expect(page.locator('#linksDialog')).toBeVisible();
+      await page.locator('#linksBody .account-row').click();
+      await expect(page.locator('#linksBody .pc-stat').first()).toBeVisible();
+      await shot(page, `${theme}-perfil-cuenta`);
+      await page.getByRole('button', { name: 'Conexiones en uso: ver qué links están conectados' }).click();
+      await expect(page.locator('#linksTitle')).toHaveText('Conexiones');
+      await shot(page, `${theme}-conexiones`);
+    });
   });
 }
