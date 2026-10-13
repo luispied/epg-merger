@@ -615,6 +615,8 @@ const selection = { active: false, items: new Set<number>() };
 // ------------------------------------------------------------------ guía y matching
 /** Cuándo se armó la guía que está cargada: cambia una vez por día y es la clave del caché del cruce. */
 let guideAt: string | null = null;
+/** Si ya corrió el cruce de esta apertura: antes, las filas no muestran coincidencia (ver computeInfo). */
+let guideReady = false;
 async function loadGuide(onStatus: (t: string) => void) {
   if (state.index) return;
   onStatus('Bajando la guía de programación…');
@@ -686,6 +688,7 @@ async function rematch(onStatus: (t: string) => void): Promise<boolean> {
     }
     if (cacheKey) void writeCache(MATCH_CACHE, cacheKey, Object.fromEntries(matches));
   }
+  guideReady = true;
   for (const name of names) {
     const ch = byName.get(name)!;
     if (DIVIDER_RE.test(ch.category)) {
@@ -891,7 +894,7 @@ function placeNewCategories() {
     `${fresh.length === 1 ? 'Categoría nueva del proveedor' : `${fresh.length} categorías nuevas del proveedor`}, ubicada${fresh.length === 1 ? '' : 's'} sola${fresh.length === 1 ? '' : 's'}: ${shown}${fresh.length > 3 ? ` y ${fresh.length - 3} más` : ''}. Podés moverla${fresh.length === 1 ? '' : 's'} en Categorías.`);
 }
 
-type Band = 'ok' | 'warn' | 'none' | 'manual' | 'purpose';
+type Band = 'ok' | 'warn' | 'none' | 'manual' | 'purpose' | 'loading';
 /** Durante un render() el estado no cambia: se calcula una sola vez por canal (los conteos de las
  *  pestañas, la lista y el filtro lo piden varias veces; con 10 000 canales se nota). */
 let infoMemo: Map<Channel, ReturnType<typeof computeInfo>> | null = null;
@@ -907,7 +910,8 @@ function computeInfo(ch: Channel) {
   const epg = edit.epg ?? null;
   const hidden = !!edit.hidden || state.cfg!.groups.hidden.includes(groupOf(ch));
   // "purpose": lo dejaste sin EPG a propósito (es una decisión tuya, no un canal sin resolver).
-  const band: Band = edit.manual ? (epg ? 'manual' : 'purpose') : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
+  // Hasta que el cruce de esta apertura corre, ninguna fila dice «Sin EPG» ni «Dudoso»: no hay dato todavía.
+  const band: Band = edit.manual ? (epg ? 'manual' : 'purpose') : !guideReady ? 'loading' : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
   // Categoría marcada "Sin guía" (Categorías): no cuenta en "A revisar" ni en "Sin EPG".
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
@@ -1139,6 +1143,7 @@ function bandTag(band: Band, score?: number): string {
     case 'ok': return `<span class="tag ok" title="Coincidencia buena${pct ? `: ${pct}` : ''}">${pct || 'Bien'}</span>`;
     case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
     case 'none': return '<span class="tag bad">Sin EPG</span>';
+    case 'loading': return ''; // la guía todavía no cruzó: sin etiqueta
     case 'manual': return ''; // la marca "elegida por vos" se ve solo al abrir el canal
     case 'purpose': return ''; // sin guía a propósito: se ve al abrir el canal
   }
@@ -2563,6 +2568,10 @@ async function openSaved(soft = false) {
       } catch { /* sin storage */ }
       toast(`${state.channels.length} canales cargados`, 'ok');
     }
+    // La lista se pinta enseguida con lo guardado (el EPG y el logo de cada canal ya están en la configuración); sin
+    // coincidencia todavía, las filas no muestran etiqueta. La guía y el cruce, que tardan, corren después.
+    main.classList.remove('loading');
+    render();
     // Si la guía no baja, la lista de canales igual se ve (sin logos ni programa): se avisa arriba y «Reintentar» la vuelve a pedir.
     let guideError: unknown = null;
     try {
@@ -2573,11 +2582,11 @@ async function openSaved(soft = false) {
     const masked = maskStoredIds();
     // La guía cambia todos los días: se vuelve a cruzar y, si cambió algo, se guarda.
     if ((await rematch(say)) || pending || masked) await saveNow(false);
+    guideReady = true;
     status(st, null);
     if (guideError) status(st, `No se pudo bajar la guía: ${loadError(guideError)}`, 'bad', () => void refreshGrid());
     detectNew();
     placeNewCategories();
-    main.classList.remove('loading');
     render();
     await renderLinksCard();
     renderTipCard();
