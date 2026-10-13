@@ -63,3 +63,36 @@ test('perfil infantil en modo ver: lo apto se ve y lo demás dice «No disponibl
   await expect(page.getByText('No disponible en este perfil').first()).toBeVisible();
   await expect(page.getByText('Partido de la noche')).toHaveCount(0);
 });
+
+test('«Qué se está ocultando»: el Worker cuenta lo que se ve y lo que se oculta en las próximas horas', async ({ api }) => {
+  // Un canal con cuatro programas en la hora: uno apto (Infantil), uno sin clasificar, uno de Deportes y una Película.
+  const r = await api.post('/api/cfg', { data: { provider: { type: 'xtream', servers: ['http://proveedor.test:8080'], list: 'upload' }, channels: { ESPN: { epg: 'espn.prueba' } }, mainName: 'Prueba' } });
+  expect(r.ok()).toBe(true);
+  const { cfgId, editKey } = await r.json() as { cfgId: string; editKey: string };
+  const auth = { Authorization: `Bearer ${editKey}` };
+  expect((await api.put(`/api/cfg/${cfgId}/list`, { headers: auth, data: { channels: [
+    { id: '1', name: 'ESPN', category: 'Deportes', ext: 'ts', icon: '', epgId: null },
+  ] } })).ok()).toBe(true);
+  const { profile } = await (await api.post(`/api/cfg/${cfgId}/profiles`, { headers: auth, data: { name: 'Chicos' } })).json() as { profile: { id: string } };
+  expect((await api.put(`/api/cfg/${cfgId}/profiles/${profile.id}`, { headers: auth, data: { kids: { genres: [] } } })).ok()).toBe(true);
+
+  // Las seis horas que mira el reporte (la actual y cinco más), con la misma programación: el resultado no depende de la hora.
+  const hora = (k: number) => new Date(Date.now() + k * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
+  const h0 = Math.floor(Date.now() / 3600_000) * 3600;
+  const idx = {
+    h: 0,
+    t: ['Bob Esponja', 'Misterio en la casa', 'Partido de la noche', 'Terror en la noche'],
+    g: ['Infantil', '', 'Deportes', 'Película'],
+    c: { 'espn.prueba': [[h0, h0 + 1800, 0], [h0 + 1800, h0 + 3600, 1], [h0 + 3600, h0 + 5400, 2], [h0 + 5400, h0 + 7200, 3]] },
+  };
+  for (let k = 0; k < 6; k++) sembrar(`ui/schedule/hour/${hora(k)}.json`, { ...idx, h: k });
+
+  const rep = await api.get(`/api/cfg/${cfgId}/profiles/${profile.id}/kids`, { headers: auth });
+  expect(rep.ok()).toBe(true);
+  const body = await rep.json() as { hours: number; shown: number; hidden: number; by: { genre: string; n: number; sample: string[] }[] };
+  expect(body.hours).toBe(6);
+  expect(body.shown).toBe(1);
+  expect(body.hidden).toBe(3);
+  expect(body.by.map((x) => [x.genre, x.n])).toEqual([['', 1], ['Deportes', 1], ['Película', 1]]);
+  expect(body.by[0].sample).toEqual(['Misterio en la casa']);
+});
