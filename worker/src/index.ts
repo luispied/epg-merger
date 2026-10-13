@@ -58,6 +58,7 @@ import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './hom
 import { againFor, validAgainIds } from './again.ts';
 import { cfgHour, gunzip, type Raw, readEntries, readStored, scheduleReader } from './schedule.ts';
 import { kidsReport, maskEntries, maskHabits, maskHour, parseKids, type HourShape, type Kids } from './kids.ts';
+import { aptTitles, filterGuide } from './guide-kids.ts';
 import { addReminder, parseReminder, readReminders, removeReminder } from './remind.ts';
 import { addSub, autoOffGenre, checkAllPush, currentNames, getTaste, setTaste, parseSubscription, pushConfigured, pushToConfig, removeSub } from './push.ts';
 import { type Channel, loadM3u, loadXtream, normalizeServer, parseUploadedList, ProviderError, streamUrl } from './provider.ts';
@@ -172,6 +173,20 @@ async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: 
   const off = rec.active === false;
   if (!off) ctx.waitUntil(touchDevice(env.BUCKET, code, rec).catch(() => {}));
   return { cfgId: rec.cfgId, token: rec.token, off, filter: rec.filter, profile: rec.profile };
+}
+
+/** La guía de un link. Si su perfil es infantil, sin los programas que no son aptos (guide-kids.ts). */
+async function serveGuide(env: Env, short: { cfgId: string; profile?: string }): Promise<Response> {
+  const key = `epg/${short.cfgId}.xml.gz`;
+  // Un link de perfil sin su configuración no se sirve sin filtro: si no se puede leer, la guía no sale.
+  const stored = short.profile ? await loadConfig(env.BUCKET, short.cfgId) : null;
+  if (short.profile && !stored) return fail(404, 'no encontrado');
+  const kids = stored && short.profile ? findProfile(stored.config, short.profile)?.kids : undefined;
+  if (!kids) return await serveR2(env, key, 'application/gzip', 3600);
+  const obj = await env.BUCKET.get(key);
+  if (!obj) return fail(404, 'no encontrado');
+  return new Response(filterGuide(obj.body, await aptTitles(env.BUCKET, kids)), {
+    headers: { 'Content-Type': 'application/gzip', 'Cache-Control': 'private, max-age=300', ...CORS } });
 }
 
 /** Playlist de un link desactivado: un solo canal con el aviso, así el reproductor lo muestra (un error HTTP
@@ -995,7 +1010,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, ctx, m[1]) : null;
       if (!short) return fail(404, 'no encontrado');
       if (short.off) return parts[0] === 'l' ? disabledPlaylist(url.origin, m![1]) : fail(403, 'link desactivado');
-      if (parts[0] === 'g') return await serveR2(env, `epg/${short.cfgId}.xml.gz`, 'application/gzip', 3600);
+      if (parts[0] === 'g') return await serveGuide(env, short);
       return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1], short.filter);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {

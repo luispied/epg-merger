@@ -147,5 +147,8 @@ claro y oscuro en los archivos del proyecto: `capturas/mocks-perfil-infantil/{a,
   confirmación que dice qué cambia. (5) Sin clasificar queda **estricto**. (6) La **guía XMLTV del reproductor no se filtra**
   en esta primera versión (fase 4): un reproductor que use los links del perfil ve la guía completa de sus canales; la ayuda
   lo dice como límite.
+- **Fase 4 (1.54.0)**: `/g/<código>.xml.gz` de un link de perfil infantil sale sin los `<programme>` no aptos
+  (`worker/src/guide-kids.ts`, con el mismo índice `ui/schedule/topics.json`; sin índice, sale vacía). La playlist y el canal
+  en vivo siguen sin filtrarse por programa: la ayuda lo dice como límite.
 - **Límite sin cambios**: en la edición se ve todo (el filtro vale en el modo ver del perfil), y la programación por canal y por
   hora sin código sigue siendo pública.
