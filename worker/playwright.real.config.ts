@@ -23,7 +23,11 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: `http://127.0.0.1:${PORT}`, serviceWorkers: 'block', locale: 'es-UY' },
-  projects: [{ name: 'escritorio', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'escritorio', use: { ...devices['Desktop Chrome'] } },
+    // Viewport de celular (Chromium, como el resto de la suite): el perfil infantil en modo ver se mira sobre todo en el celular.
+    { name: 'iphone', use: { ...devices['Pixel 5'] } },
+  ],
   webServer: {
     command: `node build.mjs && npx wrangler dev --local --ip 127.0.0.1 --port ${PORT} --persist-to ${STATE} --var TOKEN_KEY:${TOKEN_KEY}`,
     url: `http://127.0.0.1:${PORT}/`,
