@@ -21,6 +21,10 @@ class FakeS3:
         self.objects[Key] = (Body, extra)
         self.puts.append(Key)
 
+    def get_object(self, Bucket, Key):
+        import io
+        return {'Body': io.BytesIO(self.objects[Key][0])}
+
     def delete_objects(self, Bucket, Delete):
         for o in Delete['Objects']:
             self.objects.pop(o['Key'], None)

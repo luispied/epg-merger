@@ -29,7 +29,7 @@ jobs:
         python-version: '3.11'
     - run: pip install -r requirements.txt
     - name: Discover and evaluate sources
-      run: python tools/discover_epg_sources.py --out epg_sources_catalog.json
+      run: python tools/discover_epg_sources.py --out "$RUNNER_TEMP/epg_sources_catalog.json"
     - name: Subir el catálogo a R2 (privado, no se commitea)
       env:
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -38,4 +38,4 @@ jobs:
         R2_BUCKET: ${{ vars.R2_BUCKET }}
       run: |
         pip install boto3
-        python tools/fuentes_r2.py push epg_sources_catalog.json
+        python tools/fuentes_r2.py push "$RUNNER_TEMP/epg_sources_catalog.json"
