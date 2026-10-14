@@ -18,12 +18,12 @@ export function openCodes(homeCode: string) {
   render(<CodesSheet key={Date.now()} homeCode={homeCode} close={() => render(null, host!)} />, host);
 }
 
-function CodeRow({ label, code, empty, onCopy }: { label: string; code: string; empty?: string; onCopy: () => Promise<string | null> }) {
+function CodeRow({ label, onCopy }: { label: string; onCopy: () => Promise<string | null> }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
     <div class="cd-row">
-      <div class="cd-text"><small>{label}</small><code class={code ? '' : 'muted'}>{code || empty}</code></div>
+      <div class="cd-text"><small>{label}</small></div>
       <button type="button" class="btn btn-tonal sm" disabled={busy} aria-label={`Copiar: ${label}`} onClick={async () => {
         setBusy(true);
         const text = await onCopy();
@@ -38,7 +38,7 @@ function CodeRow({ label, code, empty, onCopy }: { label: string; code: string; 
 }
 
 /** Un código para ver con los dos caminos de «Compartir para ver»: copiar el código (para pegar) o el link (abre directo). */
-function ViewRow({ label, code, onCopy }: { label: string; code: string; onCopy: (kind: 'code' | 'link') => Promise<string | null> }) {
+function ViewRow({ label, onCopy }: { label: string; onCopy: (kind: 'code' | 'link') => Promise<string | null> }) {
   const [copied, setCopied] = useState<'' | 'code' | 'link'>('');
   const [busy, setBusy] = useState(false);
   const copy = async (kind: 'code' | 'link') => {
@@ -52,7 +52,7 @@ function ViewRow({ label, code, onCopy }: { label: string; code: string; onCopy:
   };
   return (
     <div class="cd-row cd-stack">
-      <div class="cd-text"><small>{label}</small><code class={code ? '' : 'muted'}>{code || 'Se crea al copiarlo'}</code></div>
+      <div class="cd-text"><small>{label}</small></div>
       <div class="cd-actions">
         <button type="button" class="btn btn-tonal sm" disabled={busy} aria-label={`Copiar código: ${label}`} onClick={() => void copy('code')}>
           {copied === 'code' ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}
@@ -97,15 +97,14 @@ function CodesSheet({ homeCode, close }: { homeCode: string; close: () => void }
         <h3 class="sec-title">Para editar</h3>
         <p class="help">Abre todos tus proveedores y perfiles en otro dispositivo (Perfil → Usar en otro dispositivo → Pegar un
           código). Se mantiene al día solo. Guardalo en privado: quien lo tenga puede editar tus configuraciones.</p>
-        <CodeRow label="Código para editar" code={homeCode} onCopy={async () => homeCode} />
+        <CodeRow label="Código para editar" onCopy={async () => homeCode} />
         {profileDefs.length > 0 && (
           <>
             <h3 class="sec-title">Modo ver</h3>
             <p class="help">Se pega en el mismo lugar y la app queda en modo ver: la grilla y la Guía de ese perfil, con letra
               grande y sin poder cambiar nada. <b>Copiar link</b> lo da listo para mandar: abre directo, sin pegar nada.</p>
             {profileDefs.map((p) => (
-              <ViewRow key={p.id} label={`Para ver «${p.name}»`} code={views[p.id] ? `ver.${views[p.id]}` : ''}
-                onCopy={(kind) => viewText(p.id, kind)} />
+              <ViewRow key={p.id} label={`Para ver «${p.name}»`} onCopy={(kind) => viewText(p.id, kind)} />
             ))}
           </>
         )}
