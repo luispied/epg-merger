@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.0
+
+- **Avisos por gusto en Configuración.** Nueva fila «Avisos por gusto» en Configuración, debajo de «Avisos». Con un solo perfil abre su hoja (géneros, cuándo y últimos avisos); con más de uno, lleva a Perfil, donde cada uno tiene la suya. Apagar un género en la hoja se puede deshacer al momento con **Deshacer**.
+
 ## 1.57.4
 
 - **«‹» en Usar en otro dispositivo vuelve a Configuración.** Si entraste desde Configuración, al volver ya no te manda a Perfiles.

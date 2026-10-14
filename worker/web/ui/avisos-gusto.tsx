@@ -142,7 +142,11 @@ function Sheet({ profile, close, onChange }: { profile: { id: string; name: stri
             {v.genres.length ? (
               <div class="filter-chips">
                 {v.genres.map((g) => (
-                  <button key={g.name} type="button" class="chip-btn" aria-pressed={g.on} onClick={() => void send({ genre: g.name, genreOn: !g.on })}>{g.name}</button>
+                  <button key={g.name} type="button" class="chip-btn" aria-pressed={g.on} onClick={() => {
+                    void send({ genre: g.name, genreOn: !g.on });
+                    // Apagar un género se deshace al momento, como «No avisarme de…» en la hoja del programa.
+                    if (g.on) toast(`Listo: no te aviso más de ${genrePlural(g.name)}.`, 'ok', 3500, { label: 'Deshacer', run: () => void send({ genre: g.name, genreOn: true }) });
+                  }}>{g.name}</button>
                 ))}
               </div>
             ) : <p class="help">Todavía no hay un género que mire seguido.</p>}
