@@ -1325,6 +1325,11 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .cd-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
 .cd-text code.muted { color: var(--muted); font-family: inherit; }
 .cd-row .btn { flex: none; }
+.cd-actions { display: flex; gap: 8px; flex: none; }
+.cd-stack { flex-wrap: wrap; }
+.cd-stack .cd-text { flex: 1 1 100%; }
+.cd-stack .cd-actions { flex: 1 1 100%; }
+.cd-stack .cd-actions .btn { flex: 1 1 0; }
 
 /* Guía: los filtros (hoja de ui/filtros.tsx), el aviso de Tu noche y el pie de las hojas */
 .gc-name { flex: 1; min-width: 0; font-size: 16px; }
