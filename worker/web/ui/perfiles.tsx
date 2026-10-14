@@ -1454,15 +1454,12 @@ function LinkResultView({ result }: { result: LinkResult }) {
         <CopyBtn what="epg" text={result.epgUrl} cls="btn-tonal" label="Copiar guía" />
       </div>
       <div class="share-row">
-        {'share' in navigator ? (
-          <button type="button" class="btn btn-tonal" onClick={async () => {
-            try {
-              await navigator.share({ title: 'nowline: mis links', text });
-            } catch { /* cancelado */ }
-          }}><Icon name="share-2" />Compartir</button>
-        ) : null}
-        <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline: mis links')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <button type="button" class="btn btn-gray" onClick={async () => {
+          if (!('share' in navigator)) return void copyText(text).then(() => toast('Links copiados', 'ok'));
+          try {
+            await navigator.share({ title: 'nowline: mis links', text });
+          } catch { /* cancelado */ }
+        }}><Icon name="share-2" />Compartir</button>
       </div>
       <div class="qr" id="qr" />
       <Help>En TiviMate: Agregar playlist → Ingresar URL → pegá la playlist; la guía la toma sola
