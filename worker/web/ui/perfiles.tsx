@@ -1409,7 +1409,7 @@ function ViewShare({ p }: { p: ProfileView }) {
           await copyText(url);
           setCopied('link');
           setTimeout(() => setCopied(''), 2000);
-        }}>{copied === 'link' ? <><Icon name="check" />Copiado</> : <><Icon name="link" />Copiar link</>}</button>
+        }}>{copied === 'link' ? <><Icon name="check" />Copiado</> : <><Icon name="link-2" />Copiar link</>}</button>
       </div>
       <div class="share-row">
         <button type="button" class="btn btn-gray" onClick={async () => {

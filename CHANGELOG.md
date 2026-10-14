@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.57.1
+
+- **«Copiar link» tiene su ícono.** Los botones Copiar link de Compartir para ver y de Tu código no mostraban el ícono.
+
 ## 1.57.0
 
 - **Copiar el link también en Tu código.** Cada código para ver de **Ver tu código** tiene **Copiar código** y **Copiar link**, igual que en **Compartir para ver**. El link abre la grilla directo, sin pegar nada.

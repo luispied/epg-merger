@@ -58,7 +58,7 @@ function ViewRow({ label, code, onCopy }: { label: string; code: string; onCopy:
           {copied === 'code' ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}
         </button>
         <button type="button" class="btn btn-primary sm" disabled={busy} aria-label={`Copiar link: ${label}`} onClick={() => void copy('link')}>
-          {copied === 'link' ? <><Icon name="check" />Copiado</> : <><Icon name="link" />Copiar link</>}
+          {copied === 'link' ? <><Icon name="check" />Copiado</> : <><Icon name="link-2" />Copiar link</>}
         </button>
       </div>
     </div>
