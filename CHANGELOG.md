@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.57.2
+
+- **«Copiar o compartir» de los links tiene solo Compartir.** Quitamos WhatsApp y Mail: **Compartir** abre el menú del celular, donde está todo. En un navegador sin ese menú, copia los links.
+
 ## 1.57.1
 
 - **«Copiar link» tiene su ícono.** Los botones Copiar link de Compartir para ver y de Tu código no mostraban el ícono.
