@@ -35,8 +35,9 @@ test('sin preferencia, la app sigue al sistema (el valor por defecto): claro y, 
   await fakeWorker(page);
   await page.goto('/');
   await expect(page.locator('#cards .card').first()).toBeVisible();
-  expect(lum(await bodyBg(page))).toBeGreaterThan(200);
-  expect(lum(await rowText(page))).toBeLessThan(120);
+  // Con la lista pintada antes que la guía, el color de la fila se asienta después: se espera el valor final.
+  await expect.poll(() => bodyBg(page).then(lum)).toBeGreaterThan(200);
+  await expect.poll(() => rowText(page).then((c) => (/\d/.test(c) ? lum(c) : NaN))).toBeLessThan(120);
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(() => bodyBg(page).then(lum)).toBeLessThan(80);
 });
@@ -47,8 +48,9 @@ test('«Como el sistema»: sigue al sistema, claro o oscuro', async ({ page }) =
   await fakeWorker(page);
   await page.goto('/');
   await expect(page.locator('#cards .card').first()).toBeVisible();
-  expect(lum(await bodyBg(page))).toBeGreaterThan(200);
-  expect(lum(await rowText(page))).toBeLessThan(120);
+  // Con la lista pintada antes que la guía, el color de la fila se asienta después: se espera el valor final.
+  await expect.poll(() => bodyBg(page).then(lum)).toBeGreaterThan(200);
+  await expect.poll(() => rowText(page).then((c) => (/\d/.test(c) ? lum(c) : NaN))).toBeLessThan(120);
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect.poll(() => bodyBg(page).then(lum)).toBeLessThan(80);
 });

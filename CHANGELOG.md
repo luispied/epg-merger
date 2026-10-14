@@ -11,9 +11,38 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.0
+
+- **Avisos por gusto en Configuración.** Nueva fila «Avisos por gusto» en Configuración, debajo de «Avisos». Con un solo perfil abre su hoja (géneros, cuándo y últimos avisos); con más de uno, lleva a Perfil, donde cada uno tiene la suya. Apagar un género en la hoja se puede deshacer al momento con **Deshacer**.
+
+## 1.57.4
+
+- **«‹» en Usar en otro dispositivo vuelve a Configuración.** Si entraste desde Configuración, al volver ya no te manda a Perfiles.
+
+## 1.57.3
+
+- **Tu código, sin los códigos a la vista.** Cada fila muestra solo su nombre y sus botones con ícono (Copiar código, Copiar link, Copiar). Los códigos ya no aparecen como texto.
+
+## 1.57.2
+
+- **«Copiar o compartir» de los links tiene solo Compartir.** Quitamos WhatsApp y Mail: **Compartir** abre el menú del celular, donde está todo. En un navegador sin ese menú, copia los links.
+
+## 1.57.1
+
+- **«Copiar link» tiene su ícono.** Los botones Copiar link de Compartir para ver y de Tu código no mostraban el ícono.
+
+## 1.57.0
+
+- **Copiar el link también en Tu código.** Cada código para ver de **Ver tu código** tiene **Copiar código** y **Copiar link**, igual que en **Compartir para ver**. El link abre la grilla directo, sin pegar nada.
+
 ## 1.56.0
 
-- **Avisos por gusto en Configuración.** Nueva fila «Avisos por gusto» en Configuración, debajo de «Avisos». Con un solo perfil abre su hoja (géneros, cuándo y últimos avisos); con más de uno, lleva a Perfil, donde cada uno tiene la suya. Apagar un género ahora se puede deshacer al momento con **Deshacer**.
+- **Copiar el link de un perfil para ver.** En **Compartir para ver** hay dos botones lado a lado: **Copiar código**, para pegar en la app de quien mira, y **Copiar link**, que abre la grilla directo, sin pegar nada. **Compartir** manda el link con el menú del celular. **Probar**, **WhatsApp** y **Mail** salen de esa hoja; el link se manda con **Compartir**.
+
+## 1.55.1
+
+- **La lista aparece antes que la guía.** Al abrir, Canales se pinta enseguida con lo guardado; la guía y el cruce llegan después y actualizan las filas. Mientras el cruce no corre, las filas no muestran «Sin EPG» ni «Dudoso».
+- Interno: el índice por hora de la Guía ya es el de tu configuración (#298); esta versión solo cambia el orden de carga al abrir.
 
 ## 1.55.0
 

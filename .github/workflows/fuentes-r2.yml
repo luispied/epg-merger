@@ -1,14 +1,28 @@
-name: Subir fuentes a R2
+name: Restaurar una fuente de R2
 
-# Sube a R2 (privado) las fuentes de guía que están en el repo. Se corre a mano, una vez, antes de sacarlas del repo.
+# Restaura epg_urls.json o epg_sources_catalog.json desde una copia de fuentes/backup/ (la versión anterior
+# queda respaldada antes de pisarla). Se corre a mano. Para editar una fuente, usar
+# `python tools/fuentes_r2.py editar NOMBRE` en la máquina de quien mantiene las fuentes.
 on:
   workflow_dispatch:
+    inputs:
+      archivo:
+        description: Archivo a restaurar
+        type: choice
+        options:
+          - epg_urls.json
+          - epg_sources_catalog.json
+        required: true
+      fecha:
+        description: Carpeta de backup (por ejemplo 2026-10-13-120000)
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 jobs:
-  subir:
+  restaurar:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -17,10 +31,12 @@ jobs:
       with:
         python-version: '3.11'
     - run: pip install boto3
-    - name: Subir epg_urls.json y epg_sources_catalog.json
+    - name: Restaurar desde fuentes/backup
       env:
         R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
         R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         R2_BUCKET: ${{ vars.R2_BUCKET }}
-      run: python tools/fuentes_r2.py push epg_urls.json epg_sources_catalog.json
+        ARCHIVO: ${{ inputs.archivo }}
+        FECHA: ${{ inputs.fecha }}
+      run: python tools/fuentes_r2.py restaurar "$ARCHIVO" "$FECHA"

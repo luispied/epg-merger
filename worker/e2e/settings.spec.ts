@@ -33,8 +33,8 @@ test('muestra la guía, los avisos y la versión', async ({ page }) => {
   await expect(s.getByRole('button', { name: /Actualizar la guía ahora/ })).toContainText('Al día · última actualización');
   await expect(s.getByRole('button', { name: /Salud de la guía/ })).toContainText('Todavía no hay datos de programación');
   // El Worker tiene avisos: aparece el interruptor (Chromium sin pantalla los da por bloqueados).
-  await expect(s.locator('.menu-row', { hasText: 'Avisos' })).toContainText('Bloqueados: activalos en los ajustes del sitio del navegador');
-  const avisos = s.locator('.menu-row', { hasText: 'Avisos' }).getByRole('switch');
+  await expect(s.locator('label.menu-row', { hasText: 'Avisos' })).toContainText('Bloqueados: activalos en los ajustes del sitio del navegador');
+  const avisos = s.locator('label.menu-row', { hasText: 'Avisos' }).getByRole('switch');
   await expect(avisos).toBeDisabled();
   await expect(avisos).not.toBeChecked();
   await expect(s.locator('.app-version')).toHaveText(/^Versión \d+\.\d+\.\d+/);
@@ -78,6 +78,10 @@ test('usar en otro dispositivo abre Perfil en esa página', async ({ page }) => 
   await expect(sheet(page)).toBeHidden();
   await expect(page.locator('#linksDialog')).toBeVisible();
   await expect(page.locator('#linksTitle')).toHaveText('Otro dispositivo');
+  // «‹» vuelve a Configuración, no a Perfiles.
+  await page.locator('#linksBack').click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(page.locator('#settingsTitle')).toHaveText('Configuración');
 });
 
 test('letra grande agranda toda la app y queda elegida en este dispositivo', async ({ page }) => {
