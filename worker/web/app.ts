@@ -1415,8 +1415,8 @@ function openPage(t: PageTab) {
   markTab(t);
 }
 /** Abre Perfil (en la vista pedida) desde la pestaña o desde cualquier otro lado. */
-function openProfiles(v: LinksView = { v: 'list' }) {
-  openLinksView(v);
+function openProfiles(v: LinksView = { v: 'list' }, from?: () => void) {
+  openLinksView(v, from);
   openPage('profile');
 }
 

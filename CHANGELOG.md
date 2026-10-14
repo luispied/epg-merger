@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.57.4
+
+- **«‹» en Usar en otro dispositivo vuelve a Configuración.** Si entraste desde Configuración, al volver ya no te manda a Perfiles.
+
 ## 1.57.3
 
 - **Tu código, sin los códigos a la vista.** Cada fila muestra solo su nombre y sus botones con ícono (Copiar código, Copiar link, Copiar). Los códigos ya no aparecen como texto.

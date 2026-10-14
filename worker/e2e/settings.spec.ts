@@ -78,6 +78,10 @@ test('usar en otro dispositivo abre Perfil en esa página', async ({ page }) => 
   await expect(sheet(page)).toBeHidden();
   await expect(page.locator('#linksDialog')).toBeVisible();
   await expect(page.locator('#linksTitle')).toHaveText('Otro dispositivo');
+  // «‹» vuelve a Configuración, no a Perfiles.
+  await page.locator('#linksBack').click();
+  await expect(sheet(page)).toBeVisible();
+  await expect(page.locator('#settingsTitle')).toHaveText('Configuración');
 });
 
 test('letra grande agranda toda la app y queda elegida en este dispositivo', async ({ page }) => {

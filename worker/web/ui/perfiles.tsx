@@ -43,6 +43,8 @@ type LinksSub =
 
 let linksView: LinksView = { v: 'list' };
 let linksSub: LinksSub | null = null;
+/** Si se llegó a «Usar en otro dispositivo» desde Configuración, a dónde volver con «‹». */
+let backToSettings: (() => void) | null = null;
 /** Cada subpágina se dibuja de cero (con su propio estado), aunque sea del mismo tipo que la anterior. */
 let subSeq = 0;
 const el = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -52,9 +54,10 @@ const dialogOpen = () => el<HTMLDialogElement>('#linksDialog').open;
 const isCurrent = (cfgId?: string) => !cfgId || cfgId === state.local?.cfgId;
 const otherOf = (cfgId?: string) => (isCurrent(cfgId) ? undefined : otherProviders.find((o) => o.cfgId === cfgId));
 
-/** Abre la hoja en una página (la lista, si no se dice otra). */
-export function openLinksView(v: LinksView = { v: 'list' }) {
+/** Abre la hoja en una página (la lista, si no se dice otra). `from`: a dónde volver con «‹» desde esa página. */
+export function openLinksView(v: LinksView = { v: 'list' }, from?: () => void) {
   linksView = v;
+  backToSettings = from ?? null;
   void renderLinks();
 }
 function openSub(s: LinksSub) {
@@ -64,6 +67,12 @@ function openSub(s: LinksSub) {
 }
 /** «‹»: de una subpágina vuelve a su página; de las conexiones, a su cuenta; de otra página, a la lista. */
 export function linksBack() {
+  if (!linksSub && linksView.v === 'hogar' && backToSettings) {
+    const back = backToSettings;
+    backToSettings = null;
+    back();
+    return;
+  }
   if (!linksSub) linksView = linksView.v === 'connections' ? { v: 'account', account: linksView.account } : { v: 'list' };
   void renderLinks();
 }
