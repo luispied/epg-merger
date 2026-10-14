@@ -181,7 +181,7 @@ function Settings() {
       <div class="menu">
         <MenuRow icon="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => {
           dialog().close();
-          openProfiles({ v: 'hogar' });
+          openProfiles({ v: 'hogar' }, openSettings);
         }} />
       </div>
       <h3 class="sec-title">Preferencias</h3>
