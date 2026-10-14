@@ -1341,7 +1341,7 @@ function ProfileFilter({ p }: { p: ProfileView }) {
  *  Se crea al tocar el botón; quitarlo lo invalida. Los links de reproducción no cambian. */
 function ViewShare({ p }: { p: ProfileView }) {
   const [code, setCode] = useState(p.view ?? '');
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState('');
   const [busy, run] = useBusy();
   const path = `/api/cfg/${state.local!.cfgId}/profiles/${p.id}/view`;
   const url = code ? `${location.origin}/ver#${code}` : '';
@@ -1380,7 +1380,6 @@ function ViewShare({ p }: { p: ProfileView }) {
       toast((e as Error).message, 'bad');
     }
   };
-  const text = `Para ver qué dan en la tele: abrí nowline (${location.origin}), tocá «Pegá el código» y pegá este código:\n${viewCode}\n\nO abrí directo: ${url}`;
   if (!code) {
     return (
       <>
@@ -1397,26 +1396,28 @@ function ViewShare({ p }: { p: ProfileView }) {
   return (
     <>
       <SubTitle>Código para ver «{p.name}»</SubTitle>
-      <Help>Copialo y pasáselo. En su celular o tablet: abrí nowline, tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre
-        en modo ver. Si después agrega nowline a la pantalla de inicio, queda como una app.</Help>
+      <Help>Copiá el link y mandáselo: lo abre directo, sin pegar nada. O copiá el código: en su celular o tablet abrí nowline,
+        tocá <b>Pegá el código</b> y pegalo. Desde ahí la app abre siempre en modo ver. Si después agrega nowline a la pantalla
+        de inicio, queda como una app.</Help>
       <div class="lc-actions">
-        <button type="button" class="btn btn-primary" onClick={async () => {
+        <button type="button" class="btn btn-tonal" onClick={async () => {
           await copyText(viewCode);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }}>{copied ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}</button>
-        <a class="btn btn-tonal" href={url} target="_blank" rel="noopener noreferrer"><Icon name="external-link" />Probar</a>
+          setCopied('code');
+          setTimeout(() => setCopied(''), 2000);
+        }}>{copied === 'code' ? <><Icon name="check" />Copiado</> : <><Icon name="copy" />Copiar código</>}</button>
+        <button type="button" class="btn btn-primary" onClick={async () => {
+          await copyText(url);
+          setCopied('link');
+          setTimeout(() => setCopied(''), 2000);
+        }}>{copied === 'link' ? <><Icon name="check" />Copiado</> : <><Icon name="link" />Copiar link</>}</button>
       </div>
       <div class="share-row">
-        {'share' in navigator ? (
-          <button type="button" class="btn btn-tonal" onClick={async () => {
-            try {
-              await navigator.share({ title: 'nowline', text: 'Para ver qué dan en la tele', url });
-            } catch { /* cancelado */ }
-          }}><Icon name="share-2" />Compartir</button>
-        ) : null}
-        <a class="btn btn-gray" target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${encodeURIComponent(text)}`}><Icon name="message-circle" />WhatsApp</a>
-        <a class="btn btn-gray" href={`mailto:?subject=${encodeURIComponent('nowline')}&body=${encodeURIComponent(text)}`}><Icon name="mail" />Mail</a>
+        <button type="button" class="btn btn-gray" onClick={async () => {
+          if (!('share' in navigator)) return void copyText(url).then(() => toast('Link copiado', 'ok'));
+          try {
+            await navigator.share({ title: 'nowline', text: 'Para ver qué dan en la tele', url });
+          } catch { /* cancelado */ }
+        }}><Icon name="share-2" />Compartir</button>
       </div>
       <div class="qr" id="qr" />
       <Help>Ve solo los canales de este perfil; si cambiás qué ve el perfil, también cambia ahí.</Help>
