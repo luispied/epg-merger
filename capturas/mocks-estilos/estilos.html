@@ -1,0 +1,2066 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock de estilos</title>
+<style>
+.theme-light, .theme-dark {
+  --amber: #ffb224;
+  --on-amber: #1d1300;
+  --qr-bg: #ffffff;
+  --live: var(--green);
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+  --gutter: calc(16px + env(safe-area-inset-left, 0px));
+  --tab-h: 56px;
+  --rail-w: 92px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --z-sticky: 3;
+  --z-toolbar: 5;
+  --z-page: 7;
+  --z-tabbar: 8;
+  --z-toast: 20;
+  --z-sheet: 60;
+  --z-menu: 200;
+  --z-splash: 1000;
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 280ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in: cubic-bezier(.4, 0, 1, 1);
+}
+.theme-light {
+  --bg: #f5f2ec;
+  --surface: #ffffff;
+  --surface-2: #efebe3;
+  --fill: #e4dfd4;
+  --text: #1c1a15;
+  --muted: #4d4a40;
+  --faint: #6f6a5f;
+  --hairline: #d9d3c6;
+  --chip-line: #8f887a;
+  --toolbar-bg: rgba(245, 242, 236, .92);
+  --disabled-fill: #ebe7df;
+  --disabled-ink: #a39d90;
+  --accent: #8f5200;
+  --on-accent: #ffffff;
+  --accent-soft: #ffe3b8;
+  --on-accent-soft: #3b2400;
+  --logo-tile: #f2f2f7;
+  --logo-ink: #aeaeb2;
+  --green: #17683a;
+  --on-live: #ffffff;
+  --orange: #b03a10;
+  --red: #b3261e;
+  --on-danger: #ffffff;
+  --blue: #1d5fb8;
+  --gray: #6a665b;
+  --inverse-surface: #2b2820;
+  --inverse-text: #f1ede3;
+  --inverse-accent: #ffc15c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 1px 3px 1px rgba(0, 0, 0, .05);
+  --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .18);
+  --shadow-logo: 0 10px 30px rgba(60, 40, 0, .16), 0 2px 6px rgba(0, 0, 0, .08);
+}
+.theme-dark {
+  --bg: #0c0d10;
+  --surface: #15171c;
+  --surface-2: #1d2026;
+  --fill: #272b33;
+  --text: #eceef2;
+  --muted: #b4bac6;
+  --faint: #8a91a0;
+  --hairline: #2a2e37;
+  --chip-line: #626a77;
+  --toolbar-bg: rgba(12, 13, 16, .92);
+  --disabled-fill: #23262d;
+  --disabled-ink: #5c6371;
+  --accent: #ffb224;
+  --on-accent: #1d1300;
+  --accent-soft: #3d2d09;
+  --on-accent-soft: #ffd98a;
+  --logo-tile: #e5e5ea;
+  --logo-ink: #8e8e93;
+  --green: #52d49a;
+  --on-live: #06281a;
+  --orange: #ff8566;
+  --red: #ff7b72;
+  --on-danger: #3c0a07;
+  --blue: #7fb2ff;
+  --gray: #98a0ae;
+  --inverse-surface: #2d3139;
+  --inverse-text: #eceef2;
+  --inverse-accent: #ffb224;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-lg: 0 4px 12px 2px rgba(0, 0, 0, .65);
+  --shadow-logo: 0 12px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .04);
+}
+
+/* Estructura base de Grilla web: reinicio, tipografía y el armado de cada pieza (encabezado, barra, botones, filas,
+   hojas). Los colores, sombras y radios vienen de tokens.css; web.css va después y manda. Lo que web.css ya pisaba
+   entero se borró (auditoría de diseño, paso 2). */
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+@media (hover: hover) { a:hover { text-decoration: underline; } }
+
+/* App instalada en iPhone (status bar translúcida): una franja del color de la barra fija
+   tapa la zona de la hora/batería para que el contenido no pase por debajo al hacer scroll. */
+body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+  height: env(safe-area-inset-top, 0px); background: var(--toolbar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ------------------------------------------------------------------ íconos */
+.icon { width: 18px; height: 18px; flex: none; display: inline-block; vertical-align: -3px; }
+.icon.sm { width: 14px; height: 14px; vertical-align: -2px; }
+.icon.lg { width: 36px; height: 36px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------------ encabezado */
+.app-header { padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 10px; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.header-actions { display: flex; gap: 8px; }
+.app-header h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+
+/* Lo fijo arriba: buscador, acciones y filtros (el título se va con el scroll). */
+.toolbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  padding: 10px var(--gutter) 10px;
+  background: var(--toolbar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.toolbar-row { display: flex; gap: 8px; align-items: center; }
+
+.search-field {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; color: var(--muted);
+}
+.search-field input {
+  flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text);
+  font: inherit; font-size: 16px; outline: none;
+}
+.search-field input::-webkit-search-cancel-button { filter: grayscale(1); }
+
+/* ------------------------------------------------------------------ botones */
+button { font: inherit; color: inherit; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; border: 0; cursor: pointer; white-space: nowrap;
+}
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn-plain { background: transparent; }
+.btn-danger { background: transparent; color: var(--red); }
+.btn-block { width: 100%; }
+.btn.pending { background: var(--accent); color: var(--on-accent); }
+.icon-btn { flex: none; border-radius: 50%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:disabled { opacity: .45; }
+.icon-btn.ghost { background: transparent; color: var(--muted); }
+.icon-btn.on { color: var(--accent); }
+
+/* ------------------------------------------------------------------ filtros */
+.segmented {
+  display: flex; overflow-x: auto; scrollbar-width: none;
+  margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter);
+}
+.segmented::-webkit-scrollbar { display: none; }
+.segmented button {
+  flex: none; border: 0; cursor: pointer; white-space: nowrap; font-size: 14px;
+  transition: background-color .15s ease, color .15s ease;
+}
+.segmented .count { margin-left: 4px; opacity: .6; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ contenido */
+main { padding: 12px var(--gutter) 24px; max-width: 760px; margin: 0 auto; }
+.meta-line { color: var(--muted); font-size: 13px; margin: 2px 4px 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.meta-line.warn { color: var(--orange); }
+.cards { display: flex; flex-direction: column; }
+
+.status-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px;
+}
+.status-bar .grow { flex: 1; min-width: 160px; }
+.status-bar.ok .lead { color: var(--green); }
+.status-bar.bad .lead { color: var(--red); }
+.status-bar.busy .lead { color: var(--accent); }
+
+.card {
+  background: var(--surface); animation: fade-in .2s ease both;
+}
+.card.is-hidden { opacity: .5; }
+.card.is-hidden:focus-within { opacity: 1; }
+@media (hover: hover) { .card.is-hidden:hover { opacity: 1; } }
+.card-title { flex: 1; min-width: 0; }
+.card-name { line-height: 1.25; word-break: break-word; }
+.card-sub { color: var(--muted); font-size: 13px; margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.card-note { color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+/* Estado: punto de color + texto (o ícono para los manuales). */
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; color: var(--gray);
+}
+.tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.tag.ok { color: var(--green); }
+.tag.warn { color: var(--orange); }
+.tag.bad { color: var(--red); }
+.tag.manual { color: var(--blue); }
+.tag.muted { color: var(--gray); font-weight: 500; }
+.pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+}
+.pill.muted { color: var(--muted); background: var(--fill); }
+.epg-now { color: var(--muted); font-size: 13px; margin-top: 6px; display: flex; gap: 6px; align-items: flex-start; }
+.epg-now .icon { margin-top: 1px; }
+.epg-now.on-air { color: var(--text); }
+
+.list {
+  background: var(--surface-2); overflow: hidden;
+}
+.list > * + * { border-top: .5px solid var(--hairline); }
+.list .list-note { padding: 9px 12px; font-size: 12.5px; color: var(--muted); }
+
+/* Paneles desplegables de la tarjeta ("Cambiar EPG" y "Más"). */
+.panel {
+  border-top: .5px solid var(--hairline); margin: 12px -14px -4px; padding: 6px 14px 0;
+  animation: slide-down .22s ease both;
+}
+.field { display: flex; flex-direction: column; }
+.field > span { color: var(--muted); }
+.input, .select {
+  width: 100%; border: 0;
+  background: var(--fill); color: var(--text); font: inherit; font-size: 16px;
+  appearance: none; -webkit-appearance: none;
+}
+.select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px; background-repeat: no-repeat;
+}
+.row-actions { display: flex; flex-wrap: wrap; }
+.search-results { max-height: 380px; overflow-y: auto; }
+.help { color: var(--muted); }
+
+/* ------------------------------------------------------------------ esqueleto y vacío */
+.skeleton { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 14px; }
+.skeleton .bar {
+  height: 12px; border-radius: 6px; margin: 8px 0;
+  background: linear-gradient(90deg, var(--fill) 25%, var(--surface-2) 50%, var(--fill) 75%);
+  background-size: 200% 100%; animation: shimmer 1.2s ease-in-out infinite;
+}
+.skeleton .bar.w60 { width: 60%; height: 16px; }
+.skeleton .bar.w40 { width: 40%; }
+.skeleton .bar.block { height: 58px; border-radius: var(--radius-sm); }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+.empty .icon { color: var(--faint); margin-bottom: 10px; }
+.empty strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+
+/* ------------------------------------------------------------------ toasts */
+/* El aviso va arriba: debajo de la isla del iPhone (centrado) y, en el escritorio, arriba a la derecha (web.css). Es un
+   popover: queda en la capa de arriba de todo, así no lo tapa ninguna página, hoja ni barra. Se anulan los estilos que el
+   navegador le pone a un popover (borde, fondo, márgenes, tamaño). */
+.toasts {
+  position: fixed; left: 0; right: 0; bottom: auto; z-index: 20; pointer-events: none;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  width: auto; height: auto; margin: 0; border: 0; background: transparent; color: inherit; overflow: visible;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow-lg); animation: toast-in .25s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.toast .msg { flex: 1; }
+.toast.error .icon { color: var(--red); }
+.toast .btn { min-height: 34px; padding: 0 10px; font-size: 14px; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-16px) scale(.96); } }
+
+/* ------------------------------------------------------------------ diálogos (hojas) */
+dialog.sheet {
+  border: 0; padding: 0; color: var(--text);
+  width: min(460px, calc(100vw - 24px)); box-shadow: var(--shadow-lg);
+}
+dialog.sheet[open] { animation: sheet-in .25s cubic-bezier(.2, .9, .3, 1) both; }
+dialog.sheet::backdrop { animation: fade-in .2s ease both; }
+@media (max-width: 600px) {
+  dialog.sheet {
+    margin: auto 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+.sheet-body h2 { margin: 0 0 6px; }
+.sheet-body p { margin: 0 0 12px; color: var(--muted); }
+.sheet-actions { display: flex; }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(24px); } }
+
+/* ------------------------------------------------------------------ animaciones */
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes slide-down { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  /* Lo que gira avisa que algo está cargando: gira más lento, pero no se frena. */
+  .spin, body.refreshing .ptr .icon { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
+}
+@media (max-width: 480px) {
+  .wide { display: none; }
+}
+
+/* ------------------------------------------------------------------ ayuda */
+.help-sheet .sheet-body { overflow-y: auto; }
+.help-sheet .title-row { margin-bottom: 6px; }
+.help-sheet h2 { margin: 0; }
+.help-sheet details { background: var(--surface-2); margin-top: 8px; }
+.help-sheet summary {
+  list-style: none; cursor: pointer; padding: 12px 14px; font-size: 15px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.help-sheet summary::-webkit-details-marker { display: none; }
+.help-sheet summary .icon { color: var(--muted); transition: transform .2s ease; }
+.help-sheet details[open] > summary .icon { transform: rotate(180deg); }
+.help-sheet details p { margin: 0; padding: 0 14px 12px; color: var(--text); }
+.help-sheet details[open] > p { animation: slide-down .2s ease both; }
+
+/* ------------------------------------------------------------------ logos */
+/* Fondo claro en los dos temas + contorno fino: se leen tanto los logos oscuros como los
+   blancos sobre transparente (las fuentes de EPG traen de los dos). */
+.logo {
+  flex: none; width: 40px; height: 40px;
+  background: var(--logo-tile); color: var(--logo-ink);
+  display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.logo.lg { width: 48px; height: 48px; }
+.logo img { max-width: 84%; max-height: 84%; object-fit: contain; filter: drop-shadow(0 0 1px rgba(0, 0, 0, .55)); }
+.logo.has-img > .icon { display: none; }
+.logo > .icon { width: 20px; height: 20px; }
+
+/* ------------------------------------------------------------------ configuración */
+.settings-sheet .sheet-body { overflow-y: auto; }
+.settings-sheet h2 { margin: 0; }
+.sheet-body .menu-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cardMenuBody .menu:first-child { margin-top: 12px; }
+#categoriesDialog .help, #sourcesDialog .help { margin: 4px 0 0; }
+#sourcesList .menu-text small { overflow-wrap: anywhere; }
+.menu { background: var(--surface-2); overflow: hidden; }
+.menu > * + * { border-top: .5px solid var(--hairline); }
+.menu-row {
+  width: 100%; display: flex; align-items: center; border: 0; background: transparent; color: var(--text);
+  font: inherit; font-size: 15px; text-align: left; cursor: pointer;
+}
+.menu-row.static { cursor: default; }
+label.menu-row.static { cursor: pointer; }
+.menu-row > .icon:last-child { color: var(--faint); }
+.menu-icon {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.menu-row.danger { color: var(--red); }
+.menu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.menu-text small { color: var(--muted); }
+.seg { display: inline-flex; }
+.seg button {
+  border: 0; background: transparent; font: inherit; cursor: pointer;
+}
+.select.compact { width: auto; font-size: 14px; padding: 0 30px 0 10px; }
+.switch {
+  appearance: none; -webkit-appearance: none; flex: none; position: relative; cursor: pointer; border-radius: 999px; transition: background-color .2s ease;
+}
+.switch::after {
+  content: ""; position: absolute; border-radius: 50%;
+}
+body.no-logos .logo { display: none; }
+
+/* ------------------------------------------------------------------ selección múltiple */
+.card.selectable { cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.card.selected { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+.card.is-hidden.selected { opacity: 1; }
+.sel-box { flex: none; color: var(--faint); margin-top: 12px; }
+.card.selected .sel-box { color: var(--accent); }
+.sel-box .icon { width: 22px; height: 22px; }
+.bulk-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+  display: flex; align-items: center;
+  animation: slide-up .2s ease both;
+}
+.bulk-bar[hidden] { display: none; }
+.bulk-count { flex: 1; min-width: 0; }
+.bulk-bar .btn { min-height: 38px; }
+body.selecting main { padding-bottom: 72px; }
+#bulkBody .menu:first-child, #bulkBody .select { margin-top: 12px; }
+@keyframes slide-up { from { transform: translateY(100%); } }
+
+/* Botoncito de estado dentro de una fila de menú ("Sin guía" en Categorías). */
+.chip-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 4px;
+  border: 0;
+  font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.chip-btn:disabled { cursor: default; opacity: .75; }
+
+/* Grilla web: lo que agrega a base.css (se juntan en un solo app.css al compilar). */
+.app-header .lead { color: var(--muted); font-size: 15px; margin: 8px 0 0; max-width: 640px; }
+#onboarding main { max-width: 560px; }
+.stack { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bottom: 10px; resize: vertical; font: inherit; }
+.steps { padding-left: 20px; margin: 0; }
+.steps li { margin: 2px 0; }
+.card .help { margin-top: 12px; }
+.header-actions .btn { min-height: 38px; }
+.pick-row { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pick-row:active { background: var(--fill); }
+@media (hover: hover) { .pick-row:hover { background: var(--fill); } }
+#channelBody .row-actions { margin-top: 10px; }
+.cat-row { gap: 6px; }
+.cat-row .icon-btn[disabled] { opacity: .3; }
+.input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0 4px; }
+.qr-svg { display: contents; }
+.qr svg { width: 180px; height: 180px; background: var(--qr-bg); border-radius: var(--radius-sm); }
+.danger-zone { margin-top: 16px; }
+.muted { color: var(--muted); }
+.card { cursor: pointer; }
+.notice { background: var(--accent-soft); color: var(--text); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0; font-size: 14.5px; }
+#m3uDownload.disabled { opacity: .5; }
+.app-header h1.brand { display: flex; align-items: center; line-height: 0; }
+.app-header h1.brand img { width: 44px; height: 44px; border-radius: var(--radius-sm); box-shadow: 0 0 0 .5px var(--hairline); }
+.btn.sm { min-height: 30px; padding: 0 12px; font-size: 13.5px; flex: none; }
+.pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cat-filter { margin: 12px 0 10px; }
+.cat-row { gap: 10px; }
+.drag-handle {
+  flex: none; display: grid; place-items: center; width: 32px; height: 40px; margin: -6px -4px -6px -8px;
+  border: 0; background: none; color: var(--faint); cursor: grab; touch-action: none; border-radius: var(--radius-sm);
+}
+.drag-handle:focus-visible { outline: 2px solid var(--accent); }
+.cat-row.dragging { position: relative; z-index: 2; background: var(--surface); box-shadow: var(--shadow-lg); border-radius: var(--radius-sm); }
+.cat-row.dragging .drag-handle { cursor: grabbing; color: var(--accent); }
+#categoriesList.sorting { user-select: none; -webkit-user-select: none; }
+#categoriesList.sorting .cat-row:not(.dragging) { transition: transform .15s ease; }
+.inline-icon .icon, svg.inline-icon { width: 15px; height: 15px; vertical-align: -2px; }
+#themeSeg button .icon { width: 17px; height: 17px; vertical-align: -3px; }
+.ask-sheet h2 { margin: 0 0 6px; }
+.ask-sheet p { margin: 0 0 4px; color: var(--muted); }
+.ask-sheet .field { margin-top: 10px; }
+.ask-sheet .btn-danger { background: var(--red); color: var(--on-danger); padding: 0 24px; }
+.kids-sheet .sec-title { margin-top: 16px; }
+.kids-sheet .filter-chips .chip-btn[disabled] { opacity: .6; }
+.kids-sheet .rules { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+.kids-sheet .rules li { display: flex; gap: 10px; align-items: flex-start; }
+.kids-sheet .rules .icon { margin-top: 2px; flex: none; color: var(--faint); }
+.cat-row.section-row { background: var(--surface-2); }
+.cat-row.section-row:not(:first-child) { margin-top: 10px; border-top: .5px solid var(--hairline); }
+.section-row .section-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cat-row.dragging.section-row { background: var(--surface); }
+
+/* ==================================================================================
+   Material 3: la web nueva sigue sus lineamientos (color por roles, formas, estados,
+   campos delineados, chips, switch, hojas y snackbar). Pisa lo de base.css; los colores vienen de tokens.css.
+   ================================================================================== */
+body { font-family: Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+
+/* Escritorio: encabezado y barra alineados con el contenido (no pegados a los bordes). */
+.app-header, .toolbar { padding-left: max(var(--gutter), calc((100% - 728px) / 2)); padding-right: max(var(--gutter), calc((100% - 728px) / 2)); }
+#onboarding .app-header { padding-left: max(var(--gutter), calc((100% - 528px) / 2)); padding-right: max(var(--gutter), calc((100% - 528px) / 2)); }
+.toolbar { border-bottom-color: var(--hairline); }
+
+/* Botones: píldora de 40 px, etiqueta 14/500, capa de estado al pasar y al tocar. */
+.btn { border-radius: var(--radius-sm); padding: 0 24px; font-size: 14px; font-weight: 500; letter-spacing: .01em; transition: background-color .15s ease, box-shadow .15s ease, color .15s ease; }
+.btn:active { transform: none; }
+@media (hover: hover) { .btn-primary:hover { background: color-mix(in srgb, var(--accent) 92%, var(--on-accent)); box-shadow: var(--shadow); } }
+.btn-primary:active { background: color-mix(in srgb, var(--accent) 88%, var(--on-accent)); box-shadow: none; }
+.btn-tonal { background: var(--accent-soft); color: var(--on-accent-soft); }
+@media (hover: hover) { .btn-tonal:hover { background: color-mix(in srgb, var(--accent-soft) 92%, var(--on-accent-soft)); } }
+.btn-gray { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--faint); }
+@media (hover: hover) { .btn-gray:hover, .btn-plain:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); } }
+.btn-gray:active, .btn-plain:active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.btn-plain { padding: 0 12px; }
+.btn-danger { padding: 0 12px; }
+@media (hover: hover) { .btn-danger:hover { background: color-mix(in srgb, var(--red) 8%, transparent); } }
+.btn.sm { min-height: 32px; padding: 0 16px; font-size: 13px; }
+.header-actions .btn { min-height: 40px; }
+.icon-btn { background: transparent; color: var(--muted); transition: background-color .15s ease; }
+.icon-btn:active { transform: none; }
+@media (hover: hover) { .icon-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+.icon-btn:active { background: color-mix(in srgb, var(--text) 12%, transparent); }
+.icon-btn.filled { background: var(--accent-soft); color: var(--on-accent-soft); }
+@media (hover: hover) { .icon-btn.filled:hover { background: color-mix(in srgb, var(--accent-soft) 88%, var(--on-accent-soft)); } }
+#selectBtn[aria-pressed="true"] { background: var(--fill); color: var(--text); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Campos delineados, etiqueta arriba sin mayúsculas; separación en múltiplos de 8. */
+.input, .select { height: 48px; border-radius: 4px; background-color: transparent; box-shadow: inset 0 0 0 1px var(--faint); padding: 0 14px; transition: box-shadow .15s ease; }
+textarea.input { height: auto; padding-top: 12px; padding-bottom: 12px; }
+@media (hover: hover) { .input:hover, .select:hover { box-shadow: inset 0 0 0 1px var(--text); } }
+.input:focus, .select:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.input[readonly] { background-color: var(--surface-2); box-shadow: none; }
+.select.compact { height: 40px; }
+.field { gap: 6px; margin-top: 16px; }
+.field > span { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; padding-left: 2px; }
+.stack { gap: 16px; margin-top: 16px; }
+.stack > .field { margin-top: 0; }
+.form-actions { margin-top: 8px; }
+.help { font-size: 13px; line-height: 1.45; margin: 8px 2px 0; }
+.card .help { margin-top: 16px; }
+#cancelReload { margin-top: 20px; }
+.notice { border-radius: var(--radius); background: var(--accent-soft); color: var(--on-accent-soft); padding: 12px 16px; }
+
+/* Buscadores: barra de búsqueda de 48 px. */
+.search-field { height: 48px; border-radius: var(--radius-sm); background: var(--surface-2); padding: 0 16px; gap: 12px; }
+dialog .search-field { background: var(--surface-2); }
+
+/* Chips de filtro (arriba) y de estado ("Sin guía"). */
+.segmented { gap: 8px; }
+.segmented button { height: 32px; padding: 0 12px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--chip-line); font-weight: 500; }
+@media (hover: hover) { .segmented button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+.segmented button[aria-pressed="true"] { box-shadow: none; }
+.chip-btn { min-height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--chip-line); font-weight: 500; padding: 0 12px; }
+@media (hover: hover) { .chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+.chip-btn[aria-pressed="true"] { box-shadow: none; }
+/* Filtros de la lista de Canales (ui/filtros.tsx): el botón con su contador, los chips de lo puesto y la hoja. */
+.filter-btn { position: relative; flex: none; }
+.filter-btn .count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.active-filters { display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; padding: var(--sp-2) var(--gutter) 0; scrollbar-width: none; }
+.active-filters[hidden] { display: none; }
+.vw-search .active-filters { padding: var(--sp-2) 0 0; }
+.active-filters::-webkit-scrollbar { display: none; }
+.active-filters .chip-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-right: 6px; }
+.active-filters .x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--hairline); color: var(--muted); }
+.active-filters .x .icon { width: 12px; height: 12px; }
+.clear-all { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: 500; padding: 0 var(--sp-1); }
+.filter-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.filter-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; }
+.filter-chips .n { font-variant-numeric: tabular-nums; color: var(--faint); font-size: var(--fs-sm); }
+.cat-row .chip-btn { min-height: 28px; }
+
+/* Botones segmentados (tipo de proveedor, tema). */
+.seg { background: transparent; border-radius: var(--radius-sm); padding: 0; box-shadow: inset 0 0 0 1px var(--faint); overflow: hidden; }
+.seg button { height: 36px; padding: 0 14px; border-radius: 0; color: var(--text); font-weight: 500; font-size: 13.5px; }
+.seg button + button { box-shadow: inset 1px 0 0 var(--faint); }
+@media (hover: hover) { .seg button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+#providerSeg { display: flex; }
+#providerSeg button { flex: 1; }
+
+/* Switch de Material 3. */
+.switch { width: 52px; height: 32px; border: 2px solid var(--faint); background: var(--fill); }
+.switch::after { top: 6px; left: 6px; width: 16px; height: 16px; background: var(--faint); box-shadow: none; transition: transform .2s ease, width .2s ease, height .2s ease, top .2s ease, left .2s ease; }
+.switch:checked { background: var(--accent); border-color: var(--accent); }
+.switch:checked::after { top: 2px; left: 2px; width: 24px; height: 24px; background: var(--on-accent); transform: translateX(20px); }
+.switch:disabled { opacity: .38; cursor: default; }
+
+/* Tarjetas y listas. */
+.card { border-radius: var(--radius); padding: 16px; transition: background-color .15s ease, opacity .2s ease; }
+@media (hover: hover) { .card:hover { background: color-mix(in srgb, var(--surface) 96%, var(--text)); } }
+.card-name { font-size: 16px; font-weight: 500; }
+.cards { gap: 12px; }
+.card.section-card { display: flex; align-items: center; gap: 12px; padding: 16px 4px 4px 4px; background: transparent; box-shadow: none; animation: none; }
+@media (hover: hover) { .card.section-card:hover { background: transparent; } }
+.card.section-card .section-name { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.card.section-card .card-sub { margin-top: 0; }
+
+.card.section-card.selected { box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
+.card.section-card .sel-box { margin-top: 0; }
+.pill { border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--on-accent-soft); padding: 2px 8px; font-weight: 500; }
+.status-bar { border-radius: var(--radius); box-shadow: none; background: var(--surface-2); padding: 12px 16px; }
+
+.list { border-radius: var(--radius); margin: 0 0 8px; }
+.menu { border-radius: var(--radius); margin-top: 16px; }
+.menu-row { min-height: 56px; padding: 8px 16px; gap: 16px; transition: background-color .15s ease; }
+@media (hover: hover) { .menu-row:not(.static):hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
+.menu-row:not(.static):active { background: color-mix(in srgb, var(--surface-2) 88%, var(--text)); }
+.menu-icon { background: transparent; color: var(--muted); width: 24px; height: 24px; border-radius: 0; }
+.menu-icon .icon { width: 22px; height: 22px; }
+.menu-row.danger .menu-icon { background: transparent; color: var(--red); }
+.menu-text small { font-size: 13px; line-height: 1.4; }
+.cat-row.section-row { background: transparent; }
+.section-row .section-name { color: var(--accent); }
+@media (hover: hover) { .pick-row:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
+
+/* Logos: el recuadro claro solo detrás de un logo real; sin logo, un recuadro del tema. */
+html:root .logo:not(.has-img) { background: var(--surface-2); color: var(--faint); }
+html:root .logo { border-radius: var(--radius-sm); }
+html:root .logo.lg { border-radius: var(--radius); }
+
+/* Hojas (diálogos): esquinas de 28 px, título 22/400, acciones a la derecha y velo al 32 %. */
+dialog.sheet { border-radius: var(--radius-lg); background: var(--surface); }
+dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
+.sheet-body { padding: 24px; }
+.sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-size: 22px; font-weight: 400; line-height: 1.3; }
+.sheet-body .menu-title { font-size: 20px; font-weight: 400; }
+.sheet-body > .title-row { margin-bottom: 8px; }
+.sheet-body p { font-size: 14px; line-height: 1.5; }
+.sheet-actions { justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.sheet-actions .btn { flex: 0 0 auto; }
+.help-sheet details { border-radius: var(--radius); }
+@media (max-width: 600px) {
+  dialog.sheet { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  /* Manija de la hoja inferior: se arrastra (ella o el encabezado) para bajar la hoja (ui/sheet.ts). */
+  dialog.sheet > .sheet-body::before { content: ""; display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--faint); opacity: .5; margin: -12px auto 16px; }
+  dialog.sheet:not(.page) .title-row { touch-action: none; }
+}
+/* Salida de las hojas (ui/sheet.ts): más corta que la entrada. En el celular la hoja sube desde abajo y baja al cerrarse;
+   en pantallas grandes, un fundido corto. El arrastre mueve la hoja con translate (no pisa la animación). */
+dialog.sheet.closing { animation: sheet-out var(--dur-2) var(--ease-in) both; }
+dialog.sheet.closing::backdrop { animation: fade-out var(--dur-2) ease both; }
+dialog.sheet.settling { transition: translate var(--dur-2) var(--ease-out); }
+@keyframes sheet-out { to { opacity: 0; transform: translateY(16px); } }
+@keyframes fade-out { to { opacity: 0; } }
+@media (max-width: 600px) {
+  dialog.sheet:not(.page)[open] { animation: sheet-up var(--dur-3) var(--ease-out) both; }
+  dialog.sheet:not(.page).closing { animation: sheet-down var(--dur-2) var(--ease-in) both; }
+  dialog.sheet.dragging .sheet-body { user-select: none; }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-down { to { transform: translateY(100%); } }
+
+/* Snackbar. */
+.toast { background: color-mix(in srgb, var(--inverse-surface) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--inverse-text); border-radius: 18px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
+.toast .icon, .toast.ok .icon, .toast.bad .icon, .toast.info .icon { color: var(--inverse-accent); }
+.toast .btn, .toast .btn-plain { color: var(--inverse-accent); background: transparent; }
+@media (hover: hover) { .toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); } }
+
+/* Barra de selección múltiple (barra inferior). */
+.bulk-bar { background: var(--surface-2); box-shadow: var(--shadow-lg); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+.bulk-count { font-weight: 500; font-size: 16px; }
+.row-actions { gap: 8px; margin-top: 16px; }
+dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
+#bulkBody > .select { margin-top: 16px; }
+.help-sheet summary { font-weight: 500; }
+.help-sheet details p { font-size: 14px; line-height: 1.5; }
+.card > .field:first-child { margin-top: 0; }
+/* Cruz para borrar la búsqueda (propia: la nativa no sale en todos los navegadores). */
+.search-field { padding-right: 4px; }
+.search-field input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.search-clear {
+  flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+@media (hover: hover) { .search-clear:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+.search-clear[hidden] { display: none; }
+/* Canales nuevos, programación del día, logo propio, compartir. */
+.day-btn { margin-top: 12px; }
+.day-list { margin-top: 8px; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; max-height: 360px; overflow-y: auto; }
+.day-head { font-size: 13px; font-weight: 500; color: var(--accent); padding: 12px 16px 4px; text-transform: capitalize; }
+.day-item summary { list-style: none; display: flex; gap: 12px; padding: 8px 16px; cursor: pointer; font-size: 14px; }
+.day-item summary::-webkit-details-marker { display: none; }
+@media (hover: hover) { .day-item summary:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); } }
+.day-item.live summary { font-weight: 500; }
+.day-time { flex: none; width: 64px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day-title { flex: 1; min-width: 0; }
+.day-title .note { color: var(--accent); }
+.day-item p { margin: 0; padding: 0 16px 10px 92px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+.share-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.share-row .btn { flex: 1 1 auto; text-decoration: none; }
+.cat-row .icon-btn.sm { width: 40px; height: 40px; margin: 0; }
+.ord-row { gap: 10px; }
+.day-time { width: 76px; white-space: nowrap; }
+.day-item p { padding-left: 104px; }
+
+/* Inicio: cómo funciona y demo. */
+.how { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; max-width: 640px; }
+.how li { display: flex; gap: 12px; align-items: flex-start; }
+.how li > span:last-child { display: flex; flex-direction: column; }
+.how small { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.how-n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--on-accent-soft); display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+
+.legal { margin-top: 16px; text-align: center; }
+
+/* Hojas: el título y el botón de cerrar quedan fijos arriba al desplazarse. */
+.settings-sheet .sheet-body, .help-sheet .sheet-body { padding-top: 0; }
+.settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row {
+  position: sticky; top: 0; z-index: 4; background: var(--surface); margin: 0; padding: 20px 0 8px;
+}
+.settings-sheet .sheet-body > .title-row::after, .help-sheet .sheet-body > .title-row::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; pointer-events: none;
+  background: linear-gradient(var(--surface), transparent);
+}
+@media (max-width: 600px) {
+  .settings-sheet > .sheet-body::before, .help-sheet > .sheet-body::before { margin: 10px auto 0; }
+  .settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row { padding-top: 12px; }
+}
+
+/* Con una hoja abierta no se mueve la página de atrás (ni al llegar al final de la hoja). */
+html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
+/* La Guía de la edición tapa la pantalla: la página de atrás no se mueve (en el celular el scroll de atrás corre la barra inferior).
+   El modo ver no necesita esto (su página no se desplaza) y no lo tiene, para que su barra quede como en Canales. */
+html:has(#guide:not([hidden])) { overflow: hidden; }
+dialog.sheet, dialog.sheet .sheet-body { overscroll-behavior: contain; }
+
+/* Avisos: ocupan todo el ancho de la pantalla (hasta 640 px) y el texto largo baja de renglón. */
+.toasts { padding: 0 12px; }
+.toasts { align-items: stretch; }
+.toast { width: 100%; max-width: 640px; margin: 0 auto; box-sizing: border-box; }
+.toast .msg { min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.4; }
+/* Con la píldora de «Sin conexión» a la vista, el aviso va debajo de ella. */
+body:has(#netPill:not([hidden])) .toasts { top: calc(56px + env(safe-area-inset-top, 0px)); }
+/* Escritorio: arriba a la derecha, angosto, como las notificaciones del sistema. */
+@media (min-width: 900px) and (hover: hover) {
+  .toasts, body:has(#netPill:not([hidden])) .toasts { top: 16px; left: auto; right: 16px; width: 400px; padding: 0; }
+}
+
+/* Crear categorías y secciones. */
+
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cat-chips .chip-btn { min-height: 30px; }
+.cat-chips .chip-btn.danger { color: var(--red); }
+@media (max-width: 600px) { dialog.sheet { width: 100%; max-width: 100%; } }
+
+/* Hojas con scroll: la hoja no se desplaza sola (solo su contenido). En el iPhone la zona segura
+   inferior le suma un relleno, y con el tope de altura de antes la hoja quedaba un poco más
+   alta que su marco y se movía aparte, cortando el borde de arriba. */
+.settings-sheet, .help-sheet { max-height: 88vh; max-height: 88dvh; overflow: hidden; }
+.settings-sheet .sheet-body, .help-sheet .sheet-body {
+  max-height: calc(88vh - env(safe-area-inset-bottom, 0px));
+  max-height: calc(88dvh - env(safe-area-inset-bottom, 0px));
+}
+
+/* Scroll infinito: el centinela solo ocupa lo justo para entrar en pantalla. */
+.load-sentinel { height: 1px; }
+.load-sentinel[hidden] { display: none; }
+
+/* Dispositivos (Tus links) */
+.device-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.device { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2, rgba(127,127,127,.12)); }
+.device-info { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; }
+.device-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.device-info small { opacity: .7; }
+.sub-title { font-size: 1rem; margin: 16px 0 8px; }
+.device [data-dev=show] { flex: 1; }
+
+/* Que el primer elemento de la hoja no quede pegado (ni tapado) por el título fijo. */
+#linksBody { padding-top: 8px; }
+
+/* Categorías: una fila limpia (arrastrar · nombre · switch · …) y el resto en el menú. */
+
+.cat-row[hidden] { display: none; }
+.cat-row .menu-text { min-width: 0; flex: 1; }
+.cat-row .menu-text small { display: block; }
+.cat-row .fold-btn { margin: 0 -6px 0 0; }
+.cat-row > .icon-btn { flex: none; margin-right: -6px; }
+.cat-row.section-row .section-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
+.cat-row .fold-btn { width: 32px; height: 32px; min-width: 32px; margin: 0 -6px 0 0; padding: 0; flex: none; }
+.cat-row .fold-btn .icon { width: 20px; height: 20px; }
+.cat-row > .icon-btn:not(.fold-btn) { width: 40px; height: 40px; }
+.cat-row .switch { flex: none; }
+.cat-row.section-row .section-name { white-space: normal; }
+.cat-row .fold-btn { margin: 0 -2px 0 -10px; }
+.cat-row .icon-btn.sm.fold-btn { width: 32px; height: 32px; margin: 0 -2px 0 -10px; }
+.menu-row[hidden] { display: none; }
+
+/* Porcentaje de coincidencia en las alternativas: verde si es buena, naranja si es dudosa. */
+.pct { font-weight: 600; }
+.pct.ok { color: var(--green); }
+.pct.warn { color: var(--orange); }
+
+/* ==================================================================================
+   Guía de TV: formas más rectas (sin píldoras), números en monoespaciada, filas compactas.
+   ================================================================================== */
+.btn { border-radius: var(--radius-sm); }
+.search-field { border-radius: var(--radius); }
+.seg { border-radius: var(--radius-sm); }
+.input, .select { border-radius: var(--radius-sm); }
+.pill { border-radius: 6px; }
+.segmented button, .chip-btn { border-radius: var(--radius-sm); }
+.tag, .pct, .day-time, .count { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.tag { font-weight: 600; letter-spacing: -.01em; }
+.app-header h1.brand img { border-radius: var(--radius-sm); }
+.card { box-shadow: none; box-shadow: inset 0 0 0 1px var(--hairline); }
+@media (hover: hover) { .card:hover { background: var(--surface-2); } }
+.cards { gap: 8px; }
+
+/* Fila compacta (modo por defecto): logo chico, nombre, programa en el aire y estado. */
+.cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: clip; }
+.cards.rows .card.row-card { border-radius: 0; box-shadow: none; background: transparent; padding: 8px 4px 8px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); min-height: 56px; }
+.cards.rows .card.row-card:first-child { border-top: 0; }
+@media (hover: hover) { .cards.rows .card.row-card:hover { background: var(--surface-2); } }
+.cards.rows .card.row-card .logo { width: 36px; height: 36px; flex: none; }
+.cards.rows .card.row-card .card-title { flex: 1; min-width: 0; }
+.cards.rows .card.row-card .card-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cards.rows .row-sub { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; color: var(--muted); min-width: 0; margin-top: 1px; }
+.cards.rows .row-sub .cat { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards.rows .row-sub .epg-now { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); }
+.cards.rows .row-sub .epg-now.on-air { color: var(--muted); }
+.cards.rows .row-sub .epg-now.on-air::before { content: "· "; }
+.cards.rows .row-sub .live { color: var(--accent); }
+.cards.rows .card.row-card .tag { flex: none; margin: 0; font-size: 12px; }
+
+.cards.rows .card.row-card .btn.sm { flex: none; }
+.cards.rows .card.section-card { background: transparent; padding: 14px 4px 6px 12px; border-top: 1px solid var(--hairline); border-radius: 0; box-shadow: none; min-height: 0; }
+.cards.rows .card.section-card:first-child { border-top: 0; }
+.cards.rows .card.row-card.selected, .cards.rows .card.section-card.selected { background: var(--accent-soft); box-shadow: none; }
+.cards.rows .card.row-card .sel-box { margin: 0; flex: none; }
+.cards.rows .card.row-card.is-hidden { opacity: .5; }
+
+/* Hoja de canal: resumen y pocas acciones. */
+#channelBody .menu { margin-top: 12px; }
+#channelBody .menu-row > .icon { flex: none; color: var(--faint); }
+#channelBody .day-btn { margin-top: 12px; }
+
+/* Categorías: ojo para mostrar u ocultar. */
+
+.cat-row.is-off .menu-text, .cat-row.is-off .drag-handle { opacity: .5; }
+.cards.rows .row-sub .cat.sug { flex: 1; min-width: 0; max-width: none; }
+
+/* Hoja de canal, todo junto: resumen, búsqueda con acciones, alternativas y campos con ícono. */
+
+.ch-field { display: flex; align-items: center; gap: 10px; }
+.ch-field > .icon { flex: none; color: var(--faint); width: 22px; height: 22px; }
+.ch-field .input, .ch-field .select { flex: 1; min-width: 0; }
+.ch-field .icon-btn { flex: none; }
+/* Alternativas compactas: la línea "Ahora" solo aparece si hay algo en el aire. */
+
+/* Títulos de hoja: el ojo / la ayuda junto al título, lejos de la X. */
+.title-left { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+.title-left h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title-left .icon-btn { flex: none; }
+
+/* Guía en uso: resaltada, con las acciones juntas y más aire hacia lo que está en el aire. */
+.ch-current { background: var(--accent-soft); border-radius: var(--radius); box-shadow: inset 3px 0 0 var(--accent); padding: 4px 4px 8px; }
+
+.ch-current .card-note { background: transparent; }
+.ch-current .day-list { margin: 8px 8px 0; }
+/* Una línea separa la guía en uso de la búsqueda y las alternativas. */
+
+.ch-current { margin-bottom: 16px; }
+/* Categorías: mismo patrón que la hoja de canal (acciones arriba, línea, y lo demás). */
+
+/* Hojas de nombre (nueva categoría, sección, renombrar): título con X y el campo con su ícono y la tilde. */
+.ask-sheet .title-row { margin-bottom: 12px; }
+.ask-sheet h2 { margin: 0; }
+.ask-sheet .ch-field { margin-top: 4px; }
+
+#catMenuBody .menu { margin-top: 12px; }
+#catMenuBody .menu-row > .icon { flex: none; color: var(--accent); }
+
+/* Barra de la lista: el estado a la izquierda y, a la derecha, lo que actúa sobre la lista. */
+.list-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; padding-bottom: 4px; }
+.list-bar .meta-line { flex: 1; min-width: 0; margin: 0; }
+.list-tools { display: flex; flex: none; margin: 0 -8px 0 0; }
+.list-tools .icon-btn { width: 44px; height: 44px; }
+
+/* Selección múltiple: mismo patrón que la hoja de canal. */
+
+#bulkBody .menu { margin-top: 12px; }
+#bulkBody .menu-row > .icon { flex: none; color: var(--accent); }
+.loading .list-bar { display: none; }
+dialog:focus, dialog:focus-visible { outline: none; }
+
+/* ---- Auditoría UX ---- */
+/* Zonas táctiles de 44 px (el aspecto no cambia: solo el área que responde al dedo). */
+.icon-btn { width: 44px; height: 44px; }
+.icon-btn.sm { width: 40px; height: 40px; margin-right: -6px; }
+
+.drag-handle { width: 44px; height: 44px; margin: -8px -6px -8px -12px; }
+/* El "ahora" deja de ser ámbar: el ámbar queda para lo que se toca; lo dudoso va en naranja rojizo. */
+.epg-now.on-air .icon, .epg-now .note { color: var(--muted); }
+/* Alternativas: porcentaje en una sola línea y filas más bajas. */
+.pct, .tag { white-space: nowrap; }
+
+/* Filtros: se esconden al bajar y vuelven al subir; se nota que hay más a la derecha. */
+.toolbar .segmented { transition: max-height .2s ease, opacity .2s ease, margin .2s ease; max-height: 48px; }
+.toolbar.compact .segmented { max-height: 0; opacity: 0; overflow: hidden; margin: -6px 0 0; pointer-events: none; }
+.toolbar .segmented { -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent); mask-image: linear-gradient(to right, black calc(100% - 28px), transparent); }
+/* Leyenda de íconos de la hoja del canal (se muestra hasta que la descartás). */
+
+/* Alta: los pasos quedan plegados para que el formulario se vea sin bajar. */
+.how-wrap { margin-top: 8px; }
+.how-wrap summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 6px 0; }
+.how-wrap .how { margin-top: 8px; }
+/* Área táctil ampliada sin agrandar el aspecto: chips, "Usar" y botones chicos. */
+.segmented button, .btn.sm { position: relative; }
+.segmented button::after, .btn.sm::after { content: ""; position: absolute; inset: -6px 0; }
+.icon-btn.day-btn { width: 44px; height: 44px; }
+/* Alternativas: la línea "Ahora" se corta con puntos suspensivos en vez de salirse de la hoja. */
+
+.empty .btn { margin-top: 16px; }
+body { overflow-anchor: none; }
+
+/* ---- Filas rediseñadas: la guía asignada a la vista, estado por excepción, gestos ---- */
+.cards.rows .card.row-card { position: relative; display: block; padding: 0; background: transparent; touch-action: pan-y; overflow: hidden; }
+@media (hover: hover) { .cards.rows .card.row-card:hover { background: transparent; } }
+.cards.rows .card.row-card:focus-visible, .cards.rows .card.section-card:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row-in { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 12px; background: var(--surface); transform: translateX(var(--sx, 0px)); transition: transform .16s ease; position: relative; }
+.card.row-card.swiping .row-in { transition: none; }
+@media (hover: hover) { .cards.rows .card.row-card:hover .row-in { background: var(--surface-2); } }
+.cards.rows .card.row-card.selected .row-in { background: var(--accent-soft); }
+.cards.rows .card.row-card.is-hidden .row-in > * { opacity: .5; }
+.cards.rows .card.row-card.is-hidden { opacity: 1; }
+/* Lo que se descubre al deslizar */
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--fill); color: var(--muted); font-size: 13px; font-weight: 600; visibility: hidden; }
+.card.row-card[data-sw] .swipe-bg { visibility: visible; }
+.swipe-bg .sw { display: inline-flex; align-items: center; gap: 8px; opacity: 0; }
+.card.row-card[data-sw="l"] .sw-l, .card.row-card[data-sw="r"] .sw-r { opacity: 1; }
+.card.row-card.armed .swipe-bg { background: var(--accent-soft); color: var(--on-accent-soft); }
+/* Segunda línea: la guía que tiene asignada */
+.cards.rows .row-sub { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-width: 0; margin-top: 2px; }
+.cards.rows .row-sub .guide { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.cards.rows .row-sub .guide .icon { flex: none; width: 14px; height: 14px; color: var(--faint); }
+.cards.rows .row-sub .guide-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards.rows .row-sub .cc { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px; }
+.cards.rows .row-sub .guide.none { color: var(--muted); }
+/* Resolución real del canal (la mide el relay): SD, HD, FHD, 4K */
+.qtag { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; line-height: 16px; color: var(--text); background: color-mix(in srgb, var(--text) 12%, var(--surface)); border-radius: 4px; padding: 0 5px; font-variant-numeric: tabular-nums; }
+.qtag.k4 { background: var(--accent-soft); color: var(--on-accent-soft); }
+.cards.rows .row-sub .guide.sug { flex: 1; }
+.cards.rows .row-sub .guide.sug b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+.cards.rows .row-sub .mark, .cards.rows .row-sub .where { flex: none; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cards.rows .row-sub .where { text-transform: none; letter-spacing: 0; font-size: 12px; margin-left: auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Estado a la derecha: tilde si está bien; número solo si dudoso; columna alineada */
+.ok-mark { flex: none; width: 44px; display: inline-flex; justify-content: center; color: var(--green); opacity: .85; }
+.cards.rows .row-in > .pct, .cards.rows .row-in > .tag { flex: none; min-width: 44px; text-align: right; }
+.cards.rows .row-in .btn.sm { flex: none; }
+/* Logo sin imagen: iniciales con un color propio */
+.logo .mono { font-size: 13px; font-weight: 700; letter-spacing: .02em; width: 100%; height: 100%; display: grid; place-items: center; background: var(--fill); color: var(--muted); }
+.logo.has-img > .mono { display: none; }
+html:root .logo:not(.has-img) { background: transparent; }
+/* Encabezado de categoría: fijo debajo del buscador */
+.cat-head { position: sticky; top: calc(var(--toolbar-h, 0px) + env(safe-area-inset-top, 0px)); z-index: 3; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; color: var(--muted); }
+.cat-head:first-child { border-top: 0; }
+.cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+body.selecting .row-in { padding-left: 12px; }
+
+/* Vista detallada: suma una línea con lo que está dando ahora la guía asignada. */
+.cards.detail .row-in { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+.cards.detail .row-in > .ok-mark, .cards.detail .row-in > .pct, .cards.detail .row-in > .tag, .cards.detail .row-in > .btn { margin-top: 8px; }
+.row-now { margin-top: 6px; font-size: 13px; min-width: 0; }
+.row-now .epg-now { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.row-now .epg-now:not(.on-air) { color: var(--muted); }
+.row-now .epg-now { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* ---- Hoja del canal rediseñada ---- */
+.ch-head { gap: 4px; }
+.ch-name { flex: 1; min-width: 0; height: 44px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; font-size: 20px; font-weight: 600; padding: 0 8px; text-overflow: ellipsis; }
+@media (hover: hover) { .ch-name:hover { background: var(--surface-2); } }
+.ch-name:focus { outline: none; background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--accent); }
+.ch-head .icon-btn[disabled] { opacity: .3; }
+.ch-meta { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; min-width: 0; }
+.ch-meta .prov { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.cat-chip { position: relative; flex: none; max-width: 60%; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 999px; background: var(--surface-2); color: var(--text); font-size: 14px; cursor: pointer; box-shadow: inset 0 0 0 1px var(--hairline); }
+.cat-chip .icon { flex: none; color: var(--muted); }
+.cat-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.cat-chip:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.sec-title { margin: 20px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+#channelBody .ch-meta + .sec-title { margin-top: 12px; }
+/* Guía asignada */
+.ch-current { background: var(--surface-2); border-radius: var(--radius); box-shadow: inset 3px 0 0 var(--accent); padding: 12px 12px 8px 16px; margin: 0; }
+.gc-top { display: flex; align-items: center; gap: 12px; }
+.gc-top .logo { width: 44px; height: 44px; }
+.gc-main { min-width: 0; flex: 1; }
+.gc-name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; min-width: 0; }
+.gc-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gc-name .pct { margin-left: auto; flex: none; }
+.chip { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--blue); }
+.chip .icon { width: 16px; height: 16px; }
+.gc-now { margin: 10px 0 0; font-size: 13px; color: var(--muted); display: block; }
+.gc-now.on-air { color: var(--text); }
+.link-btn { display: inline-flex; align-items: center; gap: 4px; margin: 4px -8px -4px; min-height: 44px; padding: 0 8px; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.link-btn[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.ch-current .day-list { margin: 4px 0 4px; }
+.ch-current .card-note { background: transparent; padding: 4px 0; }
+.gc-sug { display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+/* Otras opciones */
+.ch-chips { display: flex; gap: 8px; margin: 8px 0 4px; }
+.ch-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; }
+.ch-chips .chip-btn[disabled] { opacity: .35; }
+.opts { margin-top: 4px; }
+.opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--hairline); }
+.opts .opt:first-child { border-top: 0; }
+.opt .radio { flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--faint); }
+@media (hover: hover) { .opt:hover .radio { box-shadow: inset 0 0 0 2px var(--accent); } }
+.opt-body { flex: 1; min-width: 0; }
+.opt-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.opt-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.opt-top .pct { margin-left: auto; flex: none; font-size: 13px; }
+.opt-now, .opt .epg-now { margin: 2px 0 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.opt .note { color: var(--muted); }
+.search-results .opt .radio { margin-top: 2px; }
+/* Más opciones */
+.ch-more { margin-top: 20px; border-top: 1px solid var(--hairline); }
+.ch-more summary { display: flex; align-items: center; justify-content: space-between; min-height: 52px; cursor: pointer; list-style: none; color: var(--muted); font-weight: 500; }
+.ch-more summary::-webkit-details-marker { display: none; }
+.ch-more[open] summary .icon { transform: rotate(180deg); }
+.opt-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
+.opt-row small { display: block; color: var(--muted); font-size: 12px; }
+.ch-more .field { margin-top: 8px; }
+.ch-name { text-align: left; }
+.gc-name .pct { margin-left: 0; }
+
+/* ---- Categorías y Configuración con el patrón de la hoja del canal ---- */
+#categoriesDialog .meta-line, #settingsDialog .meta-line { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.cat-filter { margin: 0; }
+.cat-chips { flex-wrap: wrap; margin: 8px 0 4px; }
+.menu-row.cat-row { padding: 0; position: relative; overflow: hidden; touch-action: pan-y; display: block; }
+.cat-row .row-in { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 8px 12px 8px 4px; background: var(--surface-2); }
+.cat-row.section-row { background: transparent; }
+.cat-row.section-row .row-in { background: var(--surface-2); }
+.cat-row .row-in > .go { flex: none; width: 18px; height: 18px; color: var(--faint); }
+.cat-row .menu-text small { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; color: var(--muted); }
+.cat-row .menu-text small .mark { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 5px; }
+.cat-row.is-off .menu-text > :first-child, .cat-row.is-off .drag-handle { opacity: .55; }
+.cat-row[data-sw] .swipe-bg { visibility: visible; }
+.cat-row[data-sw="l"] .sw-l, .cat-row[data-sw="r"] .sw-r { opacity: 1; }
+.cat-row.armed .swipe-bg { background: var(--accent-soft); color: var(--on-accent-soft); }
+.cat-row.swiping .row-in { transition: none; }
+.cat-row .row-in { transform: translateX(var(--sx, 0px)); transition: transform .16s ease; position: relative; }
+#categoriesList { margin-top: 12px; }
+.cat-row.dragging .row-in { background: var(--surface); }
+/* Hoja de categoría */
+#catMenuBody .menu { margin-top: 0; }
+#catMenuBody .opt-row { padding: 0 4px; }
+/* Configuración */
+#settingsDialog .sec-title { margin-top: 24px; }
+#settingsDialog .menu { margin-top: 0; }
+#settingsDialog .danger-zone { margin-top: 0; }
+.cat-row.is-off .menu-text > :first-child { opacity: 1; }
+.cat-chips .chip-btn { padding: 0 10px; gap: 5px; }
+.cat-row.is-off .menu-text { opacity: 1; color: var(--muted); }
+
+/* Segmentado: el elegido conserva su separador (se veía sin borde). */
+.seg button + button[aria-checked="true"] { box-shadow: inset 1px 0 0 var(--faint); }
+.seg button[aria-checked="true"] + button { box-shadow: inset 1px 0 0 var(--faint); }
+/* Más aire entre el título editable y lo que sigue (hojas de canal y categoría). */
+.ch-head { margin-bottom: 12px; }
+.ch-meta { margin-top: 4px; margin-bottom: 12px; }
+.cat-row .swipe-bg { visibility: visible; }
+#catMenuBody .ch-more { margin-top: 12px; }
+/* Deslizar: la acción de la izquierda va siempre pegada al borde derecho (en las secciones es la única). */
+.swipe-bg .sw-l { margin-left: auto; }
+/* Segmentado: el borde exterior se dibuja encima para que el elegido no lo tape. */
+.seg { position: relative; }
+.seg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px var(--faint); pointer-events: none; }
+
+/* El resumen (canales, categorías) va dentro del encabezado fijo: no queda debajo del título al bajar. */
+.title-row:has(> .meta-line) { flex-wrap: wrap; row-gap: 0; }
+.title-row > .meta-line { flex: 1 0 100%; order: 3; margin: -2px 0 4px; }
+#categoriesDialog .meta-line, #settingsDialog .meta-line { margin: -2px 0 4px; }
+
+/* ---- Etapa 0 de la auditoría: correcciones puras ---- */
+/* Foco de teclado visible dentro de la fila (el aro exterior quedaba recortado). */
+.cards.rows .card.row-card:focus-visible, .cards.rows .card.section-card:focus-visible, .cat-row:focus-visible { outline: none; }
+.cards.rows .card.row-card:focus-visible .row-in, .cat-row:focus-visible .row-in, .cards.rows .card.section-card:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+/* Títulos de hoja con peso 600 (el nombre del canal pesaba más que el título). */
+.sheet-body h2, .settings-sheet h2, .help-sheet h2 { font-weight: 600; }
+.pct, .count, .tag, .opt-top .pct, .meta-line { font-variant-numeric: tabular-nums; }
+
+/* ---- Etapa 1: alta con marca y camino a los links ---- */
+.app-header h1.brand { gap: 10px; }
+.wordmark { font-size: 24px; font-weight: 800; letter-spacing: -.035em; line-height: 1; color: var(--text); }
+/* El punto de la i es el de la línea de «ahora» del ícono: ámbar. */
+.wordmark .wm-i { position: relative; }
+.wordmark .wm-i::after { content: ""; position: absolute; left: 50%; top: .02em; width: .21em; height: .21em; margin-left: -.105em; border-radius: 50%; background: var(--accent); }
+.hero { margin: 16px 0 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; max-width: 640px; }
+#onboarding .app-header .lead { margin-top: 10px; }
+.hero-actions { margin: 4px 0 16px; display: flex; flex-direction: column; gap: 6px; }
+.hero-actions .help { text-align: center; margin: 0; }
+.card-title { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.file-btn { cursor: pointer; }
+#onboarding .card .status-bar { margin: 16px 0 0; }
+body.onboard-busy #onboarding button[type=submit], body.onboard-busy #onboarding #demoBtn, body.onboard-busy #onboarding .file-btn { opacity: .55; pointer-events: none; }
+/* Tarjeta de los links (primera vez) */
+.links-card { background: var(--accent-soft); color: var(--on-accent-soft); border-radius: var(--radius); padding: 14px 14px 6px 16px; margin: 0 0 12px; }
+.links-card[hidden] { display: none; }
+.lc-head { display: flex; align-items: flex-start; gap: 12px; }
+.lc-head > .icon { flex: none; width: 24px; height: 24px; margin-top: 2px; }
+.lc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lc-text small { font-size: 13px; line-height: 1.4; opacity: .9; }
+.lc-head .icon-btn { margin: -8px -8px 0 0; color: var(--on-accent-soft); }
+.lc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.lc-actions .btn { flex: 1 1 140px; }
+.links-card .btn-tonal { background: color-mix(in srgb, var(--on-accent-soft) 14%, transparent); color: var(--on-accent-soft); }
+.links-card .link-btn { color: var(--on-accent-soft); margin-top: 2px; }
+
+/* ---- Etapa 2: revisar ---- */
+.review-card { background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); padding: 14px 16px 16px; margin: 0 0 12px; }
+.review-card[hidden], .tip-card[hidden] { display: none; }
+.rv-top { display: flex; align-items: center; gap: 12px; }
+.rv-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rv-text strong { font-size: 16px; }
+.rv-text small { color: var(--muted); font-size: 13px; }
+.rv-bar { height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; margin-top: 12px; }
+.rv-bar > i { display: block; height: 100%; border-radius: 3px; background: var(--green); transition: width .3s ease; }
+.rv-progress { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.rv-progress .rv-bar { margin-top: 6px; }
+.rv-actions { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; margin-top: 12px; background: linear-gradient(to top, var(--surface) 78%, transparent); z-index: 3; }
+.rv-actions .btn-primary { flex: 1 1 auto; }
+.rv-actions .btn { min-height: 48px; }
+.tip-card { background: var(--surface-2); border-radius: var(--radius); padding: 12px 8px 12px 16px; margin: 0 0 12px; }
+.tip-head { display: flex; align-items: flex-start; gap: 12px; }
+.tip-head > .icon { flex: none; width: 22px; height: 22px; margin-top: 2px; color: var(--accent); }
+.tip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tip-text small { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.bulk-move { display: flex; gap: 8px; align-items: center; }
+.bulk-move .field { flex: 1; min-width: 0; margin: 0; }
+.bulk-move .btn { flex: none; min-height: 48px; }
+#bulkBody .menu { margin-top: 0; }
+.rv-actions .btn-gray { flex: none; min-width: 112px; }
+/* Con tres botones (sugerencia, sin guía, saltar) los secundarios se achican al contenido. */
+.rv-actions:has(> .btn-gray + .btn-gray) .btn-gray { min-width: 0; padding: 0 14px; }
+.rv-actions:has(> .btn-gray + .btn-gray) .btn-primary { min-width: 0; padding: 0 12px; white-space: nowrap; }
+
+/* ---- Etapa 3: barra inferior y detalles ---- */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 94%, transparent); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+  border-top: 1px solid var(--hairline); padding: 0 max(8px, calc((100% - 728px) / 2)) env(safe-area-inset-bottom, 0px); }
+body:has(#editor[hidden]) .tabbar { display: none; }
+body.selecting .tabbar { display: none; }
+.tab { position: relative; z-index: 1; flex: 1; min-width: 0; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+.tab .icon { width: 24px; height: 24px; }
+.tab.active { color: var(--accent); }
+.tab-ico { position: relative; display: inline-flex; }
+#editor main { padding-bottom: calc(var(--tab-h) + 24px + env(safe-area-inset-bottom, 0px)); }
+body.selecting #editor main { padding-bottom: 96px; }
+/* Monogramas neutros: un solo tono, las iniciales no compiten con los logos. */
+/* Vista detallada: una línea y barra fina del programa */
+.row-now .np-line { display: flex; gap: 8px; min-width: 0; align-items: baseline; }
+/* Hasta dos líneas: los títulos con el partido o el episodio pegado son largos y cortados no se entienden. */
+.row-now .np-title { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.row-now .np-until { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row-now .np-bar { display: block; height: 3px; margin-top: 6px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.row-now .np-bar > i { display: block; height: 100%; background: var(--live); }
+.row-now .epg-now { display: block; -webkit-line-clamp: unset; white-space: normal; overflow: visible; }
+
+/* ---- Etapa 4: radios (los tres de tokens.css) y tipografía ---- */
+.seg { border-radius: 999px; }
+.logo, .logo.lg { border-radius: var(--radius-sm); }
+
+/* Tipografía de la marca: Inter (variable, latín), propia: no depende de internet. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("fonts/inter-latin.woff2") format("woff2"); }
+body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "cv11", "ss03"; }
+/* Los números y las etiquetas usan la misma fuente (alineados con tabulares), no monoespaciada. */
+.tag, .pct, .day-time, .count { font-family: inherit; font-variant-numeric: tabular-nums; }
+
+/* ---- Ámbar solo para lo principal: botón primario, elegido, foco, progreso ---- */
+.btn-gray, .btn-plain { color: var(--text); }
+.link-btn, .help a, .how-wrap summary, .links-card .link-btn { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.link-btn, .help a, .how-wrap summary { color: var(--text); }
+.card.section-card .section-name, .section-row .section-name, .cards.rows .card.section-card .section-name { color: var(--text); }
+.tip-head > .icon { color: var(--muted); }
+/* ---- Conexión y cambios pendientes ---- */
+.net-pill { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 24px);
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--inverse-surface); color: var(--inverse-text);
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg); pointer-events: none; }
+.net-pill[hidden] { display: none; }
+.net-pill .icon { width: 16px; height: 16px; color: var(--inverse-accent); flex: none; }
+
+/* Escritorio ancho: la hoja del canal queda anclada a la derecha y la lista se corre (maestro-detalle). */
+@media (min-width: 1100px) and (hover: hover) {
+  dialog.sheet.docked {
+    position: fixed; z-index: 60; inset: 0 0 0 auto; margin: 0; width: 440px; max-width: 440px;
+    height: 100dvh; max-height: 100dvh; border-radius: 0; border-width: 0 0 0 1px;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
+  }
+  dialog.sheet.docked .sheet-body { max-height: 100dvh; height: 100%; }
+  body.has-dock main, body.has-dock .app-header, body.has-dock .toolbar { margin-right: 440px; }
+  /* Alineados con la lista, que queda pegada al panel (760 px de ancho, a 440 px del borde). */
+  body.has-dock .app-header, body.has-dock .toolbar { padding-left: max(var(--gutter), calc(100% - 440px - 744px)); padding-right: var(--gutter); }
+  html:has(dialog.docked[open]) { overflow: auto; }
+}
+
+/* Listas largas: lo que no se ve no se pinta (10 000 canales). */
+.cards.rows .card.row-card { content-visibility: auto; contain-intrinsic-size: auto 60px; }
+
+/* Vista de logos: cuadrícula de tarjetas con el logo grande (2 columnas en el celular). */
+.cards.rows.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+.cards.grid .cat-head, .cards.grid .card.section-card { grid-column: 1 / -1; }
+.cards.grid .cat-head { border-radius: var(--radius-sm); border: 0; margin-top: 4px; }
+.cards.rows.grid .card.row-card { position: relative; border: 0; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline); padding: 12px 6px 10px; min-height: 0; contain-intrinsic-size: auto 120px; }
+.cards.grid .swipe-bg { display: none; }
+.cards.grid .row-in { flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 0; }
+.cards.rows.grid .card.row-card .logo { width: 56px; height: 56px; }
+.cards.grid .card-title { width: 100%; }
+.cards.rows.grid .card.row-card .card-name { font-size: 13px; line-height: 1.25; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cards.grid .row-sub, .cards.grid .row-now { display: none; }
+.cards.grid .ok-mark, .cards.grid .pct, .cards.grid .tag, .cards.grid .btn.sm { position: absolute; top: 6px; right: 6px; }
+.cards.grid .card.row-card.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.cards.grid .sel-box { position: absolute; top: 6px; left: 6px; }
+
+/* Botón principal: ámbar con texto oscuro también en el tema claro (11:1); el marrón queda solo para texto y enlaces. */
+.btn-primary { background: var(--amber); color: var(--on-amber); }
+@media (hover: hover) { .btn-primary:hover { background: color-mix(in srgb, var(--amber) 92%, var(--on-amber)); } }
+.btn-primary:active { background: color-mix(in srgb, var(--amber) 86%, var(--on-amber)); }
+
+/* Opciones de guía: la etiqueta de país resalta cuando es el de la categoría. */
+.cc.home { background: var(--accent-soft); color: var(--on-accent-soft); }
+.opt-group { margin: 4px 0 8px; }
+
+/* Menú «…» de cada fila: solo con mouse (en el celular están los gestos). */
+.row-more { display: none; flex: none; margin: 0 -4px 0 0; }
+@media (hover: hover) {
+  .cards.rows .row-more { display: inline-flex; opacity: 0; }
+  .cards.rows .row-card:hover .row-more, .cards.rows .row-card:focus-within .row-more, .cards.rows .row-more:focus-visible { opacity: 1; }
+  .cards.rows .row-card { user-select: none; }
+}
+.cards.grid .row-more { display: none !important; }
+.row-menu { position: fixed; z-index: 200; min-width: 200px; padding: 6px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg), inset 0 0 0 1px var(--hairline); display: flex; flex-direction: column; }
+.row-menu button { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
+.row-menu button:focus-visible { background: var(--surface-2); }
+@media (hover: hover) { .row-menu button:hover { background: var(--surface-2); } }
+
+/* Un solo ámbar protagonista por pantalla: el botón principal y la pestaña activa. Lo elegido (filtros, chips,
+   segmentados, modos de la Guía) es siempre igual: relleno neutro y texto en 600; lo que pasa ahora, verde (--live). */
+.segmented button[aria-pressed="true"], .chip-btn[aria-pressed="true"], .seg button[aria-checked="true"] { background: var(--fill); color: var(--text); font-weight: 600; }
+.btn-tonal { background: var(--fill); color: var(--text); }
+@media (hover: hover) { .btn-tonal:hover { background: color-mix(in srgb, var(--fill) 88%, var(--text)); } }
+.links-card { background: var(--surface-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
+.lc-head .icon-btn, .links-card .link-btn { color: var(--text); }
+.links-card .btn-tonal { background: var(--fill); color: var(--text); }
+.lc-head > .icon { color: var(--accent); }
+
+/* Ayuda: tres preguntas a la vista y el resto plegado. */
+.help-more { margin-top: 8px; }
+.help-more > summary.help-more-sum { font-weight: 600; color: var(--muted); }
+
+/* Categorías: la sección actual queda anclada bajo el título de la hoja. */
+#categoriesList { overflow: clip; }
+.cat-row.section-row { position: sticky; top: var(--cat-title-h, 64px); z-index: 3; background: var(--surface-2); }
+.cat-row.dragging.section-row { position: relative; z-index: 4; }
+
+/* Hora de comienzo de un evento (PPV) tomada del nombre del canal. */
+.guide.event { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.guide.event.live { color: var(--green); font-weight: 600; }
+.guide.event.done { color: var(--faint); }
+.gc-event { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 14px; font-weight: 600; }
+.gc-event small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 2px; }
+.gc-event.live { color: var(--green); }
+.gc-event.done { color: var(--faint); }
+
+/* Versión de la app, al pie de Configuración. */
+.app-version { margin: 20px 0 4px; text-align: center; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; user-select: text; }
+/* Filtros: solo se desplazan hacia los costados (sin vaivén vertical por la sombra del área táctil). */
+.segmented { overflow-y: hidden; overscroll-behavior-x: contain; }
+
+/* Dispositivos: switch de activo y fila desactivada. */
+.device-top { flex: 1 1 100%; display: flex; align-items: center; gap: 12px; }
+.device-top .device-info { flex: 1; }
+.device.off .device-info strong { opacity: .6; }
+.device.off .device-info small { color: var(--orange); opacity: 1; }
+
+/* Canales nuevos: una fila dentro de la tarjeta de revisión (un solo mensaje arriba de la lista). */
+.rv-new { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 14px; }
+.rv-new.split { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.rv-new .icon { color: var(--accent); flex: none; }
+.rv-new .grow { flex: 1 1 auto; min-width: 0; }
+.rv-new .btn { min-height: 32px; }
+.rv-new .btn-plain { margin-left: -8px; }
+
+/* Progreso de la revisión: dentro del encabezado fijo de la hoja del canal. */
+.ch-head:has(> .rv-progress:not([hidden])) { flex-wrap: wrap; }
+.ch-head > .rv-progress { flex: 1 0 100%; order: 3; margin: 0; padding: 4px 8px 0; }
+
+/* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
+/* La cápsula queda a 1rem del borde en todos los equipos (en iPhone, justo arriba de la rayita de inicio). */
+.tabbar { left: 12px; right: 12px; bottom: 1rem; max-width: 520px; margin: 0 auto;
+  padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
+.tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: color var(--dur-2) var(--ease-out); }
+.tab.active { color: var(--accent); font-weight: 600; }
+/* La píldora de selección es un solo elemento que se desliza hasta la pestaña elegida (lo mueve ui/tabbar.ts). Hasta
+   la primera medida (`placed`) no se anima, así no viaja desde la esquina al abrir. */
+.tab-pill { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--fill) 80%, transparent);
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out), height var(--dur-3) var(--ease-out), opacity var(--dur-2) ease; }
+.tabbar.placed .tab-pill { opacity: 1; }
+.tabbar:not(.placed) .tab-pill { transition: none; }
+#editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
+body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
+/* Lo que pasa por detrás de la cápsula se desvanece antes de llegar (no se lee a través de ella): un degradé del
+   fondo, debajo de la cápsula y encima de la lista, la Guía y las páginas. */
+.tabbar { z-index: 9; }
+body:has(.tabbar)::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; pointer-events: none;
+  height: calc(var(--tab-h) + 1rem + 36px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg) 50%, transparent); }
+body:has(#editor[hidden])::after, body.selecting::after { display: none; }
+body.has-dock::after { right: 440px; }
+/* Escritorio ancho: la cápsula de abajo pasa a ser una barra lateral a la izquierda, así no flota sobre la Guía ni sobre
+   la lista. La lista, la Guía y las páginas (Categorías, Perfil) se corren a su derecha. */
+@media (min-width: 1100px) and (hover: hover) {
+  .tabbar { top: 0; bottom: 0; left: 0; right: auto; width: var(--rail-w); max-width: none; margin: 0;
+    flex-direction: column; justify-content: flex-start; gap: 6px; padding: calc(20px + env(safe-area-inset-top, 0px)) 10px 20px;
+    border: 0; border-right: 1px solid var(--hairline); border-radius: 0; box-shadow: none; background: var(--surface);
+    -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.has-dock #tabbar { right: auto; }
+  .tab { flex: none; width: 100%; height: 68px; border-radius: var(--radius); gap: 4px; font-size: 12px; }
+  .tab-pill { border-radius: var(--radius); }
+  body:has(.tabbar)::after { display: none; }
+  body:not(.selecting) :is(#editor, #app > section:not(#guide)) { margin-left: var(--rail-w); }
+  body:not(.selecting) #guide, body:not(.selecting) dialog.sheet.page { left: var(--rail-w); width: auto; }
+  #editor main { padding-bottom: 32px; }
+  .gd-inner { margin-bottom: 24px; }
+  .gd-up { padding-bottom: 32px; }
+  dialog.sheet.page > .sheet-body { padding-bottom: 32px; }
+}
+.menu-row .select.compact { max-width: 150px; }
+
+/* Guía asignada: tarjeta neutra (sin ámbar) con el estado en un chip. */
+.ch-current { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); padding: 14px 14px 10px; }
+.ch-current.none { background: transparent; box-shadow: none; border: 1px dashed var(--faint); padding: 12px 14px; }
+.gc-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--fill); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gc-chip.ok { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.gc-chip.warn { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
+.gc-top .gc-chip { align-self: flex-start; }
+.gc-now { margin: 12px 0 0; }
+
+/* Perfil de un dispositivo (Links): reutiliza menu/menu-row/switch/seg de Configuración y Categorías */
+#linksBody .search-field { margin-top: 8px; }
+#linksBody .cat-chips { margin: 12px 0 0; }
+.pf-row .menu-text { min-width: 0; flex: 1; }
+.pf-row .switch { flex: none; }
+.pf-head .menu-text { font-weight: 600; }
+.pf-row.pf-head { background: var(--surface-2); }
+#pfSum { margin-top: 12px; }
+.pf-row.is-off .menu-text { opacity: .55; }
+
+/* Recordatorios de programas («Avisarme») */
+.day-item summary { align-items: center; }
+.remind-btn { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 999px; color: var(--muted); background: transparent; border: 0; padding: 0; cursor: pointer; }
+@media (hover: hover) { .remind-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
+.remind-btn.on { color: var(--accent); background: var(--accent-soft); }
+
+/* Aviso con botón para cerrarlo */
+.toast .toast-close { flex: none; width: 36px; height: 36px; margin: 0 0 0 -4px; color: var(--inverse-text); opacity: .8; background: transparent; }
+@media (hover: hover) { .toast .toast-close:hover { opacity: 1; background: color-mix(in srgb, var(--inverse-text) 12%, transparent); } }
+
+/* Canales caídos: fila con el botón «Probar ahora» al costado */
+#downRow { cursor: pointer; }
+#downRow .btn { flex: none; }
+#runCheckBtn.is-wait { opacity: .65; }
+
+/* Tarjetas de arriba de la lista: llenas y sin contorno ni raya, como las de Configuración y Categorías */
+.links-card { background: var(--surface-2); color: var(--text); box-shadow: none; }
+.review-card { background: var(--surface-2); box-shadow: none; }
+.lc-head > .icon { color: var(--muted); }
+.stack[hidden] { display: none; }
+
+/* Perfiles: una cuenta del proveedor cada uno (ver planes/perfiles.md). */
+.avatar { width: 36px; height: 36px; flex: none; border-radius: 50%; display: inline-grid; place-items: center;
+  background: var(--fill); color: var(--text); font-weight: 700; font-size: 15px; line-height: 1; }
+.avatar.on { background: var(--accent-soft); color: var(--on-accent-soft); }
+.tab-avatar { width: 24px; height: 24px; font-size: 12px; background: var(--accent); color: var(--on-accent); }
+#tabLinks { -webkit-touch-callout: none; user-select: none; }
+.profile-notice { display: flex; align-items: center; gap: 12px; width: 100%; margin: 0 0 12px; padding: 12px 14px; border: 0; border-radius: var(--radius);
+  background: var(--accent-soft); color: var(--on-accent-soft); font: inherit; text-align: left; cursor: pointer; }
+.profile-notice[hidden] { display: none; }
+.profile-notice .pn-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.profile-notice small { opacity: .8; }
+.profile-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); }
+.profile-card.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.profile-card .device-list { margin: 0; }
+.profile-card > .help { margin: 0; }
+.pc-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--fill); color: var(--text); }
+.pc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; }
+.pc-stat { background: var(--surface-2); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; min-width: 0; }
+.pc-stat b { font-variant-numeric: tabular-nums; }
+.pc-stat b.ok { color: var(--green); } .pc-stat b.warn { color: var(--orange); } .pc-stat b.bad { color: var(--red); }
+.pc-stat small { font-size: 12px; color: var(--muted); }
+button.pc-link { position: relative; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; padding-right: 26px; }
+@media (hover: hover) { button.pc-link:hover { background: var(--surface-3, var(--surface-2)); } }
+button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -50%; color: var(--muted); }
+.conn-row { flex-wrap: nowrap; gap: 12px; }
+.conn-row .device-info { flex: 1; }
+.conn-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--hairline); }
+.conn-dot.on { background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 25%, transparent); }
+.conn-prof { font-weight: 400; color: var(--muted); }
+.profile-pick { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.profile-opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.profile-opt.on, .profile-opt:has(input:checked) { box-shadow: inset 0 0 0 2px var(--accent); }
+.profile-opt input { accent-color: var(--accent); margin: 0; }
+.po-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.po-text small { color: var(--muted); }
+.profile-opt > .icon { color: var(--accent); }
+.url-box { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--muted); font-size: 13px;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: text; }
+.profile-card .device { background: transparent; border-radius: 0; padding: 10px 0 2px; gap: 4px; border-top: 1px solid var(--hairline); }
+.profile-card .device-list { gap: 0; }
+.profile-card .device:first-child { border-top: 0; padding-top: 0; }
+.profile-card .device [data-dev=show] { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
+.profile-card .device .icon-btn { width: 40px; height: 40px; }
+.provider-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin: 20px 0 -4px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.provider-head > svg { flex: none; }
+.provider-head:first-of-type { margin-top: 12px; }
+.provider-tag { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.profile-pick .provider-tag { margin: 8px 2px 0; }
+#askText { white-space: pre-line; overflow-wrap: anywhere; }
+/* Perfiles, opción H: lista de perfiles por proveedor y página de cada uno. */
+.profile-row .avatar { width: 32px; height: 32px; font-size: 14px; }
+.profile-row .menu-text { min-width: 0; flex: 1; }
+.profile-row .menu-text small { display: block; color: var(--muted); }
+.profile-row .menu-text small.warn { color: var(--orange); }
+.profile-row .menu-text small.bad { color: var(--red); }
+.pr-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Cuentas > perfiles: los perfiles van debajo de su cuenta, con sangría. */
+.menu-row.sub-row { padding-left: 32px; min-height: 52px; }
+.menu-row.sub-row .menu-icon { width: 32px; height: 32px; }
+.avatar.sm { width: 28px; height: 28px; font-size: 12px; flex: none; }
+.menu-row.sub-row .menu-text small { display: block; color: var(--muted); }
+.profile-row .pc-badge { padding: 2px 8px; font-size: 11px; }
+.add-row .menu-icon { color: var(--accent); }
+.add-row .menu-text { font-weight: 600; }
+.add-row .menu-text small { font-weight: 400; color: var(--muted); }
+.profile-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 12px; text-align: center; }
+.profile-hero strong { font-size: 1.25rem; }
+.profile-hero small { color: var(--muted); }
+.avatar.big { width: 64px; height: 64px; font-size: 26px; }
+#linksBody > .pc-stats { margin-bottom: 12px; }
+#linksBody > .btn-block { margin-top: 12px; }
+#linksBody > .profile-card { margin-top: 0; }
+.settings-moved { margin: 8px 4px 0; }
+
+/* Tirar hacia abajo para recargar la grilla: un círculo que baja con el dedo y gira; listo para soltar, se pinta. */
+html { overscroll-behavior-y: contain; }
+.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 56px); left: 50%; z-index: 9; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--surface); color: var(--muted); box-shadow: var(--shadow-lg);
+  transform: translate(-50%, 0); transition: transform .2s ease, background .15s ease, color .15s ease, opacity .15s ease; pointer-events: none;
+  opacity: 0; /* escondido del todo hasta que se tira: antes asomaba debajo de la barra de estado del iPhone */ }
+.ptr.pulling, body.refreshing .ptr { opacity: 1; }
+.ptr .icon { width: 20px; height: 20px; }
+.ptr.pulling { transition: background .15s ease, color .15s ease; }
+.ptr.ready { background: var(--accent); color: var(--on-accent); }
+body.refreshing .ptr { transform: translate(-50%, 80px); }
+body.refreshing .ptr .icon { animation: spin 0.8s linear infinite; }
+
+/* ---- Guía: grilla de canales × hora (ui/guide.tsx) ---- */
+#guide { position: fixed; inset: 0; z-index: 7; background: var(--bg); padding-top: env(safe-area-inset-top, 0px); }
+body.guide-open { overflow: hidden; }
+.gd-shell { display: flex; flex-direction: column; height: 100%; }
+.gd-head { padding-top: 16px; padding-bottom: 8px; flex: none; }
+#guide .gd-head, #guide .gd-chips { padding-left: var(--gutter); padding-right: var(--gutter); }
+@media (min-width: 900px) { #guide .gd-head, #guide .gd-chips { padding-left: 24px; padding-right: 24px; } }
+.gd-head h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+.gd-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px max(var(--gutter), calc((100% - 728px) / 2)) 10px; scrollbar-width: none; flex: none; }
+.gd-chips::-webkit-scrollbar { display: none; }
+.gd-chips .chip-btn { flex: none; }
+.gd-chips.active-filters { align-items: center; }
+.gd { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--hairline); overscroll-behavior: contain; }
+/* Lo último queda arriba de la barra de pestañas (flota sobre la grilla). */
+.gd-inner { margin-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
+.gd-inner { position: relative; }
+.gd-ruler { position: sticky; top: 0; z-index: 4; display: flex; height: 32px; background: var(--bg); border-bottom: 1px solid var(--hairline); }
+.gd-corner { position: sticky; left: 0; z-index: 5; flex: none; width: var(--chw); background: var(--bg); border-right: 1px solid var(--hairline); }
+.gd-ticks { position: relative; flex: none; }
+.gd-tick { position: absolute; top: 0; height: 100%; padding-left: 6px; border-left: 1px solid var(--hairline); font-size: 12px; font-weight: 500; color: var(--muted); line-height: 32px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gd-tick.half { color: var(--faint); border-left-style: dashed; }
+.gd-tick.day { color: var(--text); font-weight: 700; }
+.gd-now-pill { position: absolute; top: 6px; transform: translateX(-50%); z-index: 2; background: var(--live); color: var(--on-live); font-size: 11.5px; font-weight: 700; line-height: 1.5; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.gd-cat { position: absolute; left: 0; height: 30px; background: var(--bg); }
+.gd-cat > span { position: sticky; left: 0; display: inline-block; padding: 0 var(--gutter); background: var(--bg); line-height: 30px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-row { position: absolute; left: 0; display: flex; height: var(--rowh); border-bottom: 1px solid var(--hairline); }
+.gd-ch { position: sticky; left: 0; z-index: 3; flex: none; width: var(--chw); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; background: var(--surface); border: 0; border-right: 1px solid var(--hairline); color: inherit; font: inherit; cursor: pointer; }
+.gd-ch .logo { width: 36px; height: 30px; border-radius: 8px; flex: none; }
+.gd-ch .nm { font-size: 10.5px; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-ch .qtag { position: absolute; top: 3px; right: 3px; font-size: 9px; line-height: 13px; padding: 0 3px; }
+.gd-track { position: relative; flex: none; }
+.gd-cell { position: absolute; top: 3px; bottom: 3px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline); padding: 6px 8px; overflow: hidden; display: flex; align-items: center; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+@media (hover: hover) { .gd-cell:hover { background: var(--surface-2); } }
+.gd-in { display: flex; flex-direction: column; gap: 1px; min-width: 0; width: 100%; box-sizing: border-box; }
+.gd-cell .tt { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-cell .hh { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+.gd-cell.masked .tt { color: var(--muted); font-weight: 500; }
+.gd-cell.past { background: transparent; }
+.gd-cell.past .tt { color: var(--faint); font-weight: 500; }
+.gd-cell.past .hh { color: var(--faint); }
+/* Con un género elegido en la Grilla, lo que no es de ese género se apaga igual que lo que «no entra» en Próximos (.gd-up-row.dim). */
+.gd-cell.off { opacity: .45; }
+/* Esqueleto mientras baja la programación de esa hora (el mismo brillo que el de Canales). */
+.gd-cell.skel { background: linear-gradient(90deg, var(--surface-2) 25%, var(--fill) 50%, var(--surface-2) 75%); background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite; box-shadow: none; pointer-events: none; }
+.gd-cell.live { background: var(--surface-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 45%, transparent); }
+.gd-cell.live::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--live); }
+.gd-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.gd-cell.tiny { padding: 0; }
+.gd-cell.gap { background: repeating-linear-gradient(-45deg, transparent 0 6px, color-mix(in srgb, var(--orange) 10%, transparent) 6px 12px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 40%, transparent); }
+.gd-cell.gap .tt { color: var(--orange); }
+.gd-cell.gap.quiet { background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }
+.gd-cell.gap.quiet .tt { color: var(--muted); font-weight: 500; }
+.gd-nowline { position: absolute; width: 2px; transform: translateX(-1px); background: color-mix(in srgb, var(--live) 70%, transparent); z-index: 2; pointer-events: none; }
+#guide > .gd-shell > .empty { margin: 24px var(--gutter); }
+@media (min-width: 900px) {
+  .gd-ch { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 12px; }
+  .gd-ch .logo { width: 44px; height: 34px; }
+  .gd-ch .nm { font-size: 13px; color: var(--text); font-weight: 500; }
+  .gd-ch .qtag { position: static; margin-left: auto; font-size: 10.5px; line-height: 16px; padding: 0 4px; }
+}
+/* Hoja del programa */
+.gd-sh-ch { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.gd-sh-ch strong { display: block; }
+.gd-sh-ch small { color: var(--muted); font-size: 13px; }
+.gd-sheet .gd-sh-genre { margin: 16px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gd-sheet .gd-sh-genre + .gd-sh-title { margin-top: 4px; }
+.gd-sheet .gd-sh-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin: 16px 0 4px; }
+.gd-sheet .gd-sh-when { margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gd-sh-when b { color: var(--live); font-weight: 600; }
+.gd-sh-bar { display: block; height: 3px; margin-top: 10px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.gd-sh-bar > i { display: block; height: 100%; background: var(--live); }
+.gd-sheet .gd-sh-desc { margin: 12px 0 0; color: var(--text); line-height: 1.5; }
+.gd-sh-actions { margin-top: 16px; }
+.gd-remind { width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.gd-remind.on { background: var(--accent); color: var(--on-accent); }
+.gd-sh-next { margin-top: 16px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.gd-sh-next h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+.gd-sh-row { display: flex; align-items: center; gap: 12px; padding: 2px 0; font-size: 14px; }
+.gd-sh-row b { flex: none; width: 44px; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
+.gd-sh-row span { flex: 1; min-width: 0; }
+.gd-sh-fix { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; background: none; border: 0; padding: 0; font: inherit; font-size: 13.5px; cursor: pointer; text-align: left; }
+
+/* Guía · «Llegás desde el principio»: lo que ya empezó y vuelve a empezar más tarde. */
+.gd-cell .hh .rp { color: var(--green); font-weight: 600; }
+.gd-again { margin-top: 16px; border-radius: var(--radius); padding: 14px; background: color-mix(in srgb, var(--green) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
+.gd-again p { margin: 0; }
+.gd-again .k { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--green); }
+.gd-again .big { font-size: 19px; font-weight: 600; margin: 6px 0 2px; color: var(--text); }
+.gd-again .where { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+.gd-again .where .logo.sm { width: 22px; height: 22px; border-radius: 5px; }
+.gd-again .also { margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+.gd-again .also b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ---- Modo «solo ver» (ver.html / ver.tsx): letra grande, filas altas y nada para editar. ---- */
+body.viewer { font-size: 17px; }
+/* Igual que la edición: la lista de Canales sigue en la página debajo de la Guía (la Guía la tapa y la página no se mueve).
+   En la app de iPhone, una página sin nada adentro hace que la barra de abajo quede más arriba que en la edición. */
+body.viewer #app > section[data-under] { visibility: hidden; }
+.vw-head .title-row { align-items: center; }
+.vw-who { display: inline-flex; align-items: center; gap: 6px; max-width: 55%; padding: 6px 12px; border-radius: 999px;
+  background: var(--fill); color: var(--muted); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-who .icon { flex: none; width: 17px; height: 17px; }
+.vw-head-r { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 62%; }
+.vw-head-r .vw-who { max-width: none; min-width: 0; }
+.vw-help > .sheet-body > p, .vw-help details p { font-size: 17px; line-height: 1.55; }
+.vw-help summary { font-size: 17px; }
+.vw-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--hairline); }
+.vw-field-t { display: grid; gap: 2px; min-width: 0; }
+.vw-field-t strong { font-size: 18px; font-weight: 600; }
+.vw-field-t small { font-size: 14px; color: var(--muted); }
+.vw-settings .vw-k { color: var(--muted); } /* el verde es solo para lo que está en vivo */
+.vw-unlock-lead { margin: 0 0 14px; font-size: 17px; line-height: 1.5; color: var(--muted); }
+.vw-unlock-field { display: grid; gap: 6px; margin-bottom: 14px; }
+.vw-unlock-field span { font-size: 14px; font-weight: 600; color: var(--muted); }
+.vw-unlock-field input { height: 52px; font-size: 18px; padding: 0 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--chip-line); }
+.vw-seg { flex: none; }
+.vw-seg button { height: 44px; min-width: 60px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; }
+.vw-seg .icon { width: 20px; height: 20px; }
+.vw-search { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; padding: 10px var(--gutter) 14px; background: var(--bg); max-width: 760px; margin: 0 auto; }
+.vw-search .search-field input { font-size: 18px; min-height: 52px; }
+.vw-list { padding: 0 var(--gutter) calc(var(--tab-h) + 40px + env(safe-area-inset-bottom, 0px)); }
+/* Lo que pasa por debajo se veía en el hueco entre el buscador (termina en 70px) y el encabezado: el margen queda por fuera del fondo, así que va como padding. */
+.vw-cat { position: sticky; top: calc(70px + env(safe-area-inset-top, 0px)); z-index: 3; margin: 0 0 4px; padding: 14px 4px 6px;
+  background: var(--bg); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.vw-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 84px; padding: 12px 14px; margin: 0 0 8px;
+  border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--shadow); }
+.vw-row:active { background: var(--fill); }
+.vw-row:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.vw-row .logo.lg { width: 56px; height: 56px; }
+.vw-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vw-name { font-size: 19px; font-weight: 700; line-height: 1.25; }
+.vw-now { font-size: 17px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.vw-when { font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-when.vw-left { white-space: normal; }
+.vw-bar { display: block; height: 5px; margin: 3px 0 2px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.vw-bar > i { display: block; height: 100%; background: var(--live); }
+.vw-chev { flex: none; color: var(--faint); }
+.vw-sheet .gd-sh-title { font-size: 24px; }
+.vw-sheet .gd-sh-genre { font-size: 13px; }
+.vw-sheet .gd-sh-when, .vw-sheet .gd-sh-desc { font-size: 17px; }
+.vw-sheet .gd-sh-row { font-size: 17px; padding: 6px 0; }
+.vw-sheet .gd-sh-row b { width: 56px; }
+.vw-k { margin: 8px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--live); }
+.vw-tabbar .tab { font-size: 13.5px; }
+.vw-skel { min-height: 100vh; padding: 80px 16px 16px; display: grid; gap: 12px; align-content: start; }
+.vw-problem, .vw-loading { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.vw-problem img { border-radius: var(--radius); }
+.vw-problem h1 { margin: 8px 0 0; font-size: 24px; }
+.vw-problem p { margin: 0 0 8px; color: var(--muted); font-size: 18px; max-width: 360px; }
+.vw-loading { color: var(--muted); }
+/* Páginas de la barra de abajo: Categorías y Perfil ocupan la pantalla entera (como la Guía), con la barra siempre a
+   mano. Son <dialog> no modales: lo que se abre desde ellas sigue siendo una hoja encima. */
+dialog.sheet.page {
+  position: fixed; inset: 0; z-index: 7; margin: 0; width: 100%; max-width: none; height: 100%; max-height: none;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bg); color: var(--text); padding: 0;
+}
+dialog.sheet.page > .sheet-body {
+  height: 100%; max-height: none; overflow-y: auto; box-sizing: border-box; max-width: 760px; margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) var(--gutter) calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px));
+}
+dialog.sheet.page > .sheet-body::before { display: none; }
+/* El encabezado fijo cubre todo el ancho y la zona de la barra de estado, con fondo sólido: lo que se desplaza pasa por
+   debajo sin verse (antes asomaba por el degradé y por arriba del título). */
+dialog.sheet.page > .sheet-body { padding-top: 0; }
+dialog.sheet.page .sheet-body > .title-row {
+  background: var(--bg); margin: 0 calc(-1 * var(--gutter)); padding: calc(16px + env(safe-area-inset-top, 0px)) var(--gutter) 8px;
+}
+dialog.sheet.page .sheet-body > .title-row::after { display: none; }
+dialog.sheet.page .sheet-body > .title-row h2 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+/* Sin cruz: se sale con la barra de abajo. */
+dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: none; }
+@media (min-width: 900px) {
+  dialog.sheet.page > .sheet-body { padding-left: 24px; padding-right: 24px; }
+  dialog.sheet.page .sheet-body > .title-row { margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
+}
+/* Con algo desplazado debajo, una línea fina separa el encabezado (donde el navegador sabe atar una animación al
+   desplazamiento; si no, queda sin línea, como antes). */
+@supports (animation-timeline: scroll()) {
+  dialog.sheet.page .sheet-body > .title-row, .settings-sheet .sheet-body > .title-row, .help-sheet .sheet-body > .title-row {
+    animation: head-line linear both; animation-timeline: scroll(nearest block); animation-range: 0 24px;
+  }
+  .settings-sheet .sheet-body > .title-row::after, .help-sheet .sheet-body > .title-row::after { display: none; }
+}
+@keyframes head-line { from { box-shadow: 0 1px 0 transparent; } to { box-shadow: 0 1px 0 var(--hairline); } }
+/* Guía · modos (Grilla · Próximos): botón segmentado de ancho completo. */
+/* El selector de la Guía va en la fila del título, a la derecha: «Grilla  Próximos», la elegida en color pleno y subrayada. */
+.gd-modes { display: flex; gap: 16px; flex: none; }
+.gd-modes button { position: relative; flex: none; min-height: 44px; padding: 0 2px; background: transparent; border: 0; font: inherit; font-size: var(--fs-lg); font-weight: 600; color: var(--muted); cursor: pointer; }
+.gd-modes button[aria-checked="true"] { color: var(--text); }
+.gd-modes button[aria-checked="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 2px; border-radius: 2px; background: var(--accent); }
+@media (hover: hover) { .gd-modes button[aria-checked="false"]:hover { color: var(--text); } }
+.gd-back { margin-left: -10px; }
+.gd-back .icon { width: 28px; height: 28px; }
+/* Tu plan, la parte del día armada: una tarjeta arriba de Grilla y Próximos que abre su página. */
+.gd-teaser { flex: none; display: flex; align-items: center; gap: 12px; margin: 0 var(--gutter) 12px; padding: 12px 14px; border: 0; border-radius: var(--radius); background: var(--accent-soft); color: var(--on-accent-soft); text-align: left; font: inherit; cursor: pointer; }
+@media (min-width: 900px) { .gd-teaser { margin-left: 24px; margin-right: 24px; max-width: 728px; } }
+.gd-teaser .ic { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.gd-teaser .ic .icon { width: 20px; height: 20px; }
+.gd-teaser .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gd-teaser .tx b { font-size: var(--fs-base); font-weight: 650; color: var(--text); }
+.gd-teaser .tx span { font-size: var(--fs-md); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gd-teaser > .icon { flex: none; }
+@media (hover: hover) { .gd-teaser:hover { background: color-mix(in srgb, var(--accent-soft) 85%, var(--text)); } }
+/* «Ahora» flota sobre la grilla, arriba de la barra de pestañas, solo si la línea de ahora no se ve. */
+.gd-now-btn { position: absolute; z-index: 6; right: var(--gutter); bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow-lg); gap: 6px; }
+@media (min-width: 900px) { .gd-now-btn { right: 24px; bottom: 24px; } }
+.gd-time-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gd-time-chip .icon.sm { width: 16px; height: 16px; }
+
+/* Guía · Próximos */
+.gd-up { flex: 1; overflow-y: auto; padding: 4px max(var(--gutter), calc((100% - 728px) / 2)) calc(var(--tab-h, 64px) + 40px + env(safe-area-inset-bottom, 0px)); }
+.gd-up h3 { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px; }
+.gd-up-list { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.gd-up-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.gd-up-row + .gd-up-row { box-shadow: inset 0 1px 0 var(--hairline); }
+@media (hover: hover) { .gd-up-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); } }
+.gd-up-row.dim { opacity: .45; }
+.gd-up-time { flex: none; width: 52px; font-size: 17px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.gd-up-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gd-up-main .tt { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+.gd-up-main .sub .logo.sm { width: 20px; height: 20px; flex: none; border-radius: 5px; }
+.gd-up-main .sub .logo.sm .mono { font-size: 8px; }
+.gd-up-main .sub .nm { flex: none; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-up-main .sub .meta::before { content: "· "; }
+.gd-up-main .ok { color: var(--green); font-weight: 600; }
+.gd-up-pill { flex: none; font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 8px; white-space: nowrap; }
+.gd-up-pill.now { background: var(--live); color: var(--on-live); }
+.gd-up-pill.again { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.gd-up-empty { color: var(--muted); padding: 12px 2px; margin: 0; }
+.gd-budget { background: var(--surface); border-radius: var(--radius); padding: 12px 14px; margin-top: 4px; }
+.gd-budget .lbl { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
+.gd-budget .lbl span { color: var(--muted); }
+.gd-budget input[type="range"] { width: 100%; margin: 10px 0 2px; accent-color: var(--accent); height: 24px; }
+@media (min-width: 900px) { .gd-up { padding-left: 24px; padding-right: 24px; } .gd-up > * { max-width: 860px; } }
+
+/* Guía · Tu mañana / tarde / noche: el plan en una línea de tiempo. */
+.gd-plan-lead { color: var(--muted); font-size: 14px; margin: 8px 0 14px; }
+.gd-plan-list { list-style: none; margin: 0; padding: 0 0 0 64px; position: relative; }
+.gd-plan-list::before { content: ""; position: absolute; left: 50px; top: 14px; bottom: 14px; width: 2px; border-radius: 1px; background: var(--hairline); }
+.gd-plan-slot { position: relative; display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--radius); padding: 4px 6px 4px 0; margin-bottom: 8px; }
+.gd-plan-slot::before { content: ""; position: absolute; left: -19px; top: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--faint); box-shadow: 0 0 0 4px var(--bg); }
+/* El programa en el aire: la tarjeta con un tinte verde suave (sin la raya del costado) y su punto en la línea, verde. */
+.gd-plan-slot.live { background: color-mix(in srgb, var(--live) 12%, var(--surface)); }
+.gd-plan-slot.live::before { background: var(--live); }
+.gd-plan-slot.live .meta { color: var(--live); font-weight: 600; }
+.gd-plan-time { position: absolute; left: -64px; top: 14px; width: 40px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.gd-plan-card { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 4px 8px 12px; background: transparent; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.gd-plan-card .logo { width: 40px; height: 40px; flex: none; }
+.gd-plan-card .tt { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.gd-plan-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; vertical-align: 2px; }
+.gd-plan-hop { display: flex; align-items: center; gap: 6px; margin: 2px 0 10px; font-size: 13px; color: var(--muted); }
+.gd-plan-hop b { color: var(--text); font-weight: 600; }
+.gd-plan-hop .icon.sm { width: 14px; height: 14px; }
+.gd-plan-alt { display: block; width: 100%; margin: -2px 0 12px; padding: 0 0 0 12px; background: none; border: 0; font: inherit; font-size: 12.5px; color: var(--faint); text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-plan-alt b { color: var(--muted); font-weight: 500; }
+@media (hover: hover) { .gd-plan-alt:hover b { color: var(--accent); text-decoration: underline; } }
+.gd-plan-why { display: flex; align-items: center; gap: 5px; margin: -4px 0 10px 12px; font-size: 12.5px; color: var(--muted); }
+.gd-plan-why .icon.sm { width: 13px; height: 13px; color: var(--muted); }
+.gd-plan-why + .gd-plan-alt { margin-top: -6px; }
+.gd-taste { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.gd-taste-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.gd-taste-btn .icon.sm { width: 15px; height: 15px; }
+.gd-taste-hint { flex-basis: 100%; margin: 0; font-size: var(--fs-md); color: var(--muted); }
+.vw-leave { margin-top: 14px; min-height: 52px; }
+.vw-foot { margin: 28px 4px 0; text-align: center; color: var(--muted); font-size: 14px; }
+.vw-foot .link-btn { display: block; margin: 6px auto 0; font-size: 14px; }
+.vw-conn { margin: 4px 0 6px; border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.vw-conn-head { width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+@media (hover: hover) { .vw-conn-head:hover { background: var(--surface-2); } }
+.vw-conn-n { flex: none; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.vw-conn-n.warn { color: var(--red); }
+.vw-conn-t { flex: 1; font-size: 17px; color: var(--muted); }
+.vw-conn-chev { align-self: center; color: var(--muted); }
+.vw-conn.open .vw-conn-chev { transform: rotate(180deg); }
+.vw-conn-list { padding: 0 16px 6px; }
+.vw-conn-note { margin: 0; padding: 12px 0; border-top: 1px solid var(--hairline); font-size: 16px; color: var(--muted); }
+.vw-conn-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.vw-conn-row .conn-dot { margin: 0 4px; }
+.vw-conn-who { display: flex; flex-direction: column; gap: 2px; font-size: 17px; min-width: 0; }
+.vw-conn-who small { font-size: 15px; color: var(--muted); }
+.vw-report { margin-top: 20px; }
+.vw-report .btn { min-height: 52px; font-size: 16px; }
+.vw-report-ok { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--green); font-size: 16px; }
+.vw-report-bad { margin: 8px 0 0; color: var(--red); font-size: 15px; }
+.rp-row { padding: 12px 0; border-top: 1px solid var(--hairline); }
+.rp-text { display: flex; flex-direction: column; gap: 2px; }
+.rp-text small { color: var(--muted); font-size: 13.5px; }
+.rp-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* «Tu código»: el de editar y los de modo ver, cada uno con su botón de copiar */
+.cd-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.cd-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cd-text small { color: var(--muted); font-size: 13.5px; }
+.cd-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
+.cd-text code.muted { color: var(--muted); font-family: inherit; }
+.cd-row .btn { flex: none; }
+.cd-actions { display: flex; gap: 8px; flex: none; }
+.cd-stack { flex-wrap: wrap; }
+.cd-stack .cd-text { flex: 1 1 100%; }
+.cd-stack .cd-actions { flex: 1 1 100%; }
+.cd-stack .cd-actions .btn { flex: 1 1 0; }
+
+/* Guía: los filtros (hoja de ui/filtros.tsx), el aviso de Tu noche y el pie de las hojas */
+.gc-name { flex: 1; min-width: 0; font-size: 16px; }
+.gc-foot { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 4px; margin-top: 12px; background: linear-gradient(to top, var(--surface) 78%, transparent); }
+.gc-foot .btn { min-height: 48px; }
+.gc-foot .btn-primary { flex: 1; }
+.gd-plan-gap { margin: 12px 0 0 62px; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 0 0 1.5px var(--hairline); display: flex; flex-direction: column; gap: 8px; }
+.gd-plan-gap .t { margin: 0; font-weight: 600; }
+.gd-plan-gap .d { margin: 0; color: var(--muted); font-size: 14px; }
+.gd-plan-gap .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* Botones del encabezado de las hojas (cerrar, volver, anterior, siguiente): con fondo propio, para que se vean como
+   botones también en el celular, donde no hay :hover. Ver planes/botones-de-las-hojas.md. */
+dialog .title-row .icon-btn { background: var(--fill); color: var(--text); }
+@media (hover: hover) { dialog .title-row .icon-btn:hover { background: color-mix(in srgb, var(--fill) 82%, var(--text)); } }
+dialog .title-row .icon-btn:active { background: color-mix(in srgb, var(--fill) 70%, var(--text)); transform: scale(.94); }
+/* La ayuda (?) va sin fondo en todos lados: el círculo queda para cerrar, volver, anterior y siguiente. */
+.icon-btn.help-btn, dialog .title-row .icon-btn.help-btn { background: transparent; color: var(--muted); }
+@media (hover: hover) { .icon-btn.help-btn:hover, dialog .title-row .icon-btn.help-btn:hover { background: var(--fill); color: var(--text); } }
+dialog .title-row .icon-btn:disabled { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 1; cursor: default; transform: none; }
+
+/* ---- Movimiento: entradas cortas y sutiles donde ayudan a seguir qué cambió. Todas con `backwards`, así al terminar no
+   queda ningún transform aplicado (no rompen lo fijo ni lo pegajoso de adentro). Con «reducir movimiento» se apagan
+   (base.css). */
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes view-in { from { opacity: 0; transform: translateX(16px); } }
+@keyframes menu-in { from { opacity: 0; transform: scale(.94) translateY(-4px); } }
+@keyframes pop { 45% { transform: scale(1.2); } }
+/* Pestañas de abajo: Categorías, Perfil y la Guía aparecen con un fundido corto (no suben desde abajo como una hoja). */
+dialog.sheet.page[open], #guide:not([hidden]) { animation: page-in .2s ease backwards; }
+.tab .icon { transition: transform .15s ease; }
+.tab:active .icon { transform: scale(.9); }
+.tab.active .icon { animation: pop .3s ease; }
+/* Dentro de Perfil, cada página nueva (una cuenta, un perfil, un link) entra desde la derecha. */
+#linksBody > * { animation: view-in .22s cubic-bezier(.2, .8, .3, 1) backwards; }
+/* Guía: al cambiar entre Grilla, Próximos y Tu noche, lo nuevo entra con un fundido. */
+.gd-up, #guide .gd:not([hidden]) { animation: page-in .18s ease backwards; }
+.gd-modes button { transition: color .15s ease; }
+/* Botones de estado: el cambio de color se ve, y lo que se prende hace un «pop». */
+.chip-btn { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.chip-btn[aria-pressed="true"] .icon, .remind-btn.on .icon { animation: pop .3s ease; }
+.remind-btn { transition: background-color .15s ease, color .15s ease; }
+/* Avisos de arriba de la lista y la tarjeta de revisión: bajan un poco al aparecer. */
+.profile-notice:not([hidden]), .review-card:not([hidden]) { animation: slide-down .25s ease backwards; }
+/* El menú «…» de una fila se abre desde el botón. */
+.row-menu { transform-origin: top right; animation: menu-in .14s ease-out backwards; }
+/* Modo ver: las conexiones se despliegan y la flecha gira. */
+.vw-conn-chev { transition: transform .2s ease; }
+.vw-conn-list { animation: slide-down .2s ease backwards; }
+
+/* Novedades (ui/novedades.tsx): lo nuevo de cada versión, en viñetas. */
+.nv-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.nv-list li { line-height: 1.5; color: var(--text); }
+.nv-list li::marker { color: var(--accent); }
+.nv-foot { position: sticky; bottom: 0; padding: 14px 0 4px; margin-top: 16px; background: linear-gradient(to top, var(--surface) 78%, transparent); }
+
+.nv-head { font-weight: 600; flex: 1; min-width: 0; }
+.nv-item summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; cursor: pointer; list-style: none; }
+.nv-item summary::-webkit-details-marker { display: none; }
+.nv-item summary .icon { flex: none; margin-top: 4px; color: var(--muted); transition: transform .2s ease; }
+.nv-item[open] summary .icon { transform: rotate(180deg); }
+.nv-more { margin: 6px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; animation: slide-down .2s ease backwards; }
+.app-news { margin: 4px 0 0; text-align: center; font-size: 13px; }
+
+/* Letra grande (Configuración → Preferencias): toda la app un 12 % más grande, en este dispositivo. Con zoom y no con el
+   zoom del navegador: el diseño se acomoda al ancho que queda (un iPhone pasa a medir ~350 px de ancho). */
+html[data-text="lg"] { zoom: 1.12; }
+
+/* Encabezados: cada pestaña abre con su título (Canales, Guía, Categorías, Perfiles), del mismo tamaño y a la misma
+   altura. La marca no se repite en cada pantalla: va en la bienvenida, al pie de Configuración y del modo ver, y en el
+   escritorio arriba de la barra lateral. */
+.app-header h1:not(.brand) { font-size: 28px; line-height: 1.2; }
+#editor .app-header, .vw-head { padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+.tab-brand { display: none; }
+.brand-foot { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 28px 0 0; }
+.brand-foot img { width: 28px; height: 28px; border-radius: 7px; box-shadow: 0 0 0 .5px var(--hairline); }
+.brand-foot .wordmark { font-size: 18px; }
+.brand-foot + .app-version { margin-top: 6px; }
+@media (min-width: 1100px) and (hover: hover) {
+  .tab-brand { display: block; flex: none; width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 10px; box-shadow: 0 0 0 .5px var(--hairline); }
+}
+.brand-foot + .vw-foot { margin-top: 6px; }
+
+/* Franja de la prueba de canales: fija arriba de la lista (en la barra de búsqueda y filtros) mientras se prueban. */
+.probe-strip { margin: -2px 0 -10px; font-size: 14px; }
+.probe-strip[hidden] { display: none; }
+.probe-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.probe-line .icon { color: var(--accent); }
+.probe-line b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.probe-line small { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.probe-line .probe-stop { flex: none; min-height: 32px; padding: 0 8px; margin-right: -8px; color: var(--accent); font-size: 14px; }
+.probe-bar { height: 3px; margin: 6px 0 0; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.probe-bar > i { display: block; height: 100%; width: var(--p, 0%); background: var(--accent); transition: width var(--dur-3) var(--ease-out); }
+.probe-bar.wait > i { width: 30%; animation: probe-wait 1.4s ease-in-out infinite; }
+@keyframes probe-wait { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .probe-bar.wait > i { animation: none; width: 100%; opacity: .35; } }
+
+/* ---- Pantalla de inicio (index.html y ver.html; la saca ui/splash.ts) ---- */
+/* Tapa la app mientras abre, pero no frena nada: la app arma su pantalla debajo y los toques pasan. */
+.splash { position: fixed; inset: 0; z-index: var(--z-splash); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: var(--bg); pointer-events: none; transition: opacity var(--dur-3) var(--ease-out); }
+.splash svg { width: 104px; height: 104px; border-radius: 22.5%; box-shadow: var(--shadow-logo); transition: transform var(--dur-3) var(--ease-out); }
+.splash .wordmark { font-size: 30px; }
+@media (min-width: 900px) { .splash svg { width: 128px; height: 128px; } .splash .wordmark { font-size: 38px; } }
+.no-splash .splash { display: none; }
+/* Mientras el logo está, lo que la app dibuja debajo queda oculto (no se ve a través del fundido); después entra con un
+   fundido corto. Sin pointer-events: none en la app, los toques igual llegan. */
+body > :not(#splash) { transition: opacity var(--dur-3) var(--ease-out); }
+.splash-on body > :not(#splash) { opacity: 0; }
+.splash.out { opacity: 0; }
+.splash.out svg { transform: scale(1.06); }
+@media (prefers-reduced-motion: reduce) { .splash.out svg { transform: none; } }
+
+body.mock-body { margin: 0; background: #888; font-family: system-ui, sans-serif; }
+.mock-head { padding: 20px 16px 8px; color: #fff; }
+.mock-head h1 { font-size: 20px; margin: 0 0 6px; }
+.mock-head p { margin: 0; font-size: 14px; opacity: .9; }
+.mock-grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+@media (min-width: 900px) { .mock-grid { grid-template-columns: 1fr 1fr; } }
+.theme-light, .theme-dark { background: var(--bg); color: var(--text); padding: 16px; box-sizing: border-box; min-width: 0; }
+.mock-sec { margin: 0 0 22px; }
+.mock-sec > h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.mock-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.mock-cap { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+.sw { width: 64px; }
+.sw i { display: block; height: 36px; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--chip-line); }
+.sw span { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; word-break: break-all; }
+.propuesta-off { background: var(--disabled-fill); color: var(--disabled-ink); }
+.mock-body .toasts { position: static; }
+.mock-body .toast { margin-top: 8px; }
+.mock-body .card { margin-bottom: 8px; }
+.mock-body .skeleton { margin-bottom: 8px; }
+.mock-body .segmented { margin: 0; padding: 0; }
+.mock-body .segmented button { padding: 0 12px; min-height: 32px; border-radius: var(--radius-sm); color: var(--muted); background: transparent; }
+.mock-body .switch { width: 44px; height: 26px; }
+.mock-body .switch::after { width: 22px; height: 22px; top: 2px; left: 2px; }
+.mock-body .switch:checked::after { transform: translateX(18px); }
+.mock-body .input { max-width: 320px; }
+.mock-body .toast { position: relative; top: auto; left: auto; right: auto; bottom: auto; transform: none; width: auto; }
+.sw { width: 80px; }
+.sw span { overflow-wrap: anywhere; }
+
+</style>
+</head>
+<body class="mock-body">
+<header class="mock-head">
+  <h1>Página /estilos: claro y oscuro lado a lado</h1>
+  <p>Mock sin conectar a la app. Usa <code>tokens.css</code> y las clases que ya existen. Lo marcado como «propuesta» no está en la app todavía.</p>
+</header>
+<main class="mock-grid">
+  <section class="theme-light">
+  <h2 class="mock-cap" style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 14px">Tema claro</h2>
+
+  <div class="mock-sec">
+    <h2>Colores</h2>
+    <div class="mock-row">
+      <div class="sw"><i style="background:var(--bg)"></i><span>bg</span></div>
+      <div class="sw"><i style="background:var(--surface)"></i><span>surface</span></div>
+      <div class="sw"><i style="background:var(--surface-2)"></i><span>surface-2</span></div>
+      <div class="sw"><i style="background:var(--fill)"></i><span>fill</span></div>
+      <div class="sw"><i style="background:var(--accent)"></i><span>accent</span></div>
+      <div class="sw"><i style="background:var(--live)"></i><span>live</span></div>
+      <div class="sw"><i style="background:var(--red)"></i><span>red</span></div>
+      <div class="sw"><i style="background:var(--disabled-fill)"></i><span>disabled-fill</span></div>
+      <div class="sw"><i style="background:var(--disabled-ink)"></i><span>disabled-ink</span></div>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Botones</h2>
+    <div class="mock-row">
+      <button class="btn btn-primary">Primario</button>
+      <button class="btn btn-tonal">Tonal</button>
+      <button class="btn btn-gray">Gris</button>
+      <button class="btn btn-plain">Simple</button>
+      <button class="btn btn-danger">Eliminar</button>
+    </div>
+    <p class="mock-cap">Deshabilitado hoy (opacity .45, así está en la app)</p>
+    <div class="mock-row">
+      <button class="btn btn-primary" disabled>Primario</button>
+      <button class="btn btn-tonal" disabled>Tonal</button>
+    </div>
+    <p class="mock-cap">Deshabilitado propuesto (tokens disabled-fill y disabled-ink)</p>
+    <div class="mock-row">
+      <button class="btn propuesta-off" disabled>Primario</button>
+      <button class="btn propuesta-off" disabled>Tonal</button>
+    </div>
+    <p class="mock-cap">Foco por teclado (2 px accent, separación 2 px)</p>
+    <div class="mock-row">
+      <button class="btn btn-tonal" style="outline:2px solid var(--accent);outline-offset:2px">Tonal con foco</button>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Chips y segmentado</h2>
+    <div class="mock-row">
+      <button class="chip-btn" aria-pressed="true">Elegido</button>
+      <button class="chip-btn" aria-pressed="false">Sin elegir</button>
+      <button class="chip-btn" aria-pressed="false">Otro</button>
+    </div>
+    <div class="segmented" role="group" aria-label="Ejemplo">
+      <button aria-pressed="true">Hoy</button>
+      <button aria-pressed="false">Mañana</button>
+      <button aria-pressed="false">Esta semana</button>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Campos e interruptores</h2>
+    <input class="input" placeholder="Buscar canal">
+    <div class="mock-row" style="margin-top:10px">
+      <input type="checkbox" class="switch" role="switch" checked aria-label="Activado">
+      <input type="checkbox" class="switch" role="switch" aria-label="Apagado">
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Tarjetas, aviso y carga</h2>
+    <div class="card">
+      <div class="card-title"><div class="card-name">Canal de ejemplo</div><div class="card-sub">Deportes · HD</div></div>
+    </div>
+    <div class="toasts">
+      <div class="toast"><span class="msg">Apagaste Fútbol</span><button class="btn btn-plain">Deshacer</button></div>
+    </div>
+    <div class="skeleton"><div class="bar w60"></div><div class="bar w40"></div><div class="bar block"></div></div>
+    <div class="row-now"><div class="np-bar"><i style="width:60%"></i></div></div>
+  </div>
+</section>
+<section class="theme-dark">
+  <h2 class="mock-cap" style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 14px">Tema oscuro</h2>
+
+  <div class="mock-sec">
+    <h2>Colores</h2>
+    <div class="mock-row">
+      <div class="sw"><i style="background:var(--bg)"></i><span>bg</span></div>
+      <div class="sw"><i style="background:var(--surface)"></i><span>surface</span></div>
+      <div class="sw"><i style="background:var(--surface-2)"></i><span>surface-2</span></div>
+      <div class="sw"><i style="background:var(--fill)"></i><span>fill</span></div>
+      <div class="sw"><i style="background:var(--accent)"></i><span>accent</span></div>
+      <div class="sw"><i style="background:var(--live)"></i><span>live</span></div>
+      <div class="sw"><i style="background:var(--red)"></i><span>red</span></div>
+      <div class="sw"><i style="background:var(--disabled-fill)"></i><span>disabled-fill</span></div>
+      <div class="sw"><i style="background:var(--disabled-ink)"></i><span>disabled-ink</span></div>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Botones</h2>
+    <div class="mock-row">
+      <button class="btn btn-primary">Primario</button>
+      <button class="btn btn-tonal">Tonal</button>
+      <button class="btn btn-gray">Gris</button>
+      <button class="btn btn-plain">Simple</button>
+      <button class="btn btn-danger">Eliminar</button>
+    </div>
+    <p class="mock-cap">Deshabilitado hoy (opacity .45, así está en la app)</p>
+    <div class="mock-row">
+      <button class="btn btn-primary" disabled>Primario</button>
+      <button class="btn btn-tonal" disabled>Tonal</button>
+    </div>
+    <p class="mock-cap">Deshabilitado propuesto (tokens disabled-fill y disabled-ink)</p>
+    <div class="mock-row">
+      <button class="btn propuesta-off" disabled>Primario</button>
+      <button class="btn propuesta-off" disabled>Tonal</button>
+    </div>
+    <p class="mock-cap">Foco por teclado (2 px accent, separación 2 px)</p>
+    <div class="mock-row">
+      <button class="btn btn-tonal" style="outline:2px solid var(--accent);outline-offset:2px">Tonal con foco</button>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Chips y segmentado</h2>
+    <div class="mock-row">
+      <button class="chip-btn" aria-pressed="true">Elegido</button>
+      <button class="chip-btn" aria-pressed="false">Sin elegir</button>
+      <button class="chip-btn" aria-pressed="false">Otro</button>
+    </div>
+    <div class="segmented" role="group" aria-label="Ejemplo">
+      <button aria-pressed="true">Hoy</button>
+      <button aria-pressed="false">Mañana</button>
+      <button aria-pressed="false">Esta semana</button>
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Campos e interruptores</h2>
+    <input class="input" placeholder="Buscar canal">
+    <div class="mock-row" style="margin-top:10px">
+      <input type="checkbox" class="switch" role="switch" checked aria-label="Activado">
+      <input type="checkbox" class="switch" role="switch" aria-label="Apagado">
+    </div>
+  </div>
+
+  <div class="mock-sec">
+    <h2>Tarjetas, aviso y carga</h2>
+    <div class="card">
+      <div class="card-title"><div class="card-name">Canal de ejemplo</div><div class="card-sub">Deportes · HD</div></div>
+    </div>
+    <div class="toasts">
+      <div class="toast"><span class="msg">Apagaste Fútbol</span><button class="btn btn-plain">Deshacer</button></div>
+    </div>
+    <div class="skeleton"><div class="bar w60"></div><div class="bar w40"></div><div class="bar block"></div></div>
+    <div class="row-now"><div class="np-bar"><i style="width:60%"></i></div></div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
