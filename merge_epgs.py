@@ -164,7 +164,7 @@ def merge_epgs(output_path=OUTPUT_PATH):
     """Fusiona las fuentes en merged.xml.gz.
 
     Todo se procesa en streaming y los programas se deduplican en una base SQLite temporal en
-    disco, no en memoria: con ~3 M de programas (iptv-epg.org de EE.UU. sola trae 1,15 M) el
+    disco, no en memoria: con ~3 M de programas (una guía de EE.UU. sola trae 1,15 M) el
     merge en memoria pasaba los 16 GB del runner y la corrida moría sin aviso (28/09/2026).
     El resultado es el mismo que antes: canales ordenados por id y programas por canal y hora.
     """

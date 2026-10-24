@@ -219,7 +219,7 @@ def test_fuente_por_id_del_catalogo(tmp_path):
     """epg_urls.json puede referenciar fuentes del catálogo solo por id: la URL y el país salen
     del catálogo; un id desconocido se ignora sin romper el resto."""
     (tmp_path / 'cat.json').write_text(json.dumps({'sources': [
-        {'id': 'openepg-italy1', 'url': 'https://open-epg.com/files/italy1.xml.gz', 'country': 'it',
+        {'id': 'openepg-italy1', 'url': 'https://ejemplo-fuente.test/files/italy1.xml.gz', 'country': 'it',
          'status': 'fresh'},
     ]}), encoding='utf-8')
     (tmp_path / 'epg_urls.json').write_text(json.dumps({'sources': [
@@ -230,7 +230,7 @@ def test_fuente_por_id_del_catalogo(tmp_path):
     ]}), encoding='utf-8')
     sources = merge_epgs.load_sources(str(tmp_path / 'epg_urls.json'), str(tmp_path / 'cat.json'))
     assert [(s['id'], s['url'], s['country']) for s in sources] == [
-        ('openepg-italy1', 'https://open-epg.com/files/italy1.xml.gz', 'it'),
+        ('openepg-italy1', 'https://ejemplo-fuente.test/files/italy1.xml.gz', 'it'),
         ('propia', 'https://x/propia.xml', 'ar'),
         ('openepg-italy1-override', 'https://otra/url.xml', None),
     ]

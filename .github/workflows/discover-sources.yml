@@ -1,7 +1,6 @@
 name: Discover EPG sources
 
-# Una vez por semana recorre los proveedores públicos de EPG (epgshare01, open-epg,
-# iptv-epg.org y repos sueltos), prueba cada archivo y actualiza el catálogo en
+# Una vez por semana recorre los proveedores públicos de EPG y repos sueltos, prueba cada archivo y actualiza el catálogo en
 # R2 (privado, fuentes/): qué fuentes existen, de qué país son y si están al día (fresh), abandonadas (stale) o
 # caídas (down). epg_urls.json puede referenciar estas fuentes solo por id.
 on:
