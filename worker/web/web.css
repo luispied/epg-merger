@@ -521,7 +521,7 @@ html:root .logo:not(.has-img) { background: transparent; }
 .cat-head:first-child { border-top: 0; }
 .cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* En la lista de filas el encabezado va en su lugar (no pegado): el que queda arriba lo muestra .pin (canales.tsx). */
-.cards.rows .cat-head { position: relative; height: 36px; box-sizing: border-box; }
+.cards.rows .cat-head { position: relative; top: auto; height: 36px; box-sizing: border-box; }
 .cards.rows .cat-head.pin { position: fixed; top: calc(var(--toolbar-h, 0px) + env(safe-area-inset-top, 0px)); pointer-events: none; }
 body.selecting .row-in { padding-left: 12px; }
 
