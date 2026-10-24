@@ -237,3 +237,34 @@ test('el modo ver no tiene avisos por gusto', async ({ page }) => {
   await expect(sheet.getByRole('button', { name: /No avisarme/ })).toHaveCount(0);
   expect(posts).toEqual([]);
 });
+
+test('Configuración tiene «Avisos por gusto»: con varios perfiles lleva a Perfil, y apagar un género se deshace', async ({ page }, info) => {
+  tastes.p1.on = true;
+  await page.goto('/');
+  await expect(page.locator('#cards .card')).toHaveCount(1);
+  await page.locator('#settingsBtn').click();
+  const cfgSheet = page.locator('#settingsDialog');
+  const row = cfgSheet.getByRole('button', { name: /Avisos por gusto/ });
+  await expect(row).toContainText('Se prenden en cada perfil');
+  await shots(page, '4-configuracion', info.project.name);
+  await row.click();
+  await expect(page.locator('#linksTitle')).toHaveText('Perfiles');
+  await expect(cfgSheet).not.toBeVisible();
+});
+
+test('con un solo perfil, la fila de Configuración abre su hoja, y apagar un género se deshace', async ({ page }) => {
+  await page.route('**/api/cfg/demo/devices', (r) => r.fulfill({ json: { devices: [], profiles: [{ id: 'p1', name: 'Luis' }], mainName: 'Luis' } }));
+  tastes.p1.on = true;
+  await page.goto('/');
+  await expect(page.locator('#cards .card')).toHaveCount(1);
+  await page.locator('#settingsBtn').click();
+  await page.locator('#settingsDialog').getByRole('button', { name: /Avisos por gusto/ }).click();
+  const doc = sheet(page).getByRole('button', { name: 'Documental', exact: true });
+  await expect(doc).toHaveAttribute('aria-pressed', 'true');
+  await doc.click();
+  await expect(doc).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.toast')).toContainText('no te aviso más de documentales');
+  await page.locator('.toast').getByRole('button', { name: 'Deshacer' }).click();
+  await expect(doc).toHaveAttribute('aria-pressed', 'true');
+  expect(posts.filter((b) => b.genre === 'Documental').map((b) => b.genreOn)).toEqual([false, true]);
+});
