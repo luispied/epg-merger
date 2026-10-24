@@ -5,7 +5,7 @@
 //
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { render } from 'preact';
-import { useLayoutEffect, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import {
   eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, PAGE, qualityTitle, render as renderAll, sectionTitle,
@@ -17,44 +17,170 @@ import { Progress, Skeleton } from './kit.tsx';
 
 const box = () => document.getElementById('cards')!;
 
-let seq = 0;
 let lastList: number[] = [];
 
-/** Dibuja la lista de cero (como antes el innerHTML): las primeras `state.shown` filas de `list`. */
+/** Dibuja la lista: las primeras `state.shown` filas de `list`. Es la misma instancia de Preact en cada dibujo (sin
+ *  `key` que cambie): lo que ya está en pantalla no se vuelve a crear, y las alturas medidas se conservan. */
 export function renderCards(list: number[]) {
   lastList = list;
-  render(<Cards key={++seq} list={list} shown={state.shown} />, box());
+  render(<Cards list={list} shown={state.shown} />, box());
 }
 
-/** Vuelve a dibujar las mismas filas, por ejemplo al elegir una en el modo selección o al sumar las siguientes al bajar:
- *  las que ya estaban no se tocan. */
+/** Vuelve a dibujar las mismas filas, por ejemplo al elegir una en el modo selección o al sumar las siguientes al bajar. */
 export function refreshCards() {
-  render(<Cards key={seq} list={lastList} shown={state.shown} />, box());
+  render(<Cards list={lastList} shown={state.shown} />, box());
 }
 
 /** Mientras se abre la configuración. */
 export function renderSkeleton() {
   lastList = [];
-  render(<Skeleton key={++seq} />, box());
+  render(<Skeleton />, box());
 }
 
-/** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la lista es plana. */
-function Cards({ list, shown }: { list: number[]; shown: number }) {
-  if (!list.length) return <Empty />;
-  const headers = !state.search.trim();
+/** Lo que se dibuja, en orden: un encabezado de categoría cada vez que cambia (con búsqueda la lista es plana) y las filas. */
+interface Item { key: string; i: number; head?: { g: string; n: number } }
+
+function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
   const counts = new Map<string, number>();
   if (headers) for (const i of list) if (!info(state.channels[i]).divider) counts.set(groupOf(state.channels[i]), (counts.get(groupOf(state.channels[i])) ?? 0) + 1);
-  const out = [];
+  const out: Item[] = [];
   for (let k = 0; k < Math.min(shown, list.length); k++) {
     const ch = state.channels[list[k]];
     if (headers && !info(ch).divider) {
       const g = groupOf(ch);
       const prev = k > 0 ? state.channels[list[k - 1]] : null;
-      if (!prev || info(prev).divider || groupOf(prev) !== g) {
-        out.push(<div key={`h${k}`} class="cat-head" role="heading" aria-level={3}><span>{groupLabel(g)}</span><small>{counts.get(g) ?? 0}</small></div>);
-      }
+      if (!prev || info(prev).divider || groupOf(prev) !== g) out.push({ key: `h${k}`, i: -1, head: { g, n: counts.get(g) ?? 0 } });
     }
-    out.push(<Card key={list[k]} i={list[k]} />);
+    out.push({ key: `c${list[k]}`, i: list[k] });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ virtualización (vista de filas)
+// Solo se pintan las filas que entran en pantalla, con un margen. Lo demás es un hueco de la altura que tendría (como en
+// la Guía). Las alturas se miden al pintar y se recuerdan por fila; lo que todavía no se vio usa una estimación.
+
+/** Margen en px arriba y abajo de la pantalla, para que al bajar rápido no aparezca un hueco. */
+const OVERSCAN = 600;
+/** Altura antes de medir: una fila o un encabezado de categoría. */
+const EST = { row: 61, head: 34 };
+/** Alturas medidas, por clave de fila, para el modo y el ancho actuales (si cambian, se miden de nuevo). */
+let heights = new Map<string, number>();
+let heightsSig = '';
+
+/** `offs[k]` es la altura de todo lo que está antes de `items[k]`; `offs[n]` es el total. */
+function offsetsOf(items: Item[]): number[] {
+  const offs = new Array<number>(items.length + 1);
+  let y = 0;
+  items.forEach((it, k) => {
+    offs[k] = y;
+    y += heights.get(it.key) ?? (it.head ? EST.head : EST.row);
+  });
+  offs[items.length] = y;
+  return offs;
+}
+
+/** Los ítems que entran en pantalla (con el margen): del primero visible (`a`) hasta `b` sin incluir. */
+function windowOf(items: Item[], offs: number[]): [number, number] {
+  const n = items.length;
+  const top = box().getBoundingClientRect().top + window.scrollY; // dónde empieza la lista en el documento
+  const vt = window.scrollY - top;
+  const vb = vt + window.innerHeight;
+  let a = 0;
+  while (a < n - 1 && offs[a + 1] <= vt - OVERSCAN) a++;
+  let b = a + 1;
+  while (b < n && offs[b] < vb + OVERSCAN) b++;
+  return [a, b];
+}
+
+/** Mide las filas pintadas. Devuelve true si alguna altura cambió (hay que volver a calcular los huecos). */
+function measure(): boolean {
+  let changed = false;
+  for (const el of Array.from(box().children) as HTMLElement[]) {
+    const key = el.dataset.i ? `c${el.dataset.i}` : el.dataset.k;
+    if (!key) continue;
+    const h = el.getBoundingClientRect().height;
+    if (h && heights.get(key) !== h) {
+      heights.set(key, h);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+const sameRange = (x: [number, number], y: [number, number]) => x[0] === y[0] && x[1] === y[1];
+
+/** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la lista es plana. */
+function Cards({ list, shown }: { list: number[]; shown: number }) {
+  const mode = viewMode();
+  const windowed = mode !== 'grid'; // la vista de logos es una cuadrícula: se pinta entera, como antes
+  const headers = !state.search.trim();
+  const sig = `${mode}|${window.innerWidth}`;
+  if (sig !== heightsSig) {
+    heights = new Map();
+    heightsSig = sig;
+  }
+  const items = list.length ? itemsOf(list, shown, headers) : [];
+  const [win, setWin] = useState<[number, number]>([0, 40]);
+  const [, bump] = useState(0);
+  const latest = useRef({ items, windowed });
+  latest.current = { items, windowed };
+
+  // Al cambiar algo se calcula qué se ve, antes de pintar: no se ve el hueco.
+  useLayoutEffect(() => {
+    const v = latest.current;
+    if (!v.windowed || !v.items.length) return;
+    const changed = measure();
+    const next = windowOf(v.items, offsetsOf(v.items));
+    if (changed) bump((x) => x + 1);
+    setWin((prev) => (sameRange(prev, next) ? prev : next));
+  });
+
+  // Al bajar (o subir), se recalcula como mucho una vez por cuadro.
+  useEffect(() => {
+    let frame = 0;
+    const sync = () => {
+      frame = 0;
+      const v = latest.current;
+      if (!v.windowed || !v.items.length) return;
+      const next = windowOf(v.items, offsetsOf(v.items));
+      setWin((prev) => (sameRange(prev, next) ? prev : next));
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(sync); };
+    const onResize = () => bump((x) => x + 1);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  if (!list.length) return <Empty />;
+  const n = items.length;
+  const a = windowed ? Math.max(0, Math.min(win[0], n - 1)) : 0;
+  const b = windowed ? Math.min(Math.max(win[1], a + 1), n) : n;
+  const offs = windowed ? offsetsOf(items) : [];
+  // El encabezado de la categoría de la primera fila visible se queda pegado arriba, como sin virtualizar: se pinta
+  // aunque su categoría empiece antes del rango. Los huecos mantienen la altura de lo que no se pinta.
+  let stuck = -1;
+  if (windowed && headers) for (let h = a; h >= 0; h--) if (items[h].head) { stuck = h; break; }
+  const row = (it: Item) => (it.head
+    ? <div key={it.key} class="cat-head" data-k={it.key} role="heading" aria-level={3}><span>{groupLabel(it.head.g)}</span><small>{it.head.n}</small></div>
+    : <Card key={it.key} i={it.i} />);
+  const gap = (key: string, px: number) => (px > 0 ? <div key={key} class="cards-gap" aria-hidden="true" style={{ height: `${px}px` }} /> : null);
+  const out = [];
+  if (!windowed) for (const it of items) out.push(row(it));
+  else {
+    const from = stuck >= 0 ? stuck : a;
+    out.push(gap('top', offs[from]));
+    if (stuck >= 0 && stuck < a) {
+      out.push(row(items[stuck]));
+      out.push(gap('mid', offs[a] - offs[stuck + 1]));
+    }
+    for (let k = a; k < b; k++) out.push(row(items[k]));
+    out.push(gap('bottom', offs[n] - offs[b]));
   }
   return <>{out}</>;
 }
