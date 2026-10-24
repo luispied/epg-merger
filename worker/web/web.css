@@ -763,8 +763,9 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
   html:has(dialog.docked[open]) { overflow: auto; }
 }
 
-/* Listas largas: lo que no se ve no se pinta (10 000 canales). */
-.cards.rows .card.row-card { content-visibility: auto; contain-intrinsic-size: auto 60px; }
+/* Vista de filas: la lista se virtualiza en canales.tsx (solo se pintan las que se ven). */
+/* Vista de logos: lo que no se ve no se pinta. */
+.cards.rows.grid .card.row-card { content-visibility: auto; }
 
 /* Vista de logos: cuadrícula de tarjetas con el logo grande (2 columnas en el celular). */
 .cards.rows.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }

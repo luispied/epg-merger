@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.3
+
+- Interno: la lista de Canales pinta solo las filas que entran en pantalla (como la Guía). Al editar u ocultar un canal ya no se vuelven a crear todas, así que al bajar no se traba. Se ve igual.
+
 ## 1.58.2
 
 - Interno: se fija `undici` en 7.30.1 para cerrar una alerta de seguridad de una dependencia de desarrollo (`wrangler`). Nada cambia en la app.
