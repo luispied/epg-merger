@@ -63,10 +63,13 @@ test('el encabezado de la categoría queda pegado al bajar por el medio de un gr
   await loadAll(page);
   await scrollToRow(page, 'Extra 175');
   await expect(row(page, 'Extra 175')).toBeVisible();
-  const head = cards(page).locator('.cat-head', { hasText: 'Grupo 3' });
-  await expect(head).toHaveCount(1);
-  const box = await head.boundingBox();
-  expect(box!.y).toBeLessThan(200);
+  // El encabezado que queda arriba es uno solo, fijo bajo la barra, y es el de «Grupo 3».
+  const pin = page.locator('#cards .cat-head.pin');
+  await expect(pin).toHaveCount(1);
+  await expect(pin).toContainText('Grupo 3');
+  const box = await pin.boundingBox();
+  const bar = await page.locator('.toolbar').boundingBox();
+  expect(Math.abs(box!.y - bar!.y - bar!.height)).toBeLessThan(4);
 });
 
 test('ocultar una fila que se ve: la de abajo sube a su lugar y la lista sigue pintando poco', async ({ page }) => {

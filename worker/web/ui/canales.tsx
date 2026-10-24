@@ -63,7 +63,7 @@ function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
 /** Margen en px arriba y abajo de la pantalla, para que al bajar rápido no aparezca un hueco. */
 const OVERSCAN = 600;
 /** Altura antes de medir: una fila o un encabezado de categoría. */
-const EST = { row: 61, head: 34 };
+const EST = { row: 61, head: 36 };
 /** Alturas medidas, por clave de fila, para el modo y el ancho actuales (si cambian, se miden de nuevo). */
 let heights = new Map<string, number>();
 let heightsSig = '';
@@ -110,6 +110,28 @@ function measure(): boolean {
 
 const sameRange = (x: [number, number], y: [number, number]) => x[0] === y[0] && x[1] === y[1];
 
+/** El encabezado de la categoría que ya pasó por arriba, fijo bajo la barra. Lo empuja el siguiente al llegar (`shift`).
+ *  No es un encabezado de la lista: así la lista no tiene dos encabezados pegados a la vez, que es lo que hacía el salto. */
+interface Pin { g: string; n: number; shift: number; left: number; width: number }
+function pinOf(items: Item[], offs: number[]): Pin | null {
+  const r = box().getBoundingClientRect();
+  const vt = -r.top; // cuánto de la lista ya pasó por arriba
+  let h = -1;
+  let next = -1;
+  for (let k = 0; k < items.length; k++) {
+    if (!items[k].head) continue;
+    if (offs[k] < vt) h = k;
+    else {
+      next = k;
+      break;
+    }
+  }
+  if (h < 0) return null;
+  const shift = next >= 0 ? Math.min(0, offs[next] - vt - EST.head) : 0;
+  return { g: items[h].head!.g, n: items[h].head!.n, shift, left: r.left, width: r.width };
+}
+const samePin = (x: Pin | null, y: Pin | null) => JSON.stringify(x) === JSON.stringify(y);
+
 /** Filas con un encabezado de categoría (fijo al bajar) cada vez que cambia. Con búsqueda la lista es plana. */
 function Cards({ list, shown }: { list: number[]; shown: number }) {
   const mode = viewMode();
@@ -123,17 +145,24 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
   const items = list.length ? itemsOf(list, shown, headers) : [];
   const [win, setWin] = useState<[number, number]>([0, 40]);
   const [, bump] = useState(0);
+  const [pin, setPin] = useState<Pin | null>(null);
   const latest = useRef({ items, windowed });
   latest.current = { items, windowed };
 
   // Al cambiar algo se calcula qué se ve, antes de pintar: no se ve el hueco.
   useLayoutEffect(() => {
     const v = latest.current;
-    if (!v.windowed || !v.items.length) return;
+    if (!v.windowed || !v.items.length) {
+      setPin(null);
+      return;
+    }
     const changed = measure();
-    const next = windowOf(v.items, offsetsOf(v.items));
+    const offs = offsetsOf(v.items);
+    const next = windowOf(v.items, offs);
     if (changed) bump((x) => x + 1);
     setWin((prev) => (sameRange(prev, next) ? prev : next));
+    const nextPin = pinOf(v.items, offs);
+    setPin((prev) => (samePin(prev, nextPin) ? prev : nextPin));
   });
 
   // Al bajar (o subir), se recalcula como mucho una vez por cuadro.
@@ -143,8 +172,11 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
       frame = 0;
       const v = latest.current;
       if (!v.windowed || !v.items.length) return;
-      const next = windowOf(v.items, offsetsOf(v.items));
+      const offs = offsetsOf(v.items);
+      const next = windowOf(v.items, offs);
       setWin((prev) => (sameRange(prev, next) ? prev : next));
+      const nextPin = pinOf(v.items, offs);
+      setPin((prev) => (samePin(prev, nextPin) ? prev : nextPin));
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(sync); };
     const onResize = () => bump((x) => x + 1);
@@ -162,10 +194,6 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
   const a = windowed ? Math.max(0, Math.min(win[0], n - 1)) : 0;
   const b = windowed ? Math.min(Math.max(win[1], a + 1), n) : n;
   const offs = windowed ? offsetsOf(items) : [];
-  // El encabezado de la categoría de la primera fila visible se queda pegado arriba, como sin virtualizar: se pinta
-  // aunque su categoría empiece antes del rango. Los huecos mantienen la altura de lo que no se pinta.
-  let stuck = -1;
-  if (windowed && headers) for (let h = a; h >= 0; h--) if (items[h].head) { stuck = h; break; }
   const row = (it: Item) => (it.head
     ? <div key={it.key} class="cat-head" data-k={it.key} role="heading" aria-level={3}><span>{groupLabel(it.head.g)}</span><small>{it.head.n}</small></div>
     : <Card key={it.key} i={it.i} />);
@@ -173,14 +201,13 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
   const out = [];
   if (!windowed) for (const it of items) out.push(row(it));
   else {
-    const from = stuck >= 0 ? stuck : a;
-    out.push(gap('top', offs[from]));
-    if (stuck >= 0 && stuck < a) {
-      out.push(row(items[stuck]));
-      out.push(gap('mid', offs[a] - offs[stuck + 1]));
-    }
+    out.push(gap('top', offs[a]));
     for (let k = a; k < b; k++) out.push(row(items[k]));
     out.push(gap('bottom', offs[n] - offs[b]));
+  }
+  // Al final, para no cambiar cuál es la primera fila (la que no tiene borde arriba).
+  if (windowed && pin) {
+    out.push(<div key="pin" class="cat-head pin" aria-hidden="true" style={{ left: `${pin.left}px`, width: `${pin.width}px`, transform: `translateY(${pin.shift}px)` }}><span>{groupLabel(pin.g)}</span><small>{pin.n}</small></div>);
   }
   return <>{out}</>;
 }

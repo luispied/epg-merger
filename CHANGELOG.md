@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.4
+
+- Interno: al bajar por la lista de Canales, el encabezado de la categoría que queda arriba lo muestra una capa fija bajo la barra (la empuja el siguiente, como antes). Así no aparecen dos encabezados pegados a la vez al subir. Se ve igual.
+
 ## 1.58.3
 
 - Interno: la lista de Canales pinta solo las filas que entran en pantalla (como la Guía). Al editar u ocultar un canal ya no se vuelven a crear todas, así que al bajar no se traba. Se ve igual.
