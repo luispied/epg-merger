@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.1
+
+- Interno: la guía del diseño (`docs/diseno.md`) describe los tokens, los estados de los controles y los componentes que ya existen. Los tokens del control deshabilitado quedan listos; nada se ve distinto.
+
 ## 1.58.0
 
 - **Avisos por gusto en Configuración.** Nueva fila «Avisos por gusto» en Configuración, debajo de «Avisos». Con un solo perfil abre su hoja (géneros, cuándo y últimos avisos); con más de uno, lleva a Perfil, donde cada uno tiene la suya. Apagar un género en la hoja se puede deshacer al momento con **Deshacer**.
