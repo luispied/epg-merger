@@ -13,7 +13,7 @@ import {
 } from '../app.ts';
 import { Logo, RowNow } from './epg.tsx';
 import { Icon } from './icon.tsx';
-import { Progress, Skeleton } from './kit.tsx';
+import { Progress, Skeleton, rangeOf } from './kit.tsx';
 
 const box = () => document.getElementById('cards')!;
 
@@ -38,7 +38,7 @@ export function renderSkeleton() {
 }
 
 /** Lo que se dibuja, en orden: un encabezado de categoría cada vez que cambia (con búsqueda la lista es plana) y las filas. */
-interface Item { key: string; i: number; head?: { g: string; n: number } }
+interface Item { key: string; i: number; h: number; head?: { g: string; n: number } }
 
 function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
   const counts = new Map<string, number>();
@@ -49,63 +49,49 @@ function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
     if (headers && !info(ch).divider) {
       const g = groupOf(ch);
       const prev = k > 0 ? state.channels[list[k - 1]] : null;
-      if (!prev || info(prev).divider || groupOf(prev) !== g) out.push({ key: `h${k}`, i: -1, head: { g, n: counts.get(g) ?? 0 } });
+      if (!prev || info(prev).divider || groupOf(prev) !== g) out.push({ key: `h${k}`, i: -1, h: HEAD_H, head: { g, n: counts.get(g) ?? 0 } });
     }
-    out.push({ key: `c${list[k]}`, i: list[k] });
+    out.push({ key: `c${list[k]}`, i: list[k], h: rowHeight(!!info(ch).divider) });
   }
   return out;
 }
 
 // ------------------------------------------------------------------ virtualización (vista de filas)
-// Solo se pintan las filas que entran en pantalla, con un margen. Lo demás es un hueco de la altura que tendría (como en
-// la Guía). Las alturas se miden al pintar y se recuerdan por fila; lo que todavía no se vio usa una estimación.
+// Como en la Guía: cada fila tiene una altura fija (la de su modo), así que se sabe dónde queda sin medirla. Solo se
+// pintan las que entran en pantalla, con un margen; lo demás son huecos de la altura que tendrían.
 
+/** Altura fija en px de cada fila según el modo. La fila la fija en su estilo (ver `fixedStyle`). */
+const ROW_H = { compact: 60, detail: 76, section: 56 };
+const HEAD_H = 36;
 /** Margen en px arriba y abajo de la pantalla, para que al bajar rápido no aparezca un hueco. */
 const OVERSCAN = 600;
-/** Altura antes de medir: una fila o un encabezado de categoría. */
-const EST = { row: 61, head: 36 };
-/** Alturas medidas, por clave de fila, para el modo y el ancho actuales (si cambian, se miden de nuevo). */
-let heights = new Map<string, number>();
-let heightsSig = '';
 
-/** `offs[k]` es la altura de todo lo que está antes de `items[k]`; `offs[n]` es el total. */
+/** Altura de una fila de canal o de un separador de sección, en el modo actual. */
+function rowHeight(divider: boolean): number {
+  if (divider) return ROW_H.section;
+  return viewMode() === 'detail' ? ROW_H.detail : ROW_H.compact;
+}
+
+/** Altura fija de la fila en la lista (no en la vista de logos, que es una cuadrícula). */
+const fixedStyle = (divider: boolean) => (viewMode() === 'grid' ? undefined : { height: `${rowHeight(divider)}px` });
+
+/** `offs[k]` es la altura de todo lo que está antes de `items[k]`; `offs[items.length]` es el total. */
 function offsetsOf(items: Item[]): number[] {
   const offs = new Array<number>(items.length + 1);
   let y = 0;
   items.forEach((it, k) => {
     offs[k] = y;
-    y += heights.get(it.key) ?? (it.head ? EST.head : EST.row);
+    y += it.h;
   });
   offs[items.length] = y;
   return offs;
 }
 
 /** Los ítems que entran en pantalla (con el margen): del primero visible (`a`) hasta `b` sin incluir. */
-function windowOf(items: Item[], offs: number[]): [number, number] {
-  const n = items.length;
+function windowOf(offs: number[]): [number, number] {
   const top = box().getBoundingClientRect().top + window.scrollY; // dónde empieza la lista en el documento
   const vt = window.scrollY - top;
-  const vb = vt + window.innerHeight;
-  let a = 0;
-  while (a < n - 1 && offs[a + 1] <= vt - OVERSCAN) a++;
-  let b = a + 1;
-  while (b < n && offs[b] < vb + OVERSCAN) b++;
-  return [a, b];
-}
-
-/** Mide las filas pintadas. Devuelve true si alguna altura cambió (hay que volver a calcular los huecos). */
-function measure(): boolean {
-  let changed = false;
-  for (const el of Array.from(box().children) as HTMLElement[]) {
-    const key = el.dataset.i ? `c${el.dataset.i}` : el.dataset.k;
-    if (!key) continue;
-    const h = el.getBoundingClientRect().height;
-    if (h && heights.get(key) !== h) {
-      heights.set(key, h);
-      changed = true;
-    }
-  }
-  return changed;
+  return rangeOf(offs, vt, vt + window.innerHeight, OVERSCAN);
 }
 
 const sameRange = (x: [number, number], y: [number, number]) => x[0] === y[0] && x[1] === y[1];
@@ -127,7 +113,7 @@ function pinOf(items: Item[], offs: number[]): Pin | null {
     }
   }
   if (h < 0) return null;
-  const shift = next >= 0 ? Math.min(0, offs[next] - vt - EST.head) : 0;
+  const shift = next >= 0 ? Math.min(0, offs[next] - vt - HEAD_H) : 0;
   return { g: items[h].head!.g, n: items[h].head!.n, shift, left: r.left, width: r.width };
 }
 const samePin = (x: Pin | null, y: Pin | null) => JSON.stringify(x) === JSON.stringify(y);
@@ -137,11 +123,6 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
   const mode = viewMode();
   const windowed = mode !== 'grid'; // la vista de logos es una cuadrícula: se pinta entera, como antes
   const headers = !state.search.trim();
-  const sig = `${mode}|${window.innerWidth}`;
-  if (sig !== heightsSig) {
-    heights = new Map();
-    heightsSig = sig;
-  }
   const items = list.length ? itemsOf(list, shown, headers) : [];
   const [win, setWin] = useState<[number, number]>([0, 40]);
   const [, bump] = useState(0);
@@ -156,10 +137,8 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
       setPin(null);
       return;
     }
-    const changed = measure();
     const offs = offsetsOf(v.items);
-    const next = windowOf(v.items, offs);
-    if (changed) bump((x) => x + 1);
+    const next = windowOf(offs);
     setWin((prev) => (sameRange(prev, next) ? prev : next));
     const nextPin = pinOf(v.items, offs);
     setPin((prev) => (samePin(prev, nextPin) ? prev : nextPin));
@@ -173,7 +152,7 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
       const v = latest.current;
       if (!v.windowed || !v.items.length) return;
       const offs = offsetsOf(v.items);
-      const next = windowOf(v.items, offs);
+      const next = windowOf(offs);
       setWin((prev) => (sameRange(prev, next) ? prev : next));
       const nextPin = pinOf(v.items, offs);
       setPin((prev) => (samePin(prev, nextPin) ? prev : nextPin));
@@ -235,7 +214,7 @@ function Card({ i }: { i: number }) {
   if (divider) {
     const title = sectionTitle(groupLabel(groupOf(ch)));
     return (
-      <article class={`card section-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={`Separador ${title}`}>
+      <article class={`card section-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={`Separador ${title}`} style={fixedStyle(true)}>
         {selBox}
         <div class="card-title"><div class="section-name">{title}</div>
           <div class="card-sub"><span>Separador de sección{shown !== groupOf(ch) && shown !== groupLabel(groupOf(ch)) ? ` · ${shown}` : ''}</span>
@@ -261,7 +240,7 @@ function Card({ i }: { i: number }) {
   }
   const label = `${shown}${q ? `, ${q.label}` : ''}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
   return (
-    <article class={`card row-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={label}>
+    <article class={`card row-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
       <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r"><Icon name="ban" />Sin guía</span><span class="sw sw-l"><Icon name={hidden ? 'eye' : 'eye-off'} />{hidden ? 'Mostrar' : 'Ocultar'}</span></span>
       <div class="row-in">
         {selBox}

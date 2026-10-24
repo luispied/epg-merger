@@ -488,6 +488,9 @@ body { overflow-anchor: none; }
 .cards.rows .card.row-card.selected .row-in { background: var(--accent-soft); }
 .cards.rows .card.row-card.is-hidden .row-in > * { opacity: .5; }
 .cards.rows .card.row-card.is-hidden { opacity: 1; }
+/* Altura fija (ver ROW_H en canales.tsx): el borde de arriba cuenta dentro de la altura, como en la Guía. */
+.cards.rows .card.row-card, .cards.rows .card.section-card { box-sizing: border-box; overflow: hidden; }
+.cards.rows .card.row-card > .row-in { height: 100%; min-height: 0; box-sizing: border-box; }
 /* Lo que se descubre al deslizar */
 .swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--fill); color: var(--muted); font-size: 13px; font-weight: 600; visibility: hidden; }
 .card.row-card[data-sw] .swipe-bg { visibility: visible; }

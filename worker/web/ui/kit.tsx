@@ -47,3 +47,14 @@ export function Skeleton({ rows: fixed }: { rows?: number } = {}) {
     </>
   );
 }
+
+/** Ítems que se ven en la franja [vt, vb), con `margin` px de más arriba y abajo. `offs[k]` es el comienzo del ítem `k` y
+ *  `offs[n]` el total: devuelve [a, b), sin incluir b. Lo usan la Guía y la lista de Canales (alturas fijas, sin medir). */
+export function rangeOf(offs: number[], vt: number, vb: number, margin: number): [number, number] {
+  const n = offs.length - 1;
+  let a = 0;
+  while (a < n - 1 && offs[a + 1] <= vt - margin) a++;
+  let b = a + 1;
+  while (b < n && offs[b] < vb + margin) b++;
+  return [a, b];
+}
