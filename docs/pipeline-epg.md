@@ -38,7 +38,7 @@ todas las fuentes gratuitas que encuentra, con su país y su estado:
 - **epgshare01:** lee el índice completo del directorio.
 - **open-epg:** prueba `<país>`, `<país>1`, `<país>2`… para cada país conocido; open-epg
   responde 200 vacío cuando un archivo no existe, así que se mira que venga contenido.
-- **iptv-epg.org:** prueba `epg-<código>.xml.gz` por país.
+- **Otro proveedor por país:** prueba `epg-<código>.xml.gz` por país.
 - **Repos sueltos** ya conocidos (acidjesuz, davidmuma, programadorx y algunos abandonados, para
   notar si reviven).
 

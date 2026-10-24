@@ -52,7 +52,7 @@ Resultado buscado:
 - `tools/discover_epg_sources.py`, que automatiza lo que hice a mano esta semana:
   - lee el índice de epgshare01 (~100 archivos);
   - prueba los nombres de open-epg por país (`<pais>`, `<pais>1..N`, con redirect a `www`);
-  - prueba iptv-epg.org (`epg-<cc>.xml.gz`) y una lista curada de repos (acidjesuz, davidmuma, programadorx…);
+  - prueba un segundo proveedor por país (`epg-<cc>.xml.gz`) y una lista curada de repos;
   - baja cada una, cuenta canales y marca `stale` si no tiene programación en las próximas 24 h. Así se descartan solas las abandonadas, como globetvapp o XML-EPG-LAT.
 - Workflow semanal `discover-sources.yml` que actualiza el catálogo en la branch `data`.
 - `epg_urls.json` pasa a ser **la selección del usuario**: referencias a ids del catálogo, más URLs propias y `active` / `inactive_reason` (ya existe). `load_sources` resuelve los ids contra el catálogo y el formato actual sigue funcionando.

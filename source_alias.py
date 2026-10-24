@@ -95,7 +95,7 @@ def shard(key, kind):
 
 
 def _site(host):
-    """'images.open-epg.com' -> 'open-epg.com' (alcanza para las fuentes que usamos)."""
+    """'imagenes.ejemplo.com' -> 'ejemplo.com' (alcanza para las fuentes que usamos)."""
     return '.'.join(host.lower().split('.')[-2:])
 
 
