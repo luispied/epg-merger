@@ -6,7 +6,7 @@ import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ActiveFilters, FilterToggle, type FilterHandlers, type FilterModel } from './filtros.tsx';
 import { Icon } from './icon.tsx';
-import { Progress } from './kit.tsx';
+import { Progress, rangeOf } from './kit.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
 import { type Affinity, habitAffinity, type Habits, NEVER_SUGGEST, normTitle, planScore } from '../../../core/src/taste.ts';
@@ -388,8 +388,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
       out.push({ top, ch });
       top += ROWH;
     }
-    return { out, height: top };
+    return { out, height: top, offs: [...out.map((r) => r.top), top] };
   }, [gridShown, sel, ROWH]);
+  // Solo se pintan las filas que entran en pantalla, con 300 px de margen (ver rangeOf en kit.tsx).
+  const [ra, rb] = useMemo(() => rangeOf(rows.offs, view.y, view.y + view.h, 300), [rows, view.y, view.h]);
 
   // Programas de un canal en el rango, desde las horas ya bajadas; los huecos de 10 min o más
   // dentro de horas bajadas se marcan («Sin programación»): así se ven las guías flojas.
@@ -445,8 +447,6 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
     );
   }
 
-  const top0 = view.y - 300;
-  const bottom = view.y + view.h + 300;
   const lx = view.x; // borde izquierdo visible de la franja (después de la columna de canales)
 
   const cell = (ch: GuideChannel, p: Prog) => {
@@ -552,7 +552,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
               {now >= t0 && now < t1 && <span class="gd-now-pill" style={{ left: `${x(now)}px` }}>{hm(now)}</span>}
             </div>
           </div>
-          {rows.out.filter((r) => r.top + ROWH > top0 && r.top < bottom).map((r) => ('cat' in r
+          {rows.out.slice(ra, rb).map((r) => ('cat' in r
             ? <div key={`c:${r.cat}`} class="gd-cat" style={{ top: `${RULER + r.top}px`, width: `${CHW + W}px` }}><span>{r.cat}</span></div>
             : (
               <div key={r.ch.i} class="gd-row" style={{ top: `${RULER + r.top}px`, width: `${CHW + W}px` }}>
