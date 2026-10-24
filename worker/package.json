@@ -1,6 +1,6 @@
 {
   "name": "grilla-worker",
-  "version": "1.58.1",
+  "version": "1.58.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,5 +19,8 @@
   },
   "dependencies": {
     "preact": "10.29.8"
+  },
+  "overrides": {
+    "undici": "^7.30.1"
   }
 }

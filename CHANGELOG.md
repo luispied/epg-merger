@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.2
+
+- Interno: se fija `undici` en 7.30.1 para cerrar una alerta de seguridad de una dependencia de desarrollo (`wrangler`). Nada cambia en la app.
+
 ## 1.58.1
 
 - Interno: la guía del diseño (`docs/diseno.md`) describe los tokens, los estados de los controles y los componentes que ya existen. Los tokens del control deshabilitado quedan listos; nada se ve distinto.
