@@ -15,6 +15,10 @@ nombres de código.
 
 - **Barra de abajo de vidrio.** La cápsula de abajo es ahora un vidrio translúcido, desenfocado, con borde y brillo de arriba. Se ve lo que pasa por detrás. Igual en la edición y en el modo ver.
 
+## 1.58.7
+
+- **Configuración, también desde Perfil.** Al final de Perfil hay una fila nueva, «Configuración», debajo de «Usar en otro dispositivo». Lleva a los mismos ajustes que el engranaje de Canales, que sigue igual.
+
 ## 1.58.6
 
 - Interno: la lista de Canales ubica cada fila con una altura fija, como la Guía, en vez de medirla al pintar. Así el encabezado de categoría ya no salta al subir. Se ve igual. La Guía y Canales comparten el cálculo de qué filas se pintan.
