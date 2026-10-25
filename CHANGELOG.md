@@ -13,7 +13,7 @@ nombres de código.
 
 ## 1.58.14
 
-- **Perfil con jerarquía clara.** «Agregar proveedor» queda arriba, como acción de todo. Cada proveedor va debajo, con su nombre en mayúsculas y sus cuentas. «Agregar cuenta» pasó a ir dentro de su proveedor, con la misma sangría que «Agregar perfil», así se ve que es del nivel de abajo.
+- **Perfil con jerarquía clara.** «Agregar proveedor» queda arriba, como acción de todo. Cada proveedor va debajo, con su nombre en mayúsculas y sus cuentas. «Agregar cuenta» pasó a ir dentro de su proveedor, como fila suelta con la misma sangría que «Agregar perfil», así se ve que es del nivel de abajo.
 - **Configuración sin «Usar en otro dispositivo».** Esa opción vive solo en Perfil, en la sección «Dispositivos».
 
 ## 1.58.13

@@ -296,7 +296,7 @@ function ProfileList() {
         </div>
       ))}
       {xtream ? (
-        <div class="menu">
+        <div class="menu menu-bare">
           <MenuRow ico="plus" title="Agregar cuenta" sub="La de un familiar u otra del mismo proveedor" cls="add-row sub-row" chevron={false}
             onClick={() => openSub({ k: 'add-account' })} />
         </div>

@@ -1021,6 +1021,8 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 .pr-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* Cuentas > perfiles: los perfiles van debajo de su cuenta, con sangría. */
 .menu-row.sub-row { padding-left: 32px; min-height: 52px; }
+/* Una acción de un nivel de abajo (Agregar cuenta) va como fila suelta, sin tarjeta. */
+.menu.menu-bare { background: none; }
 .menu-row.sub-row .menu-icon { width: 32px; height: 32px; }
 .avatar.sm { width: 28px; height: 28px; font-size: 12px; flex: none; }
 .menu-row.sub-row .menu-text small { display: block; color: var(--muted); }
