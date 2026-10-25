@@ -19,6 +19,7 @@ import { Icon } from './icon.tsx';
 import { closeSheet } from './sheet.ts';
 import { changeTaste, deviceTz, loadTaste, openTasteSheet, pushEndpoint, tasteSummary, WHEN_HOURS, WHEN_LABEL, type TasteView } from './avisos-gusto.tsx';
 import { Skeleton } from './kit.tsx';
+import { openSettings } from './settings.tsx';
 import { toast } from './toast.tsx';
 
 // ------------------------------------------------------------------ navegación
@@ -305,6 +306,7 @@ function ProfileList() {
       <div class="menu">
         <MenuRow ico="plus" title="Agregar proveedor" sub="Otra lista de IPTV, con su propia grilla" cls="add-row" chevron={false} onClick={() => void addProvider()} />
         <MenuRow ico="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => openLinksView({ v: 'hogar' })} />
+        <MenuRow ico="settings" title="Configuración" sub="Avisos, guía y letra grande" onClick={openSettings} />
       </div>
     </>
   );

@@ -40,6 +40,13 @@ test('la lista muestra la cuenta en uso y sus perfiles', async ({ page }) => {
   await expect(page.locator('#linksBack')).toBeHidden();
 });
 
+test('Configuración se abre desde la última fila de Perfil', async ({ page }) => {
+  await openPerfiles(page);
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
+  await expect(page.locator('#settingsDialog')).toBeVisible();
+  await expect(page.locator('#settingsDialog')).toContainText('Avisos');
+});
+
 test('cuenta: datos, perfiles y volver', async ({ page }) => {
   await openPerfiles(page);
   await page.locator('#linksBody .account-row').click();
