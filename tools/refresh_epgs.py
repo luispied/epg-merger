@@ -27,6 +27,7 @@ import config_epgs  # noqa: E402
 import pack_schedule  # noqa: E402
 import r2_sync  # noqa: E402
 import shared_guide  # noqa: E402
+import xmltv_genres  # noqa: E402
 
 MERGED_URL = 'https://github.com/{repo}/releases/download/latest/merged.xml.gz'
 API_RELEASE = 'https://api.github.com/repos/{repo}/releases/tags/latest'
@@ -84,14 +85,16 @@ def upload_hour_packs(client, bucket, merged, configs, tmp):
         return 0
     src = pack_schedule.hours_from_merged(merged, os.path.join(tmp, 'schedule'))
     dst = os.path.join(tmp, 'schedule_cfg')
-    genres = None
-    try:  # los géneros que la IA ya clasificó, para el filtro por género de la Guía; sin ellos, el índice sale sin "g"
+    ai = None
+    try:  # los géneros que la IA ya clasificó (si el interruptor está prendido); sin ellos, sale solo lo de la guía
         path = os.path.join(tmp, 'genres.json')
         client.download_file(bucket, 'ai/genres.json', path)
         with open(path, encoding='utf-8') as f:
-            genres = json.load(f)
+            ai = json.load(f)
     except Exception:  # noqa: BLE001
-        genres = None
+        ai = None
+    # El género de cada título: el de la propia guía (<category> de XMLTV, sin costo) y, si la IA lo clasificó, el suyo.
+    genres = xmltv_genres.merge(ai, xmltv_genres.from_guide(merged))
     pack_schedule.pack_configs(configs, src, dst, genres)
     for cfg_id in configs:
         client.upload_file(os.path.join(dst, cfg_id), bucket, f'ui/schedule/cfg/{cfg_id}',
