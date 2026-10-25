@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.11
+
+- **La pestaña se elige al soltar el arrastre.** Antes, al arrastrar por la barra no cambiaba la selección hasta tocar la pestaña. Ahora al soltar va a la pestaña más cercana, igual que un toque.
+
 ## 1.58.10
 
 - **Pestaña elegida de vidrio y arrastre en la barra de abajo.** La pestaña elegida tiene el mismo vidrio que la barra, así se nota. En el celular se puede arrastrar el dedo a lo largo de la barra: la pestaña se agranda y sigue el dedo, y al soltar cae en la más cercana. Igual en la edición y en el modo ver.
