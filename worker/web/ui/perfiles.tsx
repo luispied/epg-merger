@@ -284,6 +284,9 @@ function ProfileList() {
   );
   return (
     <>
+      <div class="menu">
+        <MenuRow ico="plus" title="Agregar proveedor" sub="Otra lista de IPTV, con su propia grilla" cls="add-row" chevron={false} onClick={() => void addProvider()} />
+      </div>
       <Head name={providerName(h, cur)} cfgId={cur} inUse={otherProviders.length > 0} />
       {myAccounts().map((a) => (
         <div class="menu" key={`a:${a.account}`}>
@@ -294,7 +297,7 @@ function ProfileList() {
       ))}
       {xtream ? (
         <div class="menu">
-          <MenuRow ico="plus" title="Agregar cuenta" sub="La de un familiar u otra del mismo proveedor" cls="add-row" chevron={false}
+          <MenuRow ico="plus" title="Agregar cuenta" sub="La de un familiar u otra del mismo proveedor" cls="add-row sub-row" chevron={false}
             onClick={() => openSub({ k: 'add-account' })} />
         </div>
       ) : null}
@@ -309,9 +312,6 @@ function ProfileList() {
           ))}
         </Fragment>
       ))}
-      <div class="menu">
-        <MenuRow ico="plus" title="Agregar proveedor" sub="Otra lista de IPTV, con su propia grilla" cls="add-row" chevron={false} onClick={() => void addProvider()} />
-      </div>
       <h3 class="sec-title">Dispositivos</h3>
       <div class="menu">
         <MenuRow ico="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => openLinksView({ v: 'hogar' })} />

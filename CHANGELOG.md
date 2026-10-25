@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.11
+
+- **Perfil con jerarquía clara.** «Agregar proveedor» queda arriba, como acción de todo. Cada proveedor va debajo, con su nombre en mayúsculas y sus cuentas. «Agregar cuenta» pasó a ir dentro de su proveedor, con la misma sangría que «Agregar perfil», así se ve que es del nivel de abajo.
+- **Configuración sin «Usar en otro dispositivo».** Esa opción vive solo en Perfil, en la sección «Dispositivos».
+
 ## 1.58.10
 
 - **Pestaña elegida de vidrio y arrastre en la barra de abajo.** La pestaña elegida tiene el mismo vidrio que la barra, así se nota. En el celular se puede arrastrar el dedo a lo largo de la barra: la pestaña se agranda y sigue el dedo, y al soltar cae en la más cercana. Igual en la edición y en el modo ver.
