@@ -27,9 +27,10 @@ async function expectTopic(page: Page, topic: string) {
 }
 
 test('Configuración: su ? abre el tema de Configuración', async ({ page }) => {
-  await page.locator('#settingsBtn').click();
-  await expect(page.locator('#settingsDialog')).toBeVisible();
-  await page.locator('#settingsDialog .help-btn[aria-label="Ayuda"]').click();
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
+  await expect(page.locator('#linksDialog')).toBeVisible();
+  await page.locator('#linksDialog #linksHelpBtn').click();
   await expectTopic(page, 'settings');
 });
 

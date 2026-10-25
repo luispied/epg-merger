@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.8
+
+- **Configuración sale de Canales y va a Perfil.** El engranaje de Canales se quitó. Configuración está en Perfil, en su propia sección al final, y se abre como una página (con «‹» para volver a Perfil), igual que Otro dispositivo. El modo ver conserva su engranaje para salir.
+- **Perfil ordenado en secciones.** El proveedor queda arriba con sus cuentas y perfiles; «Dispositivos» tiene «Usar en otro dispositivo»; «Aplicación» tiene Configuración.
+
 ## 1.58.7
 
 - **Configuración, también desde Perfil.** Al final de Perfil hay una fila nueva, «Configuración», debajo de «Usar en otro dispositivo». Lleva a los mismos ajustes que el engranaje de Canales, que sigue igual.

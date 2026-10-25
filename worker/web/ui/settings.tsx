@@ -2,10 +2,9 @@
 // salud y las preferencias siguen en app.ts; acá está la hoja y cómo se activan los avisos en este dispositivo.
 //
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
-import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openDock, openHelp, openProfiles, PAGE, plural, pref,
+  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openHelp, openProfiles, PAGE, plural, pref,
   profileDefs, render as renderGrid, setPref, startGuideRefresh, state, type GuideStatus,
 } from '../app.ts';
 import { loadTaste, openTasteSheet, pushEndpoint, tasteSummary } from './avisos-gusto.tsx';
@@ -16,7 +15,7 @@ import { BrandFoot } from './kit.tsx';
 
 declare const __APP_VERSION__: string;
 
-const dialog = () => document.getElementById('settingsDialog') as HTMLDialogElement;
+const perfil = () => document.getElementById('linksDialog') as HTMLDialogElement;
 
 // ------------------------------------------------------------------ avisos push
 // El Worker manda una notificación (Web Push) cuando aparecen canales nuevos. Funciona en el navegador y en
@@ -114,7 +113,6 @@ function TasteRow() {
       .catch(() => setSub('No se pudo cargar. Probá de nuevo.'));
   }, []);
   const open = () => {
-    dialog().close();
     if (profileDefs.length === 1) openTasteSheet(profileDefs[0], () => {});
     else openProfiles();
   };
@@ -131,7 +129,8 @@ function MenuRow({ icon, title, sub, onClick, hidden }: { icon: string; title: s
   );
 }
 
-function Settings() {
+/** Configuración: es una página de Perfil (ui/perfiles.tsx la dibuja); el título y el «‹» son los de Perfil. */
+export function Settings() {
   const [health, setHealth] = useState('Calculando…');
   const [guide, setGuide] = useState<GuideStatus | null>(null);
   const [push, setPushState] = useState<PushView | null>(null);
@@ -161,7 +160,7 @@ function Settings() {
     const h = guideHealth();
     if (!h.known) return toast('Todavía no hay datos de programación para comparar', 'info');
     if (!h.dead) return toast('Todos los canales con guía tienen programación en las próximas horas', 'ok');
-    dialog().close();
+    perfil().close();
     state.filter = 'sin-prog';
     state.shown = PAGE;
     renderGrid();
@@ -171,7 +170,6 @@ function Settings() {
     try {
       const started = await startGuideRefresh();
       toast(started ? 'Actualizando la guía: queda lista en un par de minutos' : 'Ya se está actualizando', 'ok');
-      dialog().close();
     } catch (e) {
       toast((e as Error).message, 'bad');
     }
@@ -186,12 +184,7 @@ function Settings() {
   };
 
   return (
-    <>
-      <div class="title-row">
-        <span class="title-left"><h2 id="settingsTitle">Configuración</h2>
-          <button type="button" class="icon-btn help-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('settings', '#settingsDialog')}><Icon name="circle-help" /></button></span>
-        <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
-      </div>
+    <div class="settings-view">
       <h3 class="sec-title">Guía</h3>
       <div class="menu">
         <MenuRow icon="refresh-cw" title="Actualizar la guía ahora" hidden={!guide} onClick={applyGuide}
@@ -202,8 +195,7 @@ function Settings() {
       <h3 class="sec-title">Otro dispositivo</h3>
       <div class="menu">
         <MenuRow icon="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => {
-          dialog().close();
-          openProfiles({ v: 'hogar' }, openSettings);
+          openProfiles({ v: 'hogar' }, () => openProfiles({ v: 'ajustes' }));
         }} />
       </div>
       <h3 class="sec-title">Preferencias</h3>
@@ -265,14 +257,6 @@ function Settings() {
       <BrandFoot />
       <p class="app-version" data-version>{`Versión ${__APP_VERSION__}`}</p>
       <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
-    </>
+    </div>
   );
-}
-
-let seq = 0;
-/** Abre Configuración, armada de cero cada vez (la salud, la guía y los avisos se vuelven a mirar). */
-export function openSettings() {
-  const dlg = dialog();
-  render(<Settings key={++seq} />, dlg.querySelector('.sheet-body')!);
-  openDock(dlg);
 }

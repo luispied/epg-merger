@@ -118,8 +118,9 @@ for (const theme of ['light', 'dark']) {
       await expect(page.locator('#channelDialog')).toBeVisible();
       await shot(page, `${theme}-canal`);
       await page.keyboard.press('Escape');
-      await page.locator('#settingsBtn').click();
-      await expect(page.locator('#settingsDialog')).toBeVisible();
+      await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
+      await expect(page.locator('#linksDialog')).toBeVisible();
       await shot(page, `${theme}-configuracion`);
       await page.keyboard.press('Escape');
       await page.locator('#categoriesBtn').click();

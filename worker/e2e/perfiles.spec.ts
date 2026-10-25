@@ -43,8 +43,9 @@ test('la lista muestra la cuenta en uso y sus perfiles', async ({ page }) => {
 test('Configuración se abre desde la última fila de Perfil', async ({ page }) => {
   await openPerfiles(page);
   await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
-  await expect(page.locator('#settingsDialog')).toBeVisible();
-  await expect(page.locator('#settingsDialog')).toContainText('Avisos');
+  await expect(page.locator('#linksTitle')).toHaveText('Configuración');
+  await expect(page.locator('#linksBody')).toContainText('Avisos');
+  await expect(page.locator('#linksBack')).toBeVisible();
 });
 
 test('cuenta: datos, perfiles y volver', async ({ page }) => {
