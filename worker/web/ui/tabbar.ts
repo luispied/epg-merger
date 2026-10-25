@@ -99,8 +99,9 @@ function initTabDrag(nav: HTMLElement, pill: HTMLElement) {
   }
 
   nav.addEventListener('pointerdown', onPointerDown);
+  // Solo el clic real que cierra el arrastre se traga; el que dispara la propia pestaña al soltar (sin isTrusted) pasa.
   nav.addEventListener('click', (e) => {
-    if (!suppressClick) return;
+    if (!suppressClick || !e.isTrusted) return;
     e.preventDefault();
     e.stopPropagation();
   }, true);
