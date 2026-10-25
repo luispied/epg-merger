@@ -2,7 +2,7 @@
 // según ui/genres/channels.json (la guía). Acá se baja ese dato y se arman las categorías; la app las guarda en
 // app.ts (setView). La regla del género está en worker/src/genre-views.ts, la misma que los tests.
 import { channelAlias } from '../../../core/src/index.ts';
-import { GENRE_ORDER, SALES, genreCategory, type ChannelGenre } from '../../src/genre-views.ts';
+import { GENRE_ORDER, MIXED, SALES, genreCategory, type ChannelGenre } from '../../src/genre-views.ts';
 
 type GenreData = Record<string, ChannelGenre>;
 
@@ -20,14 +20,12 @@ export function loadChannelGenres(): Promise<GenreData | null> {
   return loaded;
 }
 
-/** La categoría por género de cada canal que tiene programación clasificada: {nombre del canal: categoría}. Los que no
- *  tienen datos no entran y siguen en la categoría del proveedor. */
+/** La categoría por género de cada canal: {nombre del canal: categoría}. En esta vista ningún canal queda en una
+ *  categoría del proveedor: sin guía o sin género claro, va a «Generalistas y mixtos». */
 export function genreAssign(channels: { name: string; epg: string | null }[], data: GenreData): Record<string, string> {
   const out: Record<string, string> = {};
   for (const { name, epg } of channels) {
-    if (!epg) continue;
-    const category = genreCategory(data[channelAlias(epg)]);
-    if (category) out[name] = category;
+    out[name] = (epg && genreCategory(data[channelAlias(epg)])) || MIXED;
   }
   return out;
 }

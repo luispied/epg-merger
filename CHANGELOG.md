@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.60.1
+
+- **Por género, solo categorías de género.** Cada canal cae en una categoría de su género. Los que no tienen guía o un
+  género claro van a «Generalistas y mixtos», en vez de quedar en una categoría del proveedor. Así no hay categorías del
+  proveedor repetidas al lado de las de género. Las vistas por género ya guardadas se vuelven a armar la próxima vez que se usan.
+
 ## 1.60.0
 
 - **Cada perfil elige su vista de categorías.** En «Qué ve», «Del proveedor | Por género» decide qué categorías usa ese
