@@ -34,6 +34,10 @@ export interface Config {
   /** `channels`: orden propio de los canales dentro de una categoría ({categoría: [nombres]});
    *  los que no están en la lista van después, en el orden del proveedor. */
   groups?: Groups;
+  /** Vista activa de las categorías: sin dato = por proveedor («Por género» lo pone en «genre»). */
+  view?: 'genre';
+  /** La vista que no está activa, guardada aparte (ver planes/categorias-por-genero.md). */
+  views?: { provider?: ViewSnapshot; genre?: ViewSnapshot };
   /** Cómo elegir la guía (importado de la corrida de GitHub): umbral, señal horaria preferida y
    *  país/fuentes preferidas por categoría cruda del proveedor. Solo lo usa la interfaz. */
   matching?: Matching;
@@ -182,27 +186,10 @@ export function parseConfig(raw: unknown): Config {
     if (logo && /^https?:\/\/[^\s"]+$/i.test(logo)) edit.customLogo = logo;
     if (Object.keys(edit).length) channels[name.slice(0, 500)] = edit;
   }
-  const g = (r.groups ?? {}) as Record<string, unknown>;
-  const channelOrder: Record<string, string[]> = {};
-  if (g.channels && typeof g.channels === 'object') {
-    for (const [group, names] of Object.entries(g.channels as Record<string, unknown>).slice(0, 2000)) {
-      const list = strList(names, 5000);
-      if (list.length) channelOrder[group.slice(0, 500)] = list;
-    }
-  }
   const matching = parseMatching(r.matching);
-  const rename: Record<string, string> = {};
-  if (g.rename && typeof g.rename === 'object') {
-    for (const [from, to] of Object.entries(g.rename as Record<string, unknown>).slice(0, 3000)) {
-      const label = str(to, 200)?.trim();
-      if (label && label !== from) rename[from.slice(0, 500)] = label;
-    }
-  }
-  const custom = strList(g.custom, 2000);
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const profiles = parseProfiles(r.profiles);
   const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
-  const separators = strList(g.separators, 2000);
   return {
     version: 1,
     provider,
@@ -212,16 +199,64 @@ export function parseConfig(raw: unknown): Config {
     ...(mainName ? { mainName } : {}),
     ...(profiles.length ? { profiles } : {}),
     channels,
-    groups: {
-      order: strList(g.order, 5000),
-      hidden: strList(g.hidden, 5000),
-      ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
-      ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
-      ...(Object.keys(rename).length ? { rename } : {}),
-      ...(custom.length ? { custom } : {}),
-      ...(separators.length ? { separators } : {}),
-    },
+    groups: parseGroups(r.groups),
+    ...(r.view === 'genre' ? { view: 'genre' as const } : {}),
+    ...(parseViews(r.views) ? { views: parseViews(r.views) } : {}),
   };
+}
+
+/** Una vista guardada: sus categorías y la categoría de cada canal en esa vista. */
+export interface ViewSnapshot { groups: Groups; assign: Record<string, string> }
+
+/** Las categorías de una vista (la del proveedor o la de género); lo que no es válido se descarta. */
+export function parseGroups(raw: unknown): Groups {
+  const g = (raw ?? {}) as Record<string, unknown>;
+  const channelOrder: Record<string, string[]> = {};
+  if (g.channels && typeof g.channels === 'object') {
+    for (const [group, names] of Object.entries(g.channels as Record<string, unknown>).slice(0, 2000)) {
+      const list = strList(names, 5000);
+      if (list.length) channelOrder[group.slice(0, 500)] = list;
+    }
+  }
+  const rename: Record<string, string> = {};
+  if (g.rename && typeof g.rename === 'object') {
+    for (const [from, to] of Object.entries(g.rename as Record<string, unknown>).slice(0, 3000)) {
+      const label = str(to, 200)?.trim();
+      if (label && label !== from) rename[from.slice(0, 500)] = label;
+    }
+  }
+  const custom = strList(g.custom, 2000);
+  const separators = strList(g.separators, 2000);
+  return {
+    order: strList(g.order, 5000),
+    hidden: strList(g.hidden, 5000),
+    ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
+    ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
+    ...(Object.keys(rename).length ? { rename } : {}),
+    ...(custom.length ? { custom } : {}),
+    ...(separators.length ? { separators } : {}),
+  };
+}
+
+/** La vista que no está activa: sus categorías y en qué categoría estaba cada canal. */
+export function parseViews(raw: unknown): Config['views'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const views: NonNullable<Config['views']> = {};
+  for (const name of ['provider', 'genre'] as const) {
+    const v = r[name];
+    if (!v || typeof v !== 'object') continue;
+    const assign: Record<string, string> = {};
+    const a = (v as Record<string, unknown>).assign;
+    if (a && typeof a === 'object') {
+      for (const [ch, group] of Object.entries(a as Record<string, unknown>).slice(0, 20000)) {
+        const label = str(group, 500);
+        if (label) assign[ch.slice(0, 500)] = label;
+      }
+    }
+    views[name] = { groups: parseGroups((v as Record<string, unknown>).groups), assign };
+  }
+  return Object.keys(views).length ? views : undefined;
 }
 
 const key = (cfgId: string) => `cfg/${cfgId}.json`;

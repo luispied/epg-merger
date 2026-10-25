@@ -2,6 +2,7 @@
 // y un link, guardados en memoria. Lo que la app pide y acá no está responde 404, como un Worker sin esos datos.
 import { readFileSync } from 'node:fs';
 import type { Page, Request } from '@playwright/test';
+import { channelAlias } from '../../core/src/alias.ts';
 
 const rules = JSON.parse(readFileSync(new URL('../../matching_rules.json', import.meta.url), 'utf-8'));
 const day = 86_400_000;
@@ -58,6 +59,8 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     const path = new URL(req.url()).pathname;
     const method = req.method();
     if (method !== 'GET') fake.writes.push({ method, path, body: req.postDataJSON() });
+    // El género de cada canal de la guía (la vista «Por género»): ESPN es Deportes y CNN, Documental (no es noticias).
+    if (path === '/api/ui/genres/channels.json') return json({ [channelAlias('g00000000000001.ar')]: ['Deportes', 30, 30], [channelAlias('g00000000000002.ar')]: ['Documental', 30, 30] });
     if (path === '/api/guide/index.json') return json({ matching_rules: rules, sources: { s1: { country: 'ar', priority: 0 } }, channels: guide });
     if (path === '/api/cfg/c1') return method === 'GET' ? json(cfg) : json({});
     if (path === '/api/cfg/c1/list') return json({ channels: list });

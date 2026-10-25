@@ -33,16 +33,22 @@ import { iosNotInstalled, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
+import { genreAssign, genreGroups, loadChannelGenres } from './ui/vista-genero.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
 interface ChannelEdit { epg?: string | null; logo?: string; name?: string; group?: string; hidden?: boolean; manual?: boolean; customLogo?: string }
+/** Una vista de las categorías guardada: sus categorías y la categoría de cada canal en esa vista. */
+interface CategoryView { groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] }; assign: Record<string, string> }
 interface Config {
   version: 1;
   provider: Provider;
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
   groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] };
+  /** Vista «Por género» de las categorías: la activa va en `groups` y en los canales; la otra, guardada aparte. */
+  view?: 'genre';
+  views?: { provider?: CategoryView; genre?: CategoryView };
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
   /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
@@ -1976,6 +1982,50 @@ function wireNested(child: string, back: string, close: string) {
     // Una página (Categorías, Perfil) queda abierta: es la pestaña en la que se está.
     if (from && !$(from).classList.contains('page')) ($(from) as HTMLDialogElement).close();
   };
+}
+
+/** La categoría de cada canal en la vista activa (solo los que tienen una propia). */
+function assignOf(): Record<string, string> {
+  return Object.fromEntries(Object.entries(state.cfg!.channels).flatMap(([name, e]) => (e.group ? [[name, e.group]] : [])));
+}
+
+/** Cambia la vista de las categorías. La que se deja queda guardada aparte; la que se pide vuelve tal como se dejó, o
+ *  se arma con los géneros de la guía la primera vez. Devuelve false si no pudo armarla (sin datos de género). */
+export async function setView(view: 'provider' | 'genre'): Promise<boolean> {
+  const cfg = state.cfg!;
+  const current = cfg.view === 'genre' ? 'genre' : 'provider';
+  if (view === current) return true;
+  const saved = cfg.views?.[view];
+  let groups = saved?.groups;
+  let assign = saved?.assign;
+  if (!saved && view === 'genre') {
+    const data = await loadChannelGenres();
+    if (!data) {
+      toast('No se pudieron cargar los géneros de los canales. Probá de nuevo', 'info');
+      return false;
+    }
+    assign = genreAssign(state.channels.map((ch) => ({ name: ch.name, epg: cfg.channels[ch.name]?.epg ?? null })), data);
+    groups = { ...genreGroups(assign), noEpg: [] };
+  }
+  if (!groups || !assign) return false;
+  const views = { ...cfg.views };
+  views[current] = { groups: structuredClone(cfg.groups), assign: assignOf() };
+  delete views[view];
+  cfg.groups = structuredClone(groups);
+  for (const [name, e] of Object.entries(cfg.channels)) {
+    delete e.group;
+    if (!Object.keys(e).length) delete cfg.channels[name];
+  }
+  for (const [name, group] of Object.entries(assign)) cfg.channels[name] = { ...cfg.channels[name], group };
+  cfg.view = view === 'genre' ? 'genre' : undefined;
+  cfg.views = views;
+  scheduleSave();
+  render();
+  if (($('#categoriesDialog') as HTMLDialogElement).open) renderCategories();
+  toast(view === 'genre' ? 'Categorías por género' : 'Categorías del proveedor', 'ok', 3500, () => {
+    void setView(current);
+  });
+  return true;
 }
 
 function toggleGroupHidden(g: string) {
