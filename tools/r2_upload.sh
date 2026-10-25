@@ -10,6 +10,7 @@
 #   ui/schedule/s/<xx>         programación por canal, en 256 tandas (tools/pack_schedule.py)
 #   ui/schedule/topics.json    índice para buscar por tema (géneros y temas de la IA, una vez por título)
 #   ui/schedule/hour/…         programación de toda la guía por hora, en gzip
+#   ui/genres/channels.json    género más frecuente de cada canal, según la guía y la IA (tools/xmltv_genres.py)
 #   ui/schedule/cfg/<cfgId>    la de cada hora con solo los canales de esa configuración
 #   logo/map/<x>.json         {clave: url} de los logos de canal, en gzip como el índice y img/map (privado; el Worker los sirve por /logo/<clave>
 #                              y guarda cada uno en logo/img/<clave> la primera vez)
@@ -51,9 +52,18 @@ for f in epg_catalog.json epg_icons.json sources_report.json; do s3 rm "$BUCKET/
 # que ya pasó deja de estar.
 # Los géneros que la IA ya clasificó (ai/genres.json, tools/classify_genres.py) van en cada programa de esos
 # canales; los de hoy entran mañana (la clasificación corre al final de la corrida). Sin el archivo, sin géneros.
+# Géneros de cada título: los de la propia guía (<category> de XMLTV, sin costo) y, si hay, los de la IA (que ganan
+# salvo «Otro»). El género por canal (el más frecuente) va a ui/genres/channels.json, para «Por género» en Categorías.
 genres=()
 rm -f out/genres.json
-if s3 cp "$BUCKET/ai/genres.json" out/genres.json 2>/dev/null; then genres=(--genres out/genres.json); fi
+ai=-
+if s3 cp "$BUCKET/ai/genres.json" out/genres.json 2>/dev/null; then ai=out/genres.json; fi
+if [ -f merged.xml.gz ]; then
+  mkdir -p out/shared/genres
+  python tools/xmltv_genres.py merged.xml.gz "$ai" out/genres_all.json out/shared/genres/channels.json
+  genres=(--genres out/genres_all.json)
+  sync out/shared/genres ui/genres "${json[@]}" --gzip
+fi
 python tools/pack_schedule.py "${genres[@]}" out/schedule out/schedule_r2
 if [ -d out/schedule_r2/s ]; then
   sync out/schedule_r2/s ui/schedule/s
