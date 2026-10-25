@@ -3,7 +3,7 @@ import type { Ctx, Env, R2Bucket, R2ObjectBody, SimpleCache } from '../src/env.t
 import { b64urlEncode } from '../src/crypto.ts';
 
 export class MemoryBucket implements R2Bucket {
-  data = new Map<string, { value: string; bytes?: Uint8Array; meta?: Record<string, string>; encoding?: string; uploaded?: Date }>();
+  data = new Map<string, { value: string; bytes?: Uint8Array; meta?: Record<string, string>; encoding?: string; uploaded?: Date; etag?: string }>();
   async head(key: string) {
     const item = this.data.get(key);
     return item ? { uploaded: item.uploaded ?? new Date(0) } : null;
@@ -18,6 +18,7 @@ export class MemoryBucket implements R2Bucket {
       text: async () => new TextDecoder().decode(bytes),
       arrayBuffer: async () => bytes.slice().buffer,
       uploaded: item.uploaded,
+      httpEtag: item.etag,
       customMetadata: item.meta,
       httpMetadata: item.encoding ? { contentEncoding: item.encoding } : undefined,
     };
@@ -27,7 +28,7 @@ export class MemoryBucket implements R2Bucket {
     const bytes = typeof value === 'string' ? undefined : new Uint8Array(await new Response(value).arrayBuffer());
     this.data.set(key, {
       value: typeof value === 'string' ? value : new TextDecoder().decode(bytes), bytes,
-      meta: options?.customMetadata, encoding: options?.httpMetadata?.contentEncoding, uploaded: new Date(),
+      meta: options?.customMetadata, encoding: options?.httpMetadata?.contentEncoding, uploaded: new Date(), etag: `"${crypto.randomUUID()}"`,
     });
   }
   async delete(key: string) {
