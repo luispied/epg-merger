@@ -49,7 +49,7 @@ function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
     if (headers && !info(ch).divider) {
       const g = groupOf(ch);
       const prev = k > 0 ? state.channels[list[k - 1]] : null;
-      if (!prev || info(prev).divider || groupOf(prev) !== g) out.push({ key: `h${k}`, i: -1, h: HEAD_H, head: { g, n: counts.get(g) ?? 0 } });
+      if (!prev || info(prev).divider || groupOf(prev) !== g) out.push({ key: `h${k}`, i: -1, h: out.length ? HEAD_H + HEAD_GAP : HEAD_H, head: { g, n: counts.get(g) ?? 0 } });
     }
     out.push({ key: `c${list[k]}`, i: list[k], h: rowHeight(!!info(ch).divider) });
   }
@@ -61,8 +61,10 @@ function itemsOf(list: number[], shown: number, headers: boolean): Item[] {
 // pintan las que entran en pantalla, con un margen; lo demás son huecos de la altura que tendrían.
 
 /** Altura fija en px de cada fila según el modo. La fila la fija en su estilo (ver `fixedStyle`). */
-const ROW_H = { compact: 60, detail: 76, section: 56 };
-const HEAD_H = 36;
+const ROW_H = { compact: 68, detail: 84, section: 56 };
+/** El título de categoría: 44 px, y 58 cuando no es el primero (le sobra el aire de arriba). */
+const HEAD_H = 44;
+const HEAD_GAP = 14;
 /** Margen en px arriba y abajo de la pantalla, para que al bajar rápido no aparezca un hueco. */
 const OVERSCAN = 600;
 
@@ -173,20 +175,20 @@ function Cards({ list, shown }: { list: number[]; shown: number }) {
   const a = windowed ? Math.max(0, Math.min(win[0], n - 1)) : 0;
   const b = windowed ? Math.min(Math.max(win[1], a + 1), n) : n;
   const offs = windowed ? offsetsOf(items) : [];
-  const row = (it: Item) => (it.head
-    ? <div key={it.key} class="cat-head" data-k={it.key} role="heading" aria-level={3}><span>{groupLabel(it.head.g)}</span><small>{it.head.n}</small></div>
-    : <Card key={it.key} i={it.i} />);
+  const row = (it: Item, k: number) => (it.head
+    ? <div key={it.key} class="cat-head" data-k={it.key} role="heading" aria-level={3} style={windowed ? { height: `${it.h}px` } : undefined}><span>{groupLabel(it.head.g)}</span><small>{it.head.n}</small></div>
+    : <Card key={it.key} i={it.i} edge={windowed ? edgeOf(items, k) : ''} />);
   const gap = (key: string, px: number) => (px > 0 ? <div key={key} class="cards-gap" aria-hidden="true" style={{ height: `${px}px` }} /> : null);
   const out = [];
-  if (!windowed) for (const it of items) out.push(row(it));
+  if (!windowed) items.forEach((it, k) => out.push(row(it, k)));
   else {
     out.push(gap('top', offs[a]));
-    for (let k = a; k < b; k++) out.push(row(items[k]));
+    for (let k = a; k < b; k++) out.push(row(items[k], k));
     out.push(gap('bottom', offs[n] - offs[b]));
   }
   // Al final, para no cambiar cuál es la primera fila (la que no tiene borde arriba).
   if (windowed && pin) {
-    out.push(<div key="pin" class="cat-head pin" aria-hidden="true" style={{ left: `${pin.left}px`, width: `${pin.width}px`, transform: `translateY(${pin.shift}px)` }}><span>{groupLabel(pin.g)}</span><small>{pin.n}</small></div>);
+    out.push(<div key="pin" class="cat-head pin" aria-hidden="true" style={{ left: `${pin.left}px`, width: `${pin.width}px`, height: `${HEAD_H}px`, transform: `translateY(${pin.shift}px)` }}><span>{groupLabel(pin.g)}</span><small>{pin.n}</small></div>);
   }
   return <>{out}</>;
 }
@@ -202,7 +204,16 @@ function StatusMark({ band, score }: { band: Band; score?: number }) {
   }
 }
 
-function Card({ i }: { i: number }) {
+/** Las filas de canal van en una card por categoría: `g-first` y `g-last` marcan dónde empieza y termina el grupo. Un
+ *  encabezado, un separador o el fin de la lista lo cortan. */
+function edgeOf(items: Item[], k: number): string {
+  const isRow = (it?: Item) => !!it && !it.head && !info(state.channels[it.i]).divider;
+  const first = !isRow(items[k - 1]);
+  const last = !isRow(items[k + 1]);
+  return first && last ? 'g-only' : first ? 'g-first' : last ? 'g-last' : '';
+}
+
+function Card({ i, edge = '' }: { i: number; edge?: string }) {
   const ch = state.channels[i];
   const { edit, epg, hidden, band, suggestion, divider, auto, q } = info(ch);
   const ev = eventOf(ch);
@@ -240,7 +251,7 @@ function Card({ i }: { i: number }) {
   }
   const label = `${shown}${q ? `, ${q.label}` : ''}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
   return (
-    <article class={`card row-card${cls}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
+    <article class={`card row-card${cls}${edge ? ` ${edge}` : ''}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
       <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r"><Icon name="ban" />Sin guía</span><span class="sw sw-l"><Icon name={hidden ? 'eye' : 'eye-off'} />{hidden ? 'Mostrar' : 'Ocultar'}</span></span>
       <div class="row-in">
         {selBox}
