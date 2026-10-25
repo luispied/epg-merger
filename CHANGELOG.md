@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.12
+
+- **Canales en tarjetas por categoría.** Cada categoría es una tarjeta redondeada con sus canales adentro, separados por una línea. Los títulos de categoría van sin fondo, en letras chicas, y las filas tienen más aire.
+
 ## 1.58.11
 
 - **La pestaña se elige al soltar el arrastre.** Antes, al arrastrar por la barra no cambiaba la selección hasta tocar la pestaña. Ahora al soltar va a la pestaña más cercana, igual que un toque.

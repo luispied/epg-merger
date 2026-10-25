@@ -372,9 +372,9 @@ body:has(#netPill:not([hidden])) .toasts { top: calc(56px + env(safe-area-inset-
 .cards { gap: 8px; }
 
 /* Fila compacta (modo por defecto): logo chico, nombre, programa en el aire y estado. */
-.cards.rows { gap: 0; background: var(--surface); border-radius: var(--radius); box-shadow: inset 0 0 0 1px var(--hairline); overflow: clip; }
+.cards.rows { gap: 0; background: transparent; border-radius: 0; box-shadow: none; overflow: visible; }
 .cards.rows .card.row-card { border-radius: 0; box-shadow: none; background: transparent; padding: 8px 4px 8px 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--hairline); min-height: 56px; }
-.cards.rows .card.row-card:first-child { border-top: 0; }
+.cards.rows .card.row-card:first-child, .cards.rows .card.row-card.g-first { border-top: 0; }
 @media (hover: hover) { .cards.rows .card.row-card:hover { background: var(--surface-2); } }
 .cards.rows .card.row-card .logo { width: 36px; height: 36px; flex: none; }
 .cards.rows .card.row-card .card-title { flex: 1; min-width: 0; }
@@ -524,8 +524,14 @@ html:root .logo:not(.has-img) { background: transparent; }
 .cat-head:first-child { border-top: 0; }
 .cat-head small { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* En la lista de filas el encabezado va en su lugar (no pegado): el que queda arriba lo muestra .pin (canales.tsx). */
-.cards.rows .cat-head { position: relative; top: auto; height: 36px; box-sizing: border-box; }
-.cards.rows .cat-head.pin { position: fixed; top: calc(var(--toolbar-h, 0px) + env(safe-area-inset-top, 0px)); pointer-events: none; }
+.cards.rows:not(.grid) .cat-head { position: relative; top: auto; box-sizing: border-box; align-items: flex-end; padding: 0 4px 10px; background: transparent; border: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+/* Sin fondo en reposo; el que queda pegado arriba lleva el fondo de la página para tapar lo que pasa por debajo. */
+.cards.rows:not(.grid) .cat-head.pin { position: fixed; top: calc(var(--toolbar-h, 0px) + env(safe-area-inset-top, 0px)); pointer-events: none; background: var(--bg); }
+/* Cada categoría es una card: la primera fila redondea arriba, la última abajo, y entre filas va la línea. */
+.cards.rows:not(.grid) .card.row-card > .row-in { height: 100%; min-height: 0; padding-inline: 14px; }
+.cards.rows:not(.grid) .card.row-card.g-first > .row-in { border-radius: var(--radius) var(--radius) 0 0; }
+.cards.rows:not(.grid) .card.row-card.g-last > .row-in { border-radius: 0 0 var(--radius) var(--radius); }
+.cards.rows:not(.grid) .card.row-card.g-only > .row-in { border-radius: var(--radius); }
 body.selecting .row-in { padding-left: 12px; }
 
 /* Vista detallada: suma una línea con lo que está dando ahora la guía asignada. */
