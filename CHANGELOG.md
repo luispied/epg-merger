@@ -14,8 +14,8 @@ nombres de código.
 ## 1.60.0
 
 - **Cada perfil elige su vista de categorías.** En «Qué ve», «Del proveedor | Por género» decide qué categorías usa ese
-  perfil. Su playlist y sus categorías salen de esa vista; otro perfil puede usar la otra. Al cambiar de vista se quitan
-  las categorías que el perfil ocultaba (sus nombres son de cada vista) y los canales ocultos se mantienen.
+  perfil. Su playlist y sus categorías salen de esa vista; otro perfil puede usar la otra. Cada vista guarda sus propias
+  categorías ocultas: al volver a una, queda como la dejaste. Los canales ocultos son los mismos en las dos.
 
 ## 1.59.0
 

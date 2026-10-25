@@ -801,6 +801,11 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           const f = parseFilter(raw.filter);
           if (f) next.filter = f;
           else delete next.filter;
+          // Lo oculto en cada vista se guarda aparte: volver a una vista la deja como la dejó.
+          const v: 'provider' | 'genre' = f?.view ?? 'provider';
+          const stash = { ...p.filters };
+          stash[v] = f?.groups ?? [];
+          next.filters = stash;
         }
         // Perfil infantil: solo con la clave de edición (este bloque la exige); el modo ver no llega acá.
         if ('kids' in raw) {

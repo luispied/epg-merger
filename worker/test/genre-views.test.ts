@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { genreCategory, MIXED, SALES } from '../src/genre-views.ts';
-import { parseConfig, parseViews, viewConfig, type Config } from '../src/config.ts';
+import { parseConfig, parseProfiles, parseViews, viewConfig, type Config } from '../src/config.ts';
 import { parseFilter } from '../src/playlist.ts';
 
 test('genreCategory: sin datos queda en la del proveedor, sin género claro va a mixtos', () => {
@@ -55,4 +55,11 @@ test('parseFilter: la vista cuenta aunque no haya categorías ni canales ocultos
   assert.deepEqual(parseFilter({ groups: [], channels: [], view: 'genre' }), { groups: [], channels: [], view: 'genre' });
   assert.equal(parseFilter({ groups: [], channels: [], view: 'otra' }), undefined);
   assert.equal(parseFilter({ groups: [], channels: [] }), undefined);
+});
+
+test('parseProfiles: las categorías ocultas de cada vista se guardan aparte', () => {
+  const [p] = parseProfiles([{ id: 'p2abc', name: 'Chicos', filter: { groups: ['Documentales'], channels: [], view: 'genre' }, filters: { provider: ['Deportes', 7], genre: ['Documentales'] } }]);
+  assert.deepEqual(p.filters, { provider: ['Deportes'], genre: ['Documentales'] });
+  assert.equal(p.filter?.view, 'genre');
+  assert.equal(parseProfiles([{ id: 'p2abc', name: 'Chicos', filters: 'nada' }])[0].filters, undefined);
 });

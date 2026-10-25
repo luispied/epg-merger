@@ -1296,7 +1296,8 @@ function FilterBody({ p, view }: { p: ProfileView; view: 'provider' | 'genre' })
     const c = new Set<string>();
     const same = (p.filter?.view ?? 'provider') === view;
     if (same && p.filter?.only) { for (const x of cats) { if (!p.filter.groups.includes(x)) g.add(x); } }
-    else if (same) for (const x of p.filter?.groups ?? []) g.add(x);
+    // Otra vista: lo que tenía oculto la última vez que se guardó en ella.
+    else for (const x of (same ? p.filter?.groups : p.filters?.[view]) ?? []) g.add(x);
     if (!p.filter?.only) for (const n of p.filter?.channels ?? []) c.add(n);
     off.current = { g, c };
   }
@@ -1352,7 +1353,7 @@ function FilterBody({ p, view }: { p: ProfileView; view: 'provider' | 'genre' })
   const hideAll = () => flip(false, cats.filter(matches), offG);
   return (
     <>
-      <Help>Apagá lo que no querés que vea este perfil. Si cambiás de vista, las categorías elegidas se quitan (sus nombres son de cada vista) y los canales se mantienen. Vale para {p.devices.length ? `sus ${plural(p.devices.length, 'link', 'links')}` : 'sus links'}, que no cambian: la lista se actualiza sola la próxima vez que el reproductor la baje.</Help>
+      <Help>Apagá lo que no querés que vea este perfil. Cada vista guarda sus categorías ocultas: al volver a una, queda como la dejaste. Vale para {p.devices.length ? `sus ${plural(p.devices.length, 'link', 'links')}` : 'sus links'}, que no cambian: la lista se actualiza sola la próxima vez que el reproductor la baje.</Help>
       <label class="search-field cat-filter">
         <Icon name="search" />
         <input type="search" id="pfQ" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal"

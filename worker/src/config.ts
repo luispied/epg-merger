@@ -61,6 +61,8 @@ export interface ProfileDef {
   view?: string;
   /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
   kids?: Kids;
+  /** Categorías ocultas guardadas por vista: al volver a una vista, el perfil queda como la dejó. `filter` es la vista actual. */
+  filters?: { provider?: string[]; genre?: string[] };
 }
 export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
 const MAX_PROFILES = 50;
@@ -76,9 +78,22 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const filter = parseFilter(r.filter);
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
     const kids = parseKids(r.kids);
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}) });
+    const filters = parseFilters(r.filters);
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(filters ? { filters } : {}) });
   }
   return out;
+}
+
+/** Las categorías ocultas de cada vista (solo nombres; un máximo razonable por vista). */
+export function parseFilters(raw: unknown): ProfileDef['filters'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const out: NonNullable<ProfileDef['filters']> = {};
+  for (const v of ['provider', 'genre'] as const) {
+    const a = r[v];
+    if (Array.isArray(a)) out[v] = [...new Set(a.filter((x): x is string => typeof x === 'string' && x.length > 0).map((x) => x.slice(0, 500)))].slice(0, 5000);
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export interface Matching {
