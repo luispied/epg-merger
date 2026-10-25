@@ -39,7 +39,8 @@ test('después de actualizar: aviso breve con «Qué hay nuevo», y no vuelve a 
   await expect(page.locator('#cards .card').first()).toBeVisible();
   await expect(page.locator('.toasts .toast')).toHaveCount(0);
   // Desde Configuración se abre siempre.
-  await page.locator('#settingsBtn').click();
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
   await page.getByRole('button', { name: 'Ver novedades' }).click();
   await expect(sheet(page)).toBeVisible();
   await expect(sheet(page).locator('#nvTitle')).toHaveText('Novedades');

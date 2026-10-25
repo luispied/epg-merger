@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('#cards .card').first()).toBeVisible();
 });
 
-const settings = (page: import('@playwright/test').Page) => page.locator('#settingsDialog');
+const settings = (page: import('@playwright/test').Page) => page.locator('#helpDialog');
 
 test('Esc y la ✕ cierran con una animación de salida', async ({ page }) => {
   const help = page.locator('#helpDialog');
@@ -25,21 +25,13 @@ test('Esc y la ✕ cierran con una animación de salida', async ({ page }) => {
   await expect(help).toBeHidden();
 });
 
-test('en el escritorio, el panel anclado (Configuración) se cierra en el acto', async ({ page }, info) => {
-  test.skip(info.project.name !== 'escritorio', 'solo el escritorio ancla el panel');
-  await page.locator('#settingsBtn').click();
-  await expect(settings(page)).toHaveClass(/\bdocked\b/);
-  await page.keyboard.press('Escape');
-  await expect(settings(page)).toBeHidden();
-});
-
-test('en el celular, arrastrar el encabezado hacia abajo cierra la hoja; poco, vuelve a su lugar', async ({ page }, info) => {
+test('en el celular, arrastrar el encabezado hacia abajo cierra la hoja de ayuda; poco, vuelve a su lugar', async ({ page }, info) => {
   test.skip(info.project.name !== 'iphone', 'el arrastre es de la hoja inferior del celular');
-  await page.locator('#settingsBtn').click();
-  const title = settings(page).locator('#settingsTitle');
+  await page.locator('#helpTopBtn').click();
+  const title = settings(page).locator('#helpTitle');
   await expect(title).toBeVisible();
   // La hoja sube desde abajo: se mide cuando terminó de subir.
-  await page.waitForFunction(() => document.getElementById('settingsDialog')!.getAnimations().every((a) => a.playState === 'finished'));
+  await page.waitForFunction(() => document.getElementById('helpDialog')!.getAnimations().every((a) => a.playState === 'finished'));
   const box = (await title.boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
