@@ -39,7 +39,7 @@ import { genreAssign, genreGroups, loadChannelGenres } from './ui/vista-genero.t
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
 interface ChannelEdit { epg?: string | null; logo?: string; name?: string; group?: string; hidden?: boolean; manual?: boolean; customLogo?: string }
 /** Una vista de las categorías guardada: sus categorías y la categoría de cada canal en esa vista. */
-interface CategoryView { groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] }; assign: Record<string, string>; all?: true }
+interface CategoryView { groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] }; assign: Record<string, string> }
 interface Config {
   version: 1;
   provider: Provider;
@@ -2046,8 +2046,7 @@ export async function setView(view: 'provider' | 'genre'): Promise<boolean> {
 export async function ensureView(view: 'provider' | 'genre'): Promise<CategoryView | null> {
   const cfg = state.cfg!;
   const saved = cfg.views?.[view];
-  // La de género guardada antes de que todos los canales cayeran en una categoría de género se vuelve a armar.
-  if (saved && (view !== 'genre' || saved.all)) return saved;
+  if (saved) return saved;
   if (view !== 'genre') return null;
   const data = await loadChannelGenres();
   if (!data) {
@@ -2055,7 +2054,7 @@ export async function ensureView(view: 'provider' | 'genre'): Promise<CategoryVi
     return null;
   }
   const assign = genreAssign(state.channels.map((ch) => ({ name: ch.name, epg: cfg.channels[ch.name]?.epg ?? null })), data);
-  const built: CategoryView = { groups: { ...genreGroups(assign), noEpg: [] }, assign, all: true };
+  const built: CategoryView = { groups: { ...genreGroups(assign), noEpg: [] }, assign };
   cfg.views = { ...cfg.views, [view]: built };
   scheduleSave();
   return built;

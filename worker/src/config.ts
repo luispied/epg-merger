@@ -221,7 +221,7 @@ export function parseConfig(raw: unknown): Config {
 }
 
 /** Una vista guardada: sus categorías y la categoría de cada canal en esa vista. */
-export interface ViewSnapshot { groups: Groups; assign: Record<string, string>; /** La vista de género: todos los canales tienen su categoría de género. */ all?: true }
+export interface ViewSnapshot { groups: Groups; assign: Record<string, string> }
 
 /** Las categorías de una vista (la del proveedor o la de género); lo que no es válido se descarta. */
 export function parseGroups(raw: unknown): Groups {
@@ -269,7 +269,7 @@ export function parseViews(raw: unknown): Config['views'] | undefined {
         if (label) assign[ch.slice(0, 500)] = label;
       }
     }
-    views[name] = { groups: parseGroups((v as Record<string, unknown>).groups), assign, ...((v as Record<string, unknown>).all === true ? { all: true as const } : {}) };
+    views[name] = { groups: parseGroups((v as Record<string, unknown>).groups), assign };
   }
   return Object.keys(views).length ? views : undefined;
 }

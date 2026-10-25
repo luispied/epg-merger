@@ -30,10 +30,10 @@ test('cambia a «Por género» y vuelve a las del proveedor', async ({ page }) =
 
   await sheet.getByRole('button', { name: 'Por género' }).click();
   await expect(sheet.getByRole('button', { name: 'Por género' })).toHaveAttribute('aria-pressed', 'true');
-  // Solo categorías de género: CNN es Documental y ESPN, Deportes. Lo que no tiene género claro (o guía) va a «Generalistas y mixtos».
-  await expect(sheet.locator('.cat-row .menu-text')).toHaveText([/^Deportes/, /^Documentales/, /^Generalistas y mixtos/]);
+  // CNN es Documental: pasa a su categoría. Disney y Cartoon no tienen guía y siguen en «Infantiles».
   await expect(row('Documentales').locator('small')).toHaveText('1 canal');
-  await expect(row('Generalistas y mixtos').locator('small')).toHaveText('5 canales');
+  await expect(row('Noticias').locator('small')).toHaveText('1 canal');
+  await expect(row('Infantiles').locator('small')).toHaveText('2 canales');
   await expect.poll(() => lastSaved(fake)?.view).toBe('genre');
   expect(lastSaved(fake)).toMatchObject({ channels: { CNN: { group: 'Documentales' } } });
 
