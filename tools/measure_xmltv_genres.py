@@ -12,39 +12,11 @@ import sys
 
 from lxml import etree
 
+from xmltv_genres import genre_of
+
 MERGED = 'merged.xml.gz'
 MIN_PROGRAMS = 20
 MIN_SHARE = 0.5
-
-# Categorías XMLTV (en minúscula, sin tildes) → género de Grilla. Lo que no esté acá no cuenta como género.
-GENRE_WORDS = {
-    'movie': 'Película', 'movies': 'Película', 'film': 'Película', 'films': 'Película', 'pelicula': 'Película',
-    'peliculas': 'Película', 'cine': 'Película',
-    'series': 'Serie', 'serie': 'Serie', 'tv series': 'Serie', 'drama': 'Serie', 'soap': 'Telenovela',
-    'telenovela': 'Telenovela', 'telenovelas': 'Telenovela',
-    'sport': 'Deportes', 'sports': 'Deportes', 'deporte': 'Deportes', 'deportes': 'Deportes', 'futbol': 'Deportes',
-    'football': 'Deportes', 'soccer': 'Deportes',
-    'news': 'Noticias', 'noticias': 'Noticias', 'noticia': 'Noticias', 'current affairs': 'Noticias',
-    'documentary': 'Documental', 'documentaries': 'Documental', 'documental': 'Documental', 'documentales': 'Documental',
-    'kids': 'Infantil', 'children': 'Infantil', 'childrens': 'Infantil', 'cartoon': 'Infantil', 'cartoons': 'Infantil',
-    'animation': 'Infantil', 'infantil': 'Infantil', 'animacion': 'Infantil',
-    'music': 'Música', 'musica': 'Música', 'musical': 'Música',
-    'reality': 'Reality', 'reality show': 'Reality',
-    'cooking': 'Cocina', 'food': 'Cocina', 'cocina': 'Cocina',
-    'lifestyle': 'Estilo de vida', 'estilo de vida': 'Estilo de vida',
-    'comedy': 'Humor', 'humor': 'Humor',
-    'religion': 'Religión', 'religious': 'Religión', 'religión': 'Religión',
-    'education': 'Educativo', 'educational': 'Educativo', 'educativo': 'Educativo',
-    'shopping': 'Publicidad', 'advertisement': 'Publicidad', 'infomercial': 'Publicidad',
-}
-
-
-def genre_of(text):
-    """Género de Grilla para una categoría XMLTV, o None si no es un género conocido."""
-    key = ' '.join((text or '').lower().replace('á', 'a').replace('é', 'e').replace('í', 'i')
-                   .replace('ó', 'o').replace('ú', 'u').split())
-    return GENRE_WORDS.get(key)
-
 
 def measure(path):
     total = with_cat = with_genre = 0
