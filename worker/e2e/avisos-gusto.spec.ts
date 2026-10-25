@@ -242,14 +242,15 @@ test('Configuración tiene «Avisos por gusto»: con varios perfiles lleva a Per
   tastes.p1.on = true;
   await page.goto('/');
   await expect(page.locator('#cards .card')).toHaveCount(1);
-  await page.locator('#settingsBtn').click();
-  const cfgSheet = page.locator('#settingsDialog');
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
+  const cfgSheet = page.locator('#linksDialog');
   const row = cfgSheet.getByRole('button', { name: /Avisos por gusto/ });
   await expect(row).toContainText('Se prenden en cada perfil');
   await shots(page, '4-configuracion', info.project.name);
   await row.click();
   await expect(page.locator('#linksTitle')).toHaveText('Perfiles');
-  await expect(cfgSheet).not.toBeVisible();
+  await expect(cfgSheet).toBeVisible();
 });
 
 test('con un solo perfil, la fila de Configuración abre su hoja, y apagar un género se deshace', async ({ page }) => {
@@ -257,8 +258,9 @@ test('con un solo perfil, la fila de Configuración abre su hoja, y apagar un g�
   tastes.p1.on = true;
   await page.goto('/');
   await expect(page.locator('#cards .card')).toHaveCount(1);
-  await page.locator('#settingsBtn').click();
-  await page.locator('#settingsDialog').getByRole('button', { name: /Avisos por gusto/ }).click();
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
+  await page.locator('#linksDialog').getByRole('button', { name: /Avisos por gusto/ }).click();
   const doc = sheet(page).getByRole('button', { name: 'Documental', exact: true });
   await expect(doc).toHaveAttribute('aria-pressed', 'true');
   await doc.click();

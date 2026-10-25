@@ -12,7 +12,7 @@ import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
-  linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
+  linksBack, linksHelpTopic, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
@@ -29,7 +29,7 @@ import { LINKS_CARD_KEY, renderLinksCard, renderTipCard } from './ui/cards.tsx';
 import { openProgramLink, showGuide, type GuideHost, type Habits } from './ui/guide.tsx';
 import { setGenreAll, tasteAll } from './ui/avisos-gusto.tsx';
 import { openBulkMenu } from './ui/seleccion.tsx';
-import { iosNotInstalled, openSettings, pushSupported, setPush } from './ui/settings.tsx';
+import { iosNotInstalled, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
@@ -1621,7 +1621,7 @@ function renderReviewCard() {
 
 // La hoja de un canal (y el modo «Revisar») está en ui/canal.tsx.
 const DOCK_MQ = matchMedia('(min-width: 1100px) and (hover: hover)');
-const DOCKABLE = ['#channelDialog', '#settingsDialog'];
+const DOCKABLE = ['#channelDialog'];
 /** En escritorio ancho, canal y configuración quedan fijos a la derecha (sin velo) y la
  *  lista sigue usable (maestro-detalle); si no, son hojas modales. Solo hay un panel fijo a la vez. */
 function openDock(dlg: HTMLDialogElement) {
@@ -3026,7 +3026,7 @@ function setupEditor() {
   };
   $('#profileNotice').onclick = () => openProfiles({ v: 'account', account: activeAccount() });
   $('#linksBack').onclick = linksBack;
-  $('#linksHelpBtn').onclick = () => openHelp('links', '#linksDialog');
+  $('#linksHelpBtn').onclick = () => openHelp(linksHelpTopic(), '#linksDialog');
   wireNested('#helpDialog', '#helpBack', '#helpClose');
   // Atajos (escritorio): "/" busca; Escape en el buscador lo borra.
   document.addEventListener('keydown', (ev) => {
@@ -3045,7 +3045,6 @@ function setupEditor() {
     }
   });
   document.body.classList.toggle('no-logos', !logosOn());
-  $('#settingsBtn').onclick = openSettings;
   $<HTMLInputElement>('#backupFile').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (f) importBackup(f);

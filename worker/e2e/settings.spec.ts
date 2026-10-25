@@ -19,11 +19,12 @@ test.afterEach(() => {
   expect(errors).toEqual([]);
 });
 
-const sheet = (page: Page) => page.locator('#settingsDialog');
+const sheet = (page: Page) => page.locator('#linksDialog');
 async function openSettings(page: Page) {
-  await page.locator('#settingsBtn').click();
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
   await expect(sheet(page)).toBeVisible();
-  await expect(page.locator('#settingsTitle')).toHaveText('Configuración');
+  await expect(page.locator('#linksTitle')).toHaveText('Configuración');
 }
 
 test('muestra la guía, los avisos y la versión', async ({ page }) => {
@@ -68,20 +69,19 @@ test('actualizar la guía ahora', async ({ page }) => {
   await openSettings(page);
   await sheet(page).getByRole('button', { name: /Actualizar la guía ahora/ }).click();
   await expect(page.locator('.toast .msg')).toContainText('Actualizando la guía');
-  await expect(sheet(page)).toBeHidden();
+  await expect(sheet(page)).toBeVisible();
   expect(fake.writes.some((w) => w.method === 'POST' && w.path === '/api/cfg/c1/refresh')).toBe(true);
 });
 
 test('usar en otro dispositivo abre Perfil en esa página', async ({ page }) => {
   await openSettings(page);
   await sheet(page).getByRole('button', { name: /Usar en otro dispositivo/ }).click();
-  await expect(sheet(page)).toBeHidden();
   await expect(page.locator('#linksDialog')).toBeVisible();
   await expect(page.locator('#linksTitle')).toHaveText('Otro dispositivo');
   // «‹» vuelve a Configuración, no a Perfiles.
   await page.locator('#linksBack').click();
   await expect(sheet(page)).toBeVisible();
-  await expect(page.locator('#settingsTitle')).toHaveText('Configuración');
+  await expect(page.locator('#linksTitle')).toHaveText('Configuración');
 });
 
 test('letra grande agranda toda la app y queda elegida en este dispositivo', async ({ page }) => {

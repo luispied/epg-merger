@@ -123,9 +123,6 @@
         <h1>Canales</h1>
         <button class="icon-btn help-btn" id="helpTopBtn" title="Ayuda" aria-label="Ayuda"><span data-icon="circle-help"></span></button>
       </span>
-      <div class="header-actions">
-        <button class="icon-btn" id="settingsBtn" title="Configuración" aria-label="Configuración"><span data-icon="settings"></span></button>
-      </div>
     </div>
   </header>
   <div class="toolbar">
@@ -239,10 +236,6 @@
   </div>
 </dialog>
 
-<!-- Configuración: la arma ui/settings.tsx al abrirla. -->
-<dialog class="sheet settings-sheet" id="settingsDialog" aria-labelledby="settingsTitle">
-  <div class="sheet-body"></div>
-</dialog>
 
 <dialog class="sheet help-sheet" id="helpDialog" aria-labelledby="helpTitle">
   <div class="sheet-body">
@@ -404,7 +397,7 @@
       </details>
     </div>
     <div class="help-topic" data-topic="settings" hidden>
-      <p>Acá se ajusta nowline en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista) está en la pestaña <b>Perfil</b>, que también abre esta pantalla desde su última fila.</p>
+      <p>Acá se ajusta nowline en sí, no los canales: la guía, el respaldo y las preferencias. Lo de cada proveedor y cada cuenta (suscripción, conexiones, canales caídos, dirección del servicio, recargar la lista) está en la pestaña <b>Perfil</b>. Esta pantalla se abre desde Perfil, en la sección <b>Aplicación</b>, al final.</p>
       <details open>
         <summary>Salud de la guía<span data-icon="chevron-down"></span></summary>
         <p>Muestra qué porcentaje de tus canales con guía tiene programación <b>ahora</b>, y cuántos no tienen <b>nada en las próximas 12 horas</b> (una guía vieja o un canal sin datos). Tocá la fila para ver esos canales en el filtro <b>Sin programación</b> y cambiarles la guía. Los canales ocultos, los de categorías «Sin guía» y los que no tienen guía asignada no cuentan en el porcentaje.</p>
@@ -496,7 +489,7 @@
       </details>
       <details>
         <summary>Proveedores y otros dispositivos<span data-icon="chevron-down"></span></summary>
-        <p>Perfil agrupa todo por proveedor, y cada proveedor tiene su propia grilla: usar una cuenta de otro proveedor abre la suya. Tocando la fila de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista o lo quitás. Si el proveedor no informa su zona horaria aparece además <b>Hora de eventos</b>, para pasar a tu hora los eventos PPV. <b>Agregar proveedor</b> suma otra lista de IPTV. <b>Usar en otro dispositivo</b> te da un código (o un archivo de respaldo) para abrir todos tus proveedores, cuentas y perfiles en otro celular, TV o computadora. Al final está <b>Configuración</b>, con los avisos, la guía, la letra grande y las novedades de nowline.</p>
+        <p>Perfil agrupa todo por proveedor, y cada proveedor tiene su propia grilla: usar una cuenta de otro proveedor abre la suya. Tocando la fila de un proveedor le cambiás el nombre, la dirección del servicio, recargás su lista o lo quitás. Si el proveedor no informa su zona horaria aparece además <b>Hora de eventos</b>, para pasar a tu hora los eventos PPV. <b>Agregar proveedor</b> suma otra lista de IPTV. <b>Usar en otro dispositivo</b> te da un código (o un archivo de respaldo) para abrir todos tus proveedores, cuentas y perfiles en otro celular, TV o computadora. Al final, en la sección <b>Aplicación</b>, está <b>Configuración</b>, con los avisos, la guía, la letra grande y las novedades de nowline. Tiene su propio «‹» para volver acá.</p>
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
