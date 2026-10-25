@@ -20,7 +20,7 @@
   --hairline: light-dark(#d9d3c6, #2a2e37);
   --chip-line: light-dark(#8f887a, #626a77); /* borde de chips y filtros sin elegir (3:1 contra el fondo) */
   --toolbar-bg: light-dark(rgba(245, 242, 236, .92), rgba(12, 13, 16, .92));
-  --glass-bar: light-dark(rgba(255, 255, 255, .5), rgba(30, 24, 40, .5)); /* vidrio de la barra de abajo: lo de atrás se ve, desenfocado */
+  --glass-bar: light-dark(rgba(255, 255, 255, .5), rgba(21, 23, 28, .5)); /* vidrio de la barra de abajo: lo de atrás se ve, desenfocado (el --surface oscuro, al 50 %) */
   --glass-edge: light-dark(rgba(255, 255, 255, .95), rgba(255, 255, 255, .28)); /* borde y brillo de arriba del vidrio */
 
   /* Control deshabilitado: fondo y texto por token, no con opacity (la opacidad también deja borroso el texto) */
