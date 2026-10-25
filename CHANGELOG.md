@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.13
+
+- **El programa en el aire, en una línea.** En la vista detallada de Canales, el título que está dando ahora se corta con «…» en una sola línea, en lugar de quedar a medio cortar en la segunda.
+
 ## 1.58.12
 
 - **Canales en tarjetas por categoría.** Cada categoría es una tarjeta redondeada con sus canales adentro, separados por una línea. Los títulos de categoría van sin fondo, en letras chicas, y las filas tienen más aire.
