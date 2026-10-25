@@ -53,7 +53,9 @@ test('las preferencias se guardan y se ven al volver a abrir', async ({ page }) 
   await s.locator('.menu-row', { hasText: 'Mostrar logos' }).locator('input').uncheck();
   await expect(page.locator('body')).toHaveClass(/no-logos/);
   await s.locator('select').selectOption('todos');
-  await s.getByRole('button', { name: 'Cerrar' }).click();
+  // Configuración es una página de Perfil: «‹» vuelve a la lista, y de ahí se cierra.
+  await page.locator('#linksBack').click();
+  await page.keyboard.press('Escape');
   await expect(sheet(page)).toBeHidden();
 
   await openSettings(page);
