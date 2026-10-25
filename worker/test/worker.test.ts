@@ -370,6 +370,29 @@ test('links cortos: no muestran la configuración ni el token, y los largos sigu
   assert.equal((await handle(new Request(links.playlistUrl.replace('.m3u8', '.xml.gz').replace('/l/', '/l/')), t.env, t.ctx, t.cache)).status, 404);
 });
 
+test('la guía se revalida con su ETag: el reproductor recibe 304 mientras no cambie', async () => {
+  const t = await setup();
+  const links = await (await handle(req(`/api/cfg/${t.cfgId}/token`, { method: 'POST', key: t.editKey,
+    body: JSON.stringify({ username: 'user', password: 'pa ss' }) }), t.env, t.ctx, t.cache)).json() as
+    { epgUrl: string; longEpgUrl: string };
+  await t.env.BUCKET.put(`epg/${t.cfgId}.xml.gz`, 'gz');
+  for (const url of [links.epgUrl, links.longEpgUrl]) {
+    const first = await handle(new Request(url), t.env, t.ctx, t.cache);
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get('Cache-Control'), 'no-cache');
+    const etag = first.headers.get('ETag');
+    assert.ok(etag, 'la guía sale con su ETag');
+    const again = await handle(new Request(url, { headers: { 'If-None-Match': etag } }), t.env, t.ctx, t.cache);
+    assert.equal(again.status, 304);
+    assert.equal(await again.text(), '');
+    // Una guía nueva tiene otro ETag: el reproductor vuelve a bajarla completa.
+    await t.env.BUCKET.put(`epg/${t.cfgId}.xml.gz`, 'gz nueva');
+    const changed = await handle(new Request(url, { headers: { 'If-None-Match': etag } }), t.env, t.ctx, t.cache);
+    assert.equal(changed.status, 200);
+    assert.equal(await changed.text(), 'gz nueva');
+  }
+});
+
 test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corrida (una cada 15 minutos)', async () => {
   const { dispatchRefresh } = await import('../src/github.ts');
   const t = makeEnv();

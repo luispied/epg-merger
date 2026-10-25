@@ -176,13 +176,13 @@ async function resolveShort(env: Env, ctx: Ctx, code: string): Promise<{ cfgId: 
 }
 
 /** La guía de un link. Si su perfil es infantil, sin los programas que no son aptos (guide-kids.ts). */
-async function serveGuide(env: Env, short: { cfgId: string; profile?: string }): Promise<Response> {
+async function serveGuide(env: Env, short: { cfgId: string; profile?: string }, req: Request): Promise<Response> {
   const key = `epg/${short.cfgId}.xml.gz`;
   // Un link de perfil sin su configuración no se sirve sin filtro: si no se puede leer, la guía no sale.
   const stored = short.profile ? await loadConfig(env.BUCKET, short.cfgId) : null;
   if (short.profile && !stored) return fail(404, 'no encontrado');
   const kids = stored && short.profile ? findProfile(stored.config, short.profile)?.kids : undefined;
-  if (!kids) return await serveR2(env, key, 'application/gzip', 3600);
+  if (!kids) return await serveEpg(env, key, req);
   const obj = await env.BUCKET.get(key);
   if (!obj) return fail(404, 'no encontrado');
   return new Response(filterGuide(obj.body, await aptTitles(env.BUCKET, kids)), {
@@ -348,10 +348,14 @@ function storedResponse(raw: Raw | null, maxAge: number): Response {
   return new Response(raw.bytes, { headers, encodeBody: 'manual' } as ResponseInit);
 }
 
-async function serveR2(env: Env, key: string, contentType: string, maxAge: number): Promise<Response> {
+/** La guía de una configuración (la arma la corrida de GitHub). Se revalida con su ETag de R2 en vez de cachearse una
+ *  hora: un cambio de guía llega al refrescar, y si nada cambió el reproductor recibe un 304 sin cuerpo. */
+async function serveEpg(env: Env, key: string, req: Request): Promise<Response> {
   const obj = await env.BUCKET.get(key);
   if (!obj) return fail(404, 'no encontrado');
-  return new Response(obj.body, { headers: { 'Content-Type': contentType, 'Cache-Control': `public, max-age=${maxAge}`, ...CORS } });
+  const headers = { 'Content-Type': 'application/gzip', 'Cache-Control': 'no-cache', ...(obj.httpEtag ? { ETag: obj.httpEtag } : {}), ...CORS };
+  if (obj.httpEtag && req.headers.get('If-None-Match') === obj.httpEtag) return new Response(null, { status: 304, headers });
+  return new Response(obj.body, { headers });
 }
 
 /** La prueba de canales corre como mucho una vez cada 20 horas (cron de la madrugada y a mano). */
@@ -995,7 +999,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
     }
     if (request.method === 'GET' && parts[0] === 'p' && isId(parts[1] ?? '')) {
       if (parts.length === 3 && parts[2] === 'epg.xml.gz') {
-        return await serveR2(env, `epg/${parts[1]}.xml.gz`, 'application/gzip', 3600);
+        return await serveEpg(env, `epg/${parts[1]}.xml.gz`, request);
       }
       if (parts.length === 4 && parts[3] === 'playlist.m3u8') return await servePlaylist(parts[1], parts[2], url, env, ctx, cache);
     }
@@ -1010,7 +1014,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const short = m && ((parts[0] === 'l') === (m[2] === 'm3u8')) ? await resolveShort(env, ctx, m[1]) : null;
       if (!short) return fail(404, 'no encontrado');
       if (short.off) return parts[0] === 'l' ? disabledPlaylist(url.origin, m![1]) : fail(403, 'link desactivado');
-      if (parts[0] === 'g') return await serveGuide(env, short);
+      if (parts[0] === 'g') return await serveGuide(env, short, request);
       return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1], short.filter);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
