@@ -11,13 +11,6 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.59.0
-
-- **Categorías por género.** En Categorías, «Del proveedor | Por género» cambia la vista. «Por género» pone cada canal con
-  guía en la categoría de su género (Deportes, Noticias, Documentales…), según lo que la guía dice de sus programas. Los
-  canales sin guía siguen en su categoría del proveedor, y los que no tienen un género claro van a «Generalistas y mixtos».
-  Televentas viene oculta. Cambiar de vista no borra nada: cada una guarda su orden y sus ocultas.
-
 ## 1.58.16
 
 - **Un cambio de guía no se pierde por guardar seguido.** Si guardás otro cambio dentro de los 15 minutos del anterior, la guía
