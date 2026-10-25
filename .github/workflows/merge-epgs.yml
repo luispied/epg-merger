@@ -161,6 +161,12 @@ jobs:
         R2_BUCKET: ${{ vars.R2_BUCKET }}
       run: python tools/measure_titles.py
 
+    # Cuánto género trae la propia guía (<category> de XMLTV), sin IA: informativo, al resumen de la corrida.
+    - name: Measure XMLTV genres (free)
+      continue-on-error: true
+      timeout-minutes: 5
+      run: python tools/measure_xmltv_genres.py
+
     # Al release solo van artefactos SIN credenciales adentro: la guía fusionada, que baja
     # tools/refresh_epgs.py para armar la guía de cada configuración, y el catálogo de EPG.
     - name: Publish release assets
