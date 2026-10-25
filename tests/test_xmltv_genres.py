@@ -39,3 +39,18 @@ def test_merge_lets_ai_win_unless_it_said_otro():
     assert out['c'] == ['Serie', [], True, '']
     assert guide['a'][0] == 'Noticias'  # no toca el dict de la guía
     assert xg.merge(None, guide) == guide
+
+
+def test_channel_genres_counts_the_top_genre_per_channel(tmp_path):
+    root = os.path.join(os.path.dirname(__file__), '..')
+    sys.path.insert(0, root)
+    from source_alias import channel_alias
+    xml = b'''<tv>
+<programme channel="a.ar" start="1"><title>Noticiero</title><category>News</category></programme>
+<programme channel="a.ar" start="2"><title>Noticiero</title><category>News</category></programme>
+<programme channel="a.ar" start="3"><title>Otro</title></programme>
+</tv>'''
+    path = tmp_path / 'merged.xml.gz'
+    path.write_bytes(gzip.compress(xml))
+    genres = xg.merge(None, xg.from_guide(str(path)))
+    assert xg.channel_genres(str(path), genres) == {channel_alias('a.ar'): ['Noticias', 2, 3]}

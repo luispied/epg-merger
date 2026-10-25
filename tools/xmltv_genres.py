@@ -78,3 +78,55 @@ def merge(ai, guide):
         if info and info[0] and info[0] != 'Otro':
             out[key] = info
     return out
+
+
+def channel_genres(path, genres):
+    """{alias del canal: [género más frecuente, programas con ese género, programas]} de la guía fusionada. `genres`
+    es el dict de géneros por título (de merge()). El alias es el de los archivos de programación (source_alias.py),
+    así la web lo busca con el mismo id que la programación del canal. Canales sin ningún programa con género no salen."""
+    from source_alias import channel_alias
+    from measure_titles import title_key as key
+
+    totals = collections.Counter()
+    votes = collections.defaultdict(collections.Counter)
+    with gzip.open(path, 'rb') as f:
+        for _, el in etree.iterparse(f, events=('end',), tag='programme', huge_tree=True):
+            alias = channel_alias(el.get('channel', ''))
+            totals[alias] += 1
+            info = genres.get(key((el.findtext('title') or '').strip()))
+            if info and info[0]:
+                votes[alias][info[0]] += 1
+            el.clear()
+            while el.getprevious() is not None:
+                del el.getparent()[0]
+    out = {}
+    for alias, counts in votes.items():
+        genre, n = counts.most_common(1)[0]
+        out[alias] = [genre, n, totals[alias]]
+    return out
+
+
+def main(argv):
+    """python tools/xmltv_genres.py merged.xml.gz [genres_ai.json|-] out_genres.json out_channels.json
+    Escribe el género de cada título (guía + IA) y el género por canal, para la web y el empaquetado."""
+    import json
+    import sys
+
+    merged, ai_path, out_genres, out_channels = argv[1:5]
+    ai = None
+    if ai_path != '-':
+        with open(ai_path, encoding='utf-8') as f:
+            ai = json.load(f)
+    genres = merge(ai, from_guide(merged))
+    with open(out_genres, 'w', encoding='utf-8') as f:
+        json.dump(genres, f, ensure_ascii=False, separators=(',', ':'))
+    with open(out_channels, 'w', encoding='utf-8') as f:
+        json.dump(channel_genres(merged, genres), f, ensure_ascii=False, separators=(',', ':'))
+    print(f'🏷️  {len(genres)} títulos con género; {out_channels} listo', file=sys.stderr)
+    return 0
+
+
+if __name__ == '__main__':
+    import sys
+
+    sys.exit(main(sys.argv))
