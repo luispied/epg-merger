@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.8
+
+- **Barra de abajo de vidrio.** La cápsula de abajo es ahora un vidrio translúcido, desenfocado, con borde y brillo de arriba. Se ve lo que pasa por detrás. Igual en la edición y en el modo ver.
+
 ## 1.58.7
 
 - **Configuración, también desde Perfil.** Al final de Perfil hay una fila nueva, «Configuración», debajo de «Usar en otro dispositivo». Lleva a los mismos ajustes que el engranaje de Canales, que sigue igual.
