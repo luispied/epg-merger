@@ -11,24 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.60.1
+## 1.60.2
 
-- **Por género, solo categorías de género.** Cada canal cae en una categoría de su género. Los que no tienen guía o un
-  género claro van a «Generalistas y mixtos», en vez de quedar en una categoría del proveedor. Así no hay categorías del
-  proveedor repetidas al lado de las de género. Las vistas por género ya guardadas se vuelven a armar la próxima vez que se usan.
-
-## 1.60.0
-
-- **Cada perfil elige su vista de categorías.** En «Qué ve», «Del proveedor | Por género» decide qué categorías usa ese
-  perfil. Su playlist y sus categorías salen de esa vista; otro perfil puede usar la otra. Cada vista guarda sus propias
-  categorías ocultas: al volver a una, queda como la dejaste. Los canales ocultos son los mismos en las dos.
-
-## 1.59.0
-
-- **Categorías por género.** En Categorías, «Del proveedor | Por género» cambia la vista. «Por género» pone cada canal con
-  guía en la categoría de su género (Deportes, Noticias, Documentales…), según lo que la guía dice de sus programas. Los
-  canales sin guía siguen en su categoría del proveedor, y los que no tienen un género claro van a «Generalistas y mixtos».
-  Televentas viene oculta. Cambiar de vista no borra nada: cada una guarda su orden y sus ocultas.
+- **Se quita la vista «Por género».** Categorías vuelve a mostrar solo las categorías del proveedor, y «Qué ve» de cada
+  perfil ya no elige vista. Tus canales, categorías y perfiles quedan como estaban antes de la vista por género.
 
 ## 1.58.16
 

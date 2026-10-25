@@ -39,7 +39,7 @@
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
-  type Config, type ProfileDef, viewConfig } from './config.ts';
+  type Config, type ProfileDef } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
 import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
@@ -220,7 +220,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   }
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const logoUrl = await logoResolver(env, url.origin, logos);
-  const text = buildPlaylist(list.channels, viewConfig(cfg, filter?.view), {
+  const text = buildPlaylist(list.channels, cfg, {
     filter,
     logoUrl,
     separatorUrl: `${url.origin}/sep`,
@@ -267,9 +267,7 @@ async function viewKids(env: Env, code: string): Promise<{ cfgId: string; kids?:
 async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   const v = await viewProfile(env, code);
   if (!v) return fail(404, 'este código para ver ya no existe');
-  const { profile } = v;
-  // La vista de categorías del perfil (por proveedor o por género), como en su playlist.
-  const cfg = viewConfig(v.cfg, profile.filter?.view);
+  const { cfg, profile } = v;
   const list = await env.BUCKET.get(r2ListKey(v.cfgId));
   if (!list) return fail(409, 'todavía no hay canales para mostrar');
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
@@ -781,7 +779,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         if (!p.kids) return fail(404, 'este perfil no es infantil');
         const list = await env.BUCKET.get(r2ListKey(cfgId));
         const epgs = new Set<string>();
-        if (list) for (const r of playlistRows((JSON.parse(await list.text()) as LiveList).channels, viewConfig(config, p.filter?.view), { filter: p.filter, providerLogos: false })) if (r.epg) epgs.add(r.epg);
+        if (list) for (const r of playlistRows((JSON.parse(await list.text()) as LiveList).channels, config, { filter: p.filter, providerLogos: false })) if (r.epg) epgs.add(r.epg);
         const HOURS = 6;
         const idxs = await Promise.all([...Array(HOURS).keys()].map(async (k) => {
           const key = new Date(Date.now() + k * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
@@ -801,11 +799,6 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           const f = parseFilter(raw.filter);
           if (f) next.filter = f;
           else delete next.filter;
-          // Lo oculto en cada vista se guarda aparte: volver a una vista la deja como la dejó.
-          const v: 'provider' | 'genre' = f?.view ?? 'provider';
-          const stash = { ...p.filters };
-          stash[v] = f?.groups ?? [];
-          next.filters = stash;
         }
         // Perfil infantil: solo con la clave de edición (este bloque la exige); el modo ver no llega acá.
         if ('kids' in raw) {
@@ -974,7 +967,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
   if (section === 'ui' && method === 'GET') {
     // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
-    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path) || path === 'schedule/topics.json' || path === 'genres/channels.json'; // topics.json: el índice para buscar por tema; channels.json: el género de cada canal (vista «Por género»)
+    const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path) || path === 'schedule/topics.json'; // topics.json: el índice para buscar por tema
     const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
     if (!hour && !channel) return fail(404, 'no encontrado');
     return storedResponse(hour ? await readStored(env.BUCKET, `ui/${path}`) : await scheduleReader(env.BUCKET)(channel!), 900);

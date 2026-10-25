@@ -34,10 +34,6 @@ export interface Config {
   /** `channels`: orden propio de los canales dentro de una categoría ({categoría: [nombres]});
    *  los que no están en la lista van después, en el orden del proveedor. */
   groups?: Groups;
-  /** Vista activa de las categorías: sin dato = por proveedor («Por género» lo pone en «genre»). */
-  view?: 'genre';
-  /** La vista que no está activa, guardada aparte (ver planes/categorias-por-genero.md). */
-  views?: { provider?: ViewSnapshot; genre?: ViewSnapshot };
   /** Cómo elegir la guía (importado de la corrida de GitHub): umbral, señal horaria preferida y
    *  país/fuentes preferidas por categoría cruda del proveedor. Solo lo usa la interfaz. */
   matching?: Matching;
@@ -61,8 +57,6 @@ export interface ProfileDef {
   view?: string;
   /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
   kids?: Kids;
-  /** Categorías ocultas guardadas por vista: al volver a una vista, el perfil queda como la dejó. `filter` es la vista actual. */
-  filters?: { provider?: string[]; genre?: string[] };
 }
 export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
 const MAX_PROFILES = 50;
@@ -78,22 +72,9 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const filter = parseFilter(r.filter);
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
     const kids = parseKids(r.kids);
-    const filters = parseFilters(r.filters);
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(filters ? { filters } : {}) });
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}) });
   }
   return out;
-}
-
-/** Las categorías ocultas de cada vista (solo nombres; un máximo razonable por vista). */
-export function parseFilters(raw: unknown): ProfileDef['filters'] | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Record<string, unknown>;
-  const out: NonNullable<ProfileDef['filters']> = {};
-  for (const v of ['provider', 'genre'] as const) {
-    const a = r[v];
-    if (Array.isArray(a)) out[v] = [...new Set(a.filter((x): x is string => typeof x === 'string' && x.length > 0).map((x) => x.slice(0, 500)))].slice(0, 5000);
-  }
-  return Object.keys(out).length ? out : undefined;
 }
 
 export interface Matching {
@@ -201,10 +182,27 @@ export function parseConfig(raw: unknown): Config {
     if (logo && /^https?:\/\/[^\s"]+$/i.test(logo)) edit.customLogo = logo;
     if (Object.keys(edit).length) channels[name.slice(0, 500)] = edit;
   }
+  const g = (r.groups ?? {}) as Record<string, unknown>;
+  const channelOrder: Record<string, string[]> = {};
+  if (g.channels && typeof g.channels === 'object') {
+    for (const [group, names] of Object.entries(g.channels as Record<string, unknown>).slice(0, 2000)) {
+      const list = strList(names, 5000);
+      if (list.length) channelOrder[group.slice(0, 500)] = list;
+    }
+  }
   const matching = parseMatching(r.matching);
+  const rename: Record<string, string> = {};
+  if (g.rename && typeof g.rename === 'object') {
+    for (const [from, to] of Object.entries(g.rename as Record<string, unknown>).slice(0, 3000)) {
+      const label = str(to, 200)?.trim();
+      if (label && label !== from) rename[from.slice(0, 500)] = label;
+    }
+  }
+  const custom = strList(g.custom, 2000);
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const profiles = parseProfiles(r.profiles);
   const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
+  const separators = strList(g.separators, 2000);
   return {
     version: 1,
     provider,
@@ -214,80 +212,16 @@ export function parseConfig(raw: unknown): Config {
     ...(mainName ? { mainName } : {}),
     ...(profiles.length ? { profiles } : {}),
     channels,
-    groups: parseGroups(r.groups),
-    ...(r.view === 'genre' ? { view: 'genre' as const } : {}),
-    ...(parseViews(r.views) ? { views: parseViews(r.views) } : {}),
+    groups: {
+      order: strList(g.order, 5000),
+      hidden: strList(g.hidden, 5000),
+      ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
+      ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
+      ...(Object.keys(rename).length ? { rename } : {}),
+      ...(custom.length ? { custom } : {}),
+      ...(separators.length ? { separators } : {}),
+    },
   };
-}
-
-/** Una vista guardada: sus categorías y la categoría de cada canal en esa vista. */
-export interface ViewSnapshot { groups: Groups; assign: Record<string, string>; /** La vista de género: todos los canales tienen su categoría de género. */ all?: true }
-
-/** Las categorías de una vista (la del proveedor o la de género); lo que no es válido se descarta. */
-export function parseGroups(raw: unknown): Groups {
-  const g = (raw ?? {}) as Record<string, unknown>;
-  const channelOrder: Record<string, string[]> = {};
-  if (g.channels && typeof g.channels === 'object') {
-    for (const [group, names] of Object.entries(g.channels as Record<string, unknown>).slice(0, 2000)) {
-      const list = strList(names, 5000);
-      if (list.length) channelOrder[group.slice(0, 500)] = list;
-    }
-  }
-  const rename: Record<string, string> = {};
-  if (g.rename && typeof g.rename === 'object') {
-    for (const [from, to] of Object.entries(g.rename as Record<string, unknown>).slice(0, 3000)) {
-      const label = str(to, 200)?.trim();
-      if (label && label !== from) rename[from.slice(0, 500)] = label;
-    }
-  }
-  const custom = strList(g.custom, 2000);
-  const separators = strList(g.separators, 2000);
-  return {
-    order: strList(g.order, 5000),
-    hidden: strList(g.hidden, 5000),
-    ...(strList(g.noEpg, 5000).length ? { noEpg: strList(g.noEpg, 5000) } : {}),
-    ...(Object.keys(channelOrder).length ? { channels: channelOrder } : {}),
-    ...(Object.keys(rename).length ? { rename } : {}),
-    ...(custom.length ? { custom } : {}),
-    ...(separators.length ? { separators } : {}),
-  };
-}
-
-/** La vista que no está activa: sus categorías y en qué categoría estaba cada canal. */
-export function parseViews(raw: unknown): Config['views'] | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Record<string, unknown>;
-  const views: NonNullable<Config['views']> = {};
-  for (const name of ['provider', 'genre'] as const) {
-    const v = r[name];
-    if (!v || typeof v !== 'object') continue;
-    const assign: Record<string, string> = {};
-    const a = (v as Record<string, unknown>).assign;
-    if (a && typeof a === 'object') {
-      for (const [ch, group] of Object.entries(a as Record<string, unknown>).slice(0, 20000)) {
-        const label = str(group, 500);
-        if (label) assign[ch.slice(0, 500)] = label;
-      }
-    }
-    views[name] = { groups: parseGroups((v as Record<string, unknown>).groups), assign, ...((v as Record<string, unknown>).all === true ? { all: true as const } : {}) };
-  }
-  return Object.keys(views).length ? views : undefined;
-}
-
-/** La configuración con la vista de categorías de un perfil («genre» o, sin dato, la del proveedor). Si es la activa,
- *  es la misma; si no, sus categorías y canales salen de la vista guardada aparte (`views`). */
-export function viewConfig(cfg: Config, view?: 'genre'): Config {
-  const want = view ?? 'provider';
-  if (want === (cfg.view ?? 'provider')) return cfg;
-  const snap = cfg.views?.[want];
-  if (!snap) return cfg;
-  const channels: Record<string, ChannelEdit> = {};
-  for (const [name, e] of Object.entries(cfg.channels)) {
-    const { group: _g, ...rest } = e;
-    channels[name] = rest;
-  }
-  for (const [name, group] of Object.entries(snap.assign)) channels[name] = { ...channels[name], group };
-  return { ...cfg, groups: snap.groups, channels, view: view };
 }
 
 const key = (cfgId: string) => `cfg/${cfgId}.json`;

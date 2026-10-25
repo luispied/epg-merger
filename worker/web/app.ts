@@ -33,22 +33,16 @@ import { iosNotInstalled, pushSupported, setPush } from './ui/settings.tsx';
 import { hideSplash } from './ui/splash.ts';
 import { toast } from './ui/toast.tsx';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
-import { genreAssign, genreGroups, loadChannelGenres } from './ui/vista-genero.ts';
 
 // ------------------------------------------------------------------ tipos (los del Worker)
 type Provider = { type: 'xtream'; servers: string[]; list?: 'upload' } | { type: 'm3u' };
 interface ChannelEdit { epg?: string | null; logo?: string; name?: string; group?: string; hidden?: boolean; manual?: boolean; customLogo?: string }
-/** Una vista de las categorías guardada: sus categorías y la categoría de cada canal en esa vista. */
-interface CategoryView { groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] }; assign: Record<string, string>; all?: true }
 interface Config {
   version: 1;
   provider: Provider;
   directUrls?: boolean;
   channels: Record<string, ChannelEdit>;
   groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] };
-  /** Vista «Por género» de las categorías: la activa va en `groups` y en los canales; la otra, guardada aparte. */
-  view?: 'genre';
-  views?: { provider?: CategoryView; genre?: CategoryView };
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
   /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
@@ -860,28 +854,23 @@ const groupLabel = (g: string) => state.cfg?.groups.rename?.[g] || g;
 
 /** Categorías en el orden guardado; las que no están en él, al final en el orden del proveedor. */
 function groups(): string[] {
-  return orderedGroups(state.cfg!.groups, groupOf);
-}
-
-/** Las categorías de una vista (sus canales van a la que diga `catOf`) en el orden de `gr`. */
-function orderedGroups(gr: Config['groups'], catOf: (ch: Channel) => string): string[] {
   const present: string[] = [];
   const seen = new Set<string>();
   for (const ch of state.channels) {
-    const g = catOf(ch);
+    const g = groupOf(ch);
     if (!seen.has(g)) {
       seen.add(g);
       present.push(g);
     }
   }
   // Las creadas a mano existen aunque todavía no tengan canales.
-  for (const g of [...(gr.custom ?? []), ...(gr.separators ?? [])]) {
+  for (const g of [...(state.cfg!.groups.custom ?? []), ...(state.cfg!.groups.separators ?? [])]) {
     if (!seen.has(g)) {
       seen.add(g);
       present.push(g);
     }
   }
-  return placeNewGroups(gr.order, present, new Set(gr.separators ?? [])).filter((g) => seen.has(g));
+  return placeNewGroups(state.cfg!.groups.order, present, new Set(state.cfg!.groups.separators ?? [])).filter((g) => seen.has(g));
 }
 
 /** Categorías que el proveedor trajo y todavía no estaban en el orden guardado: se ubican solas
@@ -1722,36 +1711,18 @@ let headersCache: Set<string> | null = null;
 /** sectionHeaders() de esta pasada de dibujo (render() y editGroups lo invalidan). */
 const headersNow = () => (headersCache ??= sectionHeaders());
 function sectionHeaders(): Set<string> {
-  return headersOf(state.cfg!.groups, groupOf);
-}
-
-/** Las secciones de una vista: separadores y categorías decorativas o de un solo canal que se llama igual. */
-function headersOf(gr: Config['groups'], catOf: (ch: Channel) => string): Set<string> {
   const members = new Map<string, Channel[]>();
   for (const ch of state.channels) {
-    const g = catOf(ch);
+    const g = groupOf(ch);
     if (!members.has(g)) members.set(g, []);
     members.get(g)!.push(ch);
   }
-  const out = new Set<string>(gr.separators ?? []);
+  const out = new Set<string>(state.cfg!.groups.separators ?? []);
   for (const [g, chs] of members) {
     const only = chs.length === 1 ? (state.cfg!.channels[chs[0].name]?.name || chs[0].name) : null;
     if (DIVIDER_RE.test(g) || only === g) out.add(g);
   }
   return out;
-}
-
-/** Las categorías de una vista, sea la activa o la guardada aparte (`views`), para armar su lista sin cambiarla.
- *  Null si esa vista todavía no existe (la de género se arma con ensureView). */
-export interface ViewModel { gr: Config['groups']; groups: string[]; headers: Set<string>; catOf: (ch: Channel) => string; label: (g: string) => string }
-export function viewModel(view: 'provider' | 'genre'): ViewModel | null {
-  const active = (state.cfg!.view === 'genre' ? 'genre' : 'provider') === view;
-  const snap = active ? undefined : state.cfg!.views?.[view];
-  if (!active && !snap) return null;
-  const gr = active ? state.cfg!.groups : snap!.groups;
-  const assign = snap?.assign ?? {};
-  const catOf = active ? groupOf : (ch: Channel) => assign[ch.name] || ch.category;
-  return { gr, groups: orderedGroups(gr, catOf), headers: headersOf(gr, catOf), catOf, label: (g) => gr.rename?.[g] || g };
 }
 /** Nombre legible de una sección: sin la decoración y con los caracteres anchos normales. */
 const sectionTitle = (g: string) => g.replace(/[\u2580-\u259F]+/g, ' ').normalize('NFKC').replace(/\s+/g, ' ').trim() || g;
@@ -2007,60 +1978,6 @@ function wireNested(child: string, back: string, close: string) {
   };
 }
 
-/** La categoría de cada canal en la vista activa (solo los que tienen una propia). */
-function assignOf(): Record<string, string> {
-  return Object.fromEntries(Object.entries(state.cfg!.channels).flatMap(([name, e]) => (e.group ? [[name, e.group]] : [])));
-}
-
-/** Cambia la vista de las categorías. La que se deja queda guardada aparte; la que se pide vuelve tal como se dejó, o
- *  se arma con los géneros de la guía la primera vez. Devuelve false si no pudo armarla (sin datos de género). */
-export async function setView(view: 'provider' | 'genre'): Promise<boolean> {
-  const cfg = state.cfg!;
-  const current = cfg.view === 'genre' ? 'genre' : 'provider';
-  if (view === current) return true;
-  const saved = await ensureView(view);
-  if (!saved) return false;
-  const { groups, assign } = saved;
-  const views = { ...cfg.views };
-  views[current] = { groups: structuredClone(cfg.groups), assign: assignOf() };
-  delete views[view];
-  cfg.groups = structuredClone(groups);
-  for (const [name, e] of Object.entries(cfg.channels)) {
-    delete e.group;
-    if (!Object.keys(e).length) delete cfg.channels[name];
-  }
-  for (const [name, group] of Object.entries(assign)) cfg.channels[name] = { ...cfg.channels[name], group };
-  cfg.view = view === 'genre' ? 'genre' : undefined;
-  cfg.views = views;
-  scheduleSave();
-  render();
-  if (($('#categoriesDialog') as HTMLDialogElement).open) renderCategories();
-  toast(view === 'genre' ? 'Categorías por género' : 'Categorías del proveedor', 'ok', 3500, () => {
-    void setView(current);
-  });
-  return true;
-}
-
-/** La vista guardada aparte (`views`), armada si hace falta: la de género sale de los géneros de cada canal. No cambia
- *  la vista activa. Sin datos, null. */
-export async function ensureView(view: 'provider' | 'genre'): Promise<CategoryView | null> {
-  const cfg = state.cfg!;
-  const saved = cfg.views?.[view];
-  // La de género guardada antes de que todos los canales cayeran en una categoría de género se vuelve a armar.
-  if (saved && (view !== 'genre' || saved.all)) return saved;
-  if (view !== 'genre') return null;
-  const data = await loadChannelGenres();
-  if (!data) {
-    toast('No se pudieron cargar los géneros de los canales. Probá de nuevo', 'info');
-    return null;
-  }
-  const assign = genreAssign(state.channels.map((ch) => ({ name: ch.name, epg: cfg.channels[ch.name]?.epg ?? null })), data);
-  const built: CategoryView = { groups: { ...genreGroups(assign), noEpg: [] }, assign, all: true };
-  cfg.views = { ...cfg.views, [view]: built };
-  scheduleSave();
-  return built;
-}
-
 function toggleGroupHidden(g: string) {
   const show = state.cfg!.groups.hidden.includes(g);
   editGroups((gr) => {
@@ -2134,7 +2051,7 @@ function wireSwipe(box: HTMLElement, rowSel: string, left: (row: HTMLElement) =>
 const shareText = (r: { playlistUrl: string; epgUrl: string }) =>
   `Playlist (M3U): ${r.playlistUrl}\nGuía (EPG): ${r.epgUrl}`;
 
-interface DeviceFilter { only?: boolean; groups: string[]; channels: string[]; view?: 'genre' }
+interface DeviceFilter { only?: boolean; groups: string[]; channels: string[] }
 interface Device { code: string; name: string; created?: string; lastUsed?: string; active: boolean; filter?: DeviceFilter; account?: string; accountKey?: string; profile?: string; lastPlay?: { t: string; ch: string }; playlistUrl: string; epgUrl: string }
 type LinkResult = { playlistUrl: string; epgUrl: string; name?: string };
 
@@ -2151,7 +2068,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] }; filters?: { provider?: string[]; genre?: string[] } }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] } }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];
