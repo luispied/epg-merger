@@ -863,10 +863,13 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 
 /* Menú inferior flotante, en cápsula, más abajo y translúcido para ver lo que hay detrás. */
 /* La cápsula queda a 1rem del borde en todos los equipos (en iPhone, justo arriba de la rayita de inicio). */
-.tabbar { left: 12px; right: 12px; bottom: 1rem; max-width: 520px; margin: 0 auto;
-  padding: 6px; gap: 2px; border: 1px solid var(--hairline); border-radius: 999px; box-shadow: var(--shadow-lg);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
+.tabbar { left: 12px; right: 12px; bottom: 1rem; max-width: 520px; margin: 0 auto; transform: translateZ(0);
+  padding: 6px; gap: 2px; border: 1px solid var(--glass-edge); border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .12), inset 0 1px 0 var(--glass-edge);
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: blur(28px) saturate(200%); backdrop-filter: blur(28px) saturate(200%); }
+/* Sin backdrop-filter (navegadores viejos) el vidrio se vuelve una barra sólida. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .tabbar { background: var(--surface); } }
 .tab { height: var(--tab-h); border-radius: 999px; gap: 2px; font-size: 11.5px; transition: color var(--dur-2) var(--ease-out); }
 .tab.active { color: var(--accent); font-weight: 600; }
 /* La píldora de selección es un solo elemento que se desliza hasta la pestaña elegida (lo mueve ui/tabbar.ts). Hasta
@@ -878,13 +881,8 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .tabbar:not(.placed) .tab-pill { transition: none; }
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
-/* Lo que pasa por detrás de la cápsula se desvanece antes de llegar (no se lee a través de ella): un degradé del
-   fondo, debajo de la cápsula y encima de la lista, la Guía y las páginas. */
+/* Lo que pasa por detrás de la cápsula se ve desenfocado a través del vidrio (sin degradé del fondo). */
 .tabbar { z-index: 9; }
-body:has(.tabbar)::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; pointer-events: none;
-  height: calc(var(--tab-h) + 1rem + 36px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--bg) 50%, transparent); }
-body:has(#editor[hidden])::after, body.selecting::after { display: none; }
-body.has-dock::after { right: 440px; }
 /* Escritorio ancho: la cápsula de abajo pasa a ser una barra lateral a la izquierda, así no flota sobre la Guía ni sobre
    la lista. La lista, la Guía y las páginas (Categorías, Perfil) se corren a su derecha. */
 @media (min-width: 1100px) and (hover: hover) {
@@ -895,7 +893,6 @@ body.has-dock::after { right: 440px; }
   body.has-dock #tabbar { right: auto; }
   .tab { flex: none; width: 100%; height: 68px; border-radius: var(--radius); gap: 4px; font-size: 12px; }
   .tab-pill { border-radius: var(--radius); }
-  body:has(.tabbar)::after { display: none; }
   body:not(.selecting) :is(#editor, #app > section:not(#guide)) { margin-left: var(--rail-w); }
   body:not(.selecting) #guide, body:not(.selecting) dialog.sheet.page { left: var(--rail-w); width: auto; }
   #editor main { padding-bottom: 32px; }

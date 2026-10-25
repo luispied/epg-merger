@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.8
+
+- **Barra de abajo de vidrio.** La cápsula de abajo es ahora un vidrio translúcido, desenfocado, con borde y brillo de arriba. Se ve lo que pasa por detrás. Igual en la edición y en el modo ver.
+
 ## 1.58.6
 
 - Interno: la lista de Canales ubica cada fila con una altura fija, como la Guía, en vez de medirla al pintar. Así el encabezado de categoría ya no salta al subir. Se ve igual. La Guía y Canales comparten el cálculo de qué filas se pintan.
