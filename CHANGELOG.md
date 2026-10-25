@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.16
+
+- **Un cambio de guía no se pierde por guardar seguido.** Si guardás otro cambio dentro de los 15 minutos del anterior, la guía
+  queda pendiente y se arma apenas se cierra esa ventana (como mucho unos 5 minutos después). Antes esperaba hasta 3 horas.
+
 ## 1.58.15
 
 - **La guía llega al día en TiviMate.** El enlace de la guía ya no se guarda en el reproductor una hora: en cada refresco

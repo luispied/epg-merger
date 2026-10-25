@@ -410,6 +410,28 @@ test('GitHub: con GITHUB_TOKEN, crear o guardar una configuración lanza la corr
   assert.deepEqual(calls, [{ url: 'https://api.github.com/repos/luispied/epg-merger/actions/workflows/refresh-lists.yml/dispatches', auth: 'Bearer ghp_x' }]);
 });
 
+test('GitHub: un guardado dentro de la ventana queda pendiente y la revisión de 5 minutos lo lanza al cerrarla', async () => {
+  const { dispatchRefresh, flushRefresh } = await import('../src/github.ts');
+  const t = makeEnv();
+  const calls: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return new Response(null, { status: 204 });
+  }) as typeof fetch;
+  restore = () => void (globalThis.fetch = original);
+  const env = { ...t.env, GITHUB_TOKEN: 'ghp_x' };
+  assert.equal(await dispatchRefresh(env), true);
+  assert.equal(await dispatchRefresh(env), false, 'dentro de la ventana no lanza, pero queda pendiente');
+  assert.equal(await flushRefresh(env), false, 'la ventana sigue abierta');
+  assert.equal(calls.length, 1);
+  await env.BUCKET.put('gh/ultimo-disparo.json', String(Date.now() - 16 * 60 * 1000));
+  assert.equal(await flushRefresh(env), true, 'cerrada la ventana, sale la corrida pendiente');
+  assert.equal(calls.length, 2);
+  assert.equal(await flushRefresh(env), false, 'sin pendiente no lanza nada');
+  assert.equal(calls.length, 2);
+});
+
 test('estado de la guía: al día solo si se armó después del último cambio', async () => {
   const t = await setup();
   const status = async () => (await handle(req(`/api/cfg/${t.cfgId}/status`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as

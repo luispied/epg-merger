@@ -44,7 +44,7 @@ import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './
 import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
-import { dispatchRefresh } from './github.ts';
+import { dispatchRefresh, flushRefresh } from './github.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
@@ -1064,7 +1064,12 @@ export default {
     return handle(request, env, ctx, caches.default);
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
-  scheduled(_event: unknown, env: Env, ctx: Ctx): void {
+  scheduled(event: { cron?: string }, env: Env, ctx: Ctx): void {
+    // La de cada 5 minutos solo lanza la guía pendiente (github.ts → flushRefresh); el resto corre con la de cada 30.
+    if (event.cron === '*/5 * * * *') {
+      ctx.waitUntil(flushRefresh(env).catch(() => false));
+      return;
+    }
     console.log(JSON.stringify({ route: 'cron' }));
     ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
   },
