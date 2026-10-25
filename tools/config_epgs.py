@@ -65,13 +65,16 @@ def build(configs, merged_path, out_dir, skip=()):
         if c.get('id'):
             real.setdefault(c.get('id'), c.get('id'))
             real.setdefault(channel_alias(c.get('id')), c.get('id'))
+    real_ids = sorted(set(real.values()))
     guides = {}
     for cfg_id, config in configs.items():
         if cfg_id in skip:
             continue
-        # Cada canal sale con el id que guardó la configuración (el tvg-id de su playlist): el alias, o el
-        # real si todavía no se abrió en la web con la guía enmascarada. El alias gana si están los dos.
-        out_ids = {}
+        # Todos los canales de la guía fusionada: asignar otra guía (o cambiar la de un canal) no depende de la
+        # corrida, porque el canal ya está en el archivo. Cada uno sale con el alias, salvo los que la configuración
+        # guardó: esos salen con el id que guardó (el tvg-id de su playlist), el alias o el real si todavía no se
+        # abrió en la web con la guía enmascarada. El alias gana si están los dos.
+        out_ids = {channel_id: channel_alias(channel_id) for channel_id in real_ids}
         for i in sorted(chosen_ids(config), key=is_channel_alias):
             if i in real:
                 out_ids[real[i]] = i
@@ -84,8 +87,9 @@ def build(configs, merged_path, out_dir, skip=()):
             for guide in guides.values():
                 guide.write_programme(programme)
     stats = {cfg_id: len(g.matched_ids) for cfg_id, g in guides.items()}
+    size_mb = sum(os.path.getsize(os.path.join(out_dir, f'{cfg_id}.xml.gz')) for cfg_id in guides) / 1e6
     print(f"🗓️  Guías de Grilla web: {len(stats)} configuración(es), "
-          f"{sum(stats.values())} canales de guía en total")
+          f"{sum(stats.values())} canales de guía en total, {size_mb:.1f} MB comprimidos")
     return stats
 
 

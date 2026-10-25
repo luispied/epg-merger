@@ -37,15 +37,19 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path, monkeypatch):
     (cfgs / 'roto.json').write_text('{')
 
     stats = config_epgs.build(config_epgs.load_configs(str(cfgs)), str(merged), str(tmp_path / 'out'))
-    assert stats == {'aaaaaaaaaaaaaaaaaaaaaa': 2, 'bbbbbbbbbbbbbbbbbbbbbb': 0}
+    # Cada guía trae todos los canales de la fusionada, no solo los elegidos.
+    assert stats == {'aaaaaaaaaaaaaaaaaaaaaa': 3, 'bbbbbbbbbbbbbbbbbbbbbb': 3}
 
     xml = gzip.decompress((tmp_path / 'out' / 'aaaaaaaaaaaaaaaaaaaaaa.xml.gz').read_bytes()).decode()
     # Cada canal sale con el id que guardó la configuración (el tvg-id de su playlist): el alias, también
     # en sus programas; el id real de una configuración que todavía no pasó por la web enmascarada.
     tel = channel_alias('Telefe.ar')
     assert f'id="{tel}"' in xml and f'channel="{tel}"' in xml and 'Telefe.ar' not in xml
-    assert 'id="ESPN.ar"' in xml and 'channel="ESPN.ar"' in xml and 'TBS' not in xml
-    assert 'Noticiero' in xml and 'SportsCenter' in xml and 'Friends' not in xml
+    assert 'id="ESPN.ar"' in xml and 'channel="ESPN.ar"' in xml
+    # Un canal que la configuración no eligió también sale, con su alias: así cambiarle la guía no necesita corrida.
+    tbs = channel_alias('TBS.us')
+    assert f'id="{tbs}"' in xml and f'channel="{tbs}"' in xml and 'TBS.us' not in xml
+    assert 'Noticiero' in xml and 'SportsCenter' in xml and 'Friends' in xml
     # La fuente sale enmascarada.
     assert 'openepg' not in xml and 'source="s' in xml
     # Y el logo sale por el Worker.
@@ -56,7 +60,7 @@ def test_una_guia_por_configuracion_con_sus_canales(tmp_path, monkeypatch):
     # Todos los <channel> antes que el primer <programme> (como pide XMLTV).
     assert xml.rindex('<channel') < xml.index('<programme')
     empty = gzip.decompress((tmp_path / 'out' / 'bbbbbbbbbbbbbbbbbbbbbb.xml.gz').read_bytes()).decode()
-    assert '<channel' not in empty and '</tv>' in empty
+    assert f'id="{tel}"' in empty and '</tv>' in empty
 
 
 def test_sin_configuraciones_no_hace_nada(tmp_path):
