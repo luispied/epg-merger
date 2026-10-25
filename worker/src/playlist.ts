@@ -17,8 +17,6 @@ export interface DeviceFilter {
   only?: boolean;
   groups: string[];
   channels: string[];
-  /** Vista de categorías del perfil («genre»); sin dato = por proveedor. Los nombres de `groups` son de esa vista. */
-  view?: 'genre';
 }
 
 const MAX_FILTER_ITEMS = 5000;
@@ -31,9 +29,8 @@ export function parseFilter(raw: unknown): DeviceFilter | undefined {
   const r = raw as Record<string, unknown>;
   const groups = list(r.groups);
   const channels = list(r.channels);
-  const view = r.view === 'genre' ? 'genre' : undefined;
-  if (!groups.length && !channels.length && !view) return undefined;
-  return { ...(r.only === true ? { only: true } : {}), groups, channels, ...(view ? { view } : {}) };
+  if (!groups.length && !channels.length) return undefined;
+  return { ...(r.only === true ? { only: true } : {}), groups, channels };
 }
 
 function passes(f: DeviceFilter | undefined, group: string, name: string, groups: Set<string>, channels: Set<string>): boolean {
