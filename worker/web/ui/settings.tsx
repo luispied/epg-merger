@@ -192,12 +192,6 @@ export function Settings() {
         <MenuRow icon="satellite-dish" title="Salud de la guía" sub={health} onClick={showHealth} />
       </div>
       <p class="help settings-moved">La suscripción, los canales caídos, la dirección del servicio y recargar la lista están en <b>Perfil</b>, abajo.</p>
-      <h3 class="sec-title">Otro dispositivo</h3>
-      <div class="menu">
-        <MenuRow icon="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => {
-          openProfiles({ v: 'hogar' }, () => openProfiles({ v: 'ajustes' }));
-        }} />
-      </div>
       <h3 class="sec-title">Preferencias</h3>
       <div class="menu">
         <div class="menu-row static">

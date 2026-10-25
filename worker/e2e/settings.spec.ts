@@ -1,5 +1,5 @@
 // Humo de Configuración (ui/settings.tsx): lo que muestra al abrirse, las preferencias que se guardan en el navegador,
-// «Actualizar la guía ahora» y los atajos a la salud de la guía y a «Usar en otro dispositivo».
+// «Actualizar la guía ahora» y el atajo a la salud de la guía.
 import { expect, test, type Page } from '@playwright/test';
 import { fakeWorker, type Fake } from './fake-worker.ts';
 
@@ -53,7 +53,9 @@ test('las preferencias se guardan y se ven al volver a abrir', async ({ page }) 
   await s.locator('.menu-row', { hasText: 'Mostrar logos' }).locator('input').uncheck();
   await expect(page.locator('body')).toHaveClass(/no-logos/);
   await s.locator('select').selectOption('todos');
-  await s.getByRole('button', { name: 'Cerrar' }).click();
+  // Configuración es una página de Perfil: «‹» vuelve a la lista, y de ahí se cierra.
+  await page.locator('#linksBack').click();
+  await page.keyboard.press('Escape');
   await expect(sheet(page)).toBeHidden();
 
   await openSettings(page);
@@ -71,17 +73,6 @@ test('actualizar la guía ahora', async ({ page }) => {
   await expect(page.locator('.toast .msg')).toContainText('Actualizando la guía');
   await expect(sheet(page)).toBeVisible();
   expect(fake.writes.some((w) => w.method === 'POST' && w.path === '/api/cfg/c1/refresh')).toBe(true);
-});
-
-test('usar en otro dispositivo abre Perfil en esa página', async ({ page }) => {
-  await openSettings(page);
-  await sheet(page).getByRole('button', { name: /Usar en otro dispositivo/ }).click();
-  await expect(page.locator('#linksDialog')).toBeVisible();
-  await expect(page.locator('#linksTitle')).toHaveText('Otro dispositivo');
-  // «‹» vuelve a Configuración, no a Perfiles.
-  await page.locator('#linksBack').click();
-  await expect(sheet(page)).toBeVisible();
-  await expect(page.locator('#linksTitle')).toHaveText('Configuración');
 });
 
 test('letra grande agranda toda la app y queda elegida en este dispositivo', async ({ page }) => {

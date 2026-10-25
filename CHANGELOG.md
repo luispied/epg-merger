@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.58.14
+
+- **Perfil con jerarquía clara.** «Agregar proveedor» queda arriba, como acción de todo. Cada proveedor va debajo, con su nombre en mayúsculas y sus cuentas. «Agregar cuenta» pasó a ir dentro de su proveedor, como fila suelta con la misma sangría que «Agregar perfil», así se ve que es del nivel de abajo.
+- **Configuración sin «Usar en otro dispositivo».** Esa opción vive solo en Perfil, en la sección «Dispositivos».
+
 ## 1.58.13
 
 - **El programa en el aire, en una línea.** En la vista detallada de Canales, el título que está dando ahora se corta con «…» en una sola línea, en lugar de quedar a medio cortar en la segunda.
