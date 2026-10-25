@@ -9,7 +9,7 @@ import { stripDisplayPrefix } from '../../../core/src/index.ts';
 import { parseEvent } from '../../src/events.ts';
 import {
   applyRename, collapsedSections, createGroup, deleteGroup, eventTz, fold, groupChannels, groupLabel, groupOf, groups,
-  isLoneHeader, moveGroup, openHelp, openPage, plural, saveCollapsed, sectionHeaders, sectionTitle, setChannelOrder, setupDrag,
+  isLoneHeader, moveGroup, openHelp, openPage, plural, saveCollapsed, sectionHeaders, sectionTitle, setChannelOrder, setupDrag, setView,
   state, toggleGroupHidden, toggleGroupNoEpg, unrenameGroup, wireSwipe,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
@@ -69,6 +69,7 @@ function Categories({ q: rawQ }: { q: string }) {
   }, []);
 
   const list = groups();
+  const isGenre = state.cfg!.view === 'genre';
   const hidden = new Set(state.cfg!.groups.hidden);
   const noEpg = new Set(state.cfg!.groups.noEpg ?? []);
   const headers = sectionHeaders();
@@ -141,6 +142,10 @@ function Categories({ q: rawQ }: { q: string }) {
         </span>
         <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         <p class="meta-line">{`${plural(nCats, 'categoría', 'categorías')}${nHidden ? ` · ${plural(nHidden, 'oculta', 'ocultas')}` : ''}`}</p>
+      </div>
+      <div class="segmented view-switch" role="group" aria-label="Vista de las categorías">
+        <button type="button" aria-pressed={!isGenre} onClick={() => void setView('provider')}>Del proveedor</button>
+        <button type="button" aria-pressed={isGenre} onClick={() => void setView('genre')}>Por género</button>
       </div>
       <label class="search-field cat-filter">
         <Icon name="search" />
