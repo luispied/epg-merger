@@ -61,6 +61,8 @@ export interface ProfileDef {
   view?: string;
   /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
   kids?: Kids;
+  /** Categorías ocultas guardadas por vista: al volver a una vista, el perfil queda como la dejó. `filter` es la vista actual. */
+  filters?: { provider?: string[]; genre?: string[] };
 }
 export const PROFILE_ID_RE = /^[A-Za-z0-9_-]{4,16}$/;
 const MAX_PROFILES = 50;
@@ -76,9 +78,22 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const filter = parseFilter(r.filter);
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
     const kids = parseKids(r.kids);
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}) });
+    const filters = parseFilters(r.filters);
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(filters ? { filters } : {}) });
   }
   return out;
+}
+
+/** Las categorías ocultas de cada vista (solo nombres; un máximo razonable por vista). */
+export function parseFilters(raw: unknown): ProfileDef['filters'] | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const out: NonNullable<ProfileDef['filters']> = {};
+  for (const v of ['provider', 'genre'] as const) {
+    const a = r[v];
+    if (Array.isArray(a)) out[v] = [...new Set(a.filter((x): x is string => typeof x === 'string' && x.length > 0).map((x) => x.slice(0, 500)))].slice(0, 5000);
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export interface Matching {
@@ -257,6 +272,22 @@ export function parseViews(raw: unknown): Config['views'] | undefined {
     views[name] = { groups: parseGroups((v as Record<string, unknown>).groups), assign };
   }
   return Object.keys(views).length ? views : undefined;
+}
+
+/** La configuración con la vista de categorías de un perfil («genre» o, sin dato, la del proveedor). Si es la activa,
+ *  es la misma; si no, sus categorías y canales salen de la vista guardada aparte (`views`). */
+export function viewConfig(cfg: Config, view?: 'genre'): Config {
+  const want = view ?? 'provider';
+  if (want === (cfg.view ?? 'provider')) return cfg;
+  const snap = cfg.views?.[want];
+  if (!snap) return cfg;
+  const channels: Record<string, ChannelEdit> = {};
+  for (const [name, e] of Object.entries(cfg.channels)) {
+    const { group: _g, ...rest } = e;
+    channels[name] = rest;
+  }
+  for (const [name, group] of Object.entries(snap.assign)) channels[name] = { ...channels[name], group };
+  return { ...cfg, groups: snap.groups, channels, view: view };
 }
 
 const key = (cfgId: string) => `cfg/${cfgId}.json`;
