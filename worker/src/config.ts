@@ -259,6 +259,22 @@ export function parseViews(raw: unknown): Config['views'] | undefined {
   return Object.keys(views).length ? views : undefined;
 }
 
+/** La configuración con la vista de categorías de un perfil («genre» o, sin dato, la del proveedor). Si es la activa,
+ *  es la misma; si no, sus categorías y canales salen de la vista guardada aparte (`views`). */
+export function viewConfig(cfg: Config, view?: 'genre'): Config {
+  const want = view ?? 'provider';
+  if (want === (cfg.view ?? 'provider')) return cfg;
+  const snap = cfg.views?.[want];
+  if (!snap) return cfg;
+  const channels: Record<string, ChannelEdit> = {};
+  for (const [name, e] of Object.entries(cfg.channels)) {
+    const { group: _g, ...rest } = e;
+    channels[name] = rest;
+  }
+  for (const [name, group] of Object.entries(snap.assign)) channels[name] = { ...channels[name], group };
+  return { ...cfg, groups: snap.groups, channels, view: view };
+}
+
 const key = (cfgId: string) => `cfg/${cfgId}.json`;
 
 export async function loadConfig(bucket: R2Bucket, cfgId: string): Promise<{ config: Config; keyHash: string } | null> {

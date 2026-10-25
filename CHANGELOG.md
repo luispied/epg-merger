@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.60.0
+
+- **Cada perfil elige su vista de categorías.** En «Qué ve», «Del proveedor | Por género» decide qué categorías usa ese
+  perfil. Su playlist y sus categorías salen de esa vista; otro perfil puede usar la otra. Al cambiar de vista se quitan
+  las categorías que el perfil ocultaba (sus nombres son de cada vista) y los canales ocultos se mantienen.
+
 ## 1.59.0
 
 - **Categorías por género.** En Categorías, «Del proveedor | Por género» cambia la vista. «Por género» pone cada canal con

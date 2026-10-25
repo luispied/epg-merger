@@ -110,6 +110,22 @@ test('qué ve un perfil: apagar una categoría y guardar', async ({ page }) => {
   await expect(page.locator('#linksTitle')).toHaveText('Chicos');
 });
 
+test('qué ve un perfil: mirar las categorías por género y guardar la vista', async ({ page }) => {
+  await openPerfiles(page);
+  await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Chicos' }).click();
+  await page.locator('#linksBody').getByRole('button', { name: /Qué ve/ }).click();
+  // Por proveedor, Chicos no ve Deportes. Por género, las categorías son las de cada género y la vista empieza sin filtro.
+  await page.locator('#linksBody').getByRole('button', { name: 'Por género' }).click();
+  await expect(page.locator('#linksBody').getByRole('button', { name: 'Por género' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('checkbox', { name: 'Documentales: se ve en este perfil' })).toBeChecked();
+  await expect(page.locator('#pfSum')).toHaveText('Este perfil: ve todo · por género');
+  await page.getByRole('checkbox', { name: 'Documentales: se ve en este perfil' }).uncheck();
+  await expect(page.locator('#pfSum')).toHaveText('Este perfil: sin 1 categoría · por género');
+  await page.locator('#pfSave').click();
+  await expect(page.locator('.toast .msg')).toHaveText('Filtro guardado: sin 1 categoría · por género');
+  expect(fake.profiles.find((p) => p.id === 'p2')?.filter).toEqual({ groups: ['Documentales'], channels: [], view: 'genre' });
+});
+
 test('compartir para ver: crear el código, copiarlo y quitar el acceso', async ({ page }, info) => {
   await openPerfiles(page);
   await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Chicos' }).click();

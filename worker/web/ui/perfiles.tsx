@@ -8,12 +8,13 @@ import { Fragment, render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
-  eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups, initialOf, liveAt, loadHome, loadProfiles,
+  eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, initialOf, liveAt, loadHome, loadProfiles,
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
-  promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
-  sectionTitle, setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode,
+  promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow,
+  ensureView, sectionTitle, setActiveAccount, setPref, shareText, showHomeCode, showOnboarding, showQr, state, switchProvider, useHomeCode,
   useOtherAccount, useViewCode, wireDownRow,
   type Account, type AccountView, type Device, type DeviceFilter, type LinkResult, type OtherProvider, type ProfileDef, type ProfileView,
+  type ViewModel, viewModel,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
 import { closeSheet } from './sheet.ts';
@@ -176,10 +177,12 @@ const SubTitle = ({ children }: { children: ComponentChildren }) => <h3 class="s
 const Help = ({ children }: { children: ComponentChildren }) => <p class="help">{children}</p>;
 
 export const filterSummary = (f?: DeviceFilter) => {
+  const by = f?.view === 'genre' ? ' · por género' : '';
   if (!f) return 've todo';
   const n = f.groups.length, c = f.channels.length;
+  if (!n && !c) return `ve todo${by}`;
   const parts = [n ? `${n} ${n === 1 ? 'categoría' : 'categorías'}` : '', c ? `${c} ${c === 1 ? 'canal' : 'canales'}` : ''].filter(Boolean).join(' y ');
-  return f.only ? `solo ${parts}` : `sin ${parts}`;
+  return `${f.only ? `solo ${parts}` : `sin ${parts}`}${by}`;
 };
 
 /** Una línea con lo importante de una cuenta: días, conexiones en uso y perfiles. */
@@ -1234,51 +1237,78 @@ function Servers() {
 
 /** Qué ve un perfil: qué categorías y canales salen en la playlist de sus links (un interruptor por fila: encendido = se
  *  ve). Vale para todos sus links; las direcciones no cambian. Mismo patrón que Categorías. */
+/** Qué ve un perfil: su vista de categorías (por proveedor o por género) y qué categorías y canales salen en la playlist
+ *  de sus links. Cambiar de vista reinicia las categorías (sus nombres son de cada vista) y deja los canales. */
 function ProfileFilter({ p }: { p: ProfileView }) {
+  const [view, setVista] = useState<'provider' | 'genre'>(p.filter?.view === 'genre' ? 'genre' : 'provider');
+  const pick = async (v: 'provider' | 'genre') => {
+    if (v === view) return;
+    if (v === 'genre' && !(await ensureView('genre'))) return;
+    setVista(v);
+  };
+  return (
+    <>
+      <SubTitle>{p.name}</SubTitle>
+      <div class="segmented view-switch" role="group" aria-label="Vista de las categorías de este perfil">
+        <button type="button" aria-pressed={view === 'provider'} onClick={() => void pick('provider')}>Del proveedor</button>
+        <button type="button" aria-pressed={view === 'genre'} onClick={() => void pick('genre')}>Por género</button>
+      </div>
+      <FilterBody key={view} p={p} view={view} />
+    </>
+  );
+}
+
+function FilterBody({ p, view }: { p: ProfileView; view: 'provider' | 'genre' }) {
   const [q, setQ] = useState('');
   const [, redraw] = useState(0);
   // Lo de la grilla no cambia mientras se está en esta página: se calcula una vez.
-  const base = useRef<{ hiddenG: Set<string>; headers: Set<string>; cats: string[]; count: Map<string, number>; members: Map<string, string[]> }>();
-  if (!base.current) {
-    const hiddenG = new Set(state.cfg!.groups.hidden ?? []);
-    const headers = sectionHeaders();
-    const cats = groups().filter((g) => !hiddenG.has(g));
-    const count = new Map<string, number>();
-    for (const ch of state.channels) {
-      if (state.cfg!.channels[ch.name]?.hidden) continue;
-      count.set(groupOf(ch), (count.get(groupOf(ch)) ?? 0) + 1);
-    }
-    // Categorías de cada sección (hasta la siguiente).
-    const members = new Map<string, string[]>();
-    let cur: string | null = null;
-    for (const g of cats) {
-      if (headers.has(g)) {
-        cur = g;
-        members.set(g, []);
-      } else if (cur) members.get(cur)!.push(g);
-    }
-    base.current = { hiddenG, headers, cats, count, members };
+  const base = useRef<{ vm: ViewModel; hiddenG: Set<string>; headers: Set<string>; cats: string[]; count: Map<string, number>; members: Map<string, string[]> } | null>();
+  if (base.current === undefined) {
+    const vm = viewModel(view);
+    if (vm) {
+      const hiddenG = new Set(vm.gr.hidden ?? []);
+      const headers = vm.headers;
+      const cats = vm.groups.filter((g) => !hiddenG.has(g));
+      const count = new Map<string, number>();
+      for (const ch of state.channels) {
+        if (state.cfg!.channels[ch.name]?.hidden) continue;
+        count.set(vm.catOf(ch), (count.get(vm.catOf(ch)) ?? 0) + 1);
+      }
+      // Categorías de cada sección (hasta la siguiente).
+      const members = new Map<string, string[]>();
+      let cur: string | null = null;
+      for (const g of cats) {
+        if (headers.has(g)) {
+          cur = g;
+          members.set(g, []);
+        } else if (cur) members.get(cur)!.push(g);
+      }
+      base.current = { vm, hiddenG, headers, cats, count, members };
+    } else base.current = null;
   }
-  const { hiddenG, headers, cats, count, members } = base.current;
+  if (!base.current) return <Help>No se pudo armar esta vista de categorías. Probá de nuevo.</Help>;
+  const { vm, hiddenG, headers, cats, count, members } = base.current;
   // Lo que NO se ve. Un filtro viejo de «solo lo marcado» se convierte: queda oculto lo que no estaba marcado.
+  // Los nombres de categorías solo valen en la vista que los guardó: en otra, se toman solo los canales.
   const off = useRef<{ g: Set<string>; c: Set<string> }>();
   if (!off.current) {
     const g = new Set<string>();
     const c = new Set<string>();
-    if (p.filter?.only) for (const x of cats) { if (!p.filter.groups.includes(x)) g.add(x); }
-    else for (const x of p.filter?.groups ?? []) g.add(x);
+    const same = (p.filter?.view ?? 'provider') === view;
+    if (same && p.filter?.only) { for (const x of cats) { if (!p.filter.groups.includes(x)) g.add(x); } }
+    else if (same) for (const x of p.filter?.groups ?? []) g.add(x);
     if (!p.filter?.only) for (const n of p.filter?.channels ?? []) c.add(n);
     off.current = { g, c };
   }
   const { g: offG, c: offC } = off.current;
-  const current = (): DeviceFilter => ({ groups: [...offG], channels: [...offC] });
+  const current = (): DeviceFilter => ({ groups: [...offG], channels: [...offC], ...(view === 'genre' ? { view: 'genre' as const } : {}) });
   const qn = fold(q.trim());
-  const matches = (g: string) => !qn || fold(`${groupLabel(g)} ${g}`).includes(qn);
+  const matches = (g: string) => !qn || fold(`${vm.label(g)} ${g}`).includes(qn);
   // Un canal suelto de una categoría ya oculta sobra.
   const prune = () => {
     for (const n of [...offC]) {
       const ch = state.channels.find((x) => x.name === n);
-      if (ch && offG.has(groupOf(ch))) offC.delete(n);
+      if (ch && offG.has(vm.catOf(ch))) offC.delete(n);
     }
   };
   const flip = (on: boolean, keys: string[], set: Set<string>) => {
@@ -1292,17 +1322,17 @@ function ProfileFilter({ p }: { p: ProfileView }) {
       <input type="checkbox" class="switch" checked={on} aria-label={`${title}: se ve en este perfil`} onChange={(ev) => onToggle(ev.currentTarget.checked)} />
     </label>
   );
-  const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(groupOf(ch)) && !offG.has(groupOf(ch))
+  const chans = qn ? state.channels.filter((ch) => !state.cfg!.channels[ch.name]?.hidden && !hiddenG.has(vm.catOf(ch)) && !offG.has(vm.catOf(ch))
     && fold(state.cfg!.channels[ch.name]?.name || ch.name).includes(qn)).slice(0, 30) : [];
   const rows = cats.filter(matches).map((g) => {
     if (!headers.has(g)) {
-      return <Row key={g} title={groupLabel(g)} sub={plural(count.get(g) ?? 0, 'canal', 'canales')} on={!offG.has(g)} onToggle={(on) => flip(on, [g], offG)} />;
+      return <Row key={g} title={vm.label(g)} sub={plural(count.get(g) ?? 0, 'canal', 'canales')} on={!offG.has(g)} onToggle={(on) => flip(on, [g], offG)} />;
     }
     const mem = members.get(g) ?? [];
     const shown = mem.filter((m) => !offG.has(m)).length;
     const sub = shown && shown < mem.length ? `${shown} de ${plural(mem.length, 'categoría', 'categorías')} se ven` : plural(mem.length, 'categoría', 'categorías');
     // Un toque en la sección enciende (o apaga) todas sus categorías, y a ella misma.
-    return <Row key={g} head title={sectionTitle(groupLabel(g))} sub={sub} on={mem.length > 0 ? shown > 0 : !offG.has(g)} onToggle={(on) => flip(on, [...mem, g], offG)} />;
+    return <Row key={g} head title={sectionTitle(vm.label(g))} sub={sub} on={mem.length > 0 ? shown > 0 : !offG.has(g)} onToggle={(on) => flip(on, [...mem, g], offG)} />;
   });
   const save = async (filter: DeviceFilter | null, msg: string) => {
     try {
@@ -1322,8 +1352,7 @@ function ProfileFilter({ p }: { p: ProfileView }) {
   const hideAll = () => flip(false, cats.filter(matches), offG);
   return (
     <>
-      <SubTitle>{p.name}</SubTitle>
-      <Help>Apagá lo que no querés que vea este perfil. Vale para {p.devices.length ? `sus ${plural(p.devices.length, 'link', 'links')}` : 'sus links'}, que no cambian: la lista se actualiza sola la próxima vez que el reproductor la baje.</Help>
+      <Help>Apagá lo que no querés que vea este perfil. Si cambiás de vista, las categorías elegidas se quitan (sus nombres son de cada vista) y los canales se mantienen. Vale para {p.devices.length ? `sus ${plural(p.devices.length, 'link', 'links')}` : 'sus links'}, que no cambian: la lista se actualiza sola la próxima vez que el reproductor la baje.</Help>
       <label class="search-field cat-filter">
         <Icon name="search" />
         <input type="search" id="pfQ" placeholder="Buscar categoría o canal" autocomplete="off" aria-label="Buscar categoría o canal"
@@ -1340,17 +1369,17 @@ function ProfileFilter({ p }: { p: ProfileView }) {
             <h3 class="sec-title">Canales</h3>
             {chans.length ? (
               <div class="menu">
-                {chans.map((ch) => <Row key={`c:${ch.name}`} title={state.cfg!.channels[ch.name]?.name || ch.name} sub={groupLabel(groupOf(ch))}
+                {chans.map((ch) => <Row key={`c:${ch.name}`} title={state.cfg!.channels[ch.name]?.name || ch.name} sub={vm.label(vm.catOf(ch))}
                   on={!offC.has(ch.name)} onToggle={(on) => flip(on, [ch.name], offC)} />)}
               </div>
             ) : <Help>Ningún canal coincide.</Help>}
           </>
         ) : null}
       </div>
-      <p class="meta-line" id="pfSum">{offG.size || offC.size ? `Este perfil: ${filterSummary(current())}` : 'Este perfil ve todo (sin filtro).'}</p>
+      <p class="meta-line" id="pfSum">{offG.size || offC.size || view === 'genre' ? `Este perfil: ${filterSummary(current())}` : 'Este perfil ve todo (sin filtro).'}</p>
       <div class="form-actions">
         <button type="button" class="btn btn-primary btn-block" id="pfSave" onClick={() => {
-          if (!offG.size && !offC.size) return void save(null, 'Sin filtro: ve todo');
+          if (!offG.size && !offC.size && view === 'provider') return void save(null, 'Sin filtro: ve todo');
           void save(current(), `Filtro guardado: ${filterSummary(current())}`);
         }}>Guardar filtro</button>
       </div>

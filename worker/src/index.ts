@@ -39,7 +39,7 @@
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
-  type Config, type ProfileDef } from './config.ts';
+  type Config, type ProfileDef, viewConfig } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
 import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
@@ -220,7 +220,7 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   }
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const logoUrl = await logoResolver(env, url.origin, logos);
-  const text = buildPlaylist(list.channels, cfg, {
+  const text = buildPlaylist(list.channels, viewConfig(cfg, filter?.view), {
     filter,
     logoUrl,
     separatorUrl: `${url.origin}/sep`,
@@ -267,7 +267,9 @@ async function viewKids(env: Env, code: string): Promise<{ cfgId: string; kids?:
 async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   const v = await viewProfile(env, code);
   if (!v) return fail(404, 'este código para ver ya no existe');
-  const { cfg, profile } = v;
+  const { profile } = v;
+  // La vista de categorías del perfil (por proveedor o por género), como en su playlist.
+  const cfg = viewConfig(v.cfg, profile.filter?.view);
   const list = await env.BUCKET.get(r2ListKey(v.cfgId));
   if (!list) return fail(409, 'todavía no hay canales para mostrar');
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
@@ -779,7 +781,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
         if (!p.kids) return fail(404, 'este perfil no es infantil');
         const list = await env.BUCKET.get(r2ListKey(cfgId));
         const epgs = new Set<string>();
-        if (list) for (const r of playlistRows((JSON.parse(await list.text()) as LiveList).channels, config, { filter: p.filter, providerLogos: false })) if (r.epg) epgs.add(r.epg);
+        if (list) for (const r of playlistRows((JSON.parse(await list.text()) as LiveList).channels, viewConfig(config, p.filter?.view), { filter: p.filter, providerLogos: false })) if (r.epg) epgs.add(r.epg);
         const HOURS = 6;
         const idxs = await Promise.all([...Array(HOURS).keys()].map(async (k) => {
           const key = new Date(Date.now() + k * 3600_000).toISOString().slice(0, 13).replace(/\D/g, '');
