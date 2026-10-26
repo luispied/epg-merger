@@ -1,0 +1,29 @@
+name: Títulos de canales visibles
+
+# Cuenta cuántos títulos de películas y series quedan para las sinopsis, solo en los canales visibles con guía
+# (tools/titulos_visibles.py). Solo cuenta: no busca en TMDB ni escribe en R2. Manual.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install boto3
+    - name: Bajar la guía publicada
+      run: gh release download latest --pattern merged.xml.gz --dir medicion --clobber
+    - name: Contar títulos
+      run: python tools/titulos_visibles.py --xmltv medicion/merged.xml.gz | tee -a "$GITHUB_STEP_SUMMARY"
