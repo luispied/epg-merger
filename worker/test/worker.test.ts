@@ -8,7 +8,7 @@ import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited, routeKind } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
-import { checkAllHealth, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, visibleChannels } from '../src/streamcheck.ts';
+import { checkAllHealth, inSweepWindow, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, unmeasuredCount, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { scheduleFile } from '../src/again.ts';
 import { gunzip } from '../src/schedule.ts';
@@ -1231,6 +1231,12 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
   assert.deepEqual([...needsRes([ch('x'), ch('y')], {}, { x: { t: new Date(now.getTime() - 21 * 3600_000).toISOString() }, y: { t: new Date(now.getTime() - 19 * 3600_000).toISOString() } }, now)], ['x']);
   assert.equal(isDue({ checked: now.toISOString() }, undefined, new Date(now.getTime() + 19 * 3600_000)), false);
   assert.equal(isDue({ checked: now.toISOString() }, new Date(now.getTime() + 1000).toISOString(), new Date(now.getTime() + 2000)), true);
+  // Barrido: de 1 a 9 h de Buenos Aires, mientras queden canales sin medir (los caídos no cuentan).
+  assert.equal(inSweepWindow(new Date('2026-10-26T04:00:00-03:00')), true);
+  assert.equal(inSweepWindow(new Date('2026-10-26T08:59:00-03:00')), true);
+  assert.equal(inSweepWindow(new Date('2026-10-26T09:00:00-03:00')), false);
+  assert.equal(inSweepWindow(new Date('2026-10-26T00:30:00-03:00')), false);
+  assert.equal(unmeasuredCount([ch('a'), ch('b'), ch('c')], { b: { t: '', ok: false, fails: 1 } }, { c: week(0) }), 1);
 });
 
 test('servidores: se cambian sin tocar los links, se validan y sin relay no se lanza nada en GitHub', async () => {

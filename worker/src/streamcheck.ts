@@ -5,6 +5,8 @@
 // De paso, el relay mide la resolución real (ancho × alto del video) de los canales que andan, con el mismo pedido de la
 // prueba: cada canal una vez por semana (si no se pudo saber, se reintenta en la próxima prueba), hasta RES_PER_CHUNK por
 // tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
+// Barrido: mientras haya canales sin medir, de 1 a 9 h (hora de Buenos Aires, con pocas conexiones en uso) cada corrida del
+// cron prueba y mide hasta SWEEP_CHUNKS tandas, así que la primera medida completa llega en unos días.
 // Mientras prueba, deja el avance en healthprog/<cfgId>.json después de cada tanda (la web muestra «Probando 50 de 180»
 // arriba de la lista) y mira healthstop/<cfgId>.json, que deja «Detener»: si está, corta y guarda lo que alcanzó a probar.
 import { decryptToken } from './crypto.ts';
@@ -22,6 +24,10 @@ export const MAX_CHUNKS = 4; // 200 canales por corrida
 const MAX_CONFIGS_PER_TICK = 5;
 export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
 export const RES_PER_CHUNK = 25; // ~100 por día: va en el mismo pedido de la prueba; el relay deja de medir si se queda sin tiempo
+export const SWEEP_CHUNKS = 8; // barrido: 400 canales por corrida, con todas las tandas midiendo
+export const SWEEP_EVERY_MS = 25 * 60 * 1000; // el cron corre cada 30 min: una corrida del barrido por tick
+const SWEEP_HOURS = [1, 9]; // de 1 a 9 h, hora de Buenos Aires
+const LOCAL_TZ = 'America/Argentina/Buenos_Aires';
 const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.
 const EVENT_RE = /ppv|event/i;
@@ -92,6 +98,17 @@ export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Rec
   return new Set(chunk.filter((c) => seen[c.id]?.ok !== false && due(c.id)).slice(0, n).map((c) => c.id));
 }
 
+/** Canales que todavía no tienen medida de resolución. Los caídos no cuentan: no se miden. */
+export function unmeasuredCount(channels: Channel[], seen: Record<string, Entry>, res: Record<string, Res>): number {
+  return channels.filter((c) => !res[c.id] && seen[c.id]?.ok !== false).length;
+}
+
+/** ¿Es hora del barrido? De 1 a 9 de la mañana en Buenos Aires: madrugada y mañana, cuando menos conexiones se usan. */
+export function inSweepWindow(now: Date): boolean {
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour: 'numeric', hourCycle: 'h23' }).format(now));
+  return h >= SWEEP_HOURS[0] && h < SWEEP_HOURS[1];
+}
+
 const size = (v: unknown): [number, number] | null =>
   Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= 64 && x <= 8192) ? [v[0], v[1]] : null;
 
@@ -113,7 +130,11 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   if (!stored || stored.config.provider.type !== 'xtream') return false;
   const prev = await readJson<HealthState>(env, `health/${cfgId}.json`);
   const req = await readJson<{ at?: string }>(env, `healthreq/${cfgId}.json`);
-  if (!force && !isDue(prev, req?.at, now)) return false;
+  const dueNow = force || isDue(prev, req?.at, now);
+  // En la ventana del barrido se vuelve a mirar en cada tanda (aunque la prueba diaria ya haya corrido), si quedan canales sin medir.
+  const inWindow = inSweepWindow(now);
+  const sweepAgain = inWindow && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= SWEEP_EVERY_MS;
+  if (!dueNow && !sweepAgain) return false;
   const tokens = await accountTokens(env.BUCKET, cfgId, stored.config.activeAccount);
   if (!tokens.length) return false;
   const servers = stored.config.provider.servers;
@@ -126,6 +147,9 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const known = new Set(channels.map((c) => c.id));
   let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
+  // Barrido: en la ventana, si quedan canales sin medir, esta corrida prueba y mide todo lo que alcance.
+  const sweep = inWindow && unmeasuredCount(channels, seen, res) > 0;
+  if (!dueNow && !sweep) return false;
   let probedBy = prev?.probedBy;
   let first = true;
   let relayOk = false;
@@ -140,7 +164,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         // El perfil activo prueba los canales (en tandas) y, de paso, trae sus datos. Si cambió de perfil, lo que probó
         // la cuenta anterior no vale para esta: se empieza de cero.
         if (probedBy !== key) { seen = {}; probedBy = key; }
-        const batch = pickBatch(channels, seen, CHUNK * MAX_CHUNKS);
+        const batch = pickBatch(channels, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS));
         // Un «Detener» de antes de empezar no vale para esta prueba.
         await env.BUCKET.delete(stopKey(cfgId));
         await putProgress(env, cfgId, { started: now.toISOString(), done: 0, total: batch.length, down: 0 });
@@ -148,7 +172,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         for (let i = 0; i < batch.length; i += CHUNK) {
           if (i && await env.BUCKET.head(stopKey(cfgId))) break;
           const chunk = batch.slice(i, i + CHUNK);
-          const measure = needsRes(chunk, seen, res, now);
+          const measure = needsRes(chunk, seen, res, now, sweep ? CHUNK : RES_PER_CHUNK);
           const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
             servers, username: u, password: p, channels: chunk.map((c) => ({ id: c.id, ext: c.ext, ...(measure.has(c.id) ? { res: true } : {}) })),
           }, 60_000);
