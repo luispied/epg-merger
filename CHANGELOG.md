@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.61.0
+
+- **Las etiquetas de resolución (SD, HD, FHD, 4K) se completan en la madrugada.** Hasta ahora se medían unos 100 canales por día, así que tardaban semanas en llegar a todos. Mientras haya canales sin medir, de 1 a 9 de la mañana (hora de Buenos Aires, cuando menos conexiones se usan) la prueba mide todo lo que alcanza. Cuando ya no quedan, vuelve al ritmo de una vez por semana.
+- Worker: `runHealthCheck` mira la ventana del barrido en cada corrida del cron; `unmeasuredCount` y `inSweepWindow` en `src/streamcheck.ts`, con tests. Los canales caídos no cuentan como sin medir.
+
 ## 1.60.3
 
 - **Configuración primero en Perfil.** La sección «Aplicación» con Configuración va arriba de todo, para que no quede oculta al final de la página.
