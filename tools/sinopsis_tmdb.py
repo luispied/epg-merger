@@ -24,6 +24,9 @@ import urllib.parse
 import urllib.request
 from xml.etree import ElementTree
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from titulos_visibles import epgs_visibles  # noqa: E402  (mismo directorio)
+
 MOVIE_CAT_RE = re.compile(r'movie|film|pel[ií]cula|series|serie|telenovela|drama', re.I)
 KEY = 'desc/sinopsis.json'
 UA = {'User-Agent': 'nowline-sinopsis/1.0'}
@@ -35,8 +38,9 @@ def normalizar(texto):
     return re.sub(r'\s+', ' ', limpio).strip()
 
 
-def titulos_de_peliculas(ruta):
-    """Títulos normalizados de películas y series, con el título tal como viene en la guía."""
+def titulos_de_peliculas(ruta, guias=None):
+    """Títulos normalizados de películas y series, con el título tal como viene en la guía.
+    Con `guias`, solo de los canales de esas guías (los visibles de alguna configuración)."""
     vistos = {}
     abre = gzip.open if ruta.endswith('.gz') else open
     with abre(ruta, 'rb') as f:
@@ -44,7 +48,7 @@ def titulos_de_peliculas(ruta):
             if el.tag == 'programme':
                 titulo = (el.findtext('title') or '').strip()
                 cats = [(c.text or '').strip() for c in el.findall('category')]
-                if titulo and any(MOVIE_CAT_RE.search(c) for c in cats):
+                if titulo and any(MOVIE_CAT_RE.search(c) for c in cats) and (guias is None or el.get('channel') in guias):
                     vistos.setdefault(normalizar(titulo), titulo)
                 el.clear()
     return vistos
@@ -96,16 +100,18 @@ def main():
         print('Sin TMDB_API_KEY: no se busca nada.', file=sys.stderr)
         return 1
 
-    titulos = titulos_de_peliculas(args.xmltv)
     cliente = bucket = None
     if args.local:
         existente = {}
         if os.path.exists(args.local):
             with open(args.local, encoding='utf-8') as f:
                 existente = json.load(f)
+        guias = None
     else:
         cliente, bucket = cargar_r2()
         existente = leer_existente(cliente, bucket)
+        guias, _ = epgs_visibles(cliente, bucket)
+    titulos = titulos_de_peliculas(args.xmltv, guias)
 
     nuevos = [n for n in titulos if n not in existente]
     print(f'Títulos en la guía: {len(titulos)}. Ya guardados: {len(titulos) - len(nuevos)}. '

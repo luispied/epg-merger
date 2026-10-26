@@ -9,12 +9,10 @@ en TMDB. Sirve para decidir cuántas tandas de sinopsis_tmdb.py hacen falta.
 Uso: `python tools/titulos_visibles.py --xmltv merged.xml.gz` (con las variables R2_* para leer R2).
 """
 import argparse
+import gzip
 import json
 import sys
-
-from sinopsis_tmdb import KEY, MOVIE_CAT_RE, cargar_r2, normalizar  # noqa: E402  (tools/ en el mismo directorio)
 from xml.etree import ElementTree
-import gzip
 
 
 def leer_json(cliente, bucket, clave):
@@ -56,6 +54,7 @@ def epgs_visibles(cliente, bucket):
 
 def titulos_de(ruta, epgs):
     """Títulos normalizados de películas y series de los canales con esas guías, y el total de la guía."""
+    from sinopsis_tmdb import MOVIE_CAT_RE, normalizar  # importado acá: sinopsis_tmdb importa este archivo
     vistos = {}
     total = 0
     abre = gzip.open if ruta.endswith('.gz') else open
@@ -76,6 +75,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--xmltv', required=True)
     args = ap.parse_args()
+
+    from sinopsis_tmdb import KEY, cargar_r2  # importado acá: sinopsis_tmdb importa este archivo
 
     cliente, bucket = cargar_r2()
     epgs, configs = epgs_visibles(cliente, bucket)
