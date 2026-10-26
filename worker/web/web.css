@@ -192,7 +192,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
 .sheet-body p { font-size: 14px; line-height: 1.5; }
 .sheet-actions { justify-content: flex-end; gap: 8px; margin-top: 24px; }
 .sheet-actions .btn { flex: 0 0 auto; }
-.help-sheet details { border-radius: var(--radius); }
+.help-sheet details, .ayuda details { border-radius: var(--radius); }
 @media (max-width: 600px) {
   dialog.sheet { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
   /* Manija de la hoja inferior: se arrastra (ella o el encabezado) para bajar la hoja (ui/sheet.ts). */
@@ -226,8 +226,8 @@ dialog.sheet.settling { transition: translate var(--dur-2) var(--ease-out); }
 .row-actions { gap: 8px; margin-top: 16px; }
 dialog .row-actions:has(.bulk-move) { justify-content: flex-end; }
 #bulkBody > .select { margin-top: 16px; }
-.help-sheet summary { font-weight: 500; }
-.help-sheet details p { font-size: 14px; line-height: 1.5; }
+.help-sheet summary, .ayuda summary { font-weight: 500; }
+.help-sheet details p, .ayuda details p { font-size: 14px; line-height: 1.5; }
 .card > .field:first-child { margin-top: 0; }
 /* Cruz para borrar la búsqueda (propia: la nativa no sale en todos los navegadores). */
 .search-field { padding-right: 4px; }
@@ -828,6 +828,11 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 /* Ayuda: tres preguntas a la vista y el resto plegado. */
 .help-more { margin-top: 8px; }
 .help-more > summary.help-more-sum { font-weight: 600; color: var(--muted); }
+/* Ayuda (ui/ayuda.tsx): una página con buscador y una sección por pantalla, igual en el editor y en el modo ver. */
+.ayuda-buscar { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; margin: 4px 0 8px; border: 1px solid var(--chip-line); border-radius: var(--radius); background: var(--surface); color: var(--faint); }
+.ayuda-buscar input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; outline: none; }
+.ayuda section[hidden] { display: none; }
+.ayuda h3.sec-title { margin-top: 20px; }
 
 /* Categorías: la sección actual queda anclada bajo el título de la hoja. */
 #categoriesList { overflow: clip; }

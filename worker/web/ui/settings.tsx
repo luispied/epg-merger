@@ -4,7 +4,7 @@
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { useEffect, useState } from 'preact/hooks';
 import {
-  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openHelp, openProfiles, PAGE, plural, pref,
+  api, guideHealth, guideTime, HEALTH_AHEAD_H, loadHealth, logosOn, openProfiles, PAGE, plural, pref,
   profileDefs, render as renderGrid, setPref, startGuideRefresh, state, type GuideStatus,
 } from '../app.ts';
 import { loadTaste, openTasteSheet, pushEndpoint, tasteSummary } from './avisos-gusto.tsx';

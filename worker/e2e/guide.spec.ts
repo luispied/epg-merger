@@ -180,15 +180,12 @@ test('«Ahora» aparece solo cuando la línea de ahora no se ve', async ({ page 
   await expect(now).toHaveCount(0);
 });
 
-test('el ? de la Guía abre su ayuda', async ({ page }, info) => {
+test('la Guía no tiene su (?): su ayuda está en Perfil > Ayuda, en la sección Guía', async ({ page }, info) => {
   await page.locator('#tabGuide').click();
-  await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
-  const help = page.locator('#helpDialog');
-  await expect(help).toBeVisible();
-  await expect(page.locator('#helpTitle')).toHaveText('Cómo usar la Guía');
-  await expect(help.locator('.help-topic[data-topic="guide"]')).toBeVisible();
-  await expect(help.locator('.help-topic[data-topic="main"]')).toBeHidden();
-  await expect(help).toContainText('Próximos y Tengo tiempo');
+  await expect(page.locator('.help-btn')).toHaveCount(0);
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Ayuda/ }).click();
+  await expect(page.locator('#linksDialog .ayuda section[data-modo="editor"][data-pantalla="guia"]')).toContainText('Próximos y Tengo tiempo');
   await page.screenshot({ path: `test-results/ayuda-guia-${info.project.name}.png`, animations: 'disabled' });
 });
 

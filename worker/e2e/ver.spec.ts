@@ -180,18 +180,17 @@ test('pegar el código para ver al abrir nowline deja el dispositivo en modo ver
   await expect(page.locator('#onboarding')).toBeVisible();
 });
 
-test('el ? del modo ver abre su ayuda, también desde la Guía', async ({ page }, info) => {
+test('la ayuda del modo ver está en su Configuración, sin (?) en los canales ni en la Guía', async ({ page }, info) => {
   await page.goto(`/ver#${CODE}`);
-  await page.getByRole('button', { name: 'Cómo se usa' }).click();
+  await expect(page.locator('.help-btn')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.getByRole('button', { name: 'Ayuda' }).click();
   const help = page.locator('dialog.vw-help');
   await expect(help).toBeVisible();
   await expect(help).toContainText('Lo que dan en la tele no es esto');
   await page.screenshot({ path: `test-results/ver-${info.project.name}-ayuda.png`, animations: 'disabled' });
   await page.keyboard.press('Escape');
   await expect(help).toHaveCount(0);
-  await page.getByRole('button', { name: 'Guía' }).click();
-  await page.getByRole('button', { name: 'Cómo usar la Guía' }).click();
-  await expect(page.locator('dialog.vw-help')).toBeVisible();
 });
 
 test('filtrar por categoría como en la edición, sin estados', async ({ page }) => {
