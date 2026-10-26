@@ -284,6 +284,10 @@ function ProfileList() {
   );
   return (
     <>
+      <h3 class="sec-title">Aplicación</h3>
+      <div class="menu">
+        <MenuRow ico="settings" title="Configuración" sub="Avisos, guía y letra grande" onClick={() => openLinksView({ v: 'ajustes' })} />
+      </div>
       <div class="menu">
         <MenuRow ico="plus" title="Agregar proveedor" sub="Otra lista de IPTV, con su propia grilla" cls="add-row" chevron={false} onClick={() => void addProvider()} />
       </div>
@@ -315,10 +319,6 @@ function ProfileList() {
       <h3 class="sec-title">Dispositivos</h3>
       <div class="menu">
         <MenuRow ico="arrow-right-left" title="Usar en otro dispositivo" sub="Con un código o un archivo de respaldo" onClick={() => openLinksView({ v: 'hogar' })} />
-      </div>
-      <h3 class="sec-title">Aplicación</h3>
-      <div class="menu">
-        <MenuRow ico="settings" title="Configuración" sub="Avisos, guía y letra grande" onClick={() => openLinksView({ v: 'ajustes' })} />
       </div>
     </>
   );

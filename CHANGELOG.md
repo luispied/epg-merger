@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.60.3
+
+- **Configuración primero en Perfil.** La sección «Aplicación» con Configuración va arriba de todo, para que no quede oculta al final de la página.
+
 ## 1.60.2
 
 - **Se quita la vista «Por género».** Categorías vuelve a mostrar solo las categorías del proveedor, y «Qué ve» de cada
