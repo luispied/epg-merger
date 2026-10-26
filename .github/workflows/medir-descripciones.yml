@@ -1,7 +1,7 @@
 name: Medir descripciones externas
 
 # Medición manual (tools/medir_descripciones.py): cuántos títulos de la guía cruzan con TheSportsDB,
-# football-data.org y TMDB. Toma la guía de la última release (merged.xml.gz) y deja el resumen en la
+# football-data.org y TMDB. Toma la guía de la release «latest» (merged.xml.gz) y deja el resumen en la
 # corrida y un artefacto con el detalle. No escribe en R2 ni toca links de reproducción.
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ jobs:
       with:
         python-version: '3.11'
     - name: Bajar la guía publicada
-      run: gh release download --pattern merged.xml.gz --dir medicion --clobber
+      run: gh release download latest --pattern merged.xml.gz --dir medicion --clobber
     - name: Medir
       run: |
         python tools/medir_descripciones.py --xmltv medicion/merged.xml.gz \
