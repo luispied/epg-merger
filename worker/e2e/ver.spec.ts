@@ -274,3 +274,25 @@ test('las hojas del modo ver abren con el foco en la hoja, no en la ✕', async 
   await expect.poll(focus).toEqual({ dialog: true, closeButton: false });
   await page.keyboard.press('Escape');
 });
+
+test('Configuración del modo ver: letra grande, logos, versión y novedades, con las mismas claves que la edición', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('.vw-row').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.getByRole('switch', { name: /Letra grande/ }).check();
+  expect(await page.evaluate(() => document.documentElement.dataset.text)).toBe('lg');
+  expect(await page.evaluate(() => localStorage.getItem('grilla_text'))).toBe('lg');
+  await page.getByRole('switch', { name: /Mostrar logos/ }).uncheck();
+  expect(await page.evaluate(() => document.body.classList.contains('no-logos'))).toBe(true);
+  await page.getByRole('button', { name: 'Ver novedades' }).click();
+  await expect(page.locator('#novedadesHost')).toBeAttached();
+  await page.reload();
+  await expect(page.locator('.vw-row').first()).toBeVisible();
+  expect(await page.evaluate(() => document.body.classList.contains('no-logos'))).toBe(true);
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await expect(page.getByRole('switch', { name: /Mostrar logos/ })).not.toBeChecked();
+  await page.getByRole('switch', { name: /Letra grande/ }).uncheck();
+  expect(await page.evaluate(() => document.documentElement.dataset.text)).toBeUndefined();
+  await page.getByRole('switch', { name: /Mostrar logos/ }).check();
+  expect(await page.evaluate(() => document.body.classList.contains('no-logos'))).toBe(false);
+});

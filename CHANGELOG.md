@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.63.0
+
+- **La Configuración del modo ver tiene lo mismo que la de la edición, en lo que sirve para mirar.** Se suman **Letra grande** (agranda toda la app en este dispositivo) y **Mostrar logos** (para ahorrar datos), y al pie la versión y **Ver novedades**. Se guardan en este dispositivo, igual que en la edición.
+- Worker: `web/ver.tsx` usa las mismas claves de preferencias que `ui/settings.tsx`; `ui/ayuda.html` describe las opciones nuevas.
+
 ## 1.62.0
 
 - **La ayuda está en un solo lugar.** Se quitan los botones (?) de cada pantalla. Ahora Perfil > Aplicación tiene una página **Ayuda**, con un buscador y una sección por cada pantalla (Canales, Guía, Categorías, Perfil y Configuración). El modo ver tiene la misma ayuda en su Configuración, con sus propias secciones.
