@@ -269,10 +269,8 @@ test('las hojas del modo ver abren con el foco en la hoja, no en la ✕', async 
     return { dialog: a === d, closeButton: a instanceof HTMLButtonElement && a.getAttribute('aria-label') === 'Cerrar' };
   });
   await page.getByRole('button', { name: 'Configuración' }).click();
-  await page.waitForTimeout(250);
-  expect(await focus()).toEqual({ dialog: true, closeButton: false });
+  await expect.poll(focus).toEqual({ dialog: true, closeButton: false });
   await page.getByRole('button', { name: /^Ayuda/ }).click();
-  await page.waitForTimeout(250);
-  expect(await focus()).toEqual({ dialog: true, closeButton: false });
+  await expect.poll(focus).toEqual({ dialog: true, closeButton: false });
   await page.keyboard.press('Escape');
 });

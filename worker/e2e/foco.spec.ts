@@ -19,14 +19,11 @@ const topSheetFocus = (page: import('@playwright/test').Page) =>
 
 test('Perfil, Configuración y Ayuda abren con el foco fuera de la ✕', async ({ page }) => {
   await page.locator('#tabLinks').click();
-  await page.waitForTimeout(250);
   await page.getByRole('button', { name: /^Configuración/ }).click();
-  await page.waitForTimeout(250);
-  expect((await topSheetFocus(page)).closeButton).toBe(false);
+  await expect.poll(async () => (await topSheetFocus(page)).closeButton).toBe(false);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
   await page.locator('#tabLinks').click();
   await page.getByRole('button', { name: /^Ayuda/ }).click();
-  await page.waitForTimeout(250);
-  expect((await topSheetFocus(page)).closeButton).toBe(false);
+  await expect.poll(async () => (await topSheetFocus(page)).closeButton).toBe(false);
 });
