@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.63.1
+
+- **Los canales sin guía se leen de un vistazo.** En la Guía, «Sin guía asignada» ya no va sobre rayas rojas: es una franja suave del mismo rojo, con el texto más fuerte. Y la línea de la hora actual pasa por detrás de los programas, así no corta los títulos.
+- **Texto suave más legible.** Los textos secundarios y los iconos apagados subieron de contraste (sobre los chips elegidos ahora llegan a 5:1), en el claro y en el oscuro.
+- Worker: los tokens nuevos `--danger-soft` y `--danger-ink` están en `web/tokens.css`; `--faint` se oscureció en el claro y se aclaró en el oscuro.
+
 ## 1.63.0
 
 - **La Configuración del modo ver tiene lo mismo que la de la edición, en lo que sirve para mirar.** Se suman **Letra grande** (agranda toda la app en este dispositivo) y **Mostrar logos** (para ahorrar datos), y al pie la versión y **Ver novedades**. Se guardan en este dispositivo, igual que en la edición.
