@@ -258,3 +258,21 @@ test('un dispositivo solo con el código para ver, con la app del editor instala
   await expect(page.locator('#editor')).toBeHidden();
   await expect(page.locator('#homeLink')).toBeVisible();
 });
+
+test('las hojas del modo ver abren con el foco en la hoja, no en la ✕', async ({ page }) => {
+  await page.goto(`/ver#${CODE}`);
+  await expect(page.locator('.vw-row').first()).toBeVisible();
+  const focus = () => page.evaluate(() => {
+    const opened = [...document.querySelectorAll('dialog[open]')];
+    const d = opened[opened.length - 1];
+    const a = document.activeElement;
+    return { dialog: a === d, closeButton: a instanceof HTMLButtonElement && a.getAttribute('aria-label') === 'Cerrar' };
+  });
+  await page.getByRole('button', { name: 'Configuración' }).click();
+  await page.waitForTimeout(250);
+  expect(await focus()).toEqual({ dialog: true, closeButton: false });
+  await page.getByRole('button', { name: /^Ayuda/ }).click();
+  await page.waitForTimeout(250);
+  expect(await focus()).toEqual({ dialog: true, closeButton: false });
+  await page.keyboard.press('Escape');
+});
