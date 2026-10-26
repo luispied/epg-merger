@@ -14,6 +14,8 @@ import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 import { Logo, MASKED, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
+import { Descripcion } from './ui/sinopsis.tsx';
+import { AcercaDeLink } from './ui/acerca.tsx';
 
 declare global { interface Window { ICONS: Record<string, string> } }
 Object.assign(window.ICONS, {
@@ -233,7 +235,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
           <div class="gd-sh-ch"><Logo ch={ch} cls="lg" /><div><strong>{ch.name}</strong><small>{ch.cat}</small></div></div>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        {entries === undefined && <p class="gd-sh-desc muted">Cargando…</p>}
+        {entries === undefined && <Skeleton rows={3} />}
         {entries === null && <p class="gd-sh-desc muted">Este canal no tiene programación.</p>}
         {cur && (
           <>
@@ -241,7 +243,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
             <h2 class="gd-sh-title">{hidden ? MASKED : cur[2]}</h2>
             <p class="gd-sh-when">{hm(cur[0])} – {hm(cur[1])} · {left(cur[1] - now)}</p>
             <Progress cls="np-bar gd-sh-bar" value={((now - cur[0]) / (cur[1] - cur[0])) * 100} />
-            {cur[3] && !hidden && <p class="gd-sh-desc">{cur[3]}</p>}
+            {!hidden && <Descripcion titulo={cur[2]} guia={cur[3]} />}
           </>
         )}
         {entries && !cur && <p class="gd-sh-desc muted">No hay nada anunciado para este momento.</p>}
@@ -334,7 +336,7 @@ function SettingsSheet({ close, leave, help }: { close: () => void; leave: () =>
         <p class="help">Para salir hace falta el código de la casa.</p>
         <BrandFoot />
         <p class="app-version">{`Versión ${__APP_VERSION__}`}</p>
-        <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
+        <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button> · <AcercaDeLink /></p>
       </div>
     </dialog>
   );

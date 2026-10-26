@@ -33,4 +33,4 @@ jobs:
     - name: Bajar la guía publicada
       run: gh release download latest --pattern merged.xml.gz --dir medicion --clobber
     - name: Buscar sinopsis
-      run: python tools/sinopsis_tmdb.py --xmltv medicion/merged.xml.gz --max '${{ inputs.max }}' >> "$GITHUB_STEP_SUMMARY"
+      run: python tools/sinopsis_tmdb.py --xmltv medicion/merged.xml.gz --max '${{ inputs.max }}' | tee -a "$GITHUB_STEP_SUMMARY"

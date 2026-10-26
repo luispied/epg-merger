@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.0
+
+- **Sinopsis en la hoja del programa.** Las películas y series muestran su sinopsis en español cuando la hay; si no, el texto de la guía. Las largas se pliegan a tres líneas con **Ver más**. Lo mismo en el modo ver.
+- **Acerca de.** Al pie de Configuración (también en el modo ver) dice de dónde vienen las sinopsis.
+- Worker: `/api/ui/sx.json` sirve las sinopsis guardadas en R2; la web lo baja solo cuando se abre una hoja de programa.
+
 ## 1.63.2
 
 - **Un solo nombre para «sin guía».** Canales, la Guía y el filtro dicen «Sin guía» (antes «Sin EPG» en la lista y «Sin guía asignada» en la Guía). La hoja del canal sigue explicando «Sin guía asignada».

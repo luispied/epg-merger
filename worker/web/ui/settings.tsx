@@ -12,6 +12,7 @@ import { Icon } from './icon.tsx';
 import { toast } from './toast.tsx';
 import { openNovedades } from './novedades.tsx';
 import { BrandFoot } from './kit.tsx';
+import { AcercaDeLink } from './acerca.tsx';
 
 declare const __APP_VERSION__: string;
 
@@ -250,7 +251,7 @@ export function Settings() {
       </div>
       <BrandFoot />
       <p class="app-version" data-version>{`Versión ${__APP_VERSION__}`}</p>
-      <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
+      <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button> · <AcercaDeLink /></p>
     </div>
   );
 }
