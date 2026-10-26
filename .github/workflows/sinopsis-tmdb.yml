@@ -1,7 +1,7 @@
 name: Sinopsis de TMDB
 
 # Busca en TMDB (español) las sinopsis de las películas y series de la guía y las guarda en R2 como
-# desc/tmdb.json (tools/sinopsis_tmdb.py). Es acumulativo: cada corrida avanza con títulos nuevos.
+# desc/sinopsis.json (tools/sinopsis_tmdb.py). Es acumulativo: cada corrida avanza con títulos nuevos.
 # Manual por ahora. No toca los links de reproducción (short/, devices/).
 on:
   workflow_dispatch:

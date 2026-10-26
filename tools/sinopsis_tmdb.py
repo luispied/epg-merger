@@ -3,7 +3,7 @@
 
 Lee la guía publicada (`merged.xml.gz`), toma los títulos de películas y series y busca cada uno en TMDB
 (`search/multi`, español). Un título vale si TMDB tiene uno igual (nombre normalizado) con sinopsis no vacía.
-El resultado es un solo JSON `desc/tmdb.json` en R2: {título normalizado: {"n": nombre, "s": sinopsis,
+El resultado es un solo JSON `desc/sinopsis.json` en R2: {título normalizado: {"n": nombre, "s": sinopsis,
 "id": id, "k": movie|tv}}. La app lo lee en la hoja del programa; nunca se consulta TMDB en vivo.
 
 Es acumulativo: lo que ya está en R2 no se vuelve a buscar, así que cada corrida avanza hasta `--max`
@@ -25,7 +25,7 @@ import urllib.request
 from xml.etree import ElementTree
 
 MOVIE_CAT_RE = re.compile(r'movie|film|pel[ií]cula|series|serie|telenovela|drama', re.I)
-KEY = 'desc/tmdb.json'
+KEY = 'desc/sinopsis.json'
 UA = {'User-Agent': 'nowline-sinopsis/1.0'}
 
 
