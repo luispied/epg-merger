@@ -309,11 +309,22 @@ body:has(#netPill:not([hidden])) .toasts { top: calc(56px + env(safe-area-inset-
 /* Hojas con scroll: la hoja no se desplaza sola (solo su contenido). En el iPhone la zona segura
    inferior le suma un relleno, y con el tope de altura de antes la hoja quedaba un poco más
    alta que su marco y se movía aparte, cortando el borde de arriba. */
-.settings-sheet, .help-sheet { max-height: 88vh; max-height: 88dvh; overflow: hidden; }
+/* Dos tamaños (ui/sheet.ts y planes/auditoria-diseno.md): las hojas de editar y ver miden siempre 88 % de la pantalla,
+   así no saltan al abrir una sección o al mostrar «Ver más», y su contenido se desplaza adentro. Las cortas (menús,
+   con .sheet-short) miden lo que tienen, y las de confirmar (.ask-sheet) no entran acá. Los botones de abajo quedan fijos. */
+.settings-sheet, .help-sheet { height: 88vh; height: 88dvh; max-height: 88vh; max-height: 88dvh; overflow: hidden; }
 .settings-sheet .sheet-body, .help-sheet .sheet-body {
+  height: calc(88vh - env(safe-area-inset-bottom, 0px));
+  height: calc(88dvh - env(safe-area-inset-bottom, 0px));
   max-height: calc(88vh - env(safe-area-inset-bottom, 0px));
   max-height: calc(88dvh - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
 }
+.settings-sheet .sheet-actions, .help-sheet .sheet-actions {
+  position: sticky; bottom: 0; z-index: 4; background: var(--surface); padding: 12px 0 4px; margin-top: 16px;
+}
+.settings-sheet.sheet-short, .sheet-short .sheet-body { height: auto; }
+.settings-sheet.sheet-short { height: auto; max-height: 88dvh; }
 
 /* Scroll infinito: el centinela solo ocupa lo justo para entrar en pantalla. */
 .load-sentinel { height: 1px; }
