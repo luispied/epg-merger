@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.1
+
+- **Las hojas tienen alto fijo.** Las de editar y ver (el canal, el programa, Perfil, Configuración, la ayuda) miden siempre 88 % de la pantalla y su contenido se desplaza adentro: ya no saltan al abrir una sección o al mostrar **Ver más**. Los botones de abajo quedan fijos. Los menús cortos y las confirmaciones siguen midiendo lo que tienen.
+- Worker: `.sheet-short` marca las hojas chicas (menús) en `index.html`; el resto de las hojas usa el alto fijo de `web.css`.
+
 ## 1.64.0
 
 - **Sinopsis en la hoja del programa.** Las películas y series muestran su sinopsis en español cuando la hay; si no, el texto de la guía. Las largas se pliegan a tres líneas con **Ver más**. Lo mismo en el modo ver.
