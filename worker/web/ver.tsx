@@ -8,6 +8,7 @@ import { Icon } from './ui/icon.tsx';
 import { AyudaPage } from './ui/ayuda.tsx';
 import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
 import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
+import { openNovedades } from './ui/novedades.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
@@ -37,6 +38,12 @@ interface Prog { s: number; e: number; t: string; m?: boolean }
 
 const CODE_KEY = 'grilla_ver_code';
 const THEME_KEY = 'grilla_theme';
+// Letra grande y logos: las mismas claves que la edición (ui/settings.tsx), así se eligen una vez por dispositivo.
+const TEXT_KEY = 'grilla_text';
+const LOGOS_KEY = 'grilla_logos';
+const readPref = (k: string, def: string) => { try { return localStorage.getItem(k) ?? def; } catch { return def; } };
+const writePref = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* sin storage: vale por esta vez */ } };
+declare const __APP_VERSION__: string;
 // Los mismos tres íconos que el editor (ui/settings.tsx), en el mismo orden.
 const THEMES = [
   { v: 'auto', label: 'Como el sistema', icon: 'monitor' },
@@ -263,6 +270,8 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
 function SettingsSheet({ close, leave, help }: { close: () => void; leave: () => void; help: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [theme, setTheme] = useState<Theme>(savedTheme);
+  const [bigText, setBigText] = useState(() => readPref(TEXT_KEY, '') === 'lg');
+  const [logos, setLogos] = useState(() => readPref(LOGOS_KEY, '1') !== '0');
   useLayoutEffect(() => {
     dlg.current?.showModal();
     return () => dlg.current?.close();
@@ -272,6 +281,17 @@ function SettingsSheet({ close, leave, help }: { close: () => void; leave: () =>
     if (t === 'auto') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = t;
     try { localStorage.setItem(THEME_KEY, t); } catch { /* sin storage: vale por esta vez */ }
+  };
+  const toggleText = (on: boolean) => {
+    setBigText(on);
+    writePref(TEXT_KEY, on ? 'lg' : '');
+    if (on) document.documentElement.dataset.text = 'lg';
+    else delete document.documentElement.dataset.text;
+  };
+  const toggleLogos = (on: boolean) => {
+    setLogos(on);
+    writePref(LOGOS_KEY, on ? '1' : '0');
+    document.body.classList.toggle('no-logos', !on);
   };
   return (
     <dialog class="sheet settings-sheet" ref={dlg} onClose={close} aria-labelledby="vwSetTitle">
@@ -292,6 +312,16 @@ function SettingsSheet({ close, leave, help }: { close: () => void; leave: () =>
               ))}
             </div>
           </div>
+          <label class="menu-row static">
+            <span class="menu-icon"><Icon name="a-large-small" /></span>
+            <span class="menu-text">Letra grande<small>Agranda toda la app en este dispositivo</small></span>
+            <input type="checkbox" class="switch" role="switch" checked={bigText} onChange={(ev) => toggleText(ev.currentTarget.checked)} />
+          </label>
+          <label class="menu-row static">
+            <span class="menu-icon"><Icon name="image" /></span>
+            <span class="menu-text">Mostrar logos<small>Apagalos para ahorrar datos</small></span>
+            <input type="checkbox" class="switch" role="switch" checked={logos} onChange={(ev) => toggleLogos(ev.currentTarget.checked)} />
+          </label>
         </div>
         <div class="menu">
           <button type="button" class="menu-row" onClick={help}>
@@ -302,6 +332,9 @@ function SettingsSheet({ close, leave, help }: { close: () => void; leave: () =>
         </div>
         <button type="button" class="btn btn-tonal btn-block vw-leave" onClick={leave}><Icon name="key-round" />Salir del modo ver</button>
         <p class="help">Para salir hace falta el código de la casa.</p>
+        <BrandFoot />
+        <p class="app-version">{`Versión ${__APP_VERSION__}`}</p>
+        <p class="app-news"><button type="button" class="link-btn" onClick={() => void openNovedades(__APP_VERSION__)}>Ver novedades</button></p>
       </div>
     </dialog>
   );
@@ -556,4 +589,6 @@ function App() {
 }
 
 installSheets();
+// El logo apagado vale también al abrir la app, no solo al cambiarlo en Configuración.
+document.body.classList.toggle('no-logos', readPref(LOGOS_KEY, '1') === '0');
 render(<App />, document.getElementById('app')!);
