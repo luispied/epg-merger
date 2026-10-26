@@ -1131,6 +1131,8 @@ body.guide-open { overflow: hidden; }
 .gd-sh-bar { display: block; height: 3px; margin-top: 10px; border-radius: 2px; background: var(--fill); overflow: hidden; }
 .gd-sh-bar > i { display: block; height: 100%; background: var(--live); }
 .gd-sheet .gd-sh-desc { margin: 12px 0 0; color: var(--text); line-height: 1.5; }
+.gd-sheet .gd-sh-desc.plegada { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.gd-sheet .gd-sh-desc + .link-btn { margin-top: 4px; }
 .gd-sh-actions { margin-top: 16px; }
 .gd-remind { width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .gd-remind.on { background: var(--accent); color: var(--on-accent); }

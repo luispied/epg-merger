@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import { ActiveFilters, FilterToggle, type FilterHandlers, type FilterModel } from './filtros.tsx';
 import { Icon } from './icon.tsx';
 import { Progress, rangeOf } from './kit.tsx';
+import { Descripcion } from './sinopsis.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
 import { type Affinity, habitAffinity, type Habits, NEVER_SUGGEST, normTitle, planScore } from '../../../core/src/taste.ts';
@@ -915,7 +916,7 @@ function ProgramSheet({ ch, p, now, host, channels, habits, setHabits, again, cl
         </p>
         {live && <Progress cls="np-bar gd-sh-bar" value={((now - p.s) / (p.e - p.s)) * 100} />}
         {p.m ? <p class="gd-sh-desc muted">Este perfil solo muestra programas de los géneros que eligió quien lo armó.</p>
-          : entries === undefined ? <p class="gd-sh-desc muted">Cargando…</p> : mine?.[3] && <p class="gd-sh-desc">{mine[3]}</p>}
+          : <Descripcion titulo={p.t} guia={mine?.[3]} />}
         {first && !p.m && (
           <section class="gd-again" aria-label="Llegás desde el principio">
             <p class="k"><Icon name="refresh-cw" class="sm" />Llegás desde el principio</p>

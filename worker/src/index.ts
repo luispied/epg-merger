@@ -965,8 +965,10 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     return json({ ids, r });
   }
   if (section === 'ui' && method === 'GET') {
-    // Solo la programación: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
+    // Solo la programación y las sinopsis: lo demás que quedó en ui/ (catálogo, uso de fuentes) nombra las fuentes y la web no lo usa.
     const path = parts.slice(2).join('/');
+    // Sinopsis de películas y series (tools/sinopsis_tmdb.py). El nombre de la ruta no dice de dónde vienen.
+    if (path === 'sx.json') return storedResponse(await readStored(env.BUCKET, 'desc/sinopsis.json'), 3600);
     const hour = /^schedule\/hour\/[0-9]{10}(-d)?\.json$/.test(path) || path === 'schedule/topics.json'; // topics.json: el índice para buscar por tema
     const channel = /^schedule\/([0-9a-f]{16})\.json$/.exec(path)?.[1];
     if (!hour && !channel) return fail(404, 'no encontrado');
