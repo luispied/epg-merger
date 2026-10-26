@@ -309,4 +309,4 @@ body.selecting main { padding-bottom: 72px; }
   border: 0;
   font: inherit; font-size: 12.5px; cursor: pointer;
 }
-.chip-btn:disabled { cursor: default; opacity: .75; }
+.chip-btn:disabled { cursor: default; background: var(--disabled-fill); color: var(--disabled-ink); box-shadow: inset 0 0 0 1px var(--hairline); }

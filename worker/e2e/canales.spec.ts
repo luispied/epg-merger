@@ -40,7 +40,7 @@ test('las filas con su categoría y su guía', async ({ page }) => {
   await expect(row(page, 'ESPN').locator('.cc')).toHaveText('AR');
   await expect(row(page, 'ESPN')).toHaveAttribute('aria-label', 'ESPN, guía ESPN');
   await expect(row(page, 'Fox Sports').locator('.guide')).toHaveText('Sin guía asignada');
-  await expect(row(page, 'Fox Sports').locator('.tag.bad')).toHaveText('Sin EPG');
+  await expect(row(page, 'Fox Sports').locator('.tag.bad')).toHaveText('Sin guía');
   await expect(row(page, 'ESPN').locator('.mono')).toHaveText('ES');
   await expect(cards(page).locator('.where')).toHaveCount(0);
 });

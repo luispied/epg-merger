@@ -567,7 +567,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                       <button type="button" class={`gd-cell gap${r.ch.quiet ? ' quiet' : ''}`} style={{ left: `${Math.max(lx, 0) + 2}px`, width: `${view.w - CHW - 4}px` }}
                         onClick={() => host.openChannel(r.ch.i)}>
                         <span class="gd-in">
-                          <span class="tt">{r.ch.quiet || host.viewer ? 'Sin guía' : 'Sin guía asignada'}</span>
+                          <span class="tt">Sin guía</span>
                           <span class="hh">{host.viewer ? 'Este canal no tiene programación' : r.ch.quiet ? 'Lo dejaste así a propósito' : 'Tocá para elegir una guía'}</span>
                         </span>
                       </button>

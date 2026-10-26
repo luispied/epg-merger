@@ -25,7 +25,7 @@
 
   /* Control deshabilitado: fondo y texto por token, no con opacity (la opacidad también deja borroso el texto) */
   --disabled-fill: light-dark(#ebe7df, #23262d);
-  --disabled-ink: light-dark(#a39d90, #5c6371);
+  --disabled-ink: light-dark(#8a8478, #7c8393); /* texto del control deshabilitado: 3:1 o más sobre --disabled-fill (antes 2.2:1) */
 
   /* Acento (ámbar): lo que se toca y lo elegido */
   --accent: light-dark(#8f5200, #ffb224);

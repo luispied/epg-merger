@@ -984,7 +984,7 @@ function guideHealth() {
 
 // Los filtros de la lista: un estado (uno solo) y las categorías elegidas (varias). Los dibuja ui/filtros.tsx.
 const STATE_FILTERS: [string, string][] = [
-  ['todos', 'Todos'], ['nuevos', 'Nuevos'], ['revisar', 'A revisar'], ['sin-epg', 'Sin EPG'], ['sin-prog', 'Sin programación'],
+  ['todos', 'Todos'], ['nuevos', 'Nuevos'], ['revisar', 'A revisar'], ['sin-epg', 'Sin guía'], ['sin-prog', 'Sin programación'],
   ['caidos', 'Caídos'], ['manual', 'Elegidos a mano'], ['editados', 'Editados'], ['ocultos', 'Ocultos'],
 ];
 // Estos siempre se ofrecen en la hoja; los demás solo cuando hay canales que cumplen.
@@ -1113,7 +1113,7 @@ function bandTag(band: Band, score?: number): string {
   switch (band) {
     case 'ok': return `<span class="tag ok" title="Coincidencia buena${pct ? `: ${pct}` : ''}">${pct || 'Bien'}</span>`;
     case 'warn': return `<span class="tag warn" title="Coincidencia dudosa${pct ? `: ${pct}` : ''}: conviene revisarla">${pct || 'Dudoso'}</span>`;
-    case 'none': return '<span class="tag bad">Sin EPG</span>';
+    case 'none': return '<span class="tag bad">Sin guía</span>';
     case 'loading': return ''; // la guía todavía no cruzó: sin etiqueta
     case 'manual': return ''; // la marca "elegida por vos" se ve solo al abrir el canal
     case 'purpose': return ''; // sin guía a propósito: se ve al abrir el canal

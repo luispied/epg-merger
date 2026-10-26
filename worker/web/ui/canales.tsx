@@ -199,7 +199,7 @@ function StatusMark({ band, score }: { band: Band; score?: number }) {
   switch (band) {
     case 'ok': return <span class="ok-mark" title={`Coincidencia buena${pct ? `: ${pct} %` : ''}`}><Icon name="check" class="sm" /></span>;
     case 'warn': return <span class="pct warn" title="Coincidencia dudosa: conviene revisarla">{pct ? `${pct} %` : 'Dudoso'}</span>;
-    case 'none': return <span class="tag bad">Sin EPG</span>;
+    case 'none': return <span class="tag bad">Sin guía</span>;
     default: return null; // a mano o sin guía a propósito: se ve al abrir el canal
   }
 }
