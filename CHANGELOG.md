@@ -16,6 +16,10 @@ nombres de código.
 - **La ayuda está en un solo lugar.** Se quitan los botones (?) de cada pantalla. Ahora Perfil > Aplicación tiene una página **Ayuda**, con un buscador y una sección por cada pantalla (Canales, Guía, Categorías, Perfil y Configuración). El modo ver tiene la misma ayuda en su Configuración, con sus propias secciones.
 - Worker: la ayuda vive en `web/ui/ayuda.html` y se muestra con `web/ui/ayuda.tsx`; `test/ayuda.test.ts` falla si una pantalla se queda sin sección.
 
+## 1.61.1
+
+- **Al abrir una hoja, el foco ya no cae en la ✕.** Antes, en el modo ver (y a veces en la edición) la ✕ quedaba marcada con un aro cada vez que se abría una hoja. Ahora el foco queda en la hoja misma, en la edición y en el modo ver.
+
 ## 1.61.0
 
 - **Las etiquetas de resolución (SD, HD, FHD, 4K) se completan en la madrugada.** Hasta ahora se medían unos 100 canales por día, así que tardaban semanas en llegar a todos. Mientras haya canales sin medir, de 1 a 9 de la mañana (hora de Buenos Aires, cuando menos conexiones se usan) la prueba mide todo lo que alcanza. Cuando ya no quedan, vuelve al ritmo de una vez por semana.

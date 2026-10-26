@@ -109,35 +109,6 @@ const fold = (s: string) => s.normalize('NFKD').replace(/\p{Mn}/gu, '').toLowerC
  *  orden: "inter parma" encuentra "Inter de Milán vs. Parma". */
 const hasWords = (text: string, q: string) => q.split(/\s+/).every((w) => text.includes(w));
 
-// showModal() y show() enfocan el primer elemento de la hoja (el ojo, la ayuda o el nombre editable del
-// canal) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco cae en un
-// botón o en el nombre de un canal o categoría, pasa a la hoja misma; los demás campos (por ejemplo, el de
-// un diálogo que pide un nombre) conservan su foco.
-function settleFocus(dlg: HTMLDialogElement) {
-  const a = document.activeElement;
-  if (a instanceof HTMLElement && dlg.contains(a) && (!a.matches('input, textarea, select') || a.classList.contains('ch-name'))) {
-    dlg.tabIndex = -1;
-    dlg.focus({ preventScroll: true });
-  }
-}
-// Al cerrar una hoja el navegador devuelve el foco a la fila que la abrió y queda marcada en la grilla:
-// se lo saca (el teclado sigue pudiendo moverse con Tab desde ahí).
-document.addEventListener('close', (ev) => {
-  if (!(ev.target instanceof HTMLDialogElement)) return;
-  const a = document.activeElement;
-  if (a instanceof HTMLElement && a.matches('.card, .cat-row, .row-card, .section-card')) a.blur();
-}, true);
-const nativeShowModal = HTMLDialogElement.prototype.showModal;
-HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
-  nativeShowModal.call(this);
-  settleFocus(this);
-};
-const nativeShow = HTMLDialogElement.prototype.show;
-HTMLDialogElement.prototype.show = function (this: HTMLDialogElement) {
-  nativeShow.call(this);
-  settleFocus(this);
-};
-
 // Confirmar y pedir un texto con el estilo de la página (en vez de confirm/prompt del
 // navegador). Van en un <dialog> propio, que queda arriba de cualquier otro abierto.
 interface AskOptions { title: string; text?: string; ok?: string; danger?: boolean; icon?: string; input?: { label: string; value?: string; placeholder?: string } }

@@ -92,6 +92,18 @@ function startDrag(e: PointerEvent) {
   window.addEventListener('pointercancel', up);
 }
 
+/** showModal() y show() enfocan el primer elemento de la hoja (la ✕, el ojo, la ayuda o el nombre editable del
+ *  canal) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco cae en un
+ *  botón o en el nombre de un canal o categoría, pasa a la hoja misma; los demás campos (por ejemplo, el de
+ *  un diálogo que pide un nombre) conservan su foco. */
+function settleFocus(dlg: HTMLDialogElement) {
+  const a = document.activeElement;
+  if (a instanceof HTMLElement && dlg.contains(a) && (!a.matches('input, textarea, select') || a.classList.contains('ch-name'))) {
+    dlg.tabIndex = -1;
+    dlg.focus({ preventScroll: true });
+  }
+}
+
 let installed = false;
 
 /** Se llama una vez al arrancar (editor y modo ver). */
@@ -107,10 +119,19 @@ export function installSheets() {
   };
   HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
     if (!cancelClosing(this)) prevShowModal.call(this);
+    settleFocus(this);
   };
   HTMLDialogElement.prototype.show = function (this: HTMLDialogElement) {
     if (!cancelClosing(this)) prevShow.call(this);
+    settleFocus(this);
   };
+  // Al cerrar una hoja el navegador devuelve el foco a la fila que la abrió y queda marcada en la grilla:
+  // se lo saca (el teclado sigue pudiendo moverse con Tab desde ahí).
+  document.addEventListener('close', (ev) => {
+    if (!(ev.target instanceof HTMLDialogElement)) return;
+    const a = document.activeElement;
+    if (a instanceof HTMLElement && a.matches('.card, .cat-row, .row-card, .section-card')) a.blur();
+  }, true);
   // Esc.
   document.addEventListener('cancel', (e) => {
     if (!isSheet(e.target)) return;
