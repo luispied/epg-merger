@@ -1106,11 +1106,14 @@ body.guide-open { overflow: hidden; }
 .gd-cell.live::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--live); }
 .gd-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
 .gd-cell.tiny { padding: 0; }
-.gd-cell.gap { background: repeating-linear-gradient(-45deg, transparent 0 6px, color-mix(in srgb, var(--orange) 10%, transparent) 6px 12px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 40%, transparent); }
-.gd-cell.gap .tt { color: var(--orange); }
+.gd-cell.gap { background: var(--danger-soft); box-shadow: none; }
+.gd-cell.gap .tt { color: var(--danger-ink); }
+.gd-cell.gap .hh { color: var(--danger-ink); }
 .gd-cell.gap.quiet { background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }
 .gd-cell.gap.quiet .tt { color: var(--muted); font-weight: 500; }
-.gd-nowline { position: absolute; width: 2px; transform: translateX(-1px); background: color-mix(in srgb, var(--live) 70%, transparent); z-index: 2; pointer-events: none; }
+/* La línea de ahora va detrás de los programas (que son opacos): se ve entre ellos y en el hueco de las horas, y no corta los títulos. */
+.gd-nowline { position: absolute; width: 2px; transform: translateX(-1px); background: color-mix(in srgb, var(--live) 70%, transparent); z-index: 0; pointer-events: none; }
+.gd-cell { z-index: 1; }
 #guide > .gd-shell > .empty { margin: 24px var(--gutter); }
 @media (min-width: 900px) {
   .gd-ch { flex-direction: row; justify-content: flex-start; gap: 10px; padding: 0 12px; }

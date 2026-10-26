@@ -16,7 +16,7 @@
   --fill: light-dark(#e4dfd4, #272b33);
   --text: light-dark(#1c1a15, #eceef2);
   --muted: light-dark(#4d4a40, #b4bac6);
-  --faint: light-dark(#6f6a5f, #8a91a0);
+  --faint: light-dark(#615c51, #9aa1af); /* 5:1 sobre el «elegido» (fill) en los dos temas */
   --hairline: light-dark(#d9d3c6, #2a2e37);
   --chip-line: light-dark(#8f887a, #626a77); /* borde de chips y filtros sin elegir (3:1 contra el fondo) */
   --toolbar-bg: light-dark(rgba(245, 242, 236, .92), rgba(12, 13, 16, .92));
@@ -48,6 +48,8 @@
   --live: var(--green); /* lo que pasa ahora (en el aire, en vivo): siempre verde, nunca ámbar */
   --on-live: light-dark(#ffffff, #06281a);
   --orange: light-dark(#b03a10, #ff8566);
+  --danger-soft: light-dark(#fbe4e0, #3a1714); /* fondo de lo que falta (sin guía): pastilla suave, sin rayas */
+  --danger-ink: light-dark(#8a1c14, #ffb4ad); /* su texto: 7:1 o más sobre --danger-soft */
   --red: light-dark(#b3261e, #ff7b72);
   --on-danger: light-dark(#ffffff, #3c0a07);
   --blue: light-dark(#1d5fb8, #7fb2ff);
