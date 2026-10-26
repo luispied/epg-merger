@@ -1,0 +1,42 @@
+name: Medir descripciones externas
+
+# Medición manual (tools/medir_descripciones.py): cuántos títulos de la guía cruzan con TheSportsDB,
+# football-data.org y TMDB. Toma la guía de la última release (merged.xml.gz) y deja el resumen en la
+# corrida y un artefacto con el detalle. No escribe en R2 ni toca links de reproducción.
+on:
+  workflow_dispatch:
+    inputs:
+      muestra:
+        description: 'Títulos por grupo'
+        default: '150'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Bajar la guía publicada
+      run: gh release download --pattern merged.xml.gz --dir medicion --clobber
+    - name: Medir
+      run: |
+        python tools/medir_descripciones.py --xmltv medicion/merged.xml.gz \
+          --muestra '${{ inputs.muestra }}' \
+          --json medicion/informe.json --md medicion/informe.md
+        cat medicion/informe.md >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: medicion-descripciones
+        path: medicion/informe.*
+        retention-days: 14
