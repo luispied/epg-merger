@@ -44,7 +44,6 @@ textarea.input { height: auto; min-height: 72px; padding-top: 10px; padding-bott
 .ask-sheet .field { margin-top: 10px; }
 .ask-sheet .btn-danger { background: var(--red); color: var(--on-danger); padding: 0 24px; }
 .kids-sheet .sec-title { margin-top: 16px; }
-.kids-sheet .filter-chips .chip-btn[disabled] { opacity: .6; }
 .kids-sheet .rules { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
 .kids-sheet .rules li { display: flex; gap: 10px; align-items: flex-start; }
 .kids-sheet .rules .icon { margin-top: 2px; flex: none; color: var(--faint); }
@@ -575,8 +574,7 @@ body.selecting .row-in { padding-left: 12px; }
 .gc-sug { display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
 /* Otras opciones */
 .ch-chips { display: flex; gap: 8px; margin: 8px 0 4px; }
-.ch-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; }
-.ch-chips .chip-btn[disabled] { opacity: .35; }
+.ch-chips .chip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; }
 .opts { margin-top: 4px; }
 .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--hairline); }
 .opts .opt:first-child { border-top: 0; }

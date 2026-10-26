@@ -11,6 +11,13 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.63.2
+
+- **Un solo nombre para «sin guía».** Canales, la Guía y el filtro dicen «Sin guía» (antes «Sin EPG» en la lista y «Sin guía asignada» en la Guía). La hoja del canal sigue explicando «Sin guía asignada».
+- **Los botones apagados se leen.** «Automática» y las demás opciones deshabilitadas de la hoja del canal ya no van con opacidad: tienen su propio fondo y texto (`--disabled-fill`, `--disabled-ink`), con 3:1 o más de contraste.
+- **Botones de la hoja del canal de 44 px** de alto, para tocar bien en el celular.
+- Worker: la ayuda describe el filtro «Sin guía»; `e2e/canales.spec.ts` espera el nombre nuevo.
+
 ## 1.63.1
 
 - **Los canales sin guía se leen de un vistazo.** En la Guía, «Sin guía asignada» ya no va sobre rayas rojas: es una franja suave del mismo rojo, con el texto más fuerte. Y la línea de la hora actual pasa por detrás de los programas, así no corta los títulos.
