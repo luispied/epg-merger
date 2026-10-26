@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.61.1
+
+- **Al abrir una hoja, el foco ya no cae en la ✕.** Antes, en el modo ver (y a veces en la edición) la ✕ quedaba marcada con un aro cada vez que se abría una hoja. Ahora el foco queda en la hoja misma, en la edición y en el modo ver.
+
 ## 1.61.0
 
 - **Las etiquetas de resolución (SD, HD, FHD, 4K) se completan en la madrugada.** Hasta ahora se medían unos 100 canales por día, así que tardaban semanas en llegar a todos. Mientras haya canales sin medir, de 1 a 9 de la mañana (hora de Buenos Aires, cuando menos conexiones se usan) la prueba mide todo lo que alcanza. Cuando ya no quedan, vuelve al ritmo de una vez por semana.
