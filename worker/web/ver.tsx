@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Icon } from './ui/icon.tsx';
+import { AyudaPage } from './ui/ayuda.tsx';
 import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
 import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
 import { installSheets } from './ui/sheet.ts';
@@ -259,7 +260,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
 }
 
 /** Configuración de este dispositivo: la misma hoja y la misma fila de Tema que en el editor (ui/settings.tsx). */
-function SettingsSheet({ close, leave }: { close: () => void; leave: () => void }) {
+function SettingsSheet({ close, leave, help }: { close: () => void; leave: () => void; help: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const [theme, setTheme] = useState<Theme>(savedTheme);
   useLayoutEffect(() => {
@@ -292,6 +293,13 @@ function SettingsSheet({ close, leave }: { close: () => void; leave: () => void 
             </div>
           </div>
         </div>
+        <div class="menu">
+          <button type="button" class="menu-row" onClick={help}>
+            <span class="menu-icon"><Icon name="circle-help" /></span>
+            <span class="menu-text">Ayuda</span>
+            <Icon name="chevron-right" />
+          </button>
+        </div>
         <button type="button" class="btn btn-tonal btn-block vw-leave" onClick={leave}><Icon name="key-round" />Salir del modo ver</button>
         <p class="help">Para salir hace falta el código de la casa.</p>
       </div>
@@ -299,7 +307,7 @@ function SettingsSheet({ close, leave }: { close: () => void; leave: () => void 
   );
 }
 
-/** La ayuda del modo ver: corta, con letra grande y en el orden en que se descubre la app. */
+/** La ayuda del modo ver: la misma página que la del editor (ui/ayuda.tsx), con las secciones de este modo. */
 function HelpSheet({ close }: { close: () => void }) {
   const dlg = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
@@ -310,50 +318,16 @@ function HelpSheet({ close }: { close: () => void }) {
     <dialog class="sheet help-sheet vw-help" ref={dlg} onClose={close} aria-labelledby="vwHelpTitle">
       <div class="sheet-body">
         <div class="title-row">
-          <h2 id="vwHelpTitle">Cómo se usa</h2>
+          <h2 id="vwHelpTitle">Ayuda</h2>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
-        <p>Acá ves los canales que te preparó otra persona y qué dan en cada uno. No se puede cambiar ni romper nada: tocá tranquilo. Al abrir, el logo de nowline se ve un instante mientras cargan los canales.</p>
-        <details open>
-          <summary>Canales<Icon name="chevron-down" /></summary>
-          <p>Cada canal muestra lo que dan <b>ahora</b>, cuánto le queda y hasta qué hora (la barra <b>verde</b> es cuánto va), y lo que viene <b>después</b>. Tocalo para leer de qué se trata y ver lo que dan más tarde; para cerrar, tocá la <b>✕</b> o bajá la hoja con el dedo.</p>
-          <p>Arriba podés <b>buscar</b> un canal o un programa: escribí «noticias», el nombre de un equipo o un tema («Mundial», «cocina»): también aparecen los canales que dan algo de eso ahora, aunque el título no lo diga. Al lado de la búsqueda, el botón <span class="inline-icon"><Icon name="list-filter" /></span> <b>filtra por categoría</b>: elegís una o más y quedan arriba como chips; tocá la <b>×</b> de cada uno para quitarlo.</p>
-        </details>
-        <details>
-          <summary>Conexiones en uso<Icon name="chevron-down" /></summary>
-          <p>«2 de 3 · Conexiones en uso» dice cuántas pantallas están mirando con esta cuenta y cuántas permite. Si están todas ocupadas, otra tele no va a poder abrir un canal. Tocalo para ver quién está mirando y qué canal.</p>
-        </details>
-        <details>
-          <summary>Guía<Icon name="chevron-down" /></summary>
-          <p>Abajo (en una pantalla grande, a la izquierda), <b>Guía</b> muestra la programación como en la tele. Arriba, al lado del título, elegís <b>Grilla</b> (canales y horas: deslizá de costado para ver más tarde; un programa muy corto es una franja angosta sin texto, tocala para ver cuál es) o <b>Próximos</b> (lo que empieza pronto). La tarjeta <b>Tu noche, armada para vos</b> (de día, tu mañana o tu tarde) abre lo mejor de tus canales para lo que queda de ese rato; la flecha de arriba te devuelve.</p>
-          <p>El botón <span class="inline-icon"><Icon name="list-filter" /></span> de arriba, al lado de Grilla y Próximos (y en tu plan), abre la hoja para elegir <b>categorías</b> y <b>géneros</b> (Cine, Deportes, Infantil…): tocá uno o varios y quedan debajo del título como chips; la <b>×</b> de cada uno lo quita, o <b>Quitar todos</b>. En la Grilla solo quedan los canales que tienen algo de ese género en las horas que se ven (lo demás se apaga), en Próximos se saca y tu plan se arma solo con ese género; lo que todavía no tiene género no entra mientras haya uno elegido.</p>
-                    <p>Tu plan también sube programas parecidos a lo que mirás, según el género («Como lo que mirás: deportes»), aunque sean de un canal que nunca abriste. La publicidad nunca se sugiere.</p>
-          <p>Tocá un programa para leer de qué se trata; arriba del título dice su género cuando lo sabemos. Con <b>No me interesa</b> no aparece más en tu plan y con <b>Más como esto</b> te sugiere más parecidos y también lo de su mismo género; tocándolos otra vez se deshacen.</p>
-        </details>
-        <details>
-          <summary>Configuración<Icon name="chevron-down" /></summary>
-          <p>Tocá el engranaje, arriba a la derecha de Canales, y en <b>Configuración</b> elegí el <b>tema</b>: como el sistema, claro u oscuro. Queda guardado en este dispositivo.</p>
-          <p>El modo ver no manda avisos ni tiene campana: eso es de quien arma la grilla. Los <b>avisos por gusto</b> («esta noche dan un documental») se prenden en la edición, en Configuración; acá, <b>Tu noche</b> te muestra lo mismo, con el porqué de cada sugerencia.</p>
-          <p>Más abajo, en la misma hoja, está <b>Salir del modo ver</b>.</p>
-        </details>
-        <details>
-          <summary>Perfil infantil<Icon name="chevron-down" /></summary>
-          <p>Si este perfil es infantil, solo se ven programas aptos para chicos: lo demás dice <b>No disponible en este perfil</b>, con su horario, en los canales, en la Guía y en Tu plan, y no aparece en la búsqueda ni en Próximos. Quien armó la grilla elige qué géneros entran. Lo que todavía no se clasificó tampoco se muestra, así que al principio se ve poco y se va completando. Para cambiarlo hace falta la clave de edición, que este modo no tiene.</p>
-        </details>
-        <details>
-          <summary>¿En la tele dan otra cosa?<Icon name="chevron-down" /></summary>
-          <p>Abrí el canal y tocá <b>Lo que dan en la tele no es esto</b>. Le llega un aviso a quien arma tu grilla para que lo arregle.</p>
-        </details>
-        <details>
-          <summary>Salir del modo ver<Icon name="chevron-down" /></summary>
-          <p>Esta app abre siempre así. La de editar, si la tenés instalada aparte, sigue como siempre. Para salir, tocá el engranaje de Canales y después <b>Salir del modo ver</b> (también está al final de la lista de canales). Hace falta el <b>código de la casa</b>, el que usa quien arma la grilla.</p>
-        </details>
+        <AyudaPage modo="ver" />
       </div>
     </dialog>
   );
 }
 
-function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onHelp: () => void; onSettings: () => void; onLeave: () => void }) {
+function Channels({ code, data, channels, onOpen, onSettings, onLeave }: { code: string; data: ViewData; channels: GuideChannel[]; onOpen: (ch: GuideChannel) => void; onSettings: () => void; onLeave: () => void }) {
   const now = useNow();
   const info = useNowNext(now);
   const [q, setQ] = useState('');
@@ -393,7 +367,6 @@ function Channels({ code, data, channels, onOpen, onHelp, onSettings, onLeave }:
         <div class="title-row">
           <span class="title-left">
             <h1>Canales</h1>
-            <button type="button" class="icon-btn help-btn" aria-label="Cómo se usa" title="Cómo se usa" onClick={onHelp}><Icon name="circle-help" /></button>
           </span>
           <span class="vw-head-r">
             <button type="button" class="icon-btn" aria-label="Configuración" title="Configuración" onClick={onSettings}><Icon name="settings" /></button>
@@ -538,7 +511,6 @@ function App() {
       if (!r.ok) throw new Error('no se pudo guardar');
       return r.json();
     },
-    help: () => setHelp(true),
     hourPath: code ? `/api/view/${code}/hour` : undefined,
   }), [channels]);
 
@@ -563,7 +535,7 @@ function App() {
 
   return (
     <>
-      <section data-under={tab !== 'canales' ? '' : undefined} inert={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onHelp={() => setHelp(true)} onSettings={() => setSettings(true)} onLeave={() => setUnlock(true)} /></section>
+      <section data-under={tab !== 'canales' ? '' : undefined} inert={tab !== 'canales'}><Channels code={code!} data={data} channels={channels} onOpen={setOpen} onSettings={() => setSettings(true)} onLeave={() => setUnlock(true)} /></section>
       <section id="guide" aria-label="Guía" ref={guideEl} hidden={tab !== 'guia'} />
       <nav class="tabbar vw-tabbar" aria-label="Secciones" ref={(el) => { if (el) placeTabPill(el); }}>
         <img class="tab-brand" src="img/icon.svg" alt="nowline" width="40" height="40" />
@@ -576,7 +548,7 @@ function App() {
         </button>
       </nav>
       {help && <HelpSheet close={() => setHelp(false)} />}
-      {settings && <SettingsSheet close={() => setSettings(false)} leave={() => { setSettings(false); setUnlock(true); }} />}
+      {settings && <SettingsSheet close={() => setSettings(false)} leave={() => { setSettings(false); setUnlock(true); }} help={() => { setSettings(false); setHelp(true); }} />}
       {unlock && <UnlockSheet close={() => setUnlock(false)} />}
       {open && <ChannelSheet key={open.i} ch={open} id={data.channels[open.i]?.id ?? ''} code={code!} now={Math.floor(Date.now() / 1000)} close={() => setOpen(null)} />}
     </>

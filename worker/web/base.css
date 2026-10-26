@@ -224,15 +224,15 @@ dialog.sheet::backdrop { animation: fade-in .2s ease both; }
 .help-sheet .sheet-body { overflow-y: auto; }
 .help-sheet .title-row { margin-bottom: 6px; }
 .help-sheet h2 { margin: 0; }
-.help-sheet details { background: var(--surface-2); margin-top: 8px; }
-.help-sheet summary {
+.help-sheet details, .ayuda details { background: var(--surface-2); margin-top: 8px; }
+.help-sheet summary, .ayuda summary {
   list-style: none; cursor: pointer; padding: 12px 14px; font-size: 15px;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
 .help-sheet summary::-webkit-details-marker { display: none; }
 .help-sheet summary .icon { color: var(--muted); transition: transform .2s ease; }
 .help-sheet details[open] > summary .icon { transform: rotate(180deg); }
-.help-sheet details p { margin: 0; padding: 0 14px 12px; color: var(--text); }
+.help-sheet details p, .ayuda details p { margin: 0; padding: 0 14px 12px; color: var(--text); }
 .help-sheet details[open] > p { animation: slide-down .2s ease both; }
 
 /* ------------------------------------------------------------------ logos */

@@ -24,6 +24,8 @@ const common = {
   sourcemap: false,
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
   logLevel: 'warning',
+  // ui/ayuda.html: el texto de la ayuda, importado como string (ui/ayuda.tsx).
+  loader: { '.html': 'text' },
 };
 await build({ ...common, entryPoints: [here('./web/app.ts').pathname], outfile: here('./public/app.js').pathname });
 await build({ ...common, entryPoints: [here('./web/ver.tsx').pathname], outfile: here('./public/ver.js').pathname });

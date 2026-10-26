@@ -190,11 +190,11 @@ for (const theme of ['light', 'dark']) {
       await schedules(page);
       await page.goto('/');
       await expect(page.locator('#cards .card').first()).toBeVisible();
-      await page.locator('#helpTopBtn').click();
-      await expect(page.locator('#helpDialog')).toBeVisible();
-      await shot(page, `${theme}-ayuda`);
-      await page.keyboard.press('Escape');
       await page.locator('#tabLinks').click();
+      await page.locator('#linksBody').getByRole('button', { name: /^Ayuda/ }).click();
+      await expect(page.locator('#linksDialog')).toContainText('Antes de empezar');
+      await shot(page, `${theme}-ayuda`);
+      await page.locator('#linksBack').click();
       await expect(page.locator('#linksDialog')).toBeVisible();
       await page.locator('#linksBody .account-row').click();
       await expect(page.locator('#linksBody .pc-stat').first()).toBeVisible();

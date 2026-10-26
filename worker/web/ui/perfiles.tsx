@@ -20,13 +20,14 @@ import { closeSheet } from './sheet.ts';
 import { changeTaste, deviceTz, loadTaste, openTasteSheet, pushEndpoint, tasteSummary, WHEN_HOURS, WHEN_LABEL, type TasteView } from './avisos-gusto.tsx';
 import { Skeleton } from './kit.tsx';
 import { Settings } from './settings.tsx';
+import { AyudaPage } from './ayuda.tsx';
 import { toast } from './toast.tsx';
 
 // ------------------------------------------------------------------ navegación
 // Una lista corta (por proveedor, cada cuenta con sus perfiles debajo) y una página por cuenta, por perfil, por proveedor
 // y para el hogar. Los formularios son subpáginas: «‹» vuelve a la página de donde salieron.
 export type LinksView = { v: 'list' } | { v: 'account'; account: string; cfgId?: string } | { v: 'profile'; id: string; cfgId?: string }
-  | { v: 'provider'; cfgId: string } | { v: 'hogar' } | { v: 'connections'; account: string } | { v: 'ajustes' };
+  | { v: 'provider'; cfgId: string } | { v: 'hogar' } | { v: 'connections'; account: string } | { v: 'ajustes' } | { v: 'ayuda' };
 type LinksSub =
   | { k: 'move'; dev: Device }
   | { k: 'add-device'; p: ProfileView; a: AccountView }
@@ -109,11 +110,6 @@ export async function renderLinks(result?: LinkResult) {
   }
 }
 
-/** Qué ayuda abre el «?» de Perfil: la de Configuración cuando es la página que se ve. */
-export function linksHelpTopic(): 'links' | 'settings' {
-  return linksView.v === 'ajustes' ? 'settings' : 'links';
-}
-
 /** Dibuja la página en la que se está; con `strict`, devuelve false si esa página no existe (sin caer a la lista). */
 function drawLinksView(strict = true): boolean {
   const v = linksView;
@@ -122,6 +118,7 @@ function drawLinksView(strict = true): boolean {
     : v.v === 'provider' ? providerPage(v.cfgId)
     : v.v === 'hogar' ? { title: 'Otro dispositivo', node: <HogarPage /> }
     : v.v === 'ajustes' ? { title: 'Configuración', node: <Settings /> }
+    : v.v === 'ayuda' ? { title: 'Ayuda', node: <AyudaPage modo="editor" /> }
     : v.v === 'connections' ? connectionsPage(v.account)
     : null;
   if (!page && strict && v.v !== 'list') return false;
@@ -287,6 +284,7 @@ function ProfileList() {
       <h3 class="sec-title">Aplicación</h3>
       <div class="menu">
         <MenuRow ico="settings" title="Configuración" sub="Avisos, guía y letra grande" onClick={() => openLinksView({ v: 'ajustes' })} />
+        <MenuRow ico="circle-help" title="Ayuda" sub="Cómo se usa cada pantalla" onClick={() => openLinksView({ v: 'ayuda' })} />
       </div>
       <div class="menu">
         <MenuRow ico="plus" title="Agregar proveedor" sub="Otra lista de IPTV, con su propia grilla" cls="add-row" chevron={false} onClick={() => void addProvider()} />

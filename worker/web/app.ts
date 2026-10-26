@@ -12,7 +12,7 @@ import { parseEvent } from '../src/events.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
-  linksBack, linksHelpTopic, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
+  linksBack, openLinksView, openProfileSwitch, renderLinkResult, renderLinks, renderProfileNotice, type LinksView,
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
@@ -1371,7 +1371,6 @@ const guideHost: GuideHost = {
   toggleReminder: (btn, channel) => void toggleReminder(btn, channel),
   habits: () => api<Habits>(`/api/cfg/${state.local!.cfgId}/habits`).catch(() => null),
   feedback: (title, kind, genre) => api<Habits & { autoOff?: string }>(`/api/cfg/${state.local!.cfgId}/habits`, { method: 'POST', body: { title, kind, genre } }),
-  help: () => openHelp('guide'),
   tasteAlerts: {
     state: () => tasteAll().catch(() => null),
     setGenre: (genre, on) => setGenreAll(genre, on),
@@ -1953,29 +1952,6 @@ function setChannelOrder(g: string, names: string[] | null, msg: string) {
     gr.channels = all;
   }, msg);
   renderChannelOrder(g);
-}
-
-const HELP_TITLES: Record<string, string> = { main: 'Cómo usar nowline', guide: 'Cómo usar la Guía', settings: 'Ayuda', categories: 'Ayuda', links: 'Ayuda' };
-/** La ayuda de la pantalla desde la que se abre. Con `from`, «‹» vuelve a esa pantalla y «×» cierra todo. */
-function openHelp(topic: 'main' | 'guide' | 'settings' | 'categories' | 'links', from?: string) {
-  const help = $('#helpDialog') as HTMLDialogElement;
-  for (const t of $$<HTMLElement>('.help-topic', help)) t.hidden = t.dataset.topic !== topic;
-  $('#helpTitle').textContent = HELP_TITLES[topic];
-  $('#helpBack').hidden = !from;
-  help.dataset.from = from ?? '';
-  $('.sheet-body', help).scrollTop = 0;
-  help.showModal();
-}
-/** Hojas anidadas: «‹» cierra solo la de arriba y vuelve a la anterior; «×» cierra las dos. */
-function wireNested(child: string, back: string, close: string) {
-  const dlg = $(child) as HTMLDialogElement;
-  $(back).onclick = () => dlg.close();
-  $(close).onclick = () => {
-    const from = dlg.dataset.from;
-    dlg.close();
-    // Una página (Categorías, Perfil) queda abierta: es la pestaña en la que se está.
-    if (from && !$(from).classList.contains('page')) ($(from) as HTMLDialogElement).close();
-  };
 }
 
 function toggleGroupHidden(g: string) {
@@ -2994,7 +2970,6 @@ function setupEditor() {
   for (const t of Object.keys(PAGES) as PageTab[]) pageDialog(t).addEventListener('close', () => markTab(currentTab()));
   wirePullToRefresh();
   // Barra inferior: Canales (volver arriba), Guía, Categorías y Perfil. Revisar entra por la tarjeta de arriba de la grilla.
-  $('#helpTopBtn').onclick = () => openHelp('main');
   $('#probeStop').onclick = () => void stopProbe();
   $('#tabHome').onclick = () => {
     if (currentTab() !== 'home') {
@@ -3026,8 +3001,6 @@ function setupEditor() {
   };
   $('#profileNotice').onclick = () => openProfiles({ v: 'account', account: activeAccount() });
   $('#linksBack').onclick = linksBack;
-  $('#linksHelpBtn').onclick = () => openHelp(linksHelpTopic(), '#linksDialog');
-  wireNested('#helpDialog', '#helpBack', '#helpClose');
   // Atajos (escritorio): "/" busca; Escape en el buscador lo borra.
   document.addEventListener('keydown', (ev) => {
     if ($('#editor').hidden || document.querySelector('dialog[open]')) return;
@@ -3151,7 +3124,7 @@ export {
   groupChannels, groupLabel, groupOf, groups, guideHealth, guideLabel, guideTime, hasWords, HEALTH_AHEAD_H, hhmm,
   hourDescIndex, hourIndex, info, initialOf, isLoneHeader, liveAt, loadHealth, loadHome, loadProfiles,
   loadReminders, loadStreamHealth, logosOn, matchesFilter, moveGroup, myAccounts, newCategoryName, noEpg, nowFromHour,
-  nowPlaying, openDock, openHelp, openPage, openProfiles, otherAccounts, otherProviders, PAGE, pickEpg, plural, pref,
+  nowPlaying, openDock, openPage, openProfiles, otherAccounts, otherProviders, PAGE, pickEpg, plural, pref,
   profileDefs, profileDevices, profilesAt, promptDialog, providerName, providerTz, relayTrouble, remindKey, render, renderDownRow,
   renderTabAvatar, reviewList, reviewProgress, saveCollapsed, saveHome, saveNow, schedule, sectionHeaders,
   sectionTitle, selection, setActiveAccount, setChannelOrder, setPref, setupDrag, shareText, showHomeCode,

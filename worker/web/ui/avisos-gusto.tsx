@@ -4,7 +4,7 @@
 // edición: el modo ver no tiene push.
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { api, openHelp, profileDefs, state } from '../app.ts';
+import { api, profileDefs, state } from '../app.ts';
 import { Icon } from './icon.tsx';
 import { genrePlural } from './guide.tsx';
 import { Skeleton } from './kit.tsx';
@@ -124,8 +124,7 @@ function Sheet({ profile, close, onChange }: { profile: { id: string; name: stri
     <dialog class="sheet settings-sheet" id="tasteDialog" ref={dlg} onClose={close} aria-labelledby="tasteTitle">
       <div class="sheet-body">
         <div class="title-row">
-          <span class="title-left"><h2 id="tasteTitle">Avisos por gusto</h2>
-            <button type="button" class="icon-btn help-btn" aria-label="Ayuda" title="Ayuda" onClick={() => openHelp('links', '#helpTaste')}><Icon name="circle-help" /></button></span>
+          <span class="title-left"><h2 id="tasteTitle">Avisos por gusto</h2></span>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
         <p class="help">{profile.name}</p>

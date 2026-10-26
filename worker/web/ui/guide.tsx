@@ -44,7 +44,6 @@ export interface GuideHost {
     setGenre(genre: string, on: boolean): Promise<void>;
   };
   /** La ayuda de la Guía (el ? del título). */
-  help?(): void;
   /** Modo «solo ver» (ver.tsx): sin avisos ni nada que lleve a editar. */
   viewer?: boolean;
   /** De dónde bajar el índice de cada hora con solo estos canales (/api/cfg/<id>/hour o /api/view/<código>/hour);
@@ -485,12 +484,10 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
                 <Icon name="chevron-left" />
               </button>
               <h1>{partName}</h1>
-              {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
             </span>
           ) : (
             <span class="title-left">
               <h1>Guía</h1>
-              {host.help && <button type="button" class="icon-btn help-btn" aria-label="Cómo usar la Guía" title="Ayuda" onClick={() => host.help!()}><Icon name="circle-help" /></button>}
             </span>
           )}
           {mode !== 'plan' ? (

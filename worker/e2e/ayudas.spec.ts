@@ -1,6 +1,5 @@
-// Ayudas (?): cada pantalla con su botón de ayuda abre su tema, y solo ese. La de la Guía y la de Canales están en
-// hojas.spec.ts y guide.spec.ts; acá, Configuración, Categorías y Links, que son las que faltaban.
-import { expect, test, type Page } from '@playwright/test';
+// Ayuda: una sola página en Perfil > Aplicación, con una sección por pantalla y un buscador. Ninguna pantalla tiene su (?).
+import { expect, test } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
 
 let errors: string[] = [];
@@ -18,32 +17,26 @@ test.afterEach(() => {
   expect(errors).toEqual([]);
 });
 
-/** Solo un tema visible en la ayuda, y es el que se pidió. */
-async function expectTopic(page: Page, topic: string) {
-  const help = page.locator('#helpDialog');
-  await expect(help).toBeVisible();
-  await expect(help.locator('.help-topic:not([hidden])')).toHaveCount(1);
-  await expect(help.locator(`.help-topic[data-topic="${topic}"]`)).toBeVisible();
-}
-
-test('Configuración: su ? abre el tema de Configuración', async ({ page }) => {
-  await page.locator('#tabLinks').click();
-  await page.locator('#linksBody').getByRole('button', { name: /^Configuración/ }).click();
-  await expect(page.locator('#linksDialog')).toBeVisible();
-  await page.locator('#linksDialog #linksHelpBtn').click();
-  await expectTopic(page, 'settings');
-});
-
-test('Categorías: «Cómo funciona» abre el tema de Categorías', async ({ page }) => {
+test('ninguna pantalla tiene (?): Categorías y Perfil no llevan botón de ayuda', async ({ page }) => {
   await page.locator('#categoriesBtn').click();
   await expect(page.locator('#categoriesTitle')).toHaveText('Categorías');
-  await page.locator('#categoriesDialog .help-btn[aria-label="Cómo funciona"]').click();
-  await expectTopic(page, 'categories');
-});
-
-test('Links: «Cómo funciona» abre el tema de Links', async ({ page }) => {
+  await expect(page.locator('#categoriesDialog .help-btn')).toHaveCount(0);
   await page.locator('#tabLinks').click();
   await expect(page.locator('#linksDialog')).toBeVisible();
-  await page.locator('#linksHelpBtn').click();
-  await expectTopic(page, 'links');
+  await expect(page.locator('#linksDialog .help-btn')).toHaveCount(0);
+});
+
+test('Perfil > Ayuda muestra una sección por pantalla, y el buscador filtra', async ({ page }) => {
+  await page.locator('#tabLinks').click();
+  await page.locator('#linksBody').getByRole('button', { name: /^Ayuda/ }).click();
+  await expect(page.locator('#linksTitle')).toHaveText('Ayuda');
+  const ayuda = page.locator('#linksDialog .ayuda');
+  const visibles = ayuda.locator('section[data-pantalla]:not([hidden])');
+  await expect(visibles).toHaveCount(6);
+  await ayuda.getByRole('searchbox', { name: 'Buscar en la ayuda' }).fill('Tengo tiempo');
+  await expect(visibles).toHaveCount(1);
+  await expect(visibles.first()).toHaveAttribute('data-pantalla', 'guia');
+  await ayuda.getByRole('searchbox').fill('no existe esta palabra');
+  await expect(visibles).toHaveCount(0);
+  await expect(ayuda.getByText('Ninguna sección coincide')).toBeVisible();
 });
