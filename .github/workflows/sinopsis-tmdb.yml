@@ -1,13 +1,16 @@
 name: Sinopsis de TMDB
 
-# Busca en TMDB (español) las sinopsis de las películas y series de la guía y las guarda en R2 como
-# desc/sinopsis.json (tools/sinopsis_tmdb.py). Es acumulativo: cada corrida avanza con títulos nuevos.
-# Manual por ahora. No toca los links de reproducción (short/, devices/).
+# Busca en TMDB (español) las sinopsis de las películas y series de los canales visibles con guía y las guarda en
+# R2 como desc/sinopsis.json (tools/sinopsis_tmdb.py). Es acumulativo: cada corrida avanza con títulos nuevos.
+# Todos los días, después de la guía de Merge EPGs, busca una tanda chica (300) para los títulos nuevos. A mano se
+# puede pasar otro número. No toca los links de reproducción (short/, devices/).
 on:
+  schedule:
+    - cron: '0 19 * * *'
   workflow_dispatch:
     inputs:
       max:
-        description: 'Búsquedas nuevas por corrida'
+        description: 'Búsquedas nuevas por corrida (en la corrida diaria son 300)'
         default: '3000'
         required: false
 
@@ -33,4 +36,4 @@ jobs:
     - name: Bajar la guía publicada
       run: gh release download latest --pattern merged.xml.gz --dir medicion --clobber
     - name: Buscar sinopsis
-      run: python tools/sinopsis_tmdb.py --xmltv medicion/merged.xml.gz --max '${{ inputs.max }}' | tee -a "$GITHUB_STEP_SUMMARY"
+      run: python tools/sinopsis_tmdb.py --xmltv medicion/merged.xml.gz --max '${{ inputs.max || '300' }}' | tee -a "$GITHUB_STEP_SUMMARY"
