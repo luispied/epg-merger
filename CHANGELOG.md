@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.2
+
+- **Conexiones en uso, con lo que sabemos.** El número de arriba es el que dice el proveedor, así que queda neutro (sin rojo, aunque estén todas ocupadas). Un link que abrió un canal hace más de una hora ya no figura como mirando: aparece con su último canal y, si hay conexiones de más, con «puede seguir conectado», porque nowline no ve cuándo un TV deja de mirar.
+- Worker: la ayuda de Perfil y del modo ver explica el número del proveedor y los links con su último canal.
+
 ## 1.64.1
 
 - **Las hojas tienen alto fijo.** Las de editar y ver (el canal, el programa, Perfil, Configuración, la ayuda) miden siempre 88 % de la pantalla y su contenido se desplaza adentro: ya no saltan al abrir una sección o al mostrar **Ver más**. Los botones de abajo quedan fijos. Los menús cortos y las confirmaciones siguen midiendo lo que tienen.

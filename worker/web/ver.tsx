@@ -196,7 +196,7 @@ function Connections({ code }: { code: string }) {
   return (
     <section class={`vw-conn${open ? ' open' : ''}`} aria-label="Conexiones">
       <button type="button" class="vw-conn-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span class={`vw-conn-n${full ? ' warn' : ''}`}>{c.inUse ?? c.watching.length}{c.max ? ` de ${c.max}` : ''}</span>
+        <span class="vw-conn-n">{c.inUse ?? c.watching.length}{c.max ? ` de ${c.max}` : ''}</span>
         <span class="vw-conn-t">{c.inUse === undefined ? 'Mirando ahora' : 'Conexiones en uso'}</span>
         <Icon name="chevron-down" class="vw-conn-chev" />
       </button>
