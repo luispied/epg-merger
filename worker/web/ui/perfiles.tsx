@@ -415,13 +415,10 @@ function ConnectionsPage({ a }: { a: AccountView }) {
   const candidates = a.devices.filter(recent).sort(byPlay);
   const watching = inUse === undefined ? candidates : candidates.slice(0, inUse);
   const rest = a.devices.filter((d) => !watching.includes(d)).sort(byPlay);
-  const unseen = inUse === undefined ? 0 : inUse - watching.length;
   const Row = ({ d }: { d: Device }) => {
     const prof = a.profiles.find((p) => p.id === d.profile)?.name;
     const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Sin canales registrados todavía';
-    // Un link que abrió un canal hace más de una hora puede seguir conectado: el proveedor cuenta esa conexión.
-    const stale = unseen > 0 && d.active && !recent(d) && !!d.lastPlay ? ' · puede seguir conectado' : '';
-    const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}${stale}` : play;
+    const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
     return (
       <div class={`device conn-row${d.active ? '' : ' off'}`}>
         <span class={`conn-dot${recent(d) ? ' on' : ''}`} aria-hidden="true" />
@@ -445,9 +442,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
       </div>
       <SubTitle>Mirando ahora</SubTitle>
       {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en la última hora.'}</Help>}
-      {unseen > 0 ? <Help>{unseen === 1 ? 'Una conexión no aparece' : `${unseen} conexiones no aparecen`} acá: puede ser otra app o dispositivo con la misma cuenta, un mismo link usado en varios dispositivos a la vez (Nowline ve un solo registro por link), o un canal que dejaron hace un momento y el proveedor todavía cuenta.</Help> : null}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
-      <Help>El proveedor dice cuántas conexiones hay, no cuáles. nowline ve cuándo cada link abre un canal, no cuándo lo deja: un link figura mirando hasta una hora después del último canal que abrió; después aparece con ese canal y puede seguir conectado. Si hay más conexiones que links mirando, puede ser un link compartido por varios dispositivos.{state.cfg?.directUrls ? ' Con los streams directos al proveedor, nowline no ve los canales que se abren.' : ''}</Help>
     </>
   );
 }
