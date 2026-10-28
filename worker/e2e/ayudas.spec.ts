@@ -36,7 +36,12 @@ test('Perfil > Ayuda muestra una sección por pantalla, y el buscador filtra', a
   await ayuda.getByRole('searchbox', { name: 'Buscar en la ayuda' }).fill('Tengo tiempo');
   await expect(visibles).toHaveCount(1);
   await expect(visibles.first()).toHaveAttribute('data-pantalla', 'guia');
+  // Solo se ven los párrafos y pasos que tienen la palabra, y la palabra va resaltada.
+  await expect(ayuda.locator('section[data-pantalla]:not([hidden]) > :not(h3):not([hidden])').first()).toContainText('Tengo tiempo');
+  await expect(ayuda.locator('section[data-pantalla]:not([hidden]) > :not(h3)[hidden]').first()).toBeAttached();
+  await expect(ayuda.locator('mark.ayuda-hit').first()).toHaveText('Tengo tiempo');
   await ayuda.getByRole('searchbox').fill('no existe esta palabra');
   await expect(visibles).toHaveCount(0);
+  await expect(ayuda.locator('mark.ayuda-hit')).toHaveCount(0);
   await expect(ayuda.getByText('Ninguna sección coincide')).toBeVisible();
 });

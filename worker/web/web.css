@@ -840,7 +840,8 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 /* Ayuda (ui/ayuda.tsx): una página con buscador y una sección por pantalla, igual en el editor y en el modo ver. */
 .ayuda-buscar { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; margin: 4px 0 8px; border: 1px solid var(--chip-line); border-radius: var(--radius); background: var(--surface); color: var(--faint); }
 .ayuda-buscar input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; outline: none; }
-.ayuda section[hidden] { display: none; }
+.ayuda [hidden] { display: none; }
+.ayuda mark.ayuda-hit { background: var(--accent-soft); color: var(--on-accent-soft); border-radius: 3px; padding: 0 2px; }
 .ayuda h3.sec-title { margin-top: 20px; }
 
 /* Categorías: la sección actual queda anclada bajo el título de la hoja. */
