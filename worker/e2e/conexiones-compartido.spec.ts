@@ -32,8 +32,7 @@ for (const theme of ['light', 'dark']) {
     await expect(watching).toHaveCount(1);
     await expect(watching).toContainText('SYC');
     await expect(page.locator('#linksBody .pc-stats')).toContainText('Link mirando');
-    await expect(page.locator('#linksBody')).toContainText('2 conexiones no aparecen acá');
-    await expect(page.locator('#linksBody')).toContainText('un mismo link usado en varios dispositivos a la vez');
+    await expect(page.locator('#linksBody')).not.toContainText('no aparecen');
     await page.screenshot({ path: `test-results/conexiones-${theme}-${test.info().project.name}.png` });
   });
 }

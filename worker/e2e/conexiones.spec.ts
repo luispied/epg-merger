@@ -55,8 +55,8 @@ test('conexiones: los que miran ahora arriba, los demás abajo, y lo que el prov
   await expect(rest.nth(3)).toContainText('Celu vieja');
   await expect(rest.nth(3).locator('small')).toHaveText('Sin canales registrados todavía');
 
-  // Hay 3 en uso y solo 2 se ven: el aviso explica la diferencia.
-  await expect(page.locator('#linksBody .help', { hasText: 'Una conexión no aparece' })).toBeVisible();
+  // Hay 3 en uso y solo 2 se ven: la pantalla no explica la diferencia (eso está en Ayuda).
+  await expect(page.locator('#linksBody .help')).toHaveCount(0);
   await page.screenshot({ path: `test-results/conexiones-${info.project.name}.png` });
 });
 
@@ -68,8 +68,6 @@ test('conexiones sin links mirando: lo dice en vez de dejar la sección vacía',
   await openConnections(page);
   await expect(page.locator('#linksBody .pc-stat').first()).toContainText('0 de 2');
   await expect(page.locator('#linksBody .help', { hasText: 'El proveedor no tiene conexiones abiertas ahora.' })).toBeVisible();
-  // Sin conexiones que no aparecen, no hay aviso de «no aparece».
-  await expect(page.locator('#linksBody .help', { hasText: 'no aparece' })).toHaveCount(0);
   // El que abrió un canal hace más de una hora figura en «Los demás links», con su último canal.
   await expect(page.locator('#linksBody .conn-row', { hasText: 'Celu vieja' }).locator('small')).toHaveText('Último canal: ESPN · hace 5 h');
 });

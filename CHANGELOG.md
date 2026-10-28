@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.3
+
+- **Conexiones sin textos de explicación.** La pantalla de Conexiones de la cuenta muestra solo los datos: el número del proveedor, los links mirando y los demás links con su último canal. Lo que explicaba la diferencia está en la ayuda de Perfil y del modo ver.
+- Worker: se quitan los avisos de «no aparecen» y «puede seguir conectado» de la pantalla de Conexiones.
+
 ## 1.64.2
 
 - **Conexiones en uso, con lo que sabemos.** El número de arriba es el que dice el proveedor, así que queda neutro (sin rojo, aunque estén todas ocupadas). Un link que abrió un canal hace más de una hora ya no figura como mirando: aparece con su último canal y, si hay conexiones de más, con «puede seguir conectado», porque nowline no ve cuándo un TV deja de mirar.
