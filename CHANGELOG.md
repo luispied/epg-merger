@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.4
+
+- **La búsqueda de la ayuda muestra solo lo que coincide.** Al escribir, quedan a la vista los párrafos y pasos que tienen la palabra, y la palabra se resalta en color. Lo demás de la pantalla se oculta en vez de abrirse entero.
+- Worker: la ayuda de Perfil y del modo ver usa el mismo buscador; el resaltado está en `ui/ayuda.tsx`.
+
 ## 1.64.3
 
 - **Conexiones sin textos de explicación.** La pantalla de Conexiones de la cuenta muestra solo los datos: el número del proveedor, los links mirando y los demás links con su último canal. Lo que explicaba la diferencia está en la ayuda de Perfil y del modo ver.
