@@ -92,13 +92,14 @@ function startDrag(e: PointerEvent) {
   window.addEventListener('pointercancel', up);
 }
 
-/** showModal() y show() enfocan el primer elemento de la hoja (la ✕, el ojo, la ayuda o el nombre editable del
- *  canal) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco cae en un
- *  botón o en el nombre de un canal o categoría, pasa a la hoja misma; los demás campos (por ejemplo, el de
- *  un diálogo que pide un nombre) conservan su foco. */
+/** showModal() y show() enfocan el primer elemento de la hoja (la ✕, el ojo, la ayuda, el nombre editable del
+ *  canal o el buscador) y queda el aro de foco o el teclado abierto sin que nadie haya tocado nada. Si el foco
+ *  cae en un botón, en el nombre de un canal o categoría o en un buscador, pasa a la hoja misma; los demás
+ *  campos (por ejemplo, el de un diálogo que pide un nombre) conservan su foco. */
 function settleFocus(dlg: HTMLDialogElement) {
   const a = document.activeElement;
-  if (a instanceof HTMLElement && dlg.contains(a) && (!a.matches('input, textarea, select') || a.classList.contains('ch-name'))) {
+  const field = a instanceof HTMLElement && a.matches('input, textarea, select') && !a.classList.contains('ch-name') && !a.closest('.search-field');
+  if (a instanceof HTMLElement && dlg.contains(a) && !field) {
     dlg.tabIndex = -1;
     dlg.focus({ preventScroll: true });
   }

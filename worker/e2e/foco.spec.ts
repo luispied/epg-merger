@@ -27,3 +27,13 @@ test('Perfil, Configuración y Ayuda abren con el foco fuera de la ✕', async (
   await page.getByRole('button', { name: /^Ayuda/ }).click();
   await expect.poll(async () => (await topSheetFocus(page)).closeButton).toBe(false);
 });
+
+test('el buscador de Categorías y de Perfil no toma el foco al abrir (no abre el teclado)', async ({ page }) => {
+  await page.locator('#categoriesBtn').click();
+  await expect(page.locator('#categoriesDialog .cat-filter input')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.search-field') ? 'buscador' : 'fuera')).toBe('fuera');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  await page.locator('#tabLinks').click();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.search-field') ? 'buscador' : 'fuera')).toBe('fuera');
+});

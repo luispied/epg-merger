@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.65.2
+
+- **Categorías no abre el teclado.** Al abrir Categorías (y el buscador de Perfil) el foco ya no cae en el buscador, así que el teclado del celular no sube solo.
+- Worker: `settleFocus` (ui/sheet.ts) saca el foco también de los buscadores; la prueba está en `e2e/foco.spec.ts`.
+
 ## 1.65.0
 
 - **Conexiones: las últimas 24 horas.** Arriba de la lista de una cuenta, una barra por hora muestra cuántas conexiones en uso hubo. La hora actual va en verde sólido.
