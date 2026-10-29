@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.67.2
+
+- Worker: muestreo de conexiones cada minuto durante una prueba (temporal; `wrangler.toml` tiene un cron de un minuto y `connlog.ts` guarda 1440 puntos). Se revierte al terminar.
+
 ## 1.67.1
 
 - **«Probable» vuelve a mirar 60 minutos.** Con 20 minutos la subida de conexiones podía quedar afuera según el proveedor; se amplía la ventana para ver si el link que abrió el canal fue el que la causó.
