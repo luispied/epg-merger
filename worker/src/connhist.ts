@@ -11,8 +11,9 @@ export interface ConnHistory {
 
 const HOUR_MS = 3600 * 1000;
 /** Un link figura «probable» si el número subió dentro de esto después de que abrió su canal. El proveedor tarda 4 a 5
- *  minutos en sumar la conexión, y la muestra corre cada 10: 20 minutos cubren los dos. */
-export const PROBABLE_AFTER_MS = 20 * 60 * 1000;
+ *  minutos en sumar la conexión, y la muestra corre cada 10; 60 minutos dan margen para ver la subida sin tomar cualquier
+ *  otra. */
+export const PROBABLE_AFTER_MS = 60 * 60 * 1000;
 
 export function connHistory(points: ConnPoint[], now: number): ConnHistory {
   const start = Math.floor(now / HOUR_MS) * HOUR_MS - 23 * HOUR_MS;
