@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.67.3
+
+- **«Mirando ahora» dura una hora.** Antes un link desaparecía de la lista a los 15 minutos aunque siguiera mirando. Ahora figura hasta una hora después de su último canal, sin pasar del número de conexiones que dice el proveedor. «Probable» no cambia: busca una subida hasta una hora después del canal, y sigue pidiendo un canal abierto en los últimos 15 minutos. El «Ahora» del historial sigue en 15 minutos.
+- Worker: `WATCHING_MS` pasa a 60 minutos (`src/index.ts`); la pantalla usa su propia ventana (`ui/perfiles.tsx`).
+
 ## 1.67.2
 
 - Worker: muestreo de conexiones cada minuto durante una prueba (temporal; `wrangler.toml` tiene un cron de un minuto y `connlog.ts` guarda 1440 puntos). Se revierte al terminar.
