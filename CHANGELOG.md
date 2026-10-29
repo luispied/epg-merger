@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.5
+
+- **«Mirando ahora» dura 15 minutos.** Un link figura mirando hasta 15 minutos después del último canal que abrió (antes, una hora). Así la lista muestra a quien acaba de cambiar de canal. Quien sigue en el mismo canal más de 15 minutos aparece con su último canal, sin decir que sigue mirando.
+- Worker: la ventana de «mirando» (`WATCHING_MS`) pasa a 15 minutos; la ayuda de Conexiones lo dice.
+
 ## 1.64.4
 
 - **La búsqueda de la ayuda muestra solo lo que coincide.** Al escribir, quedan a la vista los párrafos y pasos que tienen la palabra, y la palabra se resalta en color. Lo demás de la pantalla se oculta en vez de abrirse entero.
