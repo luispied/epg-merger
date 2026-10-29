@@ -45,7 +45,8 @@ import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevi
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, flushRefresh } from './github.ts';
-import { checkAllConnections } from './connlog.ts';
+import { checkAllConnections, connKey, readPoints } from './connlog.ts';
+import { connHistory } from './connhist.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
@@ -699,7 +700,12 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
     }
     if (action === 'accounts' && method === 'GET') {
       // Vencimiento y conexiones en uso de cada perfil, al momento (por el relay); `live: false` = sin relay.
-      return json({ live: relayConfigured(env), accounts: await liveAccounts(env, cfgId, stored.config) }, 200, { 'Cache-Control': 'no-store' });
+      const accounts = await liveAccounts(env, cfgId, stored.config);
+      const now = Date.now();
+      // Historial de conexiones por cuenta (connlog.ts), para la barra de las últimas 24 horas y «Probable».
+      const history = Object.fromEntries(await Promise.all(Object.keys(accounts).map(async (k) =>
+        [k, connHistory(await readPoints(env.BUCKET, connKey(cfgId, k)), now)])));
+      return json({ live: relayConfigured(env), accounts, history }, 200, { 'Cache-Control': 'no-store' });
     }
     if (action === 'active' && method === 'PUT') {
       // Cambiar el perfil activo: la lista y la prueba de canales caídos pasan a hacerse con esa cuenta. La prueba se

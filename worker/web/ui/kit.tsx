@@ -58,3 +58,19 @@ export function rangeOf(offs: number[], vt: number, vb: number, margin: number):
   while (b < n && offs[b] < vb + margin) b++;
   return [a, b];
 }
+
+/** Las últimas 24 horas de conexiones en uso: una barra por hora, de la más vieja a la actual. La hora actual va en verde
+ *  sólido; las demás horas con conexiones, en verde suave. Sin datos, la barra es un tramo chico del fondo. */
+export function HourBars({ hours, max, label }: { hours: (number | null)[]; max: number; label: string }) {
+  return (
+    <div class="hour-bars" role="img" aria-label={label}>
+      {hours.map((n, i) => (
+        <i
+          key={i}
+          class={`${n ? 'on' : ''}${i === hours.length - 1 ? ' cur' : ''}`}
+          style={{ height: `${n ? Math.max(8, Math.round((n / max) * 100)) : 4}%` }}
+        />
+      ))}
+    </div>
+  );
+}

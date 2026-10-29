@@ -6,8 +6,9 @@
 // nada de app.ts al cargar el módulo, solo dentro de funciones, así que el orden de carga no importa.
 import { Fragment, render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { probableLink } from '../../src/connhist.ts';
 import {
-  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
+  accountData, accountHistory, accountName, activeAccount, addProvider, ago, api, apiWrites, confirmDialog, connectionsInUse, copyText, daysLeft,
   eventTz, EVENT_TZ_KEY, exportBackup, fold, forgetConfig, groupLabel, groupOf, groups, initialOf, liveAt, loadHome, loadProfiles,
   loadStreamHealth, matchesFilter, myAccounts, otherAccounts, otherProviders, plural, profileDefs, profileDevices, profilesAt,
   promptDialog, providerName, providerTz, relayTrouble, render as renderGrid, renderDownRow, renderTabAvatar, saveHome, saveNow, sectionHeaders,
@@ -18,7 +19,7 @@ import {
 import { Icon } from './icon.tsx';
 import { closeSheet } from './sheet.ts';
 import { changeTaste, deviceTz, loadTaste, openTasteSheet, pushEndpoint, tasteSummary, WHEN_HOURS, WHEN_LABEL, type TasteView } from './avisos-gusto.tsx';
-import { Skeleton } from './kit.tsx';
+import { HourBars, Skeleton } from './kit.tsx';
 import { Settings } from './settings.tsx';
 import { AyudaPage } from './ayuda.tsx';
 import { toast } from './toast.tsx';
@@ -415,14 +416,18 @@ function ConnectionsPage({ a }: { a: AccountView }) {
   const candidates = a.devices.filter(recent).sort(byPlay);
   const watching = inUse === undefined ? candidates : candidates.slice(0, inUse);
   const rest = a.devices.filter((d) => !watching.includes(d)).sort(byPlay);
+  const hist = accountHistory(a);
   const Row = ({ d }: { d: Device }) => {
     const prof = a.profiles.find((p) => p.id === d.profile)?.name;
+    // «Probable»: el número de conexiones subió después de que este link abrió su canal (pista, no certeza).
+    const probable = !!hist && recent(d) && !!d.lastPlay && probableLink(hist.rises, d.lastPlay.t);
     const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Sin canales registrados todavía';
     const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
     return (
       <div class={`device conn-row${d.active ? '' : ' off'}`}>
         <span class={`conn-dot${recent(d) ? ' on' : ''}`} aria-hidden="true" />
         <div class="device-info"><strong>{d.name}{prof && a.profiles.length > 1 ? <> <span class="conn-prof">· {prof}</span></> : null}</strong><small>{sub}</small></div>
+        {probable ? <span class="conn-probable">Probable</span> : null}
       </div>
     );
   };
@@ -440,6 +445,13 @@ function ConnectionsPage({ a }: { a: AccountView }) {
         </div>
         <div class="pc-stat"><b class={watching.length ? 'ok' : ''}>{watching.length}</b><small>{watching.length === 1 ? 'Link mirando' : 'Links mirando'}</small></div>
       </div>
+      {hist ? (
+        <section class="conn-hours" aria-label="Últimas 24 horas">
+          <HourBars hours={hist.hours} max={Math.max(1, acc?.maxConnections ?? 0, ...hist.hours.map((n) => n ?? 0))} label="Conexiones en uso en las últimas 24 horas" />
+          <div class="conn-axis"><span>hace 24 h</span><span>ahora</span></div>
+          <small class="conn-legend">Verde sólido: la hora actual. Verde suave: horas con conexiones en uso.</small>
+        </section>
+      ) : null}
       <SubTitle>Mirando ahora</SubTitle>
       {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en los últimos 15 minutos.'}</Help>}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
