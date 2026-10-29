@@ -18,6 +18,7 @@ import {
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
 import { checkNovedades } from './ui/novedades.tsx';
+import { setupActualizacion } from './ui/actualizacion.tsx';
 import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
 import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
 import { hydrateIcons } from './ui/icon.tsx';
@@ -3039,14 +3040,10 @@ new MutationObserver((records) => {
 
 // ------------------------------------------------------------------ arranque
 // Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
-// Versión nueva: el service worker nuevo se instala y toma la página solo (sw.js), y al abrir la app la navegación
-// baja el HTML de la versión nueva; no hay aviso con la app abierta. Al abrirla con una versión nueva, un aviso breve
-// (ui/novedades.tsx) dice que se actualizó y muestra qué cambió.
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').then((reg) => {
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
-  }).catch(() => { /* sin SW: anda igual */ }));
-}
+// Versión nueva: el service worker nuevo queda en espera y un aviso encima de la barra (ui/actualizacion.tsx) deja
+// elegir «Actualizar». Al abrir la app con una versión nueva, un aviso breve (ui/novedades.tsx) dice que se actualizó
+// y muestra qué cambió.
+setupActualizacion();
 void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
