@@ -42,6 +42,7 @@ type LinksSub =
   | { k: 'filter'; p: ProfileView }
   | { k: 'view'; p: ProfileView }
   | { k: 'kids-hidden'; p: ProfileView }
+  | { k: 'historial'; dev: Device }
   | { k: 'result'; result: LinkResult };
 
 let linksView: LinksView = { v: 'list' };
@@ -773,10 +774,69 @@ function DeviceRow({ d }: { d: Device }) {
           onChange={(ev) => void setActive(ev.currentTarget.checked)} />
       </div>
       <button type="button" class="btn btn-tonal" data-dev="show" onClick={() => renderLinkResult(d)}><Icon name="copy" />Copiar o compartir</button>
+      <button type="button" class="btn btn-tonal" data-dev="history" onClick={() => openSub({ k: 'historial', dev: d })}><Icon name="clock" />Ver canales que abrió</button>
       <button type="button" class="icon-btn" aria-label={`Pasar ${d.name} a otro perfil`} onClick={() => openSub({ k: 'move', dev: d })}><Icon name="arrow-right-left" /></button>
       <button type="button" class="icon-btn" aria-label={`Cambiar nombre de ${d.name}`} onClick={() => void rename()}><Icon name="pencil" /></button>
       <button type="button" class="icon-btn" aria-label={`Quitar ${d.name}`} onClick={() => void remove()}><Icon name="trash-2" /></button>
     </div>
+  );
+}
+
+const HIST_DAY = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+/** Los canales que abrió un link, de la más nueva a la más vieja (hist/ del Worker), agrupados por día. */
+function LinkHistory({ dev }: { dev: Device }) {
+  const [items, setItems] = useState<{ t: string; ch: string }[] | null | 'bad'>(null);
+  const [tries, setTries] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setItems(null);
+    api<{ items: { t: string; ch: string }[] }>(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/historial`)
+      .then((r) => live && setItems(r.items)).catch(() => live && setItems('bad'));
+    return () => { live = false; };
+  }, [tries]);
+  if (items === null) return <div aria-busy="true" aria-label="Cargando los canales"><Skeleton /></div>;
+  if (items === 'bad') {
+    return (
+      <>
+        <SubTitle>Canales que abrió «{dev.name}»</SubTitle>
+        <Help>No se pudo cargar. Revisá la conexión y probá de nuevo.</Help>
+        <button type="button" class="btn btn-tonal btn-block" onClick={() => setTries(tries + 1)}><Icon name="refresh-cw" />Probar de nuevo</button>
+      </>
+    );
+  }
+  const names = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
+  const now = Date.now();
+  const today = dayStart(new Date());
+  const days: { label: string; rows: { t: string; ch: string }[] }[] = [];
+  for (const it of items) {
+    const d = new Date(it.t);
+    const diff = Math.round((today - dayStart(d)) / 86_400_000);
+    const label = diff === 0 ? 'Hoy' : diff === 1 ? 'Ayer' : HIST_DAY.format(d);
+    const last = days[days.length - 1];
+    if (last && last.label === label) last.rows.push(it);
+    else days.push({ label, rows: [it] });
+  }
+  return (
+    <>
+      <SubTitle>Canales que abrió «{dev.name}»</SubTitle>
+      {days.length ? days.map((g, gi) => (
+        <Fragment key={g.label}>
+          <h4 class="hist-day">{g.label}</h4>
+          <div class="hist-list">
+            {g.rows.map((r, i) => (
+              <div class="hist-row" key={`${gi}-${i}`}>
+                <span class="hist-ch">{names.get(r.ch) ?? 'Un canal'}</span>
+                {gi === 0 && i === 0 && now - Date.parse(r.t) < RECENT_PLAY_MS ? <span class="hist-now">Ahora</span> : null}
+                <time class="hist-time" dateTime={r.t}>{hhmm(new Date(r.t))}</time>
+              </div>
+            ))}
+          </div>
+        </Fragment>
+      )) : <Help>Todavía no abrió ningún canal.</Help>}
+    </>
   );
 }
 
@@ -899,6 +959,7 @@ function SubPage({ s }: { s: LinksSub }) {
     case 'filter': return <ProfileFilter p={s.p} />;
     case 'view': return <ViewShare p={s.p} />;
     case 'kids-hidden': return <KidsHidden p={s.p} />;
+    case 'historial': return <LinkHistory dev={s.dev} />;
     case 'result': return <LinkResultView result={s.result} />;
   }
 }

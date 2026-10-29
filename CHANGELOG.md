@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.66.0
+
+- **Canales que abrió cada link.** En Perfil, cada link tiene «Ver canales que abrió»: los últimos canales que abrió, con la hora, de la más nueva a la más vieja y agrupados por día. El último figura como «Ahora» si fue hace menos de 15 minutos. Se guardan solo las últimas 30 aperturas por link; al quitar el link se borran.
+- Worker: el historial está en `hist/<código>.json` (`src/devices.ts`) y se lee desde `devices/<código>/historial`.
+
 ## 1.65.4
 
 - **Categorías no abre el teclado.** Al abrir Categorías (y el buscador de Perfil) el foco ya no cae en el buscador, así que el teclado del celular no sube solo.
