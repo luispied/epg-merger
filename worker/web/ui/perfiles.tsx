@@ -275,10 +275,10 @@ function ProfileList() {
   const cur = state.local!.cfgId;
   const xtream = state.cfg!.provider.type === 'xtream';
   const Head = ({ name, cfgId, inUse }: { name: string; cfgId: string; inUse: boolean }) => (
-    <button type="button" class="provider-head" onClick={() => openLinksView({ v: 'provider', cfgId })}>
-      <span class="provider-tag">{name}{inUse ? ' · en uso' : ''}</span>
-      <Icon name="chevron-right" />
-    </button>
+    <div class="menu">
+      <MenuRow ico="server" title={name} sub={inUse ? 'En uso · dirección, usuario y contraseña' : 'Dirección, usuario y contraseña'}
+        onClick={() => openLinksView({ v: 'provider', cfgId })} />
+    </div>
   );
   return (
     <>
@@ -906,6 +906,12 @@ function ProviderPage({ cfgId, name, other }: { cfgId: string; name: string; oth
         <MenuRow ico="pencil" title="Nombre" sub={name} onClick={() => void rename()} />
         {prov.type === 'xtream' ? <MenuRow ico="server" title="Dirección del servicio" sub={plural(prov.servers.length, 'servidor', 'servidores')}
           onClick={() => openSub({ k: 'servers' })} /> : null}
+        <MenuRow ico="key-round" title={prov.type === 'xtream' ? 'Usuario y contraseña' : 'URL de la lista'}
+          sub={`De la cuenta en uso: ${accountName(activeAccount())}`}
+          onClick={() => {
+            const a = myAccounts().find((x) => x.account === activeAccount());
+            if (a) openSub({ k: 'creds', a });
+          }} />
         <MenuRow ico="refresh-cw" title="Recargar la lista" sub="Trae los canales nuevos del proveedor" onClick={() => {
           el<HTMLDialogElement>('#linksDialog').close();
           showOnboarding(true);
