@@ -179,6 +179,14 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           relayOk = true;
           if (reply.account) { accounts[key] = reply.account; primaryAccount ??= reply.account; }
           if (reply.aborted) break; // la cuenta rechaza: no es el canal, no se anota nada de esta tanda
+          // Un corte de red no es un canal caído: los que dieron «down» se piden otra vez, una sola vez, en un pedido aparte.
+          const again = Object.keys(reply.results ?? {}).filter((id) => reply.results?.[id] === 'down');
+          if (again.length) {
+            const retry = await relayPost<ProbeResponse>(env, '/v1/probe', {
+              servers, username: u, password: p, channels: chunk.filter((c) => again.includes(c.id)).map((c) => ({ id: c.id, ext: c.ext })),
+            }, 60_000);
+            if (!retry.aborted) reply.results = { ...reply.results, ...retry.results };
+          }
           for (const [id, r] of Object.entries(reply.results ?? {})) {
             const ok = r === 'up';
             seen[id] = { t: now.toISOString(), ok, fails: ok ? 0 : (seen[id]?.fails ?? 0) + 1 };
