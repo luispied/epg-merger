@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.69.1
+
+- Worker: el muestreo de conexiones vuelve a cada 10 minutos y 24 horas de historial; se quita la prueba de un minuto (1.67.2).
+
 ## 1.69.0
 
 - **Aviso de versión nueva.** Cuando hay una versión nueva lista, aparece encima de la barra de abajo: «Hay una versión nueva» y el botón **Actualizar**, que la aplica y recarga la app. Antes la versión nueva se aplicaba sola sin avisar. Vale en el editor y en el modo ver.

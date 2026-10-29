@@ -24,7 +24,7 @@ bucket_name = "grilla"
 # Cada 30 minutos: revisa las listas de quienes activaron los avisos push (src/push.ts).
 # Cada 5 minutos: lanza la guía que quedó pendiente al cerrarse la ventana de 15 minutos (src/github.ts).
 [triggers]
-crons = ["*/30 * * * *", "*/5 * * * *", "* * * * *"]
+crons = ["*/30 * * * *", "*/5 * * * *"]
 
 [observability]
 enabled = true
