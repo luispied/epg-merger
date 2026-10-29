@@ -1108,12 +1108,17 @@ test('prueba de canales: deja su avance para la franja de la web y «Detener» l
   const stop = (key?: string) => handle(req(`/api/cfg/${t.cfgId}/health/run`, { method: 'DELETE', ...(key ? { key } : {}) }), t.env, t.ctx, t.cache);
   const seen: unknown[] = [];
   let probes = 0;
+  const asked = new Set<string>();
   const base = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     if (url.origin !== 'https://relay.example') return base(input, init);
     const body = JSON.parse(String(init?.body)) as { channels?: { id: string }[] };
     if (url.pathname === '/v1/account') return new Response(JSON.stringify({ server: S1, account: {} }));
+    // El reintento de los que dieron «down» pide canales ya pedidos: no es una tanda nueva.
+    const retry = (body.channels ?? []).every((c) => asked.has(c.id));
+    for (const c of body.channels ?? []) asked.add(c.id);
+    if (retry) return new Response(JSON.stringify({ server: S1, account: {}, results: Object.fromEntries((body.channels ?? []).map((c) => [c.id, 'down'])) }));
     probes++;
     // Mientras prueba la primera tanda, la web ve el avance; en la segunda, alguien toca «Detener».
     seen.push((await getHealth()).progress);
@@ -1184,9 +1189,11 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     t.env.RELAY_SECRET = 'r'.repeat(40);
     assert.equal(await runHealthCheck(t.env, t.cfgId, now), true);
     // Solo los canales que valen la pena (sin ocultos, eventos ni separadores), por la cuenta principal; la otra solo trae sus datos.
+    // El canal 2 dio «down»: se vuelve a pedir una sola vez, en un pedido aparte.
     const probe = calls.filter((c) => c.path === '/v1/probe');
-    assert.equal(probe.length, 1);
+    assert.equal(probe.length, 2);
     assert.deepEqual(probe[0].body.channels!.map((c) => c.id), ['1', '2', '3']);
+    assert.deepEqual(probe[1].body.channels!.map((c) => c.id), ['2']);
     assert.ok(probe.every((c) => c.body.username === 'user'));
     assert.equal(calls.filter((c) => c.path === '/v1/account').length, 1);
     let h = health();
