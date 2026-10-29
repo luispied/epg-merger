@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.65.1
+
+- **«Probable» mira 20 minutos.** El proveedor tarda 4 a 5 minutos en sumar una conexión, así que una subida a los 15 minutos podía no entrar en la ventana.
+- Worker: `PROBABLE_AFTER_MS` pasa de 15 a 20 minutos (`src/connhist.ts`).
+
 ## 1.65.0
 
 - **Conexiones: las últimas 24 horas.** Arriba de la lista de una cuenta, una barra por hora muestra cuántas conexiones en uso hubo. La hora actual va en verde sólido.
