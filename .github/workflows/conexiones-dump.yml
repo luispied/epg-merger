@@ -1,0 +1,32 @@
+name: Conexiones: volcado para revisar
+
+# Lee conn/ y play/ de R2 y deja el texto como artifact (tools/conexiones_dump.py), para ver si la barra de 24 horas y
+# «Probable» coinciden con lo que pasa. Solo se corre a mano; no escribe nada en R2.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  volcado:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install boto3
+    - name: Volcar
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        R2_BUCKET: ${{ vars.R2_BUCKET }}
+      run: python tools/conexiones_dump.py > conexiones.txt
+    - uses: actions/upload-artifact@v4
+      with:
+        name: conexiones
+        path: conexiones.txt
+        retention-days: 14
