@@ -9,6 +9,7 @@ import {
 import { sourceAlias } from '../src/crypto.ts';
 import { hashKey, readCache, writeCache } from './cache.ts';
 import { parseEvent } from '../src/events.ts';
+import type { ConnHistory } from '../src/connhist.ts';
 import { placeNewGroups } from '../src/groups.ts';
 import { m3uLineParser, xtreamLiveChannel } from '../src/provider.ts';
 import {
@@ -2021,6 +2022,7 @@ interface AccountView { account: string; name: string; key?: string; profiles: P
 let profileDevices: Device[] = [];
 let profileDefs: ProfileDef[] = [];
 let liveAccounts: Record<string, Account> = {};
+let liveHistory: Record<string, ConnHistory> = {};
 const activeAccount = () => state.cfg?.activeAccount ?? '';
 const accountName = (account: string, main = state.cfg?.mainName) => account || main || 'Tu cuenta';
 const initialOf = (name: string) => [...name.trim()][0]?.toUpperCase() ?? '?';
@@ -2047,6 +2049,8 @@ const myAccounts = () => accountsOf(profileDevices, profileDefs);
 /** Datos de una cuenta: los de ahora (relay) o, si no, los de la última prueba. */
 const accountData = (a: AccountView): Account | undefined =>
   (a.key && (liveAccounts[a.key] ?? streamHealth?.accounts?.[a.key])) || (!a.account && !a.key ? streamHealth?.account : undefined);
+/** Las últimas 24 horas de conexiones en uso de la cuenta (src/connhist.ts). Sin relay o sin muestras, no hay. */
+const accountHistory = (a: AccountView): ConnHistory | undefined => (a.key ? liveHistory[a.key] : undefined);
 const daysLeft = (acc?: Account) => (acc?.expires ? Math.floor((Date.parse(acc.expires) - Date.now()) / 86_400_000) : null);
 
 function renderTabAvatar() {
@@ -2102,7 +2106,9 @@ async function loadProfiles(live = true) {
   if (!live) return;
   try {
     const tz = eventTz();
-    liveAccounts = (await api<{ accounts: Record<string, Account> }>(`/api/cfg/${state.local.cfgId}/accounts`)).accounts;
+    const live = await api<{ accounts: Record<string, Account>; history?: Record<string, ConnHistory> }>(`/api/cfg/${state.local.cfgId}/accounts`);
+    liveAccounts = live.accounts;
+    liveHistory = live.history ?? {};
     liveAt = Date.now();
     if (eventTz() !== tz) render(); // cambió la zona en el panel del proveedor: las horas de los eventos se corren
   } catch { /* sin relay o sin conexión: los de la última prueba */ }
@@ -3089,7 +3095,7 @@ if (viewOnly && !installed) {
 // Lo que usan los componentes de ui/ mientras la web pasa a Preact (planes/react.md): a medida que se migra, cada cosa
 // se muda a su propio módulo y sale de esta lista.
 export {
-  accountData, accountName, activeAccount, addProvider, ago, api, apiWrites, applyBulk, applyRename, autoEpg,
+  accountData, accountHistory, accountName, activeAccount, addProvider, ago, api, apiWrites, applyBulk, applyRename, autoEpg,
   chooseEpg, collapsedSections, confirmDialog, connectionsInUse, copyText, createGroup, daysLeft, deleteGroup,
   descFromHour, editChannels, EVENT_TZ_KEY, eventLabel, eventOf, eventTz, exportBackup, fold, forgetConfig, GOOD,
   groupChannels, groupLabel, groupOf, groups, guideHealth, guideLabel, guideTime, hasWords, HEALTH_AHEAD_H, hhmm,

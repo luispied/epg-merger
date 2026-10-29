@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.65.0
+
+- **Conexiones: las últimas 24 horas.** Arriba de la lista de una cuenta, una barra por hora muestra cuántas conexiones en uso hubo. La hora actual va en verde sólido.
+- **«Probable».** Un link que abrió un canal y, justo después, subió el número de conexiones lleva esa etiqueta. Es una pista: el proveedor no dice quién abrió qué.
+- Worker: el cálculo del historial está en `src/connhist.ts` y el endpoint de cuentas lo devuelve en `history`.
+
 ## 1.64.6
 
 - Worker: muestra de conexiones en uso por cuenta cada 10 minutos, desde el cron de 5 minutos (`conn/`, 24 h, solo número y hora). Todavía no se ve en la app: es la base para cruzar con los links que abrieron un canal.

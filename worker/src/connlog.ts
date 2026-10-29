@@ -14,7 +14,9 @@ export const CONN_KEEP = 144; // 24 h a 10 min
 const MAX_CONFIGS_PER_TICK = 20;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 
-export interface ConnPoint { t: string; n: number; max?: number }
+export type { ConnPoint } from './connhist.ts';
+import type { ConnPoint } from './connhist.ts';
+import type { R2Bucket } from './env.ts';
 export const connKey = (cfgId: string, account: string) => `conn/${cfgId}/${account}.json`;
 
 /** Agrega un punto si el último tiene más de CONN_EVERY_MS; si no, null (no se escribe). Se queda con los últimos CONN_KEEP. */
@@ -24,8 +26,9 @@ export function appendPoint(points: ConnPoint[], p: ConnPoint, now: Date): ConnP
   return [...points, p].slice(-CONN_KEEP);
 }
 
-async function readPoints(env: Env, key: string): Promise<ConnPoint[]> {
-  const obj = await env.BUCKET.get(key);
+/** Las muestras guardadas de una cuenta (`account` es su huella, accountKey). */
+export async function readPoints(bucket: R2Bucket, key: string): Promise<ConnPoint[]> {
+  const obj = await bucket.get(key);
   if (!obj) return [];
   try {
     const v = JSON.parse(await obj.text()) as unknown;
@@ -46,7 +49,7 @@ export async function sampleConnections(env: Env, cfgId: string, now = new Date(
     if (!creds || !('u' in creds)) return;
     const { u, p } = creds as { u: string; p: string };
     const key = connKey(cfgId, await accountKey(u, p));
-    const points = await readPoints(env, key);
+    const points = await readPoints(env.BUCKET, key);
     if (appendPoint(points, { t: now.toISOString(), n: 0 }, now) === null) return;
     try {
       const res = await relayPost<{ account?: { activeConnections?: unknown; maxConnections?: unknown } }>(env, '/v1/account',
