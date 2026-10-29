@@ -9,9 +9,8 @@ import { accountTokens } from './devices.ts';
 import type { Env } from './env.ts';
 import { relayConfigured, relayPost } from './relay.ts';
 
-// Temporal (prueba de 1 hora): muestra cada minuto. Volver a 10 minutos y 144 puntos al terminar.
-export const CONN_EVERY_MS = 60 * 1000;
-export const CONN_KEEP = 1440;
+export const CONN_EVERY_MS = 10 * 60 * 1000;
+export const CONN_KEEP = 144; // 24 h a 10 min
 const MAX_CONFIGS_PER_TICK = 20;
 const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 

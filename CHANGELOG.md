@@ -16,6 +16,10 @@ nombres de código.
 - **El proveedor se encuentra en Perfil.** Cada proveedor es una fila con chevron, como el resto de la lista, y dice debajo su dirección, usuario y contraseña. Dentro de su página, **Usuario y contraseña** cambia los datos de la cuenta en uso (los links quedan iguales); antes había que entrar a la cuenta para encontrarlo.
 - Worker: sin cambios.
 
+## 1.68.1
+
+- Worker: el muestreo de conexiones vuelve a cada 10 minutos y 24 horas de historial; se quita la prueba de un minuto (1.67.2).
+
 ## 1.67.3
 
 - **«Mirando ahora» dura una hora.** Antes un link desaparecía de la lista a los 15 minutos aunque siguiera mirando. Ahora figura hasta una hora después de su último canal, sin pasar del número de conexiones que dice el proveedor. «Probable» no cambia: busca una subida hasta una hora después del canal, y sigue pidiendo un canal abierto en los últimos 15 minutos. El «Ahora» del historial sigue en 15 minutos.
