@@ -23,10 +23,10 @@ async function openHistory(page: import('@playwright/test').Page) {
   await page.goto('/');
   await expect(page.locator('#editor')).toBeVisible();
   await page.locator('#tabLinks').click();
-  await expect(page.locator('#linksTitle')).toHaveText('Perfiles');
-  await page.locator('#linksBody .profile-row.sub-row', { hasText: 'Luis' }).click();
-  await expect(page.locator('#linksTitle')).toHaveText('Luis');
-  await page.locator('#linksBody .device').getByRole('button', { name: 'Ver canales que abrió' }).click();
+  await page.locator('#linksBody .account-row').click();
+  await page.getByRole('button', { name: 'Conexiones en uso: ver qué links están conectados' }).click();
+  await expect(page.locator('#linksTitle')).toHaveText('Conexiones');
+  await page.locator('#linksBody .conn-row', { hasText: 'TV del living' }).click();
   await expect(page.locator('#linksBody .sub-title')).toHaveText('Canales que abrió «TV del living»');
 }
 
@@ -57,4 +57,12 @@ test('historial del link: sin aperturas, lo dice', async ({ page }) => {
   await openHistory(page);
   await expect(page.locator('#linksBody .help')).toHaveText('Todavía no abrió ningún canal.');
   await expect(page.locator('#linksBody .hist-row')).toHaveCount(0);
+});
+
+test('conexiones: «‹» de la lista de canales vuelve a Conexiones', async ({ page }) => {
+  await fakeWorker(page, { hist: { d1: [{ t: ago(5), ch: '4' }] } });
+  await openHistory(page);
+  await expect(page.locator('#linksBody .hist-row')).toHaveCount(1);
+  await page.locator('#linksBack').click();
+  await expect(page.locator('#linksTitle')).toHaveText('Conexiones');
 });

@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.66.1
+
+- **Conexiones: tocar un link muestra sus canales.** La lista de Conexiones en uso abre la lista de canales que abrió cada link, con la hora. El botón que estaba en la página de cada link de Perfil se quita.
+- Worker: sin cambios.
+
 ## 1.66.0
 
 - **Canales que abrió cada link.** En Perfil, cada link tiene «Ver canales que abrió»: los últimos canales que abrió, con la hora, de la más nueva a la más vieja y agrupados por día. El último figura como «Ahora» si fue hace menos de 15 minutos. Se guardan solo las últimas 30 aperturas por link; al quitar el link se borran.
