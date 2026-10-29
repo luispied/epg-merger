@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.65.3
+
+- Worker: historial de aperturas por link: las últimas 30 aperturas de canal de cada link (`hist/`), y se borran al quitar el link (`src/devices.ts`, endpoint `devices/<código>/historial`).
+
 ## 1.65.1
 
 - **«Probable» mira 20 minutos.** El proveedor tarda 4 a 5 minutos en sumar una conexión, así que una subida a los 15 minutos podía no entrar en la ventana.

@@ -41,6 +41,9 @@ const JSON_TYPE = { httpMetadata: { contentType: 'application/json' } };
 const idxKey = (cfgId: string) => `devices/${cfgId}.json`;
 const shortKey = (code: string) => `short/${code}.json`;
 const playKey = (code: string) => `play/${code}.json`;
+const histKey = (code: string) => `hist/${code}.json`;
+/** Últimas aperturas de canal por link (hist/<código>.json). Lo más viejo se borra al pasar del tope. */
+export const HIST_MAX = 30;
 
 export const cleanName = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 40) : '') || 'Sin nombre';
 
@@ -160,6 +163,7 @@ export async function removeDevice(bucket: R2Bucket, cfgId: string, code: string
   if (!rec || rec.cfgId !== cfgId) return false;
   await bucket.delete(shortKey(code));
   await bucket.delete(playKey(code));
+  await bucket.delete(histKey(code));
   await bucket.put(idxKey(cfgId), JSON.stringify({ codes: (await codesOf(bucket, cfgId)).filter((c) => c !== code) }), JSON_TYPE);
   return true;
 }
@@ -169,6 +173,7 @@ export async function removeAllDevices(bucket: R2Bucket, cfgId: string): Promise
     if (rec && rec.cfgId === cfgId) {
       await bucket.delete(shortKey(code));
       await bucket.delete(playKey(code));
+      await bucket.delete(histKey(code));
     }
   }
   await bucket.delete(idxKey(cfgId));
@@ -198,12 +203,29 @@ export async function readPlay(bucket: R2Bucket, code: string): Promise<LastPlay
 }
 
 /** Anota el canal que abrió un link; el mismo canal, como mucho cada 5 minutos (hay reproductores que lo vuelven a pedir).
- *  Devuelve si lo anotó. */
+ *  Lo suma al historial del link (los últimos HIST_MAX). Devuelve si lo anotó. */
 export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date()): Promise<boolean> {
   const prev = await readPlay(bucket, code);
   if (prev && prev.ch === ch && now.getTime() - Date.parse(prev.t) < PLAY_EVERY_MS) return false;
-  await bucket.put(playKey(code), JSON.stringify({ t: now.toISOString(), ch }), JSON_TYPE);
+  const hist = await readHistory(bucket, code);
+  const point: LastPlay = { t: now.toISOString(), ch };
+  await Promise.all([
+    bucket.put(playKey(code), JSON.stringify(point), JSON_TYPE),
+    bucket.put(histKey(code), JSON.stringify([...hist, point].slice(-HIST_MAX)), JSON_TYPE),
+  ]);
   return true;
+}
+
+/** Las últimas aperturas de un link, de la más vieja a la más nueva. */
+export async function readHistory(bucket: R2Bucket, code: string): Promise<LastPlay[]> {
+  const obj = await bucket.get(histKey(code));
+  if (!obj) return [];
+  try {
+    const v = JSON.parse(await obj.text()) as unknown;
+    return Array.isArray(v) ? v.filter((x): x is LastPlay => typeof x?.t === 'string' && typeof x?.ch === 'string').slice(-HIST_MAX) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** El token de algún dispositivo activo de la configuración (para tareas en segundo plano que necesitan la cuenta): del

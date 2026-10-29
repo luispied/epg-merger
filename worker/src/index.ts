@@ -41,7 +41,7 @@
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
   type Config, type ProfileDef } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
-import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readPlay, updateDevice } from './devices.ts';
+import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readHistory, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, flushRefresh } from './github.ts';
@@ -662,6 +662,12 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           ...d, ...(plays[i] ? { lastPlay: plays[i] } : {}), playlistUrl: `${origin}/l/${d.code}.m3u8`, epgUrl: `${origin}/g/${d.code}.xml.gz`,
         }));
         return json({ devices, profiles: config.profiles ?? [], activeAccount: config.activeAccount ?? '', mainName: config.mainName ?? '' }, 200, { 'Cache-Control': 'no-store' });
+      }
+      // Las últimas aperturas de canal de un link (HIST_MAX, de la más nueva a la más vieja).
+      if (code && SHORT_RE.test(code) && parts[5] === 'historial' && method === 'GET') {
+        const rec = await readShort(env.BUCKET, code);
+        if (!rec || rec.cfgId !== cfgId) return fail(404, 'dispositivo inexistente');
+        return json({ items: (await readHistory(env.BUCKET, code)).reverse() }, 200, { 'Cache-Control': 'no-store' });
       }
       if (code && SHORT_RE.test(code) && method === 'PATCH') {
         const body = await readJson(request, 4 * 1024) as Record<string, unknown>;
