@@ -11,9 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.68.1
+## 1.69.1
 
 - Worker: la prueba de canales vuelve a pedir una vez, en un pedido aparte, los canales que dieron «down», antes de contar una falla (`src/streamcheck.ts`); así un corte de red de un segundo no los deja caídos. Tests en `test/worker.test.ts`.
+
+## 1.69.0
+
+- **Aviso de versión nueva.** Cuando hay una versión nueva lista, aparece encima de la barra de abajo: «Hay una versión nueva» y el botón **Actualizar**, que la aplica y recarga la app. Antes la versión nueva se aplicaba sola sin avisar. Vale en el editor y en el modo ver.
+- Worker: sin cambios.
 
 ## 1.68.0
 
