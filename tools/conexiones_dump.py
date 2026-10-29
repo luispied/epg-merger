@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 
 WINDOW = timedelta(hours=24)
-PROBABLE = timedelta(minutes=15)
+PROBABLE = timedelta(minutes=20)
 
 
 def client():
