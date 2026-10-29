@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.68.0
+
+- **El proveedor se encuentra en Perfil.** Cada proveedor es una fila con chevron, como el resto de la lista, y dice debajo su dirección, usuario y contraseña. Dentro de su página, **Usuario y contraseña** cambia los datos de la cuenta en uso (los links quedan iguales); antes había que entrar a la cuenta para encontrarlo.
+- Worker: sin cambios.
+
 ## 1.67.1
 
 - **«Probable» vuelve a mirar 60 minutos.** Con 20 minutos la subida de conexiones podía quedar afuera según el proveedor; se amplía la ventana para ver si el link que abrió el canal fue el que la causó.
