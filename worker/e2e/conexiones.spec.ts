@@ -71,3 +71,23 @@ test('conexiones sin links mirando: lo dice en vez de dejar la sección vacía',
   // El que abrió un canal hace más de 15 minutos figura en «Los demás links», con su último canal.
   await expect(page.locator('#linksBody .conn-row', { hasText: 'Celu vieja' }).locator('small')).toHaveText('Último canal: ESPN · hace 5 h');
 });
+
+test('conexiones: barra de las últimas 24 horas, y «Probable» en el link que abrió un canal antes de una subida', async ({ page }, info) => {
+  const hours = Array.from({ length: 24 }, (_, i) => (i >= 14 ? (i % 3) + 1 : null));
+  await fakeWorker(page, {
+    accounts: { ak1: { expires: new Date(Date.now() + 20 * 86_400_000).toISOString(), maxConnections: 5, activeConnections: 3 } },
+    history: { ak1: { hours, rises: [Date.now() - 3 * 60_000] } },
+    devices: [
+      dev('d1', 'TV del living', { lastPlay: { t: ago(5), ch: '4' } }),
+      dev('d2', 'Tablet', { lastPlay: { t: ago(40), ch: '1' } }),
+    ],
+  });
+  await openConnections(page);
+  await expect(page.locator('#linksBody .hour-bars i')).toHaveCount(24);
+  await expect(page.locator('#linksBody .hour-bars i.cur')).toHaveCount(1);
+  // Solo el link que abrió su canal justo antes de la subida figura «Probable».
+  const rows = page.locator('#linksBody .conn-row');
+  await expect(rows.filter({ hasText: 'TV del living' }).locator('.conn-probable')).toHaveText('Probable');
+  await expect(page.locator('#linksBody .conn-probable')).toHaveCount(1);
+  await page.locator('#linksBody .conn-hours').screenshot({ path: `test-results/conexiones-horas-${info.project.name}.png` });
+});
