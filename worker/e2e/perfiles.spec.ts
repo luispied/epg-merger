@@ -61,8 +61,8 @@ test('cuenta: datos, perfiles y volver', async ({ page }) => {
   await page.getByRole('button', { name: 'Conexiones en uso: ver qué links están conectados' }).click();
   await expect(page.locator('#linksTitle')).toHaveText('Conexiones');
   await expect(page.locator('#linksBody .conn-row')).toContainText('TV del living');
-  // Hace 20 min ya no figura mirando (la ventana es de 15): dice su último canal.
-  await expect(page.locator('#linksBody .conn-row small')).toHaveText('Último canal: CNN · hace 20 min');
+  // Hace 20 min sigue figurando mirando (la ventana es de una hora): dice el canal y cuánto hace.
+  await expect(page.locator('#linksBody .conn-row small')).toHaveText('CNN · hace 20 min');
   await page.locator('#linksBack').click();
   await expect(page.locator('#linksTitle')).toHaveText('Luis');
   await page.locator('#linksBack').click();
