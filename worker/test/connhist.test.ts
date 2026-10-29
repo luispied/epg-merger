@@ -32,7 +32,7 @@ test('una subida se anota en rises; una bajada no', () => {
   assert.deepEqual(h.rises, [now - 20 * 60e3]);
 });
 
-test('probable: la subida cae dentro de 15 minutos después de abrir el canal', () => {
+test('probable: la subida cae dentro de la ventana después de abrir el canal', () => {
   const rise = now - 20 * 60e3;
   assert.equal(probableLink([rise], at(rise - 2 * 60e3)), true);
   assert.equal(probableLink([rise], at(rise - PROBABLE_AFTER_MS - 60e3)), false);

@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.67.1
+
+- **«Probable» vuelve a mirar 60 minutos.** Con 20 minutos la subida de conexiones podía quedar afuera según el proveedor; se amplía la ventana para ver si el link que abrió el canal fue el que la causó.
+- Worker: `PROBABLE_AFTER_MS` pasa de 20 a 60 minutos (`src/connhist.ts`).
+
 ## 1.67.0
 
 - **El programa también aparece en el historial.** Cada canal que abre un link se guarda con el programa que daba en ese momento, debajo del nombre del canal. Sigue siendo el mismo historial de las últimas 30 aperturas por link.
