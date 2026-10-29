@@ -425,7 +425,9 @@ function ConnectionsPage({ a }: { a: AccountView }) {
     const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Sin canales registrados todavía';
     const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
     return (
-      <div class={`device conn-row${d.active ? '' : ' off'}`}>
+      <div class={`device conn-row${d.active ? '' : ' off'}`} role="button" tabIndex={0} aria-label={`Ver canales que abrió ${d.name}`}
+        onClick={() => openSub({ k: 'historial', dev: d })}
+        onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openSub({ k: 'historial', dev: d }); } }}>
         <span class={`conn-dot${recent(d) ? ' on' : ''}`} aria-hidden="true" />
         <div class="device-info"><strong>{d.name}{prof && a.profiles.length > 1 ? <> <span class="conn-prof">· {prof}</span></> : null}</strong><small>{sub}</small></div>
         {probable ? <span class="conn-probable">Probable</span> : null}
@@ -774,7 +776,6 @@ function DeviceRow({ d }: { d: Device }) {
           onChange={(ev) => void setActive(ev.currentTarget.checked)} />
       </div>
       <button type="button" class="btn btn-tonal" data-dev="show" onClick={() => renderLinkResult(d)}><Icon name="copy" />Copiar o compartir</button>
-      <button type="button" class="btn btn-tonal" data-dev="history" onClick={() => openSub({ k: 'historial', dev: d })}><Icon name="clock" />Ver canales que abrió</button>
       <button type="button" class="icon-btn" aria-label={`Pasar ${d.name} a otro perfil`} onClick={() => openSub({ k: 'move', dev: d })}><Icon name="arrow-right-left" /></button>
       <button type="button" class="icon-btn" aria-label={`Cambiar nombre de ${d.name}`} onClick={() => void rename()}><Icon name="pencil" /></button>
       <button type="button" class="icon-btn" aria-label={`Quitar ${d.name}`} onClick={() => void remove()}><Icon name="trash-2" /></button>
