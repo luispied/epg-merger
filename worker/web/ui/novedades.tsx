@@ -1,21 +1,10 @@
-// Novedades: al abrir nowline después de una actualización, un aviso breve («nowline se actualizó») y, si se
-// quiere, la hoja con lo nuevo de cada versión desde la última que se vio en este navegador (sale de
-// public/novedades.json, que arma build.mjs a partir del CHANGELOG). La primera vez que se abre nowline no se muestra
-// nada: solo se anota la versión. La hoja también se abre desde Configuración.
+// Novedades: lo nuevo de cada versión (sale de public/novedades.json, que arma build.mjs a partir del CHANGELOG).
+// Se abre desde Configuración («Ver novedades»); no aparece sola al abrir la app.
 import { render } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './icon.tsx';
-import { toast } from './toast.tsx';
 
 export interface Novedad { version: string; items: string[] }
-const SEEN_KEY = 'grilla_seen_version';
-
-/** -1, 0 o 1 según `a` sea anterior, igual o posterior a `b` (versiones x.y.z). */
-export function cmpVersion(a: string, b: string): number {
-  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0) ? -1 : 1;
-  return 0;
-}
 
 async function load(): Promise<Novedad[]> {
   try {
@@ -24,22 +13,6 @@ async function load(): Promise<Novedad[]> {
   } catch {
     return [];
   }
-}
-
-const seen = () => { try { return localStorage.getItem(SEEN_KEY); } catch { return null; } };
-const markSeen = (v: string) => { try { localStorage.setItem(SEEN_KEY, v); } catch { /* sin almacenamiento */ } };
-
-/** Al arrancar: si la versión cambió desde la última vez, un aviso breve; «Qué hay nuevo» abre lo nuevo. */
-export async function checkNovedades(current: string) {
-  const last = seen();
-  if (!last) return markSeen(current); // primera vez en este navegador: nada que contar
-  if (last === current) return;
-  markSeen(current);
-  const fresh = (await load()).filter((n) => cmpVersion(n.version, last) > 0);
-  if (!fresh.length) return;
-  // Espera a que se vaya la pantalla de inicio (450 ms y el fundido), así el aviso no queda debajo del logo.
-  await new Promise((r) => setTimeout(r, document.getElementById('splash') ? 900 : 0));
-  toast('nowline se actualizó', 'info', 6000, { label: 'Qué hay nuevo', run: () => open(fresh.slice(0, 5), current) });
 }
 
 /** Desde Configuración: las últimas versiones, aunque ya se hayan visto. */

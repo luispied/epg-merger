@@ -17,7 +17,6 @@ import {
 } from './ui/perfiles.tsx';
 import { openChannel, refreshChannelSheet, startReview } from './ui/canal.tsx';
 import { loadReports } from './ui/reports.tsx';
-import { checkNovedades } from './ui/novedades.tsx';
 import { setupActualizacion } from './ui/actualizacion.tsx';
 import { renderIcon, renderNetPill, renderQr, renderStatus } from './ui/piezas.tsx';
 import { renderFilterBar as drawFilterBar, type FilterHandlers, type FilterModel } from './ui/filtros.tsx';
@@ -3041,10 +3040,8 @@ new MutationObserver((records) => {
 // ------------------------------------------------------------------ arranque
 // Sin conexión: la app y los datos para editar quedan guardados (ver sw.js).
 // Versión nueva: el service worker nuevo queda en espera y un aviso encima de la barra (ui/actualizacion.tsx) deja
-// elegir «Actualizar». Al abrir la app con una versión nueva, un aviso breve (ui/novedades.tsx) dice que se actualizó
-// y muestra qué cambió.
+// elegir «Actualizar». Lo que cambió se ve en Configuración, «Ver novedades».
 setupActualizacion();
-void checkNovedades(__APP_VERSION__);
 hydrateIcons();
 installSheets();
 addSearchClear(document);
