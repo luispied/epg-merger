@@ -1,6 +1,6 @@
 {
   "name": "grilla-worker",
-  "version": "1.65.2",
+  "version": "1.65.4",
   "private": true,
   "type": "module",
   "scripts": {
