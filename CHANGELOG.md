@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.64.5
+
+- Worker: muestra de conexiones en uso por cuenta cada 10 minutos, desde el cron de 5 minutos (`conn/`, 24 h, solo número y hora). Todavía no se ve en la app: es la base para cruzar con los links que abrieron un canal.
+
 ## 1.64.4
 
 - **La búsqueda de la ayuda muestra solo lo que coincide.** Al escribir, quedan a la vista los párrafos y pasos que tienen la palabra, y la palabra se resalta en color. Lo demás de la pantalla se oculta en vez de abrirse entero.

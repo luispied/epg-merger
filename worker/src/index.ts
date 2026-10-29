@@ -45,6 +45,7 @@ import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevi
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
 import type { Ctx, Env, SimpleCache } from './env.ts';
 import { dispatchRefresh, flushRefresh } from './github.ts';
+import { checkAllConnections } from './connlog.ts';
 import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
@@ -1067,9 +1068,10 @@ export default {
   },
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(event: { cron?: string }, env: Env, ctx: Ctx): void {
-    // La de cada 5 minutos solo lanza la guía pendiente (github.ts → flushRefresh); el resto corre con la de cada 30.
+    // La de cada 5 minutos lanza la guía pendiente (github.ts → flushRefresh) y la muestra de conexiones (connlog.ts); el resto corre con la de cada 30.
     if (event.cron === '*/5 * * * *') {
-      ctx.waitUntil(flushRefresh(env).catch(() => false));
+      // Y la muestra de conexiones en uso por cuenta (connlog.ts), que se toma como mucho cada 10 minutos.
+      ctx.waitUntil(flushRefresh(env).catch(() => false).then(() => checkAllConnections(env)).catch(() => 0));
       return;
     }
     console.log(JSON.stringify({ route: 'cron' }));
