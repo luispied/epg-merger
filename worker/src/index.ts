@@ -1092,6 +1092,11 @@ export default {
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(event: { cron?: string }, env: Env, ctx: Ctx): void {
     // La de cada 5 minutos lanza la guía pendiente (github.ts → flushRefresh) y la muestra de conexiones (connlog.ts); el resto corre con la de cada 30.
+    // Temporal: la de cada minuto solo muestrea conexiones (prueba de Nacho, se quita después).
+    if (event.cron === '* * * * *') {
+      ctx.waitUntil(checkAllConnections(env).catch(() => 0));
+      return;
+    }
     if (event.cron === '*/5 * * * *') {
       // Y la muestra de conexiones en uso por cuenta (connlog.ts), que se toma como mucho cada 10 minutos.
       ctx.waitUntil(flushRefresh(env).catch(() => false).then(() => checkAllConnections(env)).catch(() => 0));
