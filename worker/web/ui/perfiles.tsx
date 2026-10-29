@@ -392,7 +392,7 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
 
 /** Un link «está mirando» si abrió un canal hace menos de esto. El Worker solo ve cuándo empieza cada canal, no cuándo
  *  se deja, así que es una estimación. */
-const RECENT_PLAY_MS = 60 * 60 * 1000;
+const RECENT_PLAY_MS = 15 * 60 * 1000;
 const sinceText = (iso: string) => {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : min < 1440 ? `hace ${Math.round(min / 60)} h` : `hace ${Math.round(min / 1440)} d`;
@@ -441,7 +441,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
         <div class="pc-stat"><b class={watching.length ? 'ok' : ''}>{watching.length}</b><small>{watching.length === 1 ? 'Link mirando' : 'Links mirando'}</small></div>
       </div>
       <SubTitle>Mirando ahora</SubTitle>
-      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en la última hora.'}</Help>}
+      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en los últimos 15 minutos.'}</Help>}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
     </>
   );

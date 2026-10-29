@@ -284,9 +284,9 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   return json({ name: profile.name, channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
 }
 
-/** Un link «mira» si abrió un canal en la última hora (como en Conexiones de la web): es la duración mediana de un programa en la guía.
- *  El Worker no ve cuándo se deja un canal, así que una ventana larga marcaba como activos links que ya no miraban nada. */
-const WATCHING_MS = 60 * 60 * 1000;
+/** Un link «mira» si abrió un canal en los últimos 15 minutos (como en Conexiones de la web). El Worker no ve cuándo se deja
+ *  un canal, así que una ventana larga marcaba como activos links que ya no miraban nada; la mayoría cambia de canal seguido. */
+const WATCHING_MS = 15 * 60 * 1000;
 
 /** Modo «solo ver»: conexiones en uso de la cuenta del perfil (por el relay, si hay) y qué está mirando cada link de esa
  *  cuenta. Solo el nombre del link, el canal y cuándo lo abrió: ni códigos ni direcciones. */

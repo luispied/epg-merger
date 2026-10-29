@@ -11,9 +11,14 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.64.5
+## 1.64.6
 
 - Worker: muestra de conexiones en uso por cuenta cada 10 minutos, desde el cron de 5 minutos (`conn/`, 24 h, solo número y hora). Todavía no se ve en la app: es la base para cruzar con los links que abrieron un canal.
+
+## 1.64.5
+
+- **«Mirando ahora» dura 15 minutos.** Un link figura mirando hasta 15 minutos después del último canal que abrió (antes, una hora). Así la lista muestra a quien acaba de cambiar de canal. Quien sigue en el mismo canal más de 15 minutos aparece con su último canal, sin decir que sigue mirando.
+- Worker: la ventana de «mirando» (`WATCHING_MS`) pasa a 15 minutos; la ayuda de Conexiones lo dice.
 
 ## 1.64.4
 
