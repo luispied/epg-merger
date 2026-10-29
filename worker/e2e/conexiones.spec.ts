@@ -1,5 +1,5 @@
 // La pantalla de Conexiones de una cuenta (perfiles.tsx, ConnectionsPage): cuántas están en uso según el proveedor, qué
-// links están mirando ahora (los que abrieron un canal hace menos de 15 minutos) y los demás, sin cortar la lista.
+// links están mirando ahora (los que abrieron un canal hace menos de una hora) y los demás, sin cortar la lista.
 import { expect, test } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
 
@@ -68,7 +68,7 @@ test('conexiones sin links mirando: lo dice en vez de dejar la sección vacía',
   await openConnections(page);
   await expect(page.locator('#linksBody .pc-stat').first()).toContainText('0 de 2');
   await expect(page.locator('#linksBody .help', { hasText: 'El proveedor no tiene conexiones abiertas ahora.' })).toBeVisible();
-  // El que abrió un canal hace más de 15 minutos figura en «Los demás links», con su último canal.
+  // El que abrió un canal hace más de una hora figura en «Los demás links», con su último canal.
   await expect(page.locator('#linksBody .conn-row', { hasText: 'Celu vieja' }).locator('small')).toHaveText('Último canal: ESPN · hace 5 h');
 });
 

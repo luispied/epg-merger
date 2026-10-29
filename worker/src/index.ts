@@ -297,9 +297,9 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   return json({ name: profile.name, channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
 }
 
-/** Un link «mira» si abrió un canal en los últimos 15 minutos (como en Conexiones de la web). El Worker no ve cuándo se deja
- *  un canal, así que una ventana larga marcaba como activos links que ya no miraban nada; la mayoría cambia de canal seguido. */
-const WATCHING_MS = 15 * 60 * 1000;
+/** Un link «mira» si abrió un canal en la última hora (como en Conexiones de la web). El Worker no ve cuándo se deja un
+ *  canal: una hora cubre la espera del proveedor, y el número de conexiones que dice el proveedor corta la lista. */
+const WATCHING_MS = 60 * 60 * 1000;
 
 /** Modo «solo ver»: conexiones en uso de la cuenta del perfil (por el relay, si hay) y qué está mirando cada link de esa
  *  cuenta. Solo el nombre del link, el canal y cuándo lo abrió: ni códigos ni direcciones. */
@@ -1092,6 +1092,11 @@ export default {
   // Corrida programada (wrangler.toml → [triggers]): avisa los canales nuevos de las listas.
   scheduled(event: { cron?: string }, env: Env, ctx: Ctx): void {
     // La de cada 5 minutos lanza la guía pendiente (github.ts → flushRefresh) y la muestra de conexiones (connlog.ts); el resto corre con la de cada 30.
+    // Temporal: la de cada minuto solo muestrea conexiones (prueba de Nacho, se quita después).
+    if (event.cron === '* * * * *') {
+      ctx.waitUntil(checkAllConnections(env).catch(() => 0));
+      return;
+    }
     if (event.cron === '*/5 * * * *') {
       // Y la muestra de conexiones en uso por cuenta (connlog.ts), que se toma como mucho cada 10 minutos.
       ctx.waitUntil(flushRefresh(env).catch(() => false).then(() => checkAllConnections(env)).catch(() => 0));

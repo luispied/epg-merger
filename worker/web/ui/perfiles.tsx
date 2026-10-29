@@ -394,6 +394,8 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
 
 /** Un link «está mirando» si abrió un canal hace menos de esto. El Worker solo ve cuándo empieza cada canal, no cuándo
  *  se deja, así que es una estimación. */
+const WATCHING_MS = 60 * 60 * 1000;
+/** «Probable» y el «Ahora» del historial: abrió un canal hace poco. */
 const RECENT_PLAY_MS = 15 * 60 * 1000;
 const sinceText = (iso: string) => {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
@@ -411,24 +413,24 @@ function ConnectionsPage({ a }: { a: AccountView }) {
   const acc = accountData(a);
   const inUse = connectionsInUse(acc);
   const chName = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
-  const recent = (d: Device) => d.active && !!d.lastPlay && Date.now() - Date.parse(d.lastPlay.t) < RECENT_PLAY_MS;
+  const within = (d: Device, ms: number) => d.active && !!d.lastPlay && Date.now() - Date.parse(d.lastPlay.t) < ms;
   const byPlay = (x: Device, y: Device) => (y.lastPlay?.t ?? '').localeCompare(x.lastPlay?.t ?? '');
   // El proveedor dice cuántas conexiones hay: no se muestran más links mirando que conexiones.
-  const candidates = a.devices.filter(recent).sort(byPlay);
+  const candidates = a.devices.filter((d) => within(d, WATCHING_MS)).sort(byPlay);
   const watching = inUse === undefined ? candidates : candidates.slice(0, inUse);
   const rest = a.devices.filter((d) => !watching.includes(d)).sort(byPlay);
   const hist = accountHistory(a);
   const Row = ({ d }: { d: Device }) => {
     const prof = a.profiles.find((p) => p.id === d.profile)?.name;
     // «Probable»: el número de conexiones subió después de que este link abrió su canal (pista, no certeza).
-    const probable = !!hist && recent(d) && !!d.lastPlay && probableLink(hist.rises, d.lastPlay.t);
+    const probable = !!hist && within(d, RECENT_PLAY_MS) && !!d.lastPlay && probableLink(hist.rises, d.lastPlay.t);
     const play = d.lastPlay ? `${chName.get(d.lastPlay.ch) ?? 'Un canal'} · ${sinceText(d.lastPlay.t)}` : 'Sin canales registrados todavía';
-    const sub = !d.active ? 'Desactivado' : recent(d) ? play : d.lastPlay ? `Último canal: ${play}` : play;
+    const sub = !d.active ? 'Desactivado' : within(d, WATCHING_MS) ? play : d.lastPlay ? `Último canal: ${play}` : play;
     return (
       <div class={`device conn-row${d.active ? '' : ' off'}`} role="button" tabIndex={0} aria-label={`Ver canales que abrió ${d.name}`}
         onClick={() => openSub({ k: 'historial', dev: d })}
         onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openSub({ k: 'historial', dev: d }); } }}>
-        <span class={`conn-dot${recent(d) ? ' on' : ''}`} aria-hidden="true" />
+        <span class={`conn-dot${within(d, WATCHING_MS) ? ' on' : ''}`} aria-hidden="true" />
         <div class="device-info"><strong>{d.name}{prof && a.profiles.length > 1 ? <> <span class="conn-prof">· {prof}</span></> : null}</strong><small>{sub}</small></div>
         {probable ? <span class="conn-probable">Probable</span> : null}
       </div>
@@ -456,7 +458,7 @@ function ConnectionsPage({ a }: { a: AccountView }) {
         </section>
       ) : null}
       <SubTitle>Mirando ahora</SubTitle>
-      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en los últimos 15 minutos.'}</Help>}
+      {watching.length ? <List ds={watching} /> : <Help>{inUse === 0 ? 'El proveedor no tiene conexiones abiertas ahora.' : 'Ningún link de esta cuenta abrió un canal en la última hora.'}</Help>}
       {rest.length ? <><SubTitle>Los demás links</SubTitle><List ds={rest} /></> : null}
     </>
   );
