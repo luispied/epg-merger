@@ -125,9 +125,24 @@ test('links: abrir un canal anota cuál fue, para ver qué links están conectad
   await handle(new Request(`${BASE}/s/${code}/11.ts`), t.env, t.ctx, t.cache);
   await t.settle();
   assert.equal((await devices()).find((d) => d.code === code)?.lastPlay?.ch, '11');
-  // Quitar el link borra también su último canal.
+  // El historial trae las últimas aperturas, de la más nueva a la más vieja.
+  const hist = async () => (await (await handle(req(`/api/cfg/${t.cfgId}/devices/${code}/historial`, { key: t.editKey }), t.env, t.ctx, t.cache)).json() as
+    { items: { t: string; ch: string }[] }).items;
+  assert.deepEqual((await hist()).map((p) => p.ch), ['11', '12']);
+  // Solo las últimas 30 aperturas: lo más viejo se borra.
+  for (let i = 0; i < 40; i++) {
+    const ch = String(100 + i);
+    await handle(new Request(`${BASE}/s/${code}/${ch}.ts`), t.env, t.ctx, t.cache);
+    await t.settle();
+  }
+  const items = await hist();
+  assert.equal(items.length, 30);
+  assert.equal(items[0].ch, '139');
+  assert.equal(items[29].ch, '110');
+  // Quitar el link borra también su último canal y su historial.
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
   assert.ok(!bucket.data.has(`play/${code}.json`));
+  assert.ok(!bucket.data.has(`hist/${code}.json`));
 });
 
 test('playlist: link con token inválido o de otra configuración → 403', async () => {
