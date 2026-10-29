@@ -83,7 +83,7 @@ export async function readHabits(bucket: R2Bucket, cfgId: string, profile?: stri
 }
 
 /** El título que pasaba en un canal (por su epg) en un momento, si no es genérico. */
-async function titleAt(bucket: R2Bucket, epg: string, t: number): Promise<{ title: string; s: number; g?: string } | null> {
+export async function titleAt(bucket: R2Bucket, epg: string, t: number): Promise<{ title: string; s: number; g?: string } | null> {
   try {
     const e = (await readEntries(scheduleReader(bucket), await scheduleFile(epg)))?.find(([s, end]) => s <= t && t < end);
     return e && e[2] && !GENERIC.has(norm(e[2])) ? { title: e[2], s: e[0], ...(e[4] ? { g: e[4] } : {}) } : null;

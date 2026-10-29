@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.67.0
+
+- **El programa también aparece en el historial.** Cada canal que abre un link se guarda con el programa que daba en ese momento, debajo del nombre del canal. Sigue siendo el mismo historial de las últimas 30 aperturas por link.
+- Worker: `notePlay` guarda `p` (título del programa, de `ui/schedule/`) en `hist/<código>.json`; sin guía el campo no va.
+
 ## 1.66.1
 
 - **Conexiones: tocar un link muestra sus canales.** La lista de Conexiones en uso abre la lista de canales que abrió cada link, con la hora. El botón que estaba en la página de cada link de Perfil se quita.

@@ -789,12 +789,12 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.g
 
 /** Los canales que abrió un link, de la más nueva a la más vieja (hist/ del Worker), agrupados por día. */
 function LinkHistory({ dev }: { dev: Device }) {
-  const [items, setItems] = useState<{ t: string; ch: string }[] | null | 'bad'>(null);
+  const [items, setItems] = useState<{ t: string; ch: string; p?: string }[] | null | 'bad'>(null);
   const [tries, setTries] = useState(0);
   useEffect(() => {
     let live = true;
     setItems(null);
-    api<{ items: { t: string; ch: string }[] }>(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/historial`)
+    api<{ items: { t: string; ch: string; p?: string }[] }>(`/api/cfg/${state.local!.cfgId}/devices/${dev.code}/historial`)
       .then((r) => live && setItems(r.items)).catch(() => live && setItems('bad'));
     return () => { live = false; };
   }, [tries]);
@@ -811,7 +811,7 @@ function LinkHistory({ dev }: { dev: Device }) {
   const names = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
   const now = Date.now();
   const today = dayStart(new Date());
-  const days: { label: string; rows: { t: string; ch: string }[] }[] = [];
+  const days: { label: string; rows: { t: string; ch: string; p?: string }[] }[] = [];
   for (const it of items) {
     const d = new Date(it.t);
     const diff = Math.round((today - dayStart(d)) / 86_400_000);
@@ -829,7 +829,10 @@ function LinkHistory({ dev }: { dev: Device }) {
           <div class="hist-list">
             {g.rows.map((r, i) => (
               <div class="hist-row" key={`${gi}-${i}`}>
-                <span class="hist-ch">{names.get(r.ch) ?? 'Un canal'}</span>
+                <div class="hist-main">
+                  <span class="hist-ch">{names.get(r.ch) ?? 'Un canal'}</span>
+                  {r.p ? <span class="hist-prog">{r.p}</span> : null}
+                </div>
                 {gi === 0 && i === 0 && now - Date.parse(r.t) < RECENT_PLAY_MS ? <span class="hist-now">Ahora</span> : null}
                 <time class="hist-time" dateTime={r.t}>{hhmm(new Date(r.t))}</time>
               </div>

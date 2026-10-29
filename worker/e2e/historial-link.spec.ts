@@ -33,7 +33,7 @@ async function openHistory(page: import('@playwright/test').Page) {
 test('historial del link: hoy y ayer, el último con «Ahora»', async ({ page }, info) => {
   await fakeWorker(page, {
     hist: { d1: [
-      { t: ago(5), ch: '4' },
+      { t: ago(5), ch: '4', p: 'Noticias del mediodía' },
       { t: ago(70), ch: '1' },
       { t: yesterdayAt(22, 31), ch: '4' },
     ] },
@@ -45,6 +45,8 @@ test('historial del link: hoy y ayer, el último con «Ahora»', async ({ page }
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('CNN');
   await expect(rows.nth(0).locator('.hist-now')).toHaveText('Ahora');
+  await expect(rows.nth(0).locator('.hist-prog')).toHaveText('Noticias del mediodía');
+  await expect(rows.nth(1).locator('.hist-prog')).toHaveCount(0);
   await expect(rows.nth(1).locator('.hist-now')).toHaveCount(0);
   await expect(rows.nth(2)).toContainText('22:31');
   await page.screenshot({ path: `test-results/historial-${info.project.name}-claro.png` });
