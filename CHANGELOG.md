@@ -16,6 +16,11 @@ nombres de código.
 - **Categorías no abre el teclado.** Al abrir Categorías (y el buscador de Perfil) el foco ya no cae en el buscador, así que el teclado del celular no sube solo.
 - Worker: `settleFocus` (ui/sheet.ts) saca el foco también de los buscadores; la prueba está en `e2e/foco.spec.ts`.
 
+## 1.65.1
+
+- **«Probable» mira 20 minutos.** El proveedor tarda 4 a 5 minutos en sumar una conexión, así que una subida a los 15 minutos podía no entrar en la ventana.
+- Worker: `PROBABLE_AFTER_MS` pasa de 15 a 20 minutos (`src/connhist.ts`).
+
 ## 1.65.0
 
 - **Conexiones: las últimas 24 horas.** Arriba de la lista de una cuenta, una barra por hora muestra cuántas conexiones en uso hubo. La hora actual va en verde sólido.
