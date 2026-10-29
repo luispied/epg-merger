@@ -1,4 +1,4 @@
-name: Conexiones: volcado para revisar
+name: "Conexiones: volcado para revisar"
 
 # Lee conn/ y play/ de R2 y deja el texto como artifact (tools/conexiones_dump.py), para ver si la barra de 24 horas y
 # «Probable» coinciden con lo que pasa. Solo se corre a mano; no escribe nada en R2.
