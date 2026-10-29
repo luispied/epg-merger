@@ -3,7 +3,7 @@
 
 Salida (texto): por cuenta, las muestras de las últimas 24 horas con su número, y las subidas. Por link, la hora y el
 canal de cada apertura (sin código de link: el canal es el id de la lista). Para cada apertura, si el número de
-conexiones subió dentro de los 15 minutos siguientes, va «subió». Así se ve si «Probable» dice la verdad.
+conexiones subió dentro de los 20 minutos siguientes, va «subió». Así se ve si «Probable» dice la verdad.
 Las huellas de cuenta son las de accountKey (no hay usuarios ni contraseñas en la salida).
 """
 import json
@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 
 WINDOW = timedelta(hours=24)
-PROBABLE = timedelta(minutes=15)
+PROBABLE = timedelta(minutes=20)
 
 
 def client():
@@ -71,7 +71,7 @@ def main():
         if t < since:
             continue
         after = [r for a, r in rises if r >= t and r - t <= PROBABLE]
-        print(f"  {t:%H:%M} canal {p['ch']}: {'subió' if after else 'sin subida'} en 15 min")
+        print(f"  {t:%H:%M} canal {p['ch']}: {'subió' if after else 'sin subida'} en 20 min")
     print()
     print(f"Subidas totales: {len(rises)}")
     return 0
