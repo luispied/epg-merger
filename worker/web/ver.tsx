@@ -16,6 +16,9 @@ import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
 import { Logo, MASKED, showGuide, type GuideChannel, type GuideHost } from './ui/guide.tsx';
 import { Descripcion } from './ui/sinopsis.tsx';
 import { AcercaDeLink } from './ui/acerca.tsx';
+import { setupActualizacion } from './ui/actualizacion.tsx';
+
+setupActualizacion();
 
 declare global { interface Window { ICONS: Record<string, string> } }
 Object.assign(window.ICONS, {

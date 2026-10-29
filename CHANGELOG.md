@@ -11,14 +11,19 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.69.1
+
+- Worker: el muestreo de conexiones vuelve a cada 10 minutos y 24 horas de historial; se quita la prueba de un minuto (1.67.2).
+
+## 1.69.0
+
+- **Aviso de versión nueva.** Cuando hay una versión nueva lista, aparece encima de la barra de abajo: «Hay una versión nueva» y el botón **Actualizar**, que la aplica y recarga la app. Antes la versión nueva se aplicaba sola sin avisar. Vale en el editor y en el modo ver.
+- Worker: sin cambios.
+
 ## 1.68.0
 
 - **El proveedor se encuentra en Perfil.** Cada proveedor es una fila con chevron, como el resto de la lista, y dice debajo su dirección, usuario y contraseña. Dentro de su página, **Usuario y contraseña** cambia los datos de la cuenta en uso (los links quedan iguales); antes había que entrar a la cuenta para encontrarlo.
 - Worker: sin cambios.
-
-## 1.68.1
-
-- Worker: el muestreo de conexiones vuelve a cada 10 minutos y 24 horas de historial; se quita la prueba de un minuto (1.67.2).
 
 ## 1.67.3
 

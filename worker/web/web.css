@@ -215,6 +215,8 @@ dialog.sheet.settling { transition: translate var(--dur-2) var(--ease-out); }
 
 /* Snackbar. */
 .toast { background: color-mix(in srgb, var(--inverse-surface) 82%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--inverse-text); border-radius: 18px; min-height: 48px; padding: 8px 8px 8px 16px; font-size: 14px; }
+.update-pill { position: fixed; left: 50%; bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: var(--z-toast); width: max-content; max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); border-radius: var(--radius-full); box-shadow: var(--shadow-lg); font-size: var(--fs-md); }
+.update-pill .btn { min-height: 38px; padding: 0 16px; }
 .toast .icon, .toast.ok .icon, .toast.bad .icon, .toast.info .icon { color: var(--inverse-accent); }
 .toast .btn, .toast .btn-plain { color: var(--inverse-accent); background: transparent; }
 @media (hover: hover) { .toast .btn:hover { background: color-mix(in srgb, var(--inverse-accent) 12%, transparent); } }

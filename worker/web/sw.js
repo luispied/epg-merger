@@ -1,4 +1,5 @@
 // Service worker de nowline web: la app abre y se puede editar sin conexión.
+// Una versión nueva no se activa sola: queda en espera hasta que la persona toca «Actualizar» (ui/actualizacion.tsx).
 // - La app (HTML, JS, CSS, íconos): de la red si hay; si no, la última guardada.
 // - Datos para mirar y editar (guía, programación, tu configuración y tu lista): igual,
 //   red primero y la copia guardada si no hay conexión.
@@ -11,7 +12,11 @@ const SHELL_FILES = ['/', `/app.js?v=${VERSION}`, `/app.css?v=${VERSION}`,
   '/fonts/inter-latin.woff2', `/icons.js?v=${VERSION}`, `/manifest.webmanifest?v=${VERSION}`, '/img/icon.svg'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
