@@ -1,5 +1,5 @@
 // La pantalla de Conexiones de una cuenta (perfiles.tsx, ConnectionsPage): cuántas están en uso según el proveedor, qué
-// links están mirando ahora (los que abrieron un canal hace menos de una hora) y los demás, sin cortar la lista.
+// links están mirando ahora (los que abrieron un canal hace menos de 15 minutos) y los demás, sin cortar la lista.
 import { expect, test } from '@playwright/test';
 import { fakeWorker } from './fake-worker.ts';
 
@@ -28,8 +28,8 @@ test('conexiones: los que miran ahora arriba, los demás abajo, y lo que el prov
   await fakeWorker(page, {
     accounts: { ak1: { expires: new Date(Date.now() + 20 * 86_400_000).toISOString(), maxConnections: 5, activeConnections: 3 } },
     devices: [
-      dev('d1', 'TV del living', { lastPlay: { t: ago(20), ch: '4' } }),
-      dev('d2', 'Tablet', { lastPlay: { t: ago(30), ch: '1' } }),
+      dev('d1', 'TV del living', { lastPlay: { t: ago(5), ch: '4' } }),
+      dev('d2', 'Tablet', { lastPlay: { t: ago(10), ch: '1' } }),
       dev('d3', 'Celu vieja'),
       dev('d4', 'Cocina', { active: false, lastPlay: { t: ago(5 * 60), ch: '2' } }),
     ],
@@ -44,8 +44,8 @@ test('conexiones: los que miran ahora arriba, los demás abajo, y lo que el prov
   await expect(watching).toHaveCount(2);
   // Los que abrieron un canal hace menos tiempo, primero.
   await expect(page.locator('#linksBody .conn-row').first()).toContainText('TV del living');
-  await expect(page.locator('#linksBody .conn-row').first().locator('small')).toHaveText('CNN · hace 20 min');
-  await expect(page.locator('#linksBody .conn-row').nth(1).locator('small')).toHaveText('ESPN · hace 30 min');
+  await expect(page.locator('#linksBody .conn-row').first().locator('small')).toHaveText('CNN · hace 5 min');
+  await expect(page.locator('#linksBody .conn-row').nth(1).locator('small')).toHaveText('ESPN · hace 10 min');
   await expect(page.locator('#linksBody .sub-title')).toHaveText(['Mirando ahora', 'Los demás links']);
 
   // Abajo: primero el que tuvo un canal (desactivado, así que se ve apagado), y después el que nunca tuvo.
@@ -68,6 +68,6 @@ test('conexiones sin links mirando: lo dice en vez de dejar la sección vacía',
   await openConnections(page);
   await expect(page.locator('#linksBody .pc-stat').first()).toContainText('0 de 2');
   await expect(page.locator('#linksBody .help', { hasText: 'El proveedor no tiene conexiones abiertas ahora.' })).toBeVisible();
-  // El que abrió un canal hace más de una hora figura en «Los demás links», con su último canal.
+  // El que abrió un canal hace más de 15 minutos figura en «Los demás links», con su último canal.
   await expect(page.locator('#linksBody .conn-row', { hasText: 'Celu vieja' }).locator('small')).toHaveText('Último canal: ESPN · hace 5 h');
 });
