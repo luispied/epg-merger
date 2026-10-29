@@ -188,8 +188,9 @@ export async function touchDevice(bucket: R2Bucket, code: string, rec: ShortReco
 /** Último canal que abrió un link (sus streams pasan por el Worker: /s/<código>/…). El proveedor dice cuántas
  *  conexiones hay, no cuáles: con esto la web muestra qué links están mirando algo. Va aparte del link (play/), así
  *  cambiar de canal no reescribe short/. */
-export interface LastPlay { t: string; ch: string }
+export interface LastPlay { t: string; ch: string; p?: string }
 const PLAY_EVERY_MS = 5 * 60 * 1000;
+const PROGRAM_MAX = 120;
 
 export async function readPlay(bucket: R2Bucket, code: string): Promise<LastPlay | null> {
   const obj = await bucket.get(playKey(code));
@@ -203,12 +204,15 @@ export async function readPlay(bucket: R2Bucket, code: string): Promise<LastPlay
 }
 
 /** Anota el canal que abrió un link; el mismo canal, como mucho cada 5 minutos (hay reproductores que lo vuelven a pedir).
- *  Lo suma al historial del link (los últimos HIST_MAX). Devuelve si lo anotó. */
-export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date()): Promise<boolean> {
+ *  Lo suma al historial del link (los últimos HIST_MAX) con el programa que pasaba (`title`, si se puede saber).
+ *  Devuelve si lo anotó. */
+export async function notePlay(bucket: R2Bucket, code: string, ch: string, now = new Date(),
+  title?: (now: Date) => Promise<string | undefined>): Promise<boolean> {
   const prev = await readPlay(bucket, code);
   if (prev && prev.ch === ch && now.getTime() - Date.parse(prev.t) < PLAY_EVERY_MS) return false;
   const hist = await readHistory(bucket, code);
-  const point: LastPlay = { t: now.toISOString(), ch };
+  const p = await title?.(now).catch(() => undefined);
+  const point: LastPlay = { t: now.toISOString(), ch, ...(p ? { p: p.slice(0, PROGRAM_MAX) } : {}) };
   await Promise.all([
     bucket.put(playKey(code), JSON.stringify(point), JSON_TYPE),
     bucket.put(histKey(code), JSON.stringify([...hist, point].slice(-HIST_MAX)), JSON_TYPE),

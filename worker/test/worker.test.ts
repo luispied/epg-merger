@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { gzipSync } from 'node:zlib';
 import { parseConfig } from '../src/config.ts';
+import { notePlay, readHistory } from '../src/devices.ts';
 import { parseEvent, zonedToUtc } from '../src/events.ts';
 import { checkAllPush, encryptWebPush, expiryThreshold, notifyExpiry, notifyReminders } from '../src/push.ts';
 import { MAX_REMINDERS } from '../src/remind.ts';
@@ -143,6 +144,15 @@ test('links: abrir un canal anota cuál fue, para ver qué links están conectad
   assert.equal((await handle(req(`/api/cfg/${t.cfgId}/devices/${code}`, { method: 'DELETE', key: t.editKey }), t.env, t.ctx, t.cache)).status, 200);
   assert.ok(!bucket.data.has(`play/${code}.json`));
   assert.ok(!bucket.data.has(`hist/${code}.json`));
+});
+
+test('historial: cada apertura guarda el programa que daba, si la guía lo dice', async () => {
+  const t = await setup();
+  const at = new Date('2026-10-29T20:00:00Z');
+  await notePlay(t.env.BUCKET, 'abc123', '12', at, async () => 'Telenoticias');
+  await notePlay(t.env.BUCKET, 'abc123', '11', new Date(at.getTime() + 60_000), async () => undefined);
+  const items = await readHistory(t.env.BUCKET, 'abc123');
+  assert.deepEqual(items.map((x) => x.p), ['Telenoticias', undefined]);
 });
 
 test('playlist: link con token inválido o de otra configuración → 403', async () => {

@@ -55,7 +55,7 @@ import { addReport, createView, deleteReports, deleteView, readReports, readView
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
 import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
-import { deleteHabits, feedbackHabit, noteHabit, readHabits, validFeedback } from './habits.ts';
+import { deleteHabits, feedbackHabit, noteHabit, readHabits, titleAt, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
 import { cfgHour, gunzip, type Raw, readEntries, readStored, scheduleReader } from './schedule.ts';
@@ -236,12 +236,24 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
-/** Hábitos de «Tu noche» (habits.ts): el canal abierto, por su guía; sin guía no hay qué sugerir. */
-async function playHabit(env: Env, cfgId: string, profile: string, ch: string): Promise<void> {
+/** La guía (epg) del canal abierto de un link; sin guía no hay programa ni hábito que anotar. */
+async function epgOfChannel(env: Env, cfgId: string, ch: string): Promise<string | undefined> {
   const [list, stored] = await Promise.all([env.BUCKET.get(r2ListKey(cfgId)), loadConfig(env.BUCKET, cfgId)]);
   const found = list && stored ? (JSON.parse(await list.text()) as LiveList).channels.find((c) => c.id === ch) : undefined;
-  const epg = found ? stored!.config.channels[found.name]?.epg : undefined;
-  if (epg) await noteHabit(env.BUCKET, cfgId, profile, epg);
+  return (found ? stored!.config.channels[found.name]?.epg : undefined) || undefined;
+}
+
+/** Anota un canal abierto por un link: el historial (con el programa que pasaba, si la guía lo dice) y, para «Tu noche»
+ *  (habits.ts), el hábito. La guía se busca solo cuando hace falta: un link que pide el mismo canal no la lee. */
+async function notePlayed(env: Env, short: { cfgId: string; profile?: string }, code: string, ch: string): Promise<void> {
+  let guide: Promise<string | undefined> | undefined;
+  const epgOf = () => (guide ??= epgOfChannel(env, short.cfgId, ch));
+  const noted = await notePlay(env.BUCKET, code, ch, new Date(), async (now) => {
+    const epg = await epgOf();
+    return epg ? (await titleAt(env.BUCKET, epg, Math.floor(now.getTime() / 1000)))?.title : undefined;
+  });
+  const epg = noted ? await epgOf() : undefined;
+  if (epg) await noteHabit(env.BUCKET, short.cfgId, short.profile ?? '', epg);
 }
 
 // Canales de proveedores que separan secciones (▀▀▀ DEPORTES ▀▀▀): no se miran.
@@ -1039,8 +1051,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       const res = await serveStream(short.cfgId, short.token, parts[2], env, ctx, cache);
       const ch = /^([A-Za-z0-9_-]{1,64})\./.exec(parts[2])?.[1];
       if (res.status === 302 && ch) {
-        ctx.waitUntil(notePlay(env.BUCKET, parts[1], ch)
-          .then((noted) => (noted ? playHabit(env, short.cfgId, short.profile ?? '', ch) : undefined)).catch(() => {}));
+        ctx.waitUntil(notePlayed(env, short, parts[1], ch).catch(() => {}));
       }
       return res;
     }
