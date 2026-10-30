@@ -1192,12 +1192,13 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     // El canal 2 dio «down»: se vuelve a pedir una sola vez, en un pedido aparte.
     const probe = calls.filter((c) => c.path === '/v1/probe');
     assert.equal(probe.length, 2);
-    assert.deepEqual(probe[0].body.channels!.map((c) => c.id), ['1', '2', '3']);
+    // El oculto a mano (4) también se prueba, para saber si responde; los separadores y eventos no.
+    assert.deepEqual(probe[0].body.channels!.map((c) => c.id), ['1', '2', '3', '4']);
     assert.deepEqual(probe[1].body.channels!.map((c) => c.id), ['2']);
     assert.ok(probe.every((c) => c.body.username === 'user'));
     assert.equal(calls.filter((c) => c.path === '/v1/account').length, 1);
     let h = health();
-    assert.equal(h.tested, 3);
+    assert.equal(h.tested, 4); // incluido el oculto a mano
     assert.equal(h.total, 3);
     assert.equal(h.channels['2'].ok, false);
     assert.equal(h.channels['1'].ok, true);
@@ -1205,7 +1206,7 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
     assert.deepEqual(Object.values(h.accounts).map((a) => a.expires).sort(), ['2026-12-01T00:00:00+00:00', '2027-02-01T00:00:00+00:00']);
     assert.ok(!JSON.stringify(h).includes('pa ss'));
     // La primera vez se pide medir la resolución de todos; queda la medida o el intento, nada de lo no pedido.
-    assert.deepEqual(probe[0].body.channels!.map((c) => !!c.res), [true, true, true]);
+    assert.deepEqual(probe[0].body.channels!.map((c) => !!c.res), [true, true, true, false]); // al oculto no se le mide la resolución
     assert.deepEqual(h.res, { 1: { t: now.toISOString(), w: 1920, h: 1080 }, 3: { t: now.toISOString() } });
     // Una sola prueba por día: la próxima vuelta del cron no hace nada, salvo que alguien la pida a mano.
     const n = calls.length;

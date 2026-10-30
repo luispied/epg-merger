@@ -52,6 +52,8 @@ export interface HealthState {
   checked?: string;
   /** Canales que ocultó el sistema por caídos (aparte de lo que ocultó la persona a mano). */
   autoHidden?: string[];
+  /** Ocultos a mano que respondieron en la última prueba: la lista los muestra igual, a pedido de la persona. */
+  manualOpen?: string[];
   attempted?: string;
   tested?: number;
   total?: number;
@@ -85,6 +87,18 @@ export function autoHideDiff(seen: Record<string, Entry>, autoHidden: ReadonlySe
   const hide = Object.entries(seen).filter(([id, e]) => !e.ok && e.fails >= DOWN_AFTER && !autoHidden.has(id) && !manualHidden.has(id)).map(([id]) => id);
   const unhide = [...autoHidden, ...manualHidden].filter((id) => seen[id]?.ok === true);
   return { hide, unhide: [...new Set(unhide)] };
+}
+
+/** Canales ocultos a mano que valen la pena probar: solo para saber si responden (y desocultarlos si la persona lo pidió). */
+export function manualHiddenChannels(channels: Channel[], cfg: Config | null): Channel[] {
+  const edits = cfg?.channels ?? {};
+  const hiddenGroups = new Set(cfg?.groups?.hidden ?? []);
+  return channels.filter((ch) => {
+    const edit = edits[ch.name] ?? {};
+    const group = edit.group || ch.category;
+    if (!(edit.hidden || hiddenGroups.has(group))) return false;
+    return !(DIVIDER_RE.test(ch.category) || EVENT_RE.test(ch.category) || EVENT_RE.test(group));
+  });
 }
 
 /** Los n canales que hace más que no se prueban (los que nunca se probaron, primero). */
@@ -159,7 +173,11 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   let tested = 0;
   const list = await readJson<{ channels?: Channel[] }>(env, `list/${cfgId}.json`);
   const channels = visibleChannels(list?.channels ?? [], stored.config);
-  const known = new Set(channels.map((c) => c.id));
+  // Los ocultos a mano se prueban también (sin medir su resolución) para saber si responden.
+  const manual = manualHiddenChannels(list?.channels ?? [], stored.config);
+  const probeList = [...channels, ...manual];
+  const known = new Set(probeList.map((c) => c.id));
+  const manualIds = new Set(manual.map((c) => c.id));
   let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
   // Barrido: en la ventana, si quedan canales sin medir, esta corrida prueba y mide todo lo que alcance.
@@ -180,7 +198,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         // El perfil activo prueba los canales (en tandas) y, de paso, trae sus datos. Si cambió de perfil, lo que probó
         // la cuenta anterior no vale para esta: se empieza de cero.
         if (probedBy !== key) { seen = {}; probedBy = key; }
-        const pool = onlyDown ? channels.filter((c) => seen[c.id] && !seen[c.id].ok) : channels;
+        const pool = onlyDown ? probeList.filter((c) => seen[c.id] && !seen[c.id].ok) : probeList;
         const batch = pickBatch(pool, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS));
         // Un «Detener» de antes de empezar no vale para esta prueba.
         await env.BUCKET.delete(stopKey(cfgId));
@@ -189,7 +207,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         for (let i = 0; i < batch.length; i += CHUNK) {
           if (i && await env.BUCKET.head(stopKey(cfgId))) break;
           const chunk = batch.slice(i, i + CHUNK);
-          const measure = needsRes(chunk, seen, res, now, sweep ? CHUNK : RES_PER_CHUNK);
+          const measure = needsRes(chunk.filter((c) => !manualIds.has(c.id)), seen, res, now, sweep ? CHUNK : RES_PER_CHUNK);
           const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
             servers, username: u, password: p, channels: chunk.map((c) => ({ id: c.id, ext: c.ext, ...(measure.has(c.id) ? { res: true } : {}) })),
           }, 60_000);
@@ -236,10 +254,12 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   if (relayOk) out.relayOk = now.toISOString();
   else if (relayFail) out.relayFail = now.toISOString();
   // Ocultado automático: lo que cayó se oculta; lo que responde se desoculta (también lo ocultado a mano, a pedido de la persona).
-  const diff = autoHideDiff(seen, new Set(prev?.autoHidden ?? []), new Set());
+  const diff = autoHideDiff(seen, new Set(prev?.autoHidden ?? []), manualIds);
   const autoHidden = new Set([...(prev?.autoHidden ?? []), ...diff.hide]);
   for (const id of diff.unhide) autoHidden.delete(id);
   if (autoHidden.size) out.autoHidden = [...autoHidden]; else delete out.autoHidden;
+  const manualOpen = manual.map((c) => c.id).filter((id) => seen[id]?.ok === true);
+  if (manualOpen.length) out.manualOpen = manualOpen; else delete out.manualOpen;
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);
   await env.BUCKET.delete(progressKey(cfgId));
   await env.BUCKET.delete(stopKey(cfgId));
