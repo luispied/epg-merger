@@ -402,14 +402,78 @@ const sinceText = (iso: string) => {
   return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : min < 1440 ? `hace ${Math.round(min / 60)} h` : `hace ${Math.round(min / 1440)} d`;
 };
 
+const HOUR_MS = 3600 * 1000;
+/** Desde y hasta de la hora `i` de la barra (0 es la más vieja de las 24 horas, 23 la actual), en milisegundos. */
+const hourSpan = (i: number, now: number): [number, number] => {
+  const start = Math.floor(now / HOUR_MS) * HOUR_MS - (23 - i) * HOUR_MS;
+  return [start, start + HOUR_MS];
+};
+const clock = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`;
+
 function connectionsPage(account: string) {
   const a = myAccounts().find((x) => x.account === account);
   return a ? { title: 'Conexiones', node: <ConnectionsPage a={a} /> } : null;
 }
 
+/** Qué pasó en la hora abierta de la barra: el pico de conexiones y los links que abrieron un canal en esa hora. Pide el
+ *  historial de cada link (hist/ del Worker guarda sus últimos 30 canales), así que puede tardar un poco. */
+function HourDetail({ a, hour, now, peak, onClose }: { a: AccountView; hour: number; now: number; peak: number | null; onClose: () => void }) {
+  const [items, setItems] = useState<{ t: string; ch: string; dev: string }[] | null | 'bad'>(null);
+  const [tries, setTries] = useState(0);
+  const [from, to] = hourSpan(hour, now);
+  const codes = a.devices.map((d) => d.code).join();
+  useEffect(() => {
+    let live = true;
+    setItems(null);
+    Promise.allSettled(a.devices.map((d) =>
+      api<{ items: { t: string; ch: string }[] }>(`/api/cfg/${state.local!.cfgId}/devices/${d.code}/historial`)
+        .then((r) => r.items.map((x) => ({ ...x, dev: d.name })))))
+      .then((rs) => {
+        if (!live) return;
+        if (a.devices.length && rs.every((r) => r.status === 'rejected')) return setItems('bad');
+        const got = rs.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+        setItems(got.filter((x) => Date.parse(x.t) >= from && Date.parse(x.t) < to).sort((x, y) => y.t.localeCompare(x.t)));
+      });
+    return () => { live = false; };
+  }, [from, tries, codes]);
+  const chName = (id: string) => {
+    const c = state.channels.find((x) => x.id === id);
+    return c ? state.cfg?.channels[c.name]?.name || c.name : 'Un canal';
+  };
+  return (
+    <section class="hour-detail" aria-live="polite">
+      <div class="hour-detail-head">
+        <b>{clock(from)} a {clock(to)}</b>
+        <button type="button" class="chip-btn" onClick={onClose}>Cerrar</button>
+      </div>
+      <Help>{peak === null ? 'No hubo muestras en esta hora.' : `Pico: ${peak} ${peak === 1 ? 'conexión' : 'conexiones'} en uso, según el proveedor.`}</Help>
+      {items === null ? <Skeleton rows={2} /> : null}
+      {items === 'bad' ? (
+        <>
+          <Help>No se pudo cargar. Revisá la conexión y probá de nuevo.</Help>
+          <button type="button" class="btn btn-tonal btn-block" onClick={() => setTries(tries + 1)}><Icon name="refresh-cw" />Probar de nuevo</button>
+        </>
+      ) : null}
+      {items && items !== 'bad' ? (
+        items.length ? (
+          <section class="profile-card"><div class="device-list">
+            {items.map((x) => (
+              <div class="device" key={`${x.dev}-${x.t}`}>
+                <div class="device-info"><strong>{chName(x.ch)}</strong><small>{x.dev}</small></div>
+                <small>{clock(Date.parse(x.t))}</small>
+              </div>
+            ))}
+          </div></section>
+        ) : <Help>Ningún link abrió un canal en esta hora.</Help>
+      ) : null}
+    </section>
+  );
+}
+
 /** Qué links de una cuenta están conectados. El proveedor dice cuántas conexiones hay, no cuáles; nowline ve cuándo cada
  *  link abre un canal (sus streams pasan por el Worker) y pone arriba los que abrieron uno hace poco. */
 function ConnectionsPage({ a }: { a: AccountView }) {
+  const [hourOpen, setHourOpen] = useState<number | null>(null);
   const acc = accountData(a);
   const inUse = connectionsInUse(acc);
   const chName = new Map(state.channels.map((c) => [c.id, state.cfg?.channels[c.name]?.name || c.name]));
@@ -454,9 +518,14 @@ function ConnectionsPage({ a }: { a: AccountView }) {
       </div>
       {hist ? (
         <section class="conn-hours" aria-label="Últimas 24 horas">
-          <HourBars hours={hist.hours} max={Math.max(1, acc?.maxConnections ?? 0, ...hist.hours.map((n) => n ?? 0))} label="Conexiones en uso en las últimas 24 horas" />
+          <HourBars hours={hist.hours} max={Math.max(1, acc?.maxConnections ?? 0, ...hist.hours.map((n) => n ?? 0))} label="Conexiones en uso en las últimas 24 horas"
+            selected={hourOpen} onPick={(i) => setHourOpen(hourOpen === i ? null : i)}
+            hourName={(i) => `${clock(hourSpan(i, Date.now())[0])} a ${clock(hourSpan(i, Date.now())[1])}`} />
           <div class="conn-axis"><span>hace 24 h</span><span>ahora</span></div>
-          <small class="conn-legend">Verde sólido: la hora actual. Verde suave: horas con conexiones en uso.</small>
+          <small class="conn-legend">Verde sólido: la hora actual. Verde suave: horas con conexiones en uso. Tocá una barra para ver esa hora.</small>
+          {hourOpen !== null ? (
+            <HourDetail a={a} hour={hourOpen} now={Date.now()} peak={hist.hours[hourOpen] ?? null} onClose={() => setHourOpen(null)} />
+          ) : null}
         </section>
       ) : null}
       <SubTitle>Mirando ahora</SubTitle>
