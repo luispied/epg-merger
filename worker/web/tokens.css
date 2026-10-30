@@ -90,7 +90,8 @@
   /* Escalas (las pantallas las van adoptando; ver planes/auditoria-diseno.md) */
   --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 28px;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
-  --z-sticky: 3; --z-toolbar: 5; --z-page: 7; --z-tabbar: 8; --z-toast: 20; --z-sheet: 60; --z-menu: 200; --z-splash: 1000;
+  --z-sticky: 3; --z-toolbar: 5; --z-float: 6; --z-page: 7; --z-raised: 9; --z-bar: 15; --z-tabbar: 8; --z-banner: 30;
+  --z-toast: 20; --z-sheet: 60; --z-menu: 200; --z-splash: 1000;
   --dur-1: 120ms; --dur-2: 200ms; --dur-3: 280ms;
   --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-in: cubic-bezier(.4, 0, 1, 1);
 }
