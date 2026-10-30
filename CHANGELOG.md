@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.71.3
+
+- Worker: la prueba de salud guarda los canales que el sistema oculta por caídos (`autoHidden` en `health/<cfg>.json`), aparte de lo que ocultó la persona a mano. Todavía no cambia la lista. Ver `src/streamcheck.ts`.
+
 ## 1.71.2
 
 - Worker: la lógica de ocultado automático de caídos (`autoHideDiff` en `src/streamcheck.ts`): un canal caído se oculta solo y uno que responde se desoculta, también los ocultados a mano. Todavía no cambia la lista. Tests en `test/worker.test.ts`.
