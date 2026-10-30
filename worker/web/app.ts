@@ -3,7 +3,7 @@
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
 import {
-  channelAlias, EpgIndex, flagToCountryCode, MatchingRules, matchStream, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
+  channelAlias, EpgIndex, flagToCountryCode, MatchingRules, matchStream, sinEmoji, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
 import { sourceAlias } from '../src/crypto.ts';
@@ -822,7 +822,7 @@ function groupOf(ch: Channel) {
 }
 
 /** El nombre de una categoría o sección tal como se ve (el que le puso la persona, si lo cambió). */
-const groupLabel = (g: string) => state.cfg?.groups.rename?.[g] || g;
+const groupLabel = (g: string) => state.cfg?.groups.rename?.[g] || sinEmoji(g);
 
 /** Categorías en el orden guardado; las que no están en él, al final en el orden del proveedor. */
 function groups(): string[] {
