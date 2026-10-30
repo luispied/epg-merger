@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.70.2
+
+- Worker: entre pruebas del día, los canales caídos se vuelven a probar cada 3 horas, solo ellos, en una tanda chica (`src/streamcheck.ts`, `RECHECK_DOWN_MS`). Un caído que responde sale de caídos en la misma prueba. Test en `test/worker.test.ts`.
+
 ## 1.70.1
 
 - Worker: sin cambios.
