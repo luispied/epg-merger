@@ -50,6 +50,8 @@ interface Entry { t: string; ok: boolean; fails: number }
 export interface Res { t: string; w?: number; h?: number }
 export interface HealthState {
   checked?: string;
+  /** Canales que ocultó el sistema por caídos (aparte de lo que ocultó la persona a mano). */
+  autoHidden?: string[];
   attempted?: string;
   tested?: number;
   total?: number;
@@ -233,6 +235,11 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   if (primaryAccount) out.account = primaryAccount;
   if (relayOk) out.relayOk = now.toISOString();
   else if (relayFail) out.relayFail = now.toISOString();
+  // Ocultado automático: lo que cayó se oculta; lo que responde se desoculta (también lo ocultado a mano, a pedido de la persona).
+  const diff = autoHideDiff(seen, new Set(prev?.autoHidden ?? []), new Set());
+  const autoHidden = new Set([...(prev?.autoHidden ?? []), ...diff.hide]);
+  for (const id of diff.unhide) autoHidden.delete(id);
+  if (autoHidden.size) out.autoHidden = [...autoHidden]; else delete out.autoHidden;
   await env.BUCKET.put(`health/${cfgId}.json`, JSON.stringify(out), JSON_TYPE);
   await env.BUCKET.delete(progressKey(cfgId));
   await env.BUCKET.delete(stopKey(cfgId));
