@@ -19,7 +19,7 @@ import {
 import { Icon } from './icon.tsx';
 import { closeSheet } from './sheet.ts';
 import { changeTaste, deviceTz, loadTaste, openTasteSheet, pushEndpoint, tasteSummary, WHEN_HOURS, WHEN_LABEL, type TasteView } from './avisos-gusto.tsx';
-import { HourBars, Skeleton } from './kit.tsx';
+import { HourBars, Skeleton, SkeletonLine } from './kit.tsx';
 import { Settings } from './settings.tsx';
 import { AyudaPage } from './ayuda.tsx';
 import { toast } from './toast.tsx';
@@ -90,7 +90,7 @@ export async function renderLinks(result?: LinkResult) {
   if (result) return renderLinkResult(result);
   const body = linksBody();
   linksSub = null;
-  if (!body.firstElementChild) render(<p class="help">Cargando…</p>, body);
+  if (!body.firstElementChild) render(<div class="help"><SkeletonLine label="Cargando los dispositivos" /></div>, body);
   // Si lo que se tiene está al día (nada cambió desde que se bajó), se dibuja ya y se actualiza por detrás; si no, se espera.
   const sig = () => JSON.stringify([profileDevices, profileDefs, otherProviders.map((o) => [o.devices, o.profiles])]);
   if (profilesAt >= 0 && profilesAt === apiWrites && drawLinksView()) {

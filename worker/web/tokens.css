@@ -66,6 +66,7 @@
   --shadow-logo: light-dark(0 10px 30px rgba(60, 40, 0, .16), 0 2px 6px rgba(0, 0, 0, .08) | 0 12px 40px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .04)); /* el ícono grande de la pantalla de inicio */
 
   /* Formas */
+  --radius-xs: 4px; /* barras, marcas y bordes finos */
   --radius-sm: 10px;
   --radius: 14px;
   --radius-lg: 20px;
@@ -75,6 +76,16 @@
   --gutter: calc(16px + env(safe-area-inset-left, 0px));
   --tab-h: 56px;
   --rail-w: 92px; /* barra lateral de las pestañas en el escritorio ancho */
+
+  /* Velos y sombras que no cambian entre temas (las pantallas las usan en vez de un rgba() suelto) */
+  --scrim: rgba(0, 0, 0, .32); /* fondo de las hojas */
+  --logo-drop: drop-shadow(0 0 1px rgba(0, 0, 0, .55));
+  --shadow-side: -8px 0 24px rgba(0, 0, 0, .18);
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, .12);
+  --shadow-glass: 0 2px 10px rgba(0, 0, 0, .08);
+  --shadow-glass-lg: 0 10px 24px rgba(0, 0, 0, .16);
+  --glass-sheen: linear-gradient(155deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 55%);
+  --glass-prism: linear-gradient(135deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .1) 35%, rgba(255, 196, 240, .55) 60%, rgba(186, 230, 255, .55) 80%, rgba(255, 255, 255, .9));
 
   /* Escalas (las pantallas las van adoptando; ver planes/auditoria-diseno.md) */
   --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 15px; --fs-lg: 17px; --fs-xl: 20px; --fs-2xl: 28px;

@@ -9,7 +9,7 @@ import {
   nowPlaying, remindKey, schedule, state, toggleReminder, type NowPlaying, type ScheduleEntry,
 } from '../app.ts';
 import { Icon } from './icon.tsx';
-import { Progress } from './kit.tsx';
+import { Progress, SkeletonLine } from './kit.tsx';
 import { initials } from './mono.ts';
 import { loadTopics, titleKey } from './topics.ts';
 
@@ -178,7 +178,7 @@ export function DayProgram({ id }: { id: string }) {
     <>
       <button type="button" class="link-btn day-btn" aria-expanded={open} onClick={toggle}>Ver programación de hoy<Icon name="chevron-right" class="sm" /></button>
       <div class="day-list" hidden={!open}>
-        {!rows ? <div class="list-note">Cargando programación…</div>
+        {!rows ? <div class="list-note"><SkeletonLine label="Cargando la programación" /></div>
           : !rows.entries.length ? <div class="list-note">La guía no trae programación para las próximas horas.</div>
           : <DayRows id={id} entries={rows.entries} rem={rows.rem} />}
       </div>

@@ -27,8 +27,9 @@ test('tokens: web/tokens.css es el único lugar que define los tokens de :root',
 test('tokens: base.css y web.css piden colores a los tokens y no escriben el tema oscuro aparte', () => {
   for (const f of ['base.css', 'web.css']) {
     const css = readFileSync(new URL(`../web/${f}`, import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '');
-    // Un color fijo (#abc) va en tokens.css, con su claro y su oscuro; acá solo var(--…) (rgba() de sombras y velos, sí).
+    // Un color fijo (#abc o rgba()) va en tokens.css, con su claro y su oscuro; acá solo var(--…).
     assert.deepEqual(css.match(/#[0-9a-f]{3,8}\b/gi) ?? [], [], `${f} tiene colores fijos`);
+    assert.deepEqual(css.match(/rgba?\(/g) ?? [], [], `${f} tiene rgba() fuera de tokens.css`);
     // El oscuro de cada color lo resuelve tokens.css: nada de reglas propias para [data-theme] o el sistema en oscuro.
     assert.doesNotMatch(css, /data-theme|prefers-color-scheme/, `${f} escribe el tema oscuro aparte`);
   }

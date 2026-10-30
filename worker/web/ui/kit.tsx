@@ -48,6 +48,12 @@ export function Skeleton({ rows: fixed }: { rows?: number } = {}) {
   );
 }
 
+/** Una línea de esqueleto dentro de un texto (la programación, un dato que todavía no llegó): la misma barra que el
+ *  esqueleto de las tarjetas, sin la tarjeta. El texto «Cargando…» no se muestra; el lector de pantalla recibe `label`. */
+export function SkeletonLine({ label, w = 'w60' }: { label: string; w?: 'w40' | 'w60' }) {
+  return <span class="skel-line" role="status" aria-busy="true" aria-label={label}><span class={`bar ${w}`} /></span>;
+}
+
 /** Ítems que se ven en la franja [vt, vb), con `margin` px de más arriba y abajo. `offs[k]` es el comienzo del ítem `k` y
  *  `offs[n]` el total: devuelve [a, b), sin incluir b. Lo usan la Guía y la lista de Canales (alturas fijas, sin medir). */
 export function rangeOf(offs: number[], vt: number, vb: number, margin: number): [number, number] {

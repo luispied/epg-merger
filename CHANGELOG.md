@@ -11,6 +11,12 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.70.0
+
+- **Un solo tamaño de letra, espacio y radio.** Todo el texto usa la escala de tamaños (11, 12, 13, 15, 17, 20 y 28 px). Lo que era 14 px pasa a 13 px en lo secundario (fechas, detalles, rótulos) y a 15 px en lo que se lee de corrido. Los espacios entre elementos y los bordes redondeados también siguen la escala.
+- **Carga sin texto.** Donde decía «Cargando…» (la programación, los próximos programas, los dispositivos y el modo ver) aparece una barra de esqueleto, igual que en las listas.
+- Worker: sin cambios.
+
 ## 1.69.3
 
 - **Sin aviso de «nowline se actualizó» al abrir.** Con el aviso de versión nueva encima de la barra ya no hace falta el toast de arriba, que repetía lo mismo. Lo que cambió sigue en **Ver novedades**, al pie de Configuración.
