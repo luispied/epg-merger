@@ -31,7 +31,7 @@ async function openPerfiles(page: import('@playwright/test').Page) {
 test('la lista muestra la cuenta en uso y sus perfiles', async ({ page }) => {
   await openPerfiles(page);
   const body = page.locator('#linksBody');
-  await expect(body.locator('.provider-tag')).toHaveText('Mi proveedor');
+  await expect(body.locator('.provider-tag')).toHaveCount(0);
   await expect(body.locator('.account-row')).toContainText('Luis');
   await expect(body.locator('.account-row .pc-badge')).toHaveText('En uso');
   await expect(body.locator('.account-row small')).toContainText('1 de 2 en uso');
