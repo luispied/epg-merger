@@ -11,10 +11,18 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.71.1
+
+- **Categorías sin emoji.** Los nombres de categoría que trae el proveedor se muestran sin el emoji del principio (la bandera o el deporte) en Canales, Categorías, la Guía y el modo ver. Así quedan limpias y sin colores. TiviMate no cambia.
+- Worker: sin cambios.
+
+## 1.71.0
+
+- **Detalle de cada hora en Conexiones.** Tocá una barra de las 24 horas para ver esa hora: el pico de conexiones que dio el proveedor y los links que abrieron un canal en ella, con la hora de cada canal. Tocá otra barra para cambiarla, o la misma (o «Cerrar») para ocultarla. Sin tocar, no aparece nada.
+
 ## 1.70.3
 
-- **Categorías sin emoji.** Los nombres de categoría que trae el proveedor se muestran sin el emoji del principio (la bandera o el deporte) en Canales, Categorías y la Guía. Así quedan limpias y sin colores. TiviMate no cambia.
-- Worker: sin cambios.
+- **«Mirando» al abrir un canal.** Un link que abrió un canal hace menos de 15 minutos figura como mirando aunque el proveedor todavía no lo cuente, porque tarda 4 a 5 minutos en mostrar una conexión nueva. Los links más viejos siguen limitados a las conexiones que dice el proveedor. Ayuda de Conexiones actualizada.
 
 ## 1.70.2
 
