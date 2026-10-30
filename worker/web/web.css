@@ -774,7 +774,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 .card.section-card .section-name, .section-row .section-name, .cards.rows .card.section-card .section-name { color: var(--text); }
 .tip-head > .icon { color: var(--muted); }
 /* ---- Conexión y cambios pendientes ---- */
-.net-pill { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 24px);
+.net-pill { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: var(--z-banner); max-width: calc(100% - 24px);
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-full); background: var(--inverse-surface); color: var(--inverse-text);
   font-size: var(--fs-md); font-weight: 500; box-shadow: var(--shadow-lg); pointer-events: none; }
 .net-pill[hidden] { display: none; }
@@ -928,7 +928,7 @@ body, button, input, select, textarea { font-family: "Inter", Roboto, "Segoe UI"
 #editor main { padding-bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); }
 body.has-dock #tabbar { margin-right: auto; right: calc(12px + 440px); }
 /* Lo que pasa por detrás de la cápsula se ve desenfocado a través del vidrio (sin degradé del fondo). */
-.tabbar { z-index: 9; }
+.tabbar { z-index: var(--z-raised); }
 /* Escritorio ancho: la cápsula de abajo pasa a ser una barra lateral a la izquierda, así no flota sobre la Guía ni sobre
    la lista. La lista, la Guía y las páginas (Categorías, Perfil) se corren a su derecha. */
 @media (min-width: 1100px) and (hover: hover) {
@@ -1076,7 +1076,7 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 
 /* Tirar hacia abajo para recargar la grilla: un círculo que baja con el dedo y gira; listo para soltar, se pinta. */
 html { overscroll-behavior-y: contain; }
-.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 56px); left: 50%; z-index: 9; width: 40px; height: 40px; border-radius: 50%;
+.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 56px); left: 50%; z-index: var(--z-raised); width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; background: var(--surface); color: var(--muted); box-shadow: var(--shadow-lg);
   transform: translate(-50%, 0); transition: transform .2s ease, background .15s ease, color .15s ease, opacity .15s ease; pointer-events: none;
   opacity: 0; /* escondido del todo hasta que se tira: antes asomaba debajo de la barra de estado del iPhone */ }
@@ -1297,7 +1297,7 @@ dialog.sheet.page .sheet-body > .title-row > form[method="dialog"] { display: no
 .gd-teaser > .icon { flex: none; }
 @media (hover: hover) { .gd-teaser:hover { background: color-mix(in srgb, var(--accent-soft) 85%, var(--text)); } }
 /* «Ahora» flota sobre la grilla, arriba de la barra de pestañas, solo si la línea de ahora no se ve. */
-.gd-now-btn { position: absolute; z-index: 6; right: var(--gutter); bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow-lg); gap: var(--sp-2); }
+.gd-now-btn { position: absolute; z-index: var(--z-float); right: var(--gutter); bottom: calc(var(--tab-h) + 32px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow-lg); gap: var(--sp-2); }
 @media (min-width: 900px) { .gd-now-btn { right: 24px; bottom: 24px; } }
 .gd-time-chip { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; }
 .gd-time-chip .icon.sm { width: 16px; height: 16px; }

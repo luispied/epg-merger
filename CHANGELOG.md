@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.70.1
+
+- Worker: sin cambios.
+- Interno: los z-index que quedaban sueltos (barras, avisos, la marca de arriba y el botón de ahora) pasan a los tokens de capas. Sin cambios a la vista.
+
 ## 1.70.0
 
 - **Un solo tamaño de letra, espacio y radio.** Todo el texto usa la escala de tamaños (11, 12, 13, 15, 17, 20 y 28 px). Lo que era 14 px pasa a 13 px en lo secundario (fechas, detalles, rótulos) y a 15 px en lo que se lee de corrido. Los espacios entre elementos y los bordes redondeados también siguen la escala.

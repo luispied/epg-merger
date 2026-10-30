@@ -17,7 +17,7 @@ a { color: var(--accent); text-decoration: none; }
 /* App instalada en iPhone (status bar translúcida): una franja del color de la barra fija
    tapa la zona de la hora/batería para que el contenido no pase por debajo al hacer scroll. */
 body::before {
-  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-float);
   height: env(safe-area-inset-top, 0px); background: var(--toolbar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
 }
@@ -296,7 +296,7 @@ body.no-logos .logo { display: none; }
 .card.selected .sel-box { color: var(--accent); }
 .sel-box .icon { width: 22px; height: 22px; }
 .bulk-bar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-bar);
   display: flex; align-items: center;
   animation: slide-up .2s ease both;
 }
