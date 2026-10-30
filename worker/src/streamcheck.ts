@@ -77,6 +77,14 @@ export function visibleChannels(channels: Channel[], cfg: Config | null): Channe
   });
 }
 
+/** Qué ocultar y qué desocultar según la última prueba. Un canal caído (dos fallas seguidas) se oculta solo; uno que
+ *  responde se desoculta, sea que lo ocultó el sistema o a mano. Lo que ya está como corresponde no aparece. */
+export function autoHideDiff(seen: Record<string, Entry>, autoHidden: ReadonlySet<string>, manualHidden: ReadonlySet<string>): { hide: string[]; unhide: string[] } {
+  const hide = Object.entries(seen).filter(([id, e]) => !e.ok && e.fails >= DOWN_AFTER && !autoHidden.has(id) && !manualHidden.has(id)).map(([id]) => id);
+  const unhide = [...autoHidden, ...manualHidden].filter((id) => seen[id]?.ok === true);
+  return { hide, unhide: [...new Set(unhide)] };
+}
+
 /** Los n canales que hace más que no se prueban (los que nunca se probaron, primero). */
 export function pickBatch(channels: Channel[], seen: Record<string, Entry>, n: number): Channel[] {
   const key = (ch: Channel) => seen[ch.id]?.t ?? '';

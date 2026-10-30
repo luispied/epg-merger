@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.71.2
+
+- Worker: la lógica de ocultado automático de caídos (`autoHideDiff` en `src/streamcheck.ts`): un canal caído se oculta solo y uno que responde se desoculta, también los ocultados a mano. Todavía no cambia la lista. Tests en `test/worker.test.ts`.
+
 ## 1.71.1
 
 - **Categorías sin emoji.** Los nombres de categoría que trae el proveedor se muestran sin el emoji del principio (la bandera o el deporte) en Canales, Categorías, la Guía y el modo ver. Así quedan limpias y sin colores. TiviMate no cambia.

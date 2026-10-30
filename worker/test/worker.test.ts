@@ -9,7 +9,7 @@ import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited, routeKind } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
-import { checkAllHealth, inSweepWindow, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, unmeasuredCount, visibleChannels } from '../src/streamcheck.ts';
+import { autoHideDiff, checkAllHealth, inSweepWindow, isDue, needsRes, pickBatch, RES_EVERY_MS, runHealthCheck, unmeasuredCount, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { scheduleFile } from '../src/again.ts';
 import { gunzip } from '../src/schedule.ts';
@@ -1905,4 +1905,18 @@ test('caídos: entre pruebas del día se vuelven a probar cada 3 horas, solo ell
   } finally {
     globalThis.fetch = base;
   }
+});
+
+test('caídos: se ocultan al caer y se desocultan al responder, también los ocultados a mano', () => {
+  const seen = {
+    a: { t: 'x', ok: false, fails: 2 }, // caído: se oculta
+    b: { t: 'x', ok: false, fails: 1 }, // una falla: todavía no
+    c: { t: 'x', ok: true, fails: 0 }, // oculto por el sistema y responde: se desoculta
+    d: { t: 'x', ok: true, fails: 0 }, // oculto a mano y responde: se desoculta
+    e: { t: 'x', ok: false, fails: 3 }, // oculto a mano y caído: no se toca
+    f: { t: 'x', ok: false, fails: 2 }, // ya oculto por el sistema y caído: no cambia
+  };
+  const diff = autoHideDiff(seen, new Set(['c', 'f']), new Set(['d', 'e']));
+  assert.deepEqual(diff.hide, ['a']);
+  assert.deepEqual(diff.unhide.sort(), ['c', 'd']);
 });
