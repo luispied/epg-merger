@@ -37,16 +37,17 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
-test('más links mirando que conexiones: solo se muestran tantos como dice el proveedor', async ({ page }) => {
+test('un canal reciente cuenta como mirando aunque el proveedor marque menos (1.70.3)', async ({ page }) => {
+  // Los que abrieron un canal hace menos de 15 min figuran mirando; los más viejos siguen el tope del proveedor.
   await openConexiones(page, [dev('a', 'TV Ro', 1), dev('b', 'SYC', 4), dev('c', 'TV Living', 10)], 1);
   await expect(page.locator('#linksBody .conn-row').first()).toContainText('TV Ro');
-  await expect(page.locator('#linksBody .pc-stats')).toContainText('Link mirando');
+  await expect(page.locator('#linksBody .pc-stat').nth(1)).toContainText('3');
   await expect(page.locator('#linksBody .conn-row')).toHaveCount(3);
   await expect(page.locator('#linksBody')).not.toContainText('no aparecen');
 });
 
-test('sin conexiones en el proveedor no hay links mirando', async ({ page }) => {
-  await openConexiones(page, [dev('a', 'TV Ro', 1)], 0);
+test('sin conexiones en el proveedor y sin canales recientes no hay links mirando', async ({ page }) => {
+  await openConexiones(page, [dev('a', 'TV Ro', 60)], 0);
   await expect(page.locator('#linksBody')).toContainText('El proveedor no tiene conexiones abiertas ahora.');
 });
 

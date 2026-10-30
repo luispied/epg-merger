@@ -66,15 +66,25 @@ export function rangeOf(offs: number[], vt: number, vb: number, margin: number):
 }
 
 /** Las últimas 24 horas de conexiones en uso: una barra por hora, de la más vieja a la actual. La hora actual va en verde
- *  sólido; las demás horas con conexiones, en verde suave. Sin datos, la barra es un tramo chico del fondo. */
-export function HourBars({ hours, max, label }: { hours: (number | null)[]; max: number; label: string }) {
+ *  sólido; las demás horas con conexiones, en verde suave. Sin datos, la barra es un tramo chico del fondo. Con `onPick`
+ *  cada barra es un botón: `selected` marca la que está abierta. */
+export function HourBars({ hours, max, label, selected, onPick, hourName }: { hours: (number | null)[]; max: number; label: string; selected?: number | null; onPick?: (i: number) => void; hourName?: (i: number) => string }) {
+  const pick = (i: number) => (ev: Event) => { ev.preventDefault(); onPick?.(i); };
   return (
-    <div class="hour-bars" role="img" aria-label={label}>
+    <div class="hour-bars" role={onPick ? 'group' : 'img'} aria-label={label}>
       {hours.map((n, i) => (
         <i
           key={i}
           class={`${n ? 'on' : ''}${i === hours.length - 1 ? ' cur' : ''}`}
           style={{ height: `${n ? Math.max(8, Math.round((n / max) * 100)) : 4}%` }}
+          {...(onPick ? {
+            role: 'button',
+            tabIndex: 0,
+            'aria-pressed': selected === i,
+            'aria-label': hourName?.(i) ?? `Hora ${i + 1} de 24`,
+            onClick: pick(i),
+            onKeyDown: (ev: KeyboardEvent) => { if (ev.key === 'Enter' || ev.key === ' ') pick(i)(ev); },
+          } : {})}
         />
       ))}
     </div>

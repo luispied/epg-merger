@@ -1022,9 +1022,13 @@ button.pc-link > svg { position: absolute; right: 6px; top: 50%; translate: 0 -5
 .hour-bars i { display: block; background: var(--fill); border-radius: var(--radius-xs); }
 .hour-bars i.on { background: color-mix(in srgb, var(--live) 45%, var(--surface-2)); }
 .hour-bars i.cur { background: var(--live); }
+.hour-bars i[role="button"] { cursor: pointer; }
+.hour-bars i[aria-pressed="true"] { background: var(--fill); }
 .conn-axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--faint); font-variant-numeric: tabular-nums; }
 .conn-axis span:last-child { color: var(--text); font-weight: 700; }
 .conn-legend { font-size: var(--fs-sm); color: var(--muted); }
+.hour-detail { display: grid; gap: 10px; margin-top: 12px; }
+.hour-detail-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .conn-prof { font-weight: 400; color: var(--muted); }
 .profile-pick { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
 .profile-opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--radius);
