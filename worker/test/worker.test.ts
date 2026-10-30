@@ -1870,3 +1870,39 @@ test('perfil infantil: la guía que baja el reproductor sale sin lo que no es ap
   const plainText = await gunzip(new Uint8Array(await (await handle(new Request(plainLink.epgUrl), t.env, t.ctx, t.cache)).arrayBuffer()));
   assert.ok(plainText.includes('terror') && plainText.includes('Dibujitos'));
 });
+
+test('caídos: entre pruebas del día se vuelven a probar cada 3 horas, solo ellos, y vuelven si responden', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const ch = (id: string) => ({ name: `Canal ${id}`, category: 'Aire', id, ext: 'ts', icon: '', epgId: null });
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels: [ch('1'), ch('2')] }), uploaded: new Date() });
+  const now = new Date('2026-10-07T15:00:00Z'); // 12 h en Buenos Aires: fuera del barrido
+  const four = new Date(now.getTime() - 4 * 3600_000).toISOString();
+  bucket.data.set(`health/${t.cfgId}.json`, { value: JSON.stringify({
+    checked: four, attempted: four, probedBy: await accountKey('user', 'pa ss'), total: 2, tested: 2,
+    channels: { 1: { t: four, ok: true, fails: 0 }, 2: { t: four, ok: false, fails: 2 } },
+  }), uploaded: new Date() });
+  t.env.RELAY_URL = 'https://relay.example';
+  t.env.RELAY_SECRET = 'r'.repeat(40);
+  const probed: string[][] = [];
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.origin !== 'https://relay.example') return base(input, init);
+    const body = JSON.parse(String(init?.body));
+    if (url.pathname === '/v1/account') return new Response(JSON.stringify({ server: S1, account: {} }));
+    probed.push((body.channels ?? []).map((c: { id: string }) => c.id));
+    return new Response(JSON.stringify({ server: S1, account: {}, results: Object.fromEntries((body.channels ?? []).map((c: { id: string }) => [c.id, 'up'])) }));
+  }) as typeof fetch;
+  try {
+    // Hace 4 h se probó: no toca todavía con la prueba del día, pero el caído pasa a probarse solo.
+    assert.equal(await runHealthCheck(t.env, t.cfgId, now), true);
+    assert.deepEqual(probed, [['2']]);
+    const h = JSON.parse(bucket.data.get(`health/${t.cfgId}.json`)!.value) as { channels: Record<string, { ok: boolean; fails: number }> };
+    assert.deepEqual(h.channels['2'], { t: now.toISOString(), ok: true, fails: 0 });
+    // Recién probado: no vuelve a probar hasta dentro de 3 horas.
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 1800_000)), false);
+  } finally {
+    globalThis.fetch = base;
+  }
+});

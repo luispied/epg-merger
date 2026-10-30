@@ -19,6 +19,8 @@ import { relayConfigured, relayPost } from './relay.ts';
 
 /** Una sola prueba por día (la de la madrugada o una lanzada a mano). */
 export const CHECK_EVERY_MS = 20 * 3600 * 1000;
+/** Los caídos se vuelven a probar cada 3 horas, entre las pruebas del día. */
+export const RECHECK_DOWN_MS = 3 * 3600 * 1000;
 export const CHUNK = 50; // canales por pedido al relay
 export const MAX_CHUNKS = 4; // 200 canales por corrida
 const MAX_CONFIGS_PER_TICK = 5;
@@ -134,7 +136,10 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   // En la ventana del barrido se vuelve a mirar en cada tanda (aunque la prueba diaria ya haya corrido), si quedan canales sin medir.
   const inWindow = inSweepWindow(now);
   const sweepAgain = inWindow && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= SWEEP_EVERY_MS;
-  if (!dueNow && !sweepAgain) return false;
+  // Entre pruebas, los caídos se vuelven a probar cada 3 horas (solo ellos, en una tanda chica).
+  const hadDown = Object.values(prev?.channels ?? {}).some((e) => !e.ok);
+  const recheck = hadDown && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= RECHECK_DOWN_MS;
+  if (!dueNow && !sweepAgain && !recheck) return false;
   const tokens = await accountTokens(env.BUCKET, cfgId, stored.config.activeAccount);
   if (!tokens.length) return false;
   const servers = stored.config.provider.servers;
@@ -149,7 +154,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
   // Barrido: en la ventana, si quedan canales sin medir, esta corrida prueba y mide todo lo que alcance.
   const sweep = inWindow && unmeasuredCount(channels, seen, res) > 0;
-  if (!dueNow && !sweep) return false;
+  const onlyDown = !dueNow && !sweep;
+  if (onlyDown && !recheck) return false;
   let probedBy = prev?.probedBy;
   let first = true;
   let relayOk = false;
@@ -164,7 +170,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         // El perfil activo prueba los canales (en tandas) y, de paso, trae sus datos. Si cambió de perfil, lo que probó
         // la cuenta anterior no vale para esta: se empieza de cero.
         if (probedBy !== key) { seen = {}; probedBy = key; }
-        const batch = pickBatch(channels, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS));
+        const pool = onlyDown ? channels.filter((c) => seen[c.id] && !seen[c.id].ok) : channels;
+        const batch = pickBatch(pool, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS));
         // Un «Detener» de antes de empezar no vale para esta prueba.
         await env.BUCKET.delete(stopKey(cfgId));
         await putProgress(env, cfgId, { started: now.toISOString(), done: 0, total: batch.length, down: 0 });
