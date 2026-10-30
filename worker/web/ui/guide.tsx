@@ -11,6 +11,7 @@ import { Descripcion } from './sinopsis.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
 import { type Affinity, habitAffinity, type Habits, NEVER_SUGGEST, normTitle, planScore } from '../../../core/src/taste.ts';
+import { sinEmoji } from '../../../core/src/names.ts';
 export { type Affinity, genreTaste, habitAffinity, moreGenres, normTitle, planScore } from '../../../core/src/taste.ts';
 
 export interface GuideChannel {
@@ -335,7 +336,7 @@ function Guide({ channels, host }: { channels: GuideChannel[]; host: GuideHost }
   // de la app y los géneros de lo que se ve (en Tu noche, de lo que el plan podría proponer).
   const filterModel: FilterModel = {
     filter: 'todos', states: [], cats: sel,
-    categories: cats.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
+    categories: cats.map((c) => ({ key: c, label: sinEmoji(c), count: counts.get(c) ?? 0 })),
     genres: gsel, genreOptions: genres.map((g) => ({ key: g, label: g })),
   };
   const filterHandlers: FilterHandlers = { onState: () => {}, onCats: setSel, onGenres: setGsel };

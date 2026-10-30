@@ -157,6 +157,14 @@ export function stripDisplayPrefix(name: string, r: MatchingRules): [string, str
   return [clean || name, country];
 }
 
+/** Quita los emoji que el proveedor pone delante del nombre de una categoría («🇦🇷 Argentina» -> «Argentina»,
+ *  «⚽️ ESPN» -> «ESPN»). Solo para mostrar: la clave de la categoría sigue siendo la original. */
+const LEAD_EMOJI_RE = /^[\p{Extended_Pictographic}\p{Regional_Indicator}\u200D\uFE0F\s]+/u;
+export function sinEmoji(name: string): string {
+  const clean = name.replace(LEAD_EMOJI_RE, '').trim();
+  return clean || name;
+}
+
 /** Código de país del emoji de bandera ("🇦🇷" -> "ar"). */
 export function flagToCountryCode(text: string | null | undefined, r: MatchingRules): string | null {
   const cps = Array.from(text ?? '', (c) => c.codePointAt(0) as number);

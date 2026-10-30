@@ -10,6 +10,7 @@ import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx'
 import { BrandFoot, Progress, Skeleton, SkeletonLine } from './ui/kit.tsx';
 import { openNovedades } from './ui/novedades.tsx';
 import { installSheets } from './ui/sheet.ts';
+import { sinEmoji } from '../../core/src/index.ts';
 import { placeTabPill } from './ui/tabbar.ts';
 import { hideSplash } from './ui/splash.ts';
 import { loadTopics, titleKey, type TopicSearch } from './ui/topics.ts';
@@ -235,7 +236,7 @@ function ChannelSheet({ ch, id, code, now, close }: { ch: GuideChannel; id: stri
     <dialog class="sheet settings-sheet gd-sheet vw-sheet" ref={dlg} onClose={close} aria-label={ch.name}>
       <div class="sheet-body">
         <div class="title-row">
-          <div class="gd-sh-ch"><Logo ch={ch} cls="lg" /><div><strong>{ch.name}</strong><small>{ch.cat}</small></div></div>
+          <div class="gd-sh-ch"><Logo ch={ch} cls="lg" /><div><strong>{ch.name}</strong><small>{sinEmoji(ch.cat)}</small></div></div>
           <form method="dialog"><button class="icon-btn" aria-label="Cerrar"><Icon name="x" /></button></form>
         </div>
         {entries === undefined && <Skeleton rows={3} />}
@@ -374,7 +375,7 @@ function Channels({ code, data, channels, onOpen, onSettings, onLeave }: { code:
   const categories = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of channels) m.set(c.cat, (m.get(c.cat) ?? 0) + 1);
-    return [...m].map(([key, count]) => ({ key, label: key, count }));
+    return [...m].map(([key, count]) => ({ key, label: sinEmoji(key), count }));
   }, [channels]);
   const picked = cats.filter((c) => categories.some((x) => x.key === c));
   const model: FilterModel = { filter: 'todos', cats: picked, states: [], categories };
@@ -394,7 +395,7 @@ function Channels({ code, data, channels, onOpen, onSettings, onLeave }: { code:
   let last = '';
   for (const ch of shown) {
     if (!q.trim() && ch.cat !== last) {
-      out.push(<h2 key={`c:${ch.cat}`} class="vw-cat">{ch.cat}</h2>);
+      out.push(<h2 key={`c:${ch.cat}`} class="vw-cat">{sinEmoji(ch.cat)}</h2>);
       last = ch.cat;
     }
     out.push(<Row key={ch.i} ch={ch} now={now} info={ch.epg ? (info ? info.get(ch.epg) ?? {} : undefined) : {}} open={() => onOpen(ch)} />);

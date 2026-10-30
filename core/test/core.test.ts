@@ -6,7 +6,7 @@ import { gunzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import {
   channelAlias, ChannelDb, EpgIndex, foldKey, isChannelAlias, MatchingRules, MIN_SCORE, calibratedScore, flagToCountryCode, matchStream,
-  parseChannelName, pickDisplayName, stripDisplayPrefix, tvgIdCountry, variantKey, type GuideChannel, type SourceInfo,
+  parseChannelName, pickDisplayName, sinEmoji, stripDisplayPrefix, tvgIdCountry, variantKey, type GuideChannel, type SourceInfo,
 } from '../src/index.ts';
 
 const rules = new MatchingRules(JSON.parse(readFileSync(new URL('../../matching_rules.json', import.meta.url), 'utf-8')));
@@ -120,4 +120,11 @@ test('guía enmascarada: con alias, clave del id plegado y región, el matching 
     }
   }
   assert.ok(total > 1000);
+});
+
+test('sinEmoji: quita el emoji de bandera o de deporte del nombre de una categoría', () => {
+  assert.equal(sinEmoji('🇦🇷 Argentina'), 'Argentina');
+  assert.equal(sinEmoji('⚽️ ESPN'), 'ESPN');
+  assert.equal(sinEmoji('Deportes'), 'Deportes');
+  assert.equal(sinEmoji('🏈'), '🏈');
 });
