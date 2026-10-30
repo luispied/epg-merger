@@ -6,7 +6,7 @@ import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ActiveFilters, FilterToggle, type FilterHandlers, type FilterModel } from './filtros.tsx';
 import { Icon } from './icon.tsx';
-import { Progress, rangeOf } from './kit.tsx';
+import { Progress, SkeletonLine, rangeOf } from './kit.tsx';
 import { Descripcion } from './sinopsis.tsx';
 import { initials } from './mono.ts';
 import { toast } from './toast.tsx';
@@ -681,7 +681,7 @@ function Upcoming({ channels, genres, now, again, open, budget, setBudget }: {
             onInput={(e) => setBudget(Number((e.currentTarget as HTMLInputElement).value))} />
         </div>
       )}
-      {!ready && !recent.length && !next.length ? <p class="gd-up-empty">Cargando…</p> : (
+      {!ready && !recent.length && !next.length ? <div class="gd-up-empty"><SkeletonLine label="Cargando los próximos programas" /></div> : (
         <>
           {recent.length > 0 && (
             <section>

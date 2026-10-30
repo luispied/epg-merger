@@ -2121,7 +2121,7 @@ async function useOtherAccount(cfgId: string, account: string) {
   if (!o) return;
   try {
     await api(`/api/cfg/${cfgId}/active`, { method: 'PUT', key: o.editKey, body: { account } });
-    toast(`Cuenta en uso: ${accountName(account, o.mainName)} (${o.name}). Cargando su grilla…`, 'ok', 6000);
+    toast(`Cuenta en uso: ${accountName(account, o.mainName)} (${o.name}). Abriendo su grilla…`, 'ok', 6000);
     await switchProvider(cfgId);
   } catch (e) {
     toast((e as Error).message, 'bad', 6000);
@@ -2331,7 +2331,7 @@ async function waitForList(say: (t: string) => void): Promise<Channel[]> {
   const started = Date.now();
   for (;;) {
     const minutes = Math.floor((Date.now() - started) / 60000);
-    say(`Cargando tu lista de canales… puede tardar unos minutos${minutes ? ` (van ${minutes})` : ''}. Podés cerrar esta página y volver más tarde.`);
+    say(`Armando tu lista de canales… puede tardar unos minutos${minutes ? ` (van ${minutes})` : ''}. Podés cerrar esta página y volver más tarde.`);
     try {
       const list = await api<{ channels: Channel[] }>(`/api/cfg/${state.local!.cfgId}/list`);
       if (list.channels?.length) return list.channels;

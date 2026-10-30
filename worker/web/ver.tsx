@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import { Icon } from './ui/icon.tsx';
 import { AyudaPage } from './ui/ayuda.tsx';
 import { ActiveFilters, FilterToggle, type FilterModel } from './ui/filtros.tsx';
-import { BrandFoot, Progress, Skeleton } from './ui/kit.tsx';
+import { BrandFoot, Progress, Skeleton, SkeletonLine } from './ui/kit.tsx';
 import { openNovedades } from './ui/novedades.tsx';
 import { installSheets } from './ui/sheet.ts';
 import { placeTabPill } from './ui/tabbar.ts';
@@ -166,7 +166,7 @@ function Row({ ch, info, now, open }: { ch: GuideChannel; info?: { cur?: Prog; n
             {info?.next && <span class="vw-when vw-next">Después: {info.next.m ? MASKED : info.next.t}</span>}
           </>
         ) : (
-          <span class="vw-when">{ch.epg ? (info === undefined ? 'Cargando…' : 'Sin programación ahora') : 'Sin guía'}</span>
+          <span class="vw-when">{ch.epg ? (info === undefined ? <SkeletonLine label="Cargando la programación" w="w40" /> : 'Sin programación ahora') : 'Sin guía'}</span>
         )}
       </span>
       <Icon name="chevron-right" class="vw-chev" />
