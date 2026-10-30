@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.72.0
+
+- Worker: la prueba de canales también mira los canales que ocultaste a mano, para saber si responden (`manualHiddenChannels` en `src/streamcheck.ts`). No se les mide la resolución. El resultado queda en `manualOpen` de la prueba de salud. La lista todavía no cambia.
+
 ## 1.71.3
 
 - Worker: la prueba de salud guarda los canales que el sistema oculta por caídos (`autoHidden` en `health/<cfg>.json`), aparte de lo que ocultó la persona a mano. Todavía no cambia la lista. Ver `src/streamcheck.ts`.
