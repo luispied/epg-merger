@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.70.3
+
+- **«Mirando» al abrir un canal.** Un link que abrió un canal hace menos de 15 minutos figura como mirando aunque el proveedor todavía no lo cuente, porque tarda 4 a 5 minutos en mostrar una conexión nueva. Los links más viejos siguen limitados a las conexiones que dice el proveedor. Ayuda de Conexiones actualizada.
+
 ## 1.70.2
 
 - Worker: entre pruebas del día, los canales caídos se vuelven a probar cada 3 horas, solo ellos, en una tanda chica (`src/streamcheck.ts`, `RECHECK_DOWN_MS`). Un caído que responde sale de caídos en la misma prueba. Test en `test/worker.test.ts`.
