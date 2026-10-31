@@ -54,7 +54,7 @@ import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './p
 import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport, viewManifest } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
-import { checkAllHealth, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
+import { checkAllHealth, healthHidden, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, titleAt, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
@@ -222,9 +222,12 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   }
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const logoUrl = await logoResolver(env, url.origin, logos);
+  const hidden = await healthHidden(env, cfgId);
   const text = buildPlaylist(list.channels, cfg, {
     filter,
     logoUrl,
+    autoHidden: hidden.autoHidden,
+    manualOpen: hidden.manualOpen,
     separatorUrl: `${url.origin}/sep`,
     epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {

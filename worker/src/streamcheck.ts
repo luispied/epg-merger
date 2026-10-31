@@ -90,6 +90,12 @@ export function autoHideDiff(seen: Record<string, Entry>, autoHidden: ReadonlySe
 }
 
 /** Canales ocultos a mano que valen la pena probar: solo para saber si responden (y desocultarlos si la persona lo pidió). */
+/** Lo que decidió la última prueba sobre los ocultos: lo que oculta el sistema y lo ocultado a mano que responde. */
+export async function healthHidden(env: Env, cfgId: string): Promise<{ autoHidden: Set<string>; manualOpen: Set<string> }> {
+  const h = await readJson<HealthState>(env, `health/${cfgId}.json`);
+  return { autoHidden: new Set(h?.autoHidden ?? []), manualOpen: new Set(h?.manualOpen ?? []) };
+}
+
 export function manualHiddenChannels(channels: Channel[], cfg: Config | null): Channel[] {
   const edits = cfg?.channels ?? {};
   const hiddenGroups = new Set(cfg?.groups?.hidden ?? []);
