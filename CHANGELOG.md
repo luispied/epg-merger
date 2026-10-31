@@ -16,6 +16,10 @@ nombres de código.
 - **Los canales caídos se ocultan solos en la lista de TiviMate.** Un canal que cae dos veces seguidas sale de la playlist, y vuelve cuando responde. Un canal que ocultaste a mano y responde vuelve a salir. Lo que ocultaste a mano y sigue caído no cambia.
 - Worker: `buildPlaylist` recibe `autoHidden` y `manualOpen` desde `healthHidden` (`src/playlist.ts`, `src/streamcheck.ts`, `src/index.ts`). Tests en `test/worker.test.ts`.
 
+## 1.72.1
+
+- **Categorías sin emoji también en TiviMate.** La playlist ya no manda el emoji del principio del nombre de una categoría (la bandera o el deporte), ni en el group-title ni en los separadores. Un nombre propio con emoji tampoco se muestra con él. Hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.
+
 ## 1.72.0
 
 - Worker: la prueba de canales también mira los canales que ocultaste a mano, para saber si responden (`manualHiddenChannels` en `src/streamcheck.ts`). No se les mide la resolución. El resultado queda en `manualOpen` de la prueba de salud. La lista todavía no cambia.
