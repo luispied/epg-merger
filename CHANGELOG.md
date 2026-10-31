@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.74.0
+
+- **Canales caídos en la lista.** Un canal que la prueba ocultó sola aparece en Canales apagado, con «Oculto por caído» y la marca **Caído** a la derecha. No se puede ocultar ni mostrar a mano: vuelve solo cuando responde. Sigue en el filtro **Caídos** y en **Ocultos**.
+- Worker: la lista de canales lee `autoHidden` de la prueba de salud (`web/app.ts`, `web/ui/canales.tsx`).
+
 ## 1.73.0
 
 - **Los canales caídos se ocultan solos en la lista de TiviMate.** Un canal que cae dos veces seguidas sale de la playlist, y vuelve cuando responde. Un canal que ocultaste a mano y responde vuelve a salir. Lo que ocultaste a mano y sigue caído no cambia.

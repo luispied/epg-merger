@@ -64,7 +64,7 @@
 
     <details>
       <summary>¿Qué muestra cada filtro?<span data-icon="chevron-down"></span></summary>
-      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con guía dudosa o sin guía pero con una sugerencia. <b>Sin guía</b>: canales que todavía no tienen guía. <b>Elegidos a mano</b>: los que elegiste vos, incluidos los que dejaste sin guía a propósito. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist. Las categorías marcadas <b>Sin guía</b> no cuentan en «A revisar» ni en el filtro «Sin guía».</p>
+      <p><b>Todos</b>: toda la playlist. <b>A revisar</b>: canales con guía dudosa o sin guía pero con una sugerencia. <b>Sin guía</b>: canales que todavía no tienen guía. <b>Elegidos a mano</b>: los que elegiste vos, incluidos los que dejaste sin guía a propósito. <b>Editados</b>: renombrados, movidos u ocultos. <b>Ocultos</b>: los que sacaste de la playlist, y los <b>Caídos</b> que la prueba ocultó sola. Las categorías marcadas <b>Sin guía</b> no cuentan en «A revisar» ni en el filtro «Sin guía».</p>
       <p>Tres filtros aparecen solo cuando hacen falta: <b>Nuevos</b> (canales que trajo tu proveedor), <b>Sin programación</b> (desde Salud de la guía) y <b>Caídos</b> (desde Canales caídos, en la página de la cuenta en uso).</p>
     </details>
 
@@ -258,7 +258,7 @@
       </details>
       <details>
         <summary>Canales caídos<span data-icon="chevron-down"></span></summary>
-        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), nowline prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Mientras prueba, arriba de la lista de canales aparece una franja con cuántos lleva y cuántos cayeron hasta ahora (<b>Probando 50 de 180 · 3 caídos</b>); <b>Detener</b> la corta y guarda lo que alcanzó a probar. Al terminar, un aviso dice cuántos quedaron caídos y <b>Ver</b> los muestra. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b> y ocultarlos si querés: nowline solo avisa, no oculta nada. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
+        <p>Una vez por día, de madrugada (o cuando tocás <b>Probar ahora</b> en la fila «Canales caídos» de la cuenta en uso, también una sola vez por día), nowline prueba con esa cuenta una tanda de tus canales (unos 200 por vez, de a uno, sin bajar video) y deja el resultado en su página en unos minutos. Mientras prueba, arriba de la lista de canales aparece una franja con cuántos lleva y cuántos cayeron hasta ahora (<b>Probando 50 de 180 · 3 caídos</b>); <b>Detener</b> la corta y guarda lo que alcanzó a probar. Al terminar, un aviso dice cuántos quedaron caídos y <b>Ver</b> los muestra. Un canal figura como <b>caído</b> cuando falló dos pruebas seguidas. Tocá la fila para verlos en el filtro <b>Caídos</b>. Un canal que cae dos pruebas seguidas se oculta solo de la lista de TiviMate (queda en <b>Ocultos</b> y en la lista de Canales, marcado <b>Caído</b>), y vuelve a salir apenas responde. Si lo ocultaste vos a mano y responde, también vuelve a salir. Lo que ocultaste a mano y sigue caído no cambia. Esa marca no se puede tocar: se va sola. La lista completa se recorre en varios días; los eventos sueltos (PPV) no se prueban porque casi siempre están apagados.</p>
         <p>La prueba, la suscripción y la lista del proveedor pasan por un servicio aparte que habla con tu proveedor. Si deja de responder, la fila dice <b>«sin probar desde hace 3 días»</b> y arriba de los canales aparece un aviso («La lista del proveedor no se actualiza desde hace 5 h»): mientras tanto todo sigue andando con lo último que se bajó, pero los canales nuevos y los datos de la cuenta van a tardar en aparecer.</p>
       </details>
       <details>
@@ -300,6 +300,10 @@
 <details>
   <summary>Perfil infantil<span data-icon="chevron-down"></span></summary>
   <p>Si este perfil es infantil, solo se ven programas aptos para chicos: lo demás dice <b>No disponible en este perfil</b>, con su horario, en los canales, en la Guía y en Tu plan, y no aparece en la búsqueda ni en Próximos. Quien armó la grilla elige qué géneros entran. Lo que todavía no se clasificó tampoco se muestra, así que al principio se ve poco y se va completando. Para cambiarlo hace falta la clave de edición, que este modo no tiene.</p>
+</details>
+<details>
+  <summary>Caído<span data-icon="chevron-down"></span></summary>
+  <p>Un canal con la marca <b>Caído</b> no anda hace dos pruebas seguidas: ya no sale en tu lista de TiviMate y vuelve solo cuando responde. Se ve apagado y no se puede tocar desde acá.</p>
 </details>
 <details>
   <summary>¿En la tele dan otra cosa?<span data-icon="chevron-down"></span></summary>
