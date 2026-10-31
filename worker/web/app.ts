@@ -880,7 +880,9 @@ function computeInfo(ch: Channel) {
   const edit = state.cfg!.channels[ch.name] ?? {};
   const auto = state.auto.get(ch.name);
   const epg = edit.epg ?? null;
-  const hidden = !!edit.hidden || state.cfg!.groups.hidden.includes(groupOf(ch));
+  // Caído: la prueba lo ocultó sola (la playlist ya no lo manda). Sin «Ocultar» a mano hasta que responda.
+  const caido = !edit.hidden && !!streamHealth?.autoHidden?.includes(ch.id);
+  const hidden = !!edit.hidden || caido || state.cfg!.groups.hidden.includes(groupOf(ch));
   // "purpose": lo dejaste sin EPG a propósito (es una decisión tuya, no un canal sin resolver).
   // Hasta que el cruce de esta apertura corre, ninguna fila dice «Sin EPG» ni «Dudoso»: no hay dato todavía.
   const band: Band = edit.manual ? (epg ? 'manual' : 'purpose') : !guideReady ? 'loading' : epg ? ((auto?.score ?? 0) >= GOOD ? 'ok' : 'warn') : 'none';
@@ -888,14 +890,14 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
+  return { edit, auto, epg, hidden, caido, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
 }
 
 // ------------------------------------------------------------------ canales caídos
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; res?: Record<string, { t: string; w?: number; h?: number }>; progress?: { done: number; total: number; down: number } }
+interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; autoHidden?: string[]; manualOpen?: string[]; res?: Record<string, { t: string; w?: number; h?: number }>; progress?: { done: number; total: number; down: number } }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 
@@ -1034,12 +1036,14 @@ function matchesFilter(ch: Channel, filter: string) {
     // "Elegidos a mano", con lo demás que decidiste vos.
     case 'sin-epg': return !i.hidden && !i.noGuide && !i.divider && !i.epg && i.band !== 'purpose';
     case 'manual': return i.band === 'manual' || i.band === 'purpose';
-    case 'caidos': return !i.hidden && !i.divider && i.down;
+    // Los caídos que la prueba ocultó siguen en este filtro: son los que hay que mirar.
+    case 'caidos': return !i.divider && i.down && (i.caido || !i.hidden);
     case 'sin-prog': return !i.hidden && !i.noGuide && !i.divider && i.prog === 'dead';
     case 'nuevos': return state.newNames.has(ch.name);
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
-    default: return !i.hidden;
+    // Los caídos que la prueba ocultó se ven en su lugar, apagados (B2), no desaparecen de la lista.
+    default: return !i.hidden || i.caido;
   }
 }
 
@@ -2870,7 +2874,7 @@ function setupEditor() {
   cards.addEventListener('pointerdown', (ev) => {
     if (selection.active || cards.classList.contains('grid') || (ev.target as HTMLElement).closest('.row-more')) return;
     const card = (ev.target as HTMLElement).closest<HTMLElement>('.row-card[data-i]');
-    if (card) sw = { card, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
+    if (card && !card.classList.contains('is-caido')) sw = { card, x: ev.clientX, y: ev.clientY, dx: 0, on: false };
   });
   cards.addEventListener('pointermove', (ev) => {
     if (!sw) return;

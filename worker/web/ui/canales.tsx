@@ -215,13 +215,13 @@ function edgeOf(items: Item[], k: number): string {
 
 function Card({ i, edge = '' }: { i: number; edge?: string }) {
   const ch = state.channels[i];
-  const { edit, epg, hidden, band, suggestion, divider, auto, q } = info(ch);
+  const { edit, epg, hidden, caido, band, suggestion, divider, auto, q } = info(ch);
   const ev = eventOf(ch);
   const shown = edit.name || ev?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
   const picked = selection.items.has(i);
   const selBox = sel && <span class="sel-box" aria-hidden="true"><Icon name={picked ? 'square-check' : 'square'} /></span>;
-  const cls = `${hidden ? ' is-hidden' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}`;
+  const cls = `${hidden ? ' is-hidden' : ''}${caido ? ' is-caido' : ''}${sel ? ' selectable' : ''}${picked ? ' selected' : ''}`;
   if (divider) {
     const title = sectionTitle(groupLabel(groupOf(ch)));
     return (
@@ -236,7 +236,7 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
   const guideName = epg ? guideLabel(epg) : '';
   const cc = epg ? state.index?.country.get(epg) : undefined;
   const sug = !epg && !edit.manual ? suggestion : null;
-  const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden ? 'oculto' : '']
+  const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden && !caido ? 'oculto' : '']
     .filter(Boolean).map((m) => <span key={m} class="mark">{m}</span>);
   let guide;
   if (sug) {
@@ -249,17 +249,18 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
   } else {
     guide = <span class="guide none">{edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>;
   }
-  const label = `${shown}${q ? `, ${q.label}` : ''}, ${epg ? `guía ${guideName}` : 'sin guía'}${hidden ? ', oculto' : ''}`;
+  const label = `${shown}${q ? `, ${q.label}` : ''}, ${caido ? 'oculto por caído' : epg ? `guía ${guideName}` : 'sin guía'}${hidden && !caido ? ', oculto' : ''}`;
   return (
     <article class={`card row-card${cls}${edge ? ` ${edge}` : ''}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
       <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r"><Icon name="ban" />Sin guía</span><span class="sw sw-l"><Icon name={hidden ? 'eye' : 'eye-off'} />{hidden ? 'Mostrar' : 'Ocultar'}</span></span>
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{guide}{marks}
+        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
           {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
+        {caido && <button class="chip-btn caido-chip" type="button" disabled tabindex={-1}>Caído</button>}
         {sug ? <button type="button" class="btn btn-gray sm" data-use={i}>Usar</button> : <StatusMark band={band} score={auto?.score} />}
         <button type="button" class="icon-btn sm row-more" data-more={i} aria-label={`Más acciones: ${shown}`} aria-haspopup="menu"><Icon name="ellipsis" /></button>
       </div>
