@@ -72,7 +72,7 @@ export interface PlaylistRow {
 }
 
 /** Los canales que ve un perfil, con las ediciones y en el orden guardado (lo mismo que la playlist). */
-export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
+export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'manualOpen'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
   const noEpg = new Set(cfg.groups?.noEpg ?? []);
   // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
