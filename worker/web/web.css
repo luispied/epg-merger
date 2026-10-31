@@ -117,6 +117,10 @@ dialog .search-field { background: var(--surface-2); }
 .chip-btn { min-height: 32px; border-radius: var(--radius-sm); background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--chip-line); font-weight: 500; padding: 0 12px; }
 @media (hover: hover) { .chip-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); } }
 .chip-btn[aria-pressed="true"] { box-shadow: none; }
+/* Chip que no se puede tocar (p. ej. «Caído»): mismo borde, letra apagada, sin cursor de botón. */
+.chip-btn:disabled { color: var(--faint); background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); cursor: default; }
+.caido-sub { color: var(--muted); }
+.caido-chip { flex: none; }
 /* Filtros de la lista de Canales (ui/filtros.tsx): el botón con su contador, los chips de lo puesto y la hoja. */
 .filter-btn { position: relative; flex: none; }
 .filter-btn .count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
