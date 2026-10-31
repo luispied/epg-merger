@@ -3,6 +3,7 @@
 // día) → tal cual, sin EPG; los que ya no están, no salen.
 import type { Config } from './config.ts';
 import { placeNewGroups } from './groups.ts';
+import { sinEmoji } from '../../core/src/names.ts';
 import type { Channel } from './provider.ts';
 
 // Sin mecanismo de escape en M3U: un '"' literal rompería el atributo (ver _m3u_attr).
@@ -78,7 +79,8 @@ export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<Playli
   // Orden propio dentro de la categoría: los listados primero, el resto en el orden del proveedor.
   const within = new Map(Object.entries(cfg.groups?.channels ?? {}).map(([g, names]) => [g, new Map(names.map((n, i) => [n, i]))]));
   const rename = cfg.groups?.rename ?? {};
-  const label = (g: string) => rename[g] || g;
+  // Sin emoji: TiviMate muestra el group-title tal cual (la clave de la categoría no cambia).
+  const label = (g: string) => sinEmoji(rename[g] || g);
   const rows: { group: number; pos: number; row: PlaylistRow }[] = [];
   const fGroups = new Set(opts.filter?.groups ?? []);
   const fChannels = new Set(opts.filter?.channels ?? []);

@@ -98,7 +98,7 @@ test('playlist: lista en vivo con ediciones, ocultos, orden y canales nuevos', a
   assert.equal(lines[0], `#EXTM3U url-tvg="${BASE}/g/${code}.xml.gz"`);
   // Orden: la categoría guardada primero; la nueva ("PPV / Eventos"), al final.
   assert.match(lines[1], /tvg-id="ESPN" .*group-title="Deportes AR",ESPN$/);
-  assert.match(lines[3], /tvg-id="Telefe.ar" tvg-name="Telefe" tvg-logo="https:\/\/g\/telefe.png" group-title="🇦🇷 Argentina",Telefe$/);
+  assert.match(lines[3], /tvg-id="Telefe.ar" tvg-name="Telefe" tvg-logo="https:\/\/g\/telefe.png" group-title="Argentina",Telefe$/);
   // Canal nuevo: tal cual, sin EPG ni logo; '/' fuera del group-title.
   assert.match(lines[5], /tvg-id="Evento del día" tvg-name="Evento del día" tvg-logo="" group-title="PPV - Eventos"/);
   assert.equal(lines[6], `${BASE}/s/${code}/12.ts`);
@@ -495,6 +495,19 @@ test('playlist: logo propio y orden propio de los canales dentro de la categorí
   assert.deepEqual(names, ['C', 'A', 'B']);
   assert.match(text, /tvg-name="B" tvg-logo="https:\/\/mi\.logo\/b\.png"/);
   assert.match(text, /tvg-name="C" tvg-logo="https:\/\/guia\/c\.png"/);
+});
+
+test('playlist: el group-title de TiviMate no lleva emoji (ni el nombre que le pongan)', () => {
+  const cfg = parseConfig({
+    provider: { type: 'm3u' },
+    channels: {},
+    groups: { order: [], hidden: [], rename: { '⚽️ ESPN': '🏈 NFL' } },
+  });
+  const ch = (name: string, category: string) => ({ name, category, id: name, ext: 'ts', icon: '', epgId: null });
+  const text = buildPlaylist([ch('A', '🇦🇷 Argentina'), ch('B', '⚽️ ESPN'), ch('C', 'Noticias')], cfg, { epgUrl: '', streamUrl: (c) => `/s/${c.id}` });
+  const titles = [...text.matchAll(/group-title="([^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(titles, ['Argentina', 'NFL', 'Noticias']);
+  assert.doesNotMatch(text, /\p{Extended_Pictographic}/u);
 });
 
 test('config: preferencias de cruce importadas de GitHub (validadas)', () => {

@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.72.1
+
+- **Categorías sin emoji también en TiviMate.** La playlist ya no manda el emoji del principio del nombre de una categoría (la bandera o el deporte), ni en el group-title ni en los separadores. Un nombre propio con emoji tampoco se muestra con él. Hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.
+
 ## 1.72.0
 
 - Worker: la prueba de canales también mira los canales que ocultaste a mano, para saber si responden (`manualHiddenChannels` en `src/streamcheck.ts`). No se les mide la resolución. El resultado queda en `manualOpen` de la prueba de salud. La lista todavía no cambia.

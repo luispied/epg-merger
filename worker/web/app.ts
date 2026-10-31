@@ -822,7 +822,7 @@ function groupOf(ch: Channel) {
 }
 
 /** El nombre de una categoría o sección tal como se ve (el que le puso la persona, si lo cambió). */
-const groupLabel = (g: string) => state.cfg?.groups.rename?.[g] || sinEmoji(g);
+const groupLabel = (g: string) => sinEmoji(state.cfg?.groups.rename?.[g] || g);
 
 /** Categorías en el orden guardado; las que no están en él, al final en el orden del proveedor. */
 function groups(): string[] {
