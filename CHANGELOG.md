@@ -11,10 +11,6 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.77.2
-
-- **La calidad en el nombre va en mayúsculas.** Las etiquetas quedan como **ꜰᴴᴰ** (FHD) y **ꜱᴰ** (SD), con **ᴴᴰ** y **⁴ᴷ** como antes. Unicode no tiene F ni S en mayúscula como superíndice, así que se usan las versiones de letra pequeña, que van a la altura de la línea y no arriba. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
-
 ## 1.77.1
 
 - Worker: el barrido de calidad (1 a 9 h) usa la zona horaria de Montevideo (`src/streamcheck.ts`). El horario no cambia: Montevideo y la otra zona tienen el mismo desfase.
