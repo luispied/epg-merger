@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.76.2
+
+- **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Si lo movés, queda propio de ese perfil, y «Igual que la cuenta» lo devuelve a lo de la cuenta. Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
+
 ## 1.76.0
 
 - **Emoji en las categorías, a elección.** En Perfil, cada cuenta tiene «Emoji en las categorías» (apagado, como hoy). Los perfiles lo heredan y pueden pisarlo con «Mostrar» u «Ocultar» en su sección Categorías. Vale para la app y para la playlist de TiviMate, pero hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.

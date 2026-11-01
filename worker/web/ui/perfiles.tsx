@@ -667,33 +667,31 @@ function EmojiAccountRow({ a }: { a: AccountView }) {
   );
 }
 
-/** Un perfil: «Como la cuenta» (sin dato), «Mostrar» o «Ocultar». Un solo control de tres opciones, como las Preferencias. */
+/** Un perfil: un interruptor que sigue a la cuenta hasta que se mueve; entonces queda propio del perfil, y «Igual que la
+ *  cuenta» lo devuelve a lo de la cuenta (el Worker guarda `emoji` solo cuando hay un valor propio). */
 function EmojiProfileRows({ p, a }: { p: ProfileView; a: AccountView }) {
-  const cur = p.emoji === undefined ? 'cuenta' : p.emoji ? 'mostrar' : 'ocultar';
-  const pick = async (v: 'cuenta' | 'mostrar' | 'ocultar') => {
-    if (v === cur) return;
+  const cuenta = cuentaMuestraEmoji(a.account);
+  const on = p.emoji ?? cuenta;
+  const propio = p.emoji !== undefined;
+  const save = async (v: boolean | null) => {
     try {
-      await profileApi(p.id, 'PUT', { emoji: v === 'cuenta' ? null : v === 'mostrar' });
+      await profileApi(p.id, 'PUT', { emoji: v });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
     void renderLinks();
   };
-  const heredado = cuentaMuestraEmoji(a.account) ? 'con emoji' : 'sin emoji';
-  const opts: [typeof cur, string][] = [['cuenta', 'Como la cuenta'], ['mostrar', 'Mostrar'], ['ocultar', 'Ocultar']];
   return (
     <>
       <SubTitle>Categorías</SubTitle>
       <div class="menu">
-        <div class="menu-row static">
+        <label class="menu-row static">
           <span class="menu-icon"><Icon name="sparkles" /></span>
-          <span class="menu-text">Emoji en las categorías<small>{cur === 'cuenta' ? `Como la cuenta: ${heredado}` : cur === 'mostrar' ? 'Este perfil lo muestra' : 'Este perfil lo oculta'}</small></span>
-        </div>
-        <div class="seg" role="radiogroup" aria-label={`Emoji en las categorías de ${p.name}`} style={{ display: 'flex', margin: '0 16px 14px' }}>
-          {opts.map(([v, label]) => (
-            <button key={v} type="button" role="radio" aria-checked={cur === v} style={{ flex: 1, padding: '0 4px', whiteSpace: 'nowrap', fontSize: 14 }} onClick={() => void pick(v)}>{label}</button>
-          ))}
-        </div>
+          <span class="menu-text">Emoji en las categorías<small>{propio ? 'Propio de este perfil' : `Igual que la cuenta: ${cuenta ? 'con emoji' : 'sin emoji'}`}</small></span>
+          <input type="checkbox" class="switch" role="switch" aria-label={`Emoji en las categorías de ${p.name}`} checked={on}
+            onChange={(ev) => { const v = ev.currentTarget.checked; ev.currentTarget.checked = on; void save(v); }} />
+        </label>
+        {propio ? <MenuRow ico="undo-2" title="Igual que la cuenta" chevron={false} sub={`La cuenta lo tiene ${cuenta ? "con emoji" : "sin emoji"}`} onClick={() => void save(null)} /> : null}
       </div>
     </>
   );

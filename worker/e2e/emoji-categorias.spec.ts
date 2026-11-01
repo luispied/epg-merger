@@ -23,24 +23,26 @@ for (const theme of ['light', 'dark'] as const) {
     });
 
     const body = (page: Page) => page.locator('#linksBody');
-    const seg = (page: Page) => body(page).getByRole('radiogroup', { name: 'Emoji en las categorías de Chicos' });
+    const sw = (page: Page) => body(page).getByRole('switch', { name: 'Emoji en las categorías de Chicos' });
 
-    test('el perfil: Como la cuenta por defecto, Mostrar lo guarda y Como la cuenta lo quita', async ({ page }, info) => {
+    test('el perfil: sigue a la cuenta, moverlo lo deja propio y «Igual que la cuenta» lo devuelve', async ({ page }, info) => {
       await page.locator('#tabLinks').click();
       await body(page).locator('.profile-row.sub-row', { hasText: 'Chicos' }).click();
       await expect(page.locator('#linksTitle')).toHaveText('Chicos');
-      await expect(seg(page).getByRole('radio', { name: 'Como la cuenta' })).toHaveAttribute('aria-checked', 'true');
-      await expect(body(page)).toContainText('Como la cuenta: sin emoji');
-      await page.screenshot({ path: `${process.env.SHOTS ?? "test-results"}/emoji-${info.project.name}-${theme}-perfil-cuenta.png` });
+      await expect(sw(page)).not.toBeChecked();
+      await expect(body(page)).toContainText('Igual que la cuenta: sin emoji');
+      await expect(body(page).getByRole('button', { name: /Igual que la cuenta/ })).toHaveCount(0);
+      await page.screenshot({ path: `${process.env.SHOTS ?? 'test-results'}/emoji-${info.project.name}-${theme}-perfil-cuenta.png` });
 
-      await seg(page).getByRole('radio', { name: 'Mostrar' }).click();
-      await expect(seg(page).getByRole('radio', { name: 'Mostrar' })).toHaveAttribute('aria-checked', 'true');
-      await expect(body(page)).toContainText('Este perfil lo muestra');
+      await sw(page).click();
+      await expect(sw(page)).toBeChecked();
+      await expect(body(page)).toContainText('Propio de este perfil');
       expect(fake.writes.at(-1)).toMatchObject({ method: 'PUT', path: '/api/cfg/c1/profiles/p2', body: { emoji: true } });
-      await page.screenshot({ path: `${process.env.SHOTS ?? "test-results"}/emoji-${info.project.name}-${theme}-perfil-mostrar.png` });
+      await page.screenshot({ path: `${process.env.SHOTS ?? 'test-results'}/emoji-${info.project.name}-${theme}-perfil-mostrar.png` });
 
-      await seg(page).getByRole('radio', { name: 'Como la cuenta' }).click();
-      await expect(seg(page).getByRole('radio', { name: 'Como la cuenta' })).toHaveAttribute('aria-checked', 'true');
+      await body(page).getByRole('button', { name: /Igual que la cuenta/ }).click();
+      await expect(sw(page)).not.toBeChecked();
+      await expect(body(page)).toContainText('Igual que la cuenta: sin emoji');
       expect(fake.writes.at(-1)).toMatchObject({ method: 'PUT', path: '/api/cfg/c1/profiles/p2', body: { emoji: null } });
     });
 
