@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.76.3
+
+- **La línea de «ahora» va por encima de la grilla.** En la Guía, la línea que marca la hora actual pasa por encima de los programas, en vez de quedar debajo de cada bloque. La marca de la hora no se corta contra la columna de canales.
+
 ## 1.76.2
 
 - **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Su texto dice si coincide con la cuenta («Igual que la cuenta») o si es distinto («Distinto de la cuenta»). Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
