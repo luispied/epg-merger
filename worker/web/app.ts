@@ -882,6 +882,8 @@ function computeInfo(ch: Channel) {
   const epg = edit.epg ?? null;
   // Caído: la prueba lo ocultó sola (la playlist ya no lo manda). Sin «Ocultar» a mano hasta que responda.
   const caido = !edit.hidden && !!streamHealth?.autoHidden?.includes(ch.id);
+  // Oculto a mano pero responde: TiviMate lo recibe igual (la playlist lo deja salir).
+  const enTivi = !!edit.hidden && !!streamHealth?.manualOpen?.includes(ch.id);
   const hidden = !!edit.hidden || caido || state.cfg!.groups.hidden.includes(groupOf(ch));
   // "purpose": lo dejaste sin EPG a propósito (es una decisión tuya, no un canal sin resolver).
   // Hasta que el cruce de esta apertura corre, ninguna fila dice «Sin EPG» ni «Dudoso»: no hay dato todavía.
@@ -890,7 +892,7 @@ function computeInfo(ch: Channel) {
   const noGuide = !!state.cfg!.groups.noEpg?.includes(groupOf(ch));
   const divider = DIVIDER_RE.test(ch.category) || headersNow().has(groupOf(ch));
   const suggestion = !epg && !edit.manual && !divider ? auto?.ranked.find((c) => c.nameScore >= 0.3) ?? null : null;
-  return { edit, auto, epg, hidden, caido, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
+  return { edit, auto, epg, hidden, caido, enTivi, band, suggestion, noGuide, divider, prog: epg ? progOf(epg) : null, down: isDown(ch), q: qualityOf(ch) };
 }
 
 // ------------------------------------------------------------------ canales caídos
@@ -1043,7 +1045,7 @@ function matchesFilter(ch: Channel, filter: string) {
     case 'editados': return !!(i.edit.name || i.edit.group || i.edit.hidden);
     case 'ocultos': return i.hidden;
     // Los caídos que la prueba ocultó se ven en su lugar, apagados (B2), no desaparecen de la lista.
-    default: return !i.hidden || i.caido;
+    default: return !i.hidden || i.caido || i.enTivi;
   }
 }
 

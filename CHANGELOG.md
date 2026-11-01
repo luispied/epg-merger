@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.75.0
+
+- **Un canal que ocultaste a mano y responde se ve como lo que es.** Sigue oculto en Canales, pero con la marca **Sale en TiviMate: responde**: TiviMate lo recibe igual.
+- Worker: la lista de canales lee `manualOpen` de la prueba de salud (`web/app.ts`, `web/ui/canales.tsx`).
+
 ## 1.74.0
 
 - **Canales caídos en la lista.** Un canal que la prueba ocultó sola aparece en Canales apagado, con «Oculto por caído» y la marca **Caído** a la derecha. No se puede ocultar ni mostrar a mano: vuelve solo cuando responde. Sigue en el filtro **Caídos** y en **Ocultos**.
