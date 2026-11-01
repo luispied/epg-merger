@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.75.1
+
+- **Lo que ocultaste a mano queda fuera de TiviMate, responda o no.** Solo vuelven los caídos que la prueba ocultó, cuando responden. Se saca la marca «Sale en TiviMate: responde».
+- Worker: la playlist ya no lee `manualOpen` (`src/playlist.ts`, `src/index.ts`, `src/streamcheck.ts`).
+
 ## 1.75.0
 
 - **Un canal que ocultaste a mano y responde se ve como lo que es.** Sigue oculto en Canales, pero con la marca **Sale en TiviMate: responde**: TiviMate lo recibe igual.

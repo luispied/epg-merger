@@ -51,9 +51,8 @@ export interface PlaylistOptions {
   separatorUrl?: string;
   /** Dirección con la que sale el logo que eligió la guía (por el Worker: ver logos.ts). */
   logoUrl?: (url: string) => string;
-  /** Lo que decidió la prueba de caídos: los que el sistema oculta, y los ocultos a mano que responden (se muestran). */
+  /** Lo que decidió la prueba de caídos: los que el sistema oculta (lo ocultado a mano queda fuera igual). */
   autoHidden?: ReadonlySet<string>;
-  manualOpen?: ReadonlySet<string>;
 }
 
 /** Un canal tal como sale en la playlist (y en el modo «solo ver»), ya ordenado. */
@@ -73,7 +72,7 @@ export interface PlaylistRow {
 }
 
 /** Los canales que ve un perfil, con las ediciones y en el orden guardado (lo mismo que la playlist). */
-export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'manualOpen'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
+export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
   const noEpg = new Set(cfg.groups?.noEpg ?? []);
   // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
@@ -91,8 +90,7 @@ export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<Playli
   channels.forEach((ch, pos) => {
     const edit = cfg.channels[ch.name] ?? {};
     const group = edit.group || ch.category;
-    const open = opts.manualOpen?.has(ch.id) ?? false;
-    if (opts.autoHidden?.has(ch.id) || (edit.hidden && !open) || hiddenGroups.has(group)) return;
+    if (opts.autoHidden?.has(ch.id) || edit.hidden || hiddenGroups.has(group)) return;
     // Con perfil: un canal listado entre los de una categoría que se pide completa sigue el mismo criterio.
     if (!passes(opts.filter, group, ch.name, fGroups, fChannels)) return;
     // Un separador del proveedor (el canal se llama como su categoría) toma el nombre nuevo.
