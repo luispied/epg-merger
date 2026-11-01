@@ -40,6 +40,8 @@ export interface Config {
   /** Perfil activo: la cuenta adicional (nombre de `account` de sus links) con la que se prueban los canales y se baja la
    *  lista. Sin dato = la cuenta principal. */
   activeAccount?: string;
+  /** Cuentas que muestran el emoji de las categorías (el `account` de cada una; «» = la principal). Apagado = sin emoji. */
+  emojiAccounts?: string[];
   /** Nombre del perfil de la cuenta principal (sin dato: «Tu cuenta»). Los demás perfiles se llaman como su `account`. */
   mainName?: string;
   /** Perfiles (ver planes/perfiles.md): dentro de una cuenta, un nombre y qué ve. Sus links llevan el id en `profile`
@@ -55,6 +57,8 @@ export interface ProfileDef {
   filter?: DeviceFilter;
   /** Código del link «solo ver» del perfil (ver view.ts). */
   view?: string;
+  /** Emoji de las categorías en este perfil: sin dato = lo que decide su cuenta (ver showEmoji). */
+  emoji?: boolean;
   /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
   kids?: Kids;
 }
@@ -72,7 +76,8 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const filter = parseFilter(r.filter);
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
     const kids = parseKids(r.kids);
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}) });
+    const emoji = typeof r.emoji === 'boolean' ? r.emoji : undefined;
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(emoji !== undefined ? { emoji } : {}) });
   }
   return out;
 }
@@ -201,6 +206,7 @@ export function parseConfig(raw: unknown): Config {
   const custom = strList(g.custom, 2000);
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const profiles = parseProfiles(r.profiles);
+  const emojiAccounts = [...new Set(strList(r.emojiAccounts, 50).map((a) => a.trim().replace(/\s+/g, ' ').slice(0, 30)))];
   const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const separators = strList(g.separators, 2000);
   return {
@@ -211,6 +217,7 @@ export function parseConfig(raw: unknown): Config {
     ...(activeAccount ? { activeAccount } : {}),
     ...(mainName ? { mainName } : {}),
     ...(profiles.length ? { profiles } : {}),
+    ...(emojiAccounts.length ? { emojiAccounts } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),
@@ -251,3 +258,10 @@ export async function authorized(request: Request, keyHash: string): Promise<boo
   const m = /^Bearer\s+(\S+)$/.exec(request.headers.get('Authorization') ?? '');
   return !!m && !!keyHash && (await sha256Hex(m[1])) === keyHash;
 }
+
+/** ¿Muestra el emoji de las categorías esta cuenta? («» = la principal). Apagado por defecto. */
+export const accountShowsEmoji = (config: Config, account = ''): boolean => (config.emojiAccounts ?? []).includes(account);
+
+/** Emoji de un perfil: lo que él eligió, o si no, lo de su cuenta (Proveedor > Cuenta > Perfil). */
+export const showEmoji = (config: Config, profile?: ProfileDef): boolean =>
+  profile?.emoji ?? accountShowsEmoji(config, profile?.account ?? '');

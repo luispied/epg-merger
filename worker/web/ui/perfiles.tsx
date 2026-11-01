@@ -380,6 +380,7 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
         <>
           <SubTitle>Cuenta</SubTitle>
           <div class="menu">
+            <EmojiAccountRow a={a} />
             <MenuRow ico="pencil" title="Nombre" sub={a.name} onClick={() => void renameAccount(a)} />
             <MenuRow ico="key-round" title={xtream ? 'Usuario y contraseña' : 'URL de la lista'} sub="Si cambiaron en tu proveedor: los links quedan iguales"
               onClick={() => openSub({ k: 'creds', a })} />
@@ -593,6 +594,7 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
         <MenuRow ico="key-round" title="Cuenta" sub={a.name} cls={canChangeAccount ? '' : 'static'} chevron={canChangeAccount}
           onClick={canChangeAccount ? () => openSub({ k: 'profile-account', p, a }) : undefined} />
       </div>
+      {other ? null : <EmojiProfileRows p={p} a={a} />}
       {other ? null : <KidsRows p={p} />}
       {other ? null : <TasteRows p={p} />}
       <SubTitle>Links</SubTitle>
@@ -637,6 +639,65 @@ const KIDS_ALWAYS = ['Infantil', 'Educativo'];
 const KIDS_OPTIONAL = ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'];
 /** «Infantil, Educativo y Documental». */
 const listY = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}` : xs[0] ?? '');
+
+// ------------------------------------------------------------------ emoji de las categorías
+// Proveedor > Cuenta > Perfil: la cuenta prende o apaga el emoji (apagado por defecto); cada perfil lo hereda o lo pisa.
+// Lo aplican la app y la playlist (src/config.ts: showEmoji).
+const cuentaMuestraEmoji = (account: string) => (state.cfg?.emojiAccounts ?? []).includes(account);
+
+function EmojiAccountRow({ a }: { a: AccountView }) {
+  const on = cuentaMuestraEmoji(a.account);
+  const toggle = async (v: boolean) => {
+    try {
+      const r = await api<{ emojiAccounts: string[] }>(`/api/cfg/${state.local!.cfgId}/account-emoji`, { method: 'PUT', body: { account: a.account, on: v } });
+      state.cfg!.emojiAccounts = r.emojiAccounts;
+      toast(v ? 'Las categorías de esta cuenta llevan emoji' : 'Las categorías de esta cuenta se ven sin emoji', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  return (
+    <label class="menu-row static">
+      <span class="menu-icon"><Icon name="sparkles" /></span>
+      <span class="menu-text">Emoji en las categorías<small>{on ? 'Se ven con su emoji, como las manda el proveedor' : 'Se ven sin emoji. Cada perfil lo puede cambiar'}</small></span>
+      <input type="checkbox" class="switch" role="switch" aria-label={`Emoji en las categorías de ${a.name}`} checked={on}
+        onChange={(ev) => { const v = ev.currentTarget.checked; ev.currentTarget.checked = on; void toggle(v); }} />
+    </label>
+  );
+}
+
+/** Un perfil: «Como la cuenta» (sin dato), «Mostrar» o «Ocultar». Un solo control de tres opciones, como las Preferencias. */
+function EmojiProfileRows({ p, a }: { p: ProfileView; a: AccountView }) {
+  const cur = p.emoji === undefined ? 'cuenta' : p.emoji ? 'mostrar' : 'ocultar';
+  const pick = async (v: 'cuenta' | 'mostrar' | 'ocultar') => {
+    if (v === cur) return;
+    try {
+      await profileApi(p.id, 'PUT', { emoji: v === 'cuenta' ? null : v === 'mostrar' });
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  const heredado = cuentaMuestraEmoji(a.account) ? 'con emoji' : 'sin emoji';
+  const opts: [typeof cur, string][] = [['cuenta', 'Como la cuenta'], ['mostrar', 'Mostrar'], ['ocultar', 'Ocultar']];
+  return (
+    <>
+      <SubTitle>Categorías</SubTitle>
+      <div class="menu">
+        <div class="menu-row static">
+          <span class="menu-icon"><Icon name="sparkles" /></span>
+          <span class="menu-text">Emoji en las categorías<small>{cur === 'cuenta' ? `Como la cuenta: ${heredado}` : cur === 'mostrar' ? 'Este perfil lo muestra' : 'Este perfil lo oculta'}</small></span>
+        </div>
+        <div class="seg" role="radiogroup" aria-label={`Emoji en las categorías de ${p.name}`} style={{ display: 'flex', margin: '0 16px 14px' }}>
+          {opts.map(([v, label]) => (
+            <button key={v} type="button" role="radio" aria-checked={cur === v} style={{ flex: 1, padding: '0 4px', whiteSpace: 'nowrap', fontSize: 14 }} onClick={() => void pick(v)}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 
 function KidsRows({ p }: { p: ProfileView }) {
   const toggle = async (on: boolean) => {

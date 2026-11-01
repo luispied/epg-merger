@@ -46,6 +46,8 @@ interface Config {
   groups: { order: string[]; hidden: string[]; noEpg?: string[]; channels?: Record<string, string[]>; rename?: Record<string, string>; custom?: string[]; separators?: string[] };
   /** Cómo elige la guía la corrida de GitHub (importado): se usa igual para los canales nuevos. */
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
+  /** Cuentas con emoji en las categorías («» = la principal). Apagado por defecto (ver config.ts). */
+  emojiAccounts?: string[];
   /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
    *  Se cambia con PUT …/active (ver «perfiles»). */
   activeAccount?: string;
@@ -822,7 +824,11 @@ function groupOf(ch: Channel) {
 }
 
 /** El nombre de una categoría o sección tal como se ve (el que le puso la persona, si lo cambió). */
-const groupLabel = (g: string) => sinEmoji(state.cfg?.groups.rename?.[g] || g);
+const groupLabel = (g: string) => {
+  const name = state.cfg?.groups.rename?.[g] || g;
+  // Emoji según la cuenta en uso (Proveedor > Cuenta); apagado = sin emoji.
+  return (state.cfg?.emojiAccounts ?? []).includes(state.cfg?.activeAccount ?? '') ? name : sinEmoji(name);
+};
 
 /** Categorías en el orden guardado; las que no están en él, al final en el orden del proveedor. */
 function groups(): string[] {
@@ -2022,7 +2028,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] } }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] }; emoji?: boolean }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];

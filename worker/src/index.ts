@@ -39,7 +39,7 @@
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
-  type Config, type ProfileDef } from './config.ts';
+  type Config, type ProfileDef, accountShowsEmoji, showEmoji } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
 import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readHistory, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
@@ -198,7 +198,7 @@ function disabledPlaylist(origin: string, code: string): Response {
   return new Response(text, { headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8', 'Cache-Control': 'no-store' } });
 }
 
-async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string, filter?: DeviceFilter): Promise<Response> {
+async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, ctx: Ctx, cache: SimpleCache, short?: string, filter?: DeviceFilter, profile?: string): Promise<Response> {
   const stored = await loadConfig(env.BUCKET, cfgId);
   if (!stored) return new Response('Configuración inexistente', { status: 404 });
   const creds = await decryptToken(env.TOKEN_KEY, cfgId, token);
@@ -223,8 +223,11 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const logoUrl = await logoResolver(env, url.origin, logos);
   const hidden = await healthHidden(env, cfgId);
+  // El emoji de las categorías lo decide el perfil del link (o su cuenta); sin perfil, la cuenta principal.
+  const prof = findProfile(cfg, profile);
   const text = buildPlaylist(list.channels, cfg, {
     filter,
+    emoji: prof ? showEmoji(cfg, prof) : accountShowsEmoji(cfg, ''),
     logoUrl,
     autoHidden: hidden.autoHidden,
     manualOpen: hidden.manualOpen,
@@ -289,7 +292,7 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   if (!list) return fail(409, 'todavía no hay canales para mostrar');
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const rows = playlistRows((JSON.parse(await list.text()) as LiveList).channels, cfg,
-    { filter: profile.filter, logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
+    { filter: profile.filter, emoji: showEmoji(cfg, profile), logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
   // Como en la web: una categoría decorativa, o una con un solo canal que se llama igual, es un separador.
   const rawGroup = (r: (typeof rows)[number]) => cfg.channels[r.ch!.name]?.group || r.ch!.category;
   const size = new Map<string, number>();
@@ -297,7 +300,7 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   const channels = rows
     .filter((r) => r.ch && !DIVIDER_RE.test(rawGroup(r)) && !(size.get(rawGroup(r)) === 1 && (cfg.channels[r.ch.name]?.name || r.ch.name) === rawGroup(r)))
     .map((r) => ({ id: r.ch!.id, name: r.name, cat: r.group, epg: r.epg, logo: r.logo, ...(r.quiet ? { quiet: true } : {}) }));
-  return json({ name: profile.name, channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
+  return json({ name: profile.name, emoji: showEmoji(cfg, profile), channels, ...(profile.kids ? { kids: true } : {}) }, 200, { 'Cache-Control': 'private, max-age=60' });
 }
 
 /** Un link «mira» si abrió un canal en la última hora (como en Conexiones de la web). El Worker no ve cuándo se deja un
@@ -489,7 +492,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const raw = await readJson(request) as Record<string, unknown>;
       // El perfil activo se cambia con PUT …/active; una web que no lo conoce no lo borra.
       // El perfil activo y el nombre del principal se cambian con sus propias rutas: si la web no los manda, se conservan.
-      const keep = Object.fromEntries((['activeAccount', 'mainName'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
+      const keep = Object.fromEntries((['activeAccount', 'mainName', 'emojiAccounts'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
       // Los perfiles los maneja el Worker (rutas …/profiles): siempre quedan los guardados.
       const config = parseConfig({ ...raw, ...keep, profiles: stored.config.profiles });
       await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
@@ -762,8 +765,19 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const renamed = await renameAccount(env.BUCKET, cfgId, from, to);
       if (!renamed && !inProfiles) return fail(404, `no hay una cuenta «${from}»`);
       const profiles = stored.config.profiles?.map((p) => (p.account === from ? { ...p, account: to } : p));
-      await saveConfig(env.BUCKET, cfgId, { ...stored.config, ...(profiles ? { profiles } : {}), ...(stored.config.activeAccount === from ? { activeAccount: to } : {}) }, stored.keyHash);
+      const emojiAccounts = stored.config.emojiAccounts?.map((a) => (a === from ? to : a));
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, ...(profiles ? { profiles } : {}), ...(emojiAccounts ? { emojiAccounts } : {}), ...(stored.config.activeAccount === from ? { activeAccount: to } : {}) }, stored.keyHash);
       return json({ ok: true, renamed });
+    }
+    if (action === 'account-emoji' && method === 'PUT') {
+      // Emoji de las categorías de una cuenta («» = la principal). Apagado por defecto; los perfiles la heredan.
+      const raw = await readJson(request, 4 * 1024) as Record<string, unknown>;
+      if (typeof raw.on !== 'boolean') return fail(400, 'falta on (sí o no)');
+      const account = cleanAccount(raw.account) ?? '';
+      const set = new Set(stored.config.emojiAccounts ?? []);
+      if (raw.on) set.add(account); else set.delete(account);
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, emojiAccounts: [...set] }, stored.keyHash);
+      return json({ ok: true, emojiAccounts: [...set] });
     }
     if (action === 'profiles') {
       // Perfiles: dentro de una cuenta, un nombre y qué ve. Sus links llevan una copia del filtro, que se reescribe al
@@ -823,6 +837,12 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (method === 'PUT') {
         const next: ProfileDef = { ...p };
         if ('name' in raw) next.name = cleanProfileName(raw.name) || p.name;
+        // Emoji del perfil: true/false lo pisa; null vuelve a lo de la cuenta.
+        if ('emoji' in raw) {
+          if (raw.emoji === null) delete next.emoji;
+          else if (typeof raw.emoji === 'boolean') next.emoji = raw.emoji;
+          else return fail(400, 'emoji inválido');
+        }
         if ('filter' in raw) {
           const f = parseFilter(raw.filter);
           if (f) next.filter = f;
@@ -1045,7 +1065,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, cache: Simple
       if (!short) return fail(404, 'no encontrado');
       if (short.off) return parts[0] === 'l' ? disabledPlaylist(url.origin, m![1]) : fail(403, 'link desactivado');
       if (parts[0] === 'g') return await serveGuide(env, short, request);
-      return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1], short.filter);
+      return await servePlaylist(short.cfgId, short.token, url, env, ctx, cache, m![1], short.filter, short.profile);
     }
     if (request.method === 'GET' && parts[0] === 's' && parts.length === 3) {
       const short = await resolveShort(env, ctx, parts[1]);
