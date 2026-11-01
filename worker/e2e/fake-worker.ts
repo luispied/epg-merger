@@ -111,11 +111,13 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (m && method === 'PUT') {
       const p = fake.profiles.find((x) => x.id === m[1]);
       if (!p) return json({ error: 'no existe' }, 404);
-      const { kids, emoji, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null; emoji?: boolean | null };
+      const { kids, emoji, quality, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null; emoji?: boolean | null; quality?: boolean | null };
       Object.assign(p, rest);
-      // Como el Worker: emoji true/false lo pisa; null vuelve a lo de la cuenta.
+      // Como el Worker: emoji y calidad true/false los pisa; null vuelve a lo de la cuenta.
       if (emoji === null) delete p.emoji;
       else if (typeof emoji === 'boolean') p.emoji = emoji;
+      if (quality === null) delete p.quality;
+      else if (typeof quality === 'boolean') p.quality = quality;
       // Como el Worker: Infantil y Educativo entran siempre; null lo quita.
       if (kids === null) delete p.kids;
       else if (kids) p.kids = { genres: ['Infantil', 'Educativo', ...kids.genres.filter((g) => ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'].includes(g))] };
@@ -127,6 +129,13 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
       if (b.on) set.add(b.account); else set.delete(b.account);
       Object.assign(cfg, { emojiAccounts: [...set] });
       return json({ ok: true, emojiAccounts: [...set] });
+    }
+    if (path === '/api/cfg/c1/account-quality' && method === 'PUT') {
+      const b = req.postDataJSON() as { account: string; on: boolean };
+      const set = new Set(cfg.qualityAccounts ?? []);
+      if (b.on) set.add(b.account); else set.delete(b.account);
+      Object.assign(cfg, { qualityAccounts: [...set] });
+      return json({ ok: true, qualityAccounts: [...set] });
     }
     return json({ error: 'no está en el Worker de prueba' }, 404);
   };
