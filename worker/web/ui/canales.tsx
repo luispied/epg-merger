@@ -215,7 +215,7 @@ function edgeOf(items: Item[], k: number): string {
 
 function Card({ i, edge = '' }: { i: number; edge?: string }) {
   const ch = state.channels[i];
-  const { edit, epg, hidden, caido, band, suggestion, divider, auto, q } = info(ch);
+  const { edit, epg, hidden, caido, enTivi, band, suggestion, divider, auto, q } = info(ch);
   const ev = eventOf(ch);
   const shown = edit.name || ev?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
   const sel = selection.active;
@@ -249,14 +249,14 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
   } else {
     guide = <span class="guide none">{edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>;
   }
-  const label = `${shown}${q ? `, ${q.label}` : ''}, ${caido ? 'oculto por caído' : epg ? `guía ${guideName}` : 'sin guía'}${hidden && !caido ? ', oculto' : ''}`;
+  const label = `${shown}${q ? `, ${q.label}` : ''}, ${caido ? 'oculto por caído' : epg ? `guía ${guideName}` : 'sin guía'}${hidden && !caido ? ', oculto' : ''}${enTivi ? ', sale en TiviMate' : ''}`;
   return (
     <article class={`card row-card${cls}${edge ? ` ${edge}` : ''}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
       <span class="swipe-bg" aria-hidden="true"><span class="sw sw-r"><Icon name="ban" />Sin guía</span><span class="sw sw-l"><Icon name={hidden ? 'eye' : 'eye-off'} />{hidden ? 'Mostrar' : 'Ocultar'}</span></span>
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
+        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{enTivi && <span class="pill muted">Sale en TiviMate: responde</span>}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
           {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
