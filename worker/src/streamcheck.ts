@@ -308,3 +308,9 @@ export async function liveAccounts(env: Env, cfgId: string, config: Config): Pro
   }));
   return out;
 }
+
+/** Resolución medida por el relay, por canal (lo que usa la playlist para poner la calidad en el nombre). */
+export async function healthRes(env: Env, cfgId: string): Promise<Record<string, Res>> {
+  const h = await readJson<HealthState>(env, `health/${cfgId}.json`);
+  return h?.res ?? {};
+}

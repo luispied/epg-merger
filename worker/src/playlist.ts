@@ -5,6 +5,7 @@ import type { Config } from './config.ts';
 import { placeNewGroups } from './groups.ts';
 import { sinEmoji } from '../../core/src/names.ts';
 import type { Channel } from './provider.ts';
+import { nameWithQuality, type QualityLabel } from './quality.ts';
 
 // Sin mecanismo de escape en M3U: un '"' literal rompería el atributo (ver _m3u_attr).
 const attr = (v: string | null | undefined) => (v ?? '').replace(/"/g, "'").replace(/[\r\n]/g, ' ');
@@ -55,6 +56,10 @@ export interface PlaylistOptions {
   autoHidden?: ReadonlySet<string>;
   /** Mostrar el emoji que el proveedor pone delante de una categoría («🇦🇷 Argentina»). Apagado: sin emoji (ver showEmoji). */
   emoji?: boolean;
+  /** Poner la calidad medida al final del nombre («TNT ᶠᴴᴰ»). Apagado: el nombre queda como viene (ver showQuality). */
+  quality?: boolean;
+  /** La calidad medida por canal (id), de la prueba de caídos (ver quality.ts). */
+  qualities?: ReadonlyMap<string, QualityLabel>;
 }
 
 /** Un canal tal como sale en la playlist (y en el modo «solo ver»), ya ordenado. */
@@ -74,7 +79,7 @@ export interface PlaylistRow {
 }
 
 /** Los canales que ve un perfil, con las ediciones y en el orden guardado (lo mismo que la playlist). */
-export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'emoji'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
+export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'emoji' | 'quality' | 'qualities'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
   const noEpg = new Set(cfg.groups?.noEpg ?? []);
   // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
@@ -96,7 +101,10 @@ export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<Playli
     // Con perfil: un canal listado entre los de una categoría que se pide completa sigue el mismo criterio.
     if (!passes(opts.filter, group, ch.name, fGroups, fChannels)) return;
     // Un separador del proveedor (el canal se llama como su categoría) toma el nombre nuevo.
-    const name = edit.name || (ch.name === group && rename[group]) || ch.name;
+    const base = edit.name || (ch.name === group && rename[group]) || ch.name;
+    // La calidad medida reemplaza el texto de calidad del proveedor; sin medida, el nombre queda igual.
+    const q = opts.quality ? opts.qualities?.get(ch.id) : undefined;
+    const name = q ? nameWithQuality(base, q) : base;
     const epg = edit.epg ?? null;
     // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
     // que la persona haya puesto uno propio.

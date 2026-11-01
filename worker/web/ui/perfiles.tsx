@@ -381,6 +381,7 @@ function AccountPage({ a, other }: { a: AccountView; other?: OtherProvider }) {
           <SubTitle>Cuenta</SubTitle>
           <div class="menu">
             <EmojiAccountRow a={a} />
+            <QualityAccountRow a={a} />
             <MenuRow ico="pencil" title="Nombre" sub={a.name} onClick={() => void renameAccount(a)} />
             <MenuRow ico="key-round" title={xtream ? 'Usuario y contraseña' : 'URL de la lista'} sub="Si cambiaron en tu proveedor: los links quedan iguales"
               onClick={() => openSub({ k: 'creds', a })} />
@@ -595,6 +596,7 @@ function ProfilePage({ p, a, accounts, other }: { p: ProfileView; a: AccountView
           onClick={canChangeAccount ? () => openSub({ k: 'profile-account', p, a }) : undefined} />
       </div>
       {other ? null : <EmojiProfileRows p={p} a={a} />}
+      {other ? null : <QualityProfileRows p={p} a={a} />}
       {other ? null : <KidsRows p={p} />}
       {other ? null : <TasteRows p={p} />}
       <SubTitle>Links</SubTitle>
@@ -694,6 +696,59 @@ function EmojiProfileRows({ p, a }: { p: ProfileView; a: AccountView }) {
         </label>
       </div>
     </>
+  );
+}
+
+// ------------------------------------------------------------------ calidad en el nombre
+// Proveedor > Cuenta > Perfil, igual que el emoji: la cuenta prende o apaga la calidad medida en el nombre de la
+// playlist (apagada por defecto); cada perfil la hereda o la pisa. Lo aplican la playlist y el modo ver (src/config.ts: showQuality).
+const cuentaMuestraCalidad = (account: string) => (state.cfg?.qualityAccounts ?? []).includes(account);
+
+function QualityAccountRow({ a }: { a: AccountView }) {
+  const on = cuentaMuestraCalidad(a.account);
+  const toggle = async (v: boolean) => {
+    try {
+      const r = await api<{ qualityAccounts: string[] }>(`/api/cfg/${state.local!.cfgId}/account-quality`, { method: 'PUT', body: { account: a.account, on: v } });
+      state.cfg!.qualityAccounts = r.qualityAccounts;
+      toast(v ? 'Los canales de esta cuenta llevan su calidad en el nombre' : 'Los nombres de esta cuenta quedan como los manda el proveedor', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  return (
+    <label class="menu-row static">
+      <span class="menu-icon"><Icon name="sparkles" /></span>
+      <span class="menu-text">Calidad en el nombre<small>{on ? 'Se ve HD, FHD o 4K al final del nombre, según lo que midió el sistema' : 'El nombre queda como lo manda el proveedor. Cada perfil lo puede cambiar'}</small></span>
+      <input type="checkbox" class="switch" role="switch" aria-label={`Calidad en el nombre de ${a.name}`} checked={on}
+        onChange={(ev) => { const v = ev.currentTarget.checked; ev.currentTarget.checked = on; void toggle(v); }} />
+    </label>
+  );
+}
+
+/** Un perfil: un interruptor que sigue a la cuenta, como el emoji (ver EmojiProfileRows). */
+function QualityProfileRows({ p, a }: { p: ProfileView; a: AccountView }) {
+  const cuenta = cuentaMuestraCalidad(a.account);
+  const on = p.quality ?? cuenta;
+  const propio = p.quality !== undefined;
+  const save = async (v: boolean) => {
+    try {
+      await profileApi(p.id, 'PUT', { quality: v === cuenta ? null : v });
+    } catch (e) {
+      toast((e as Error).message, 'bad', 6000);
+    }
+    void renderLinks();
+  };
+  const como = cuenta ? 'con calidad' : 'sin calidad';
+  return (
+    <div class="menu">
+      <label class="menu-row static">
+        <span class="menu-icon"><Icon name="sparkles" /></span>
+        <span class="menu-text">Calidad en el nombre<small>{propio ? `Distinto de la cuenta: ${on ? 'con calidad' : 'sin calidad'}` : `Igual que la cuenta: ${como}`}</small></span>
+        <input type="checkbox" class="switch" role="switch" aria-label={`Calidad en el nombre de ${p.name}`} checked={on}
+          onChange={(ev) => { const v = ev.currentTarget.checked; ev.currentTarget.checked = on; void save(v); }} />
+      </label>
+    </div>
   );
 }
 

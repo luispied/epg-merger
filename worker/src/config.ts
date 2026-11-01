@@ -42,6 +42,8 @@ export interface Config {
   activeAccount?: string;
   /** Cuentas que muestran el emoji de las categorías (el `account` de cada una; «» = la principal). Apagado = sin emoji. */
   emojiAccounts?: string[];
+  /** Cuentas que ponen la calidad medida en el nombre de sus canales (`account` de cada una; «» = la principal). Apagado = sin calidad. */
+  qualityAccounts?: string[];
   /** Nombre del perfil de la cuenta principal (sin dato: «Tu cuenta»). Los demás perfiles se llaman como su `account`. */
   mainName?: string;
   /** Perfiles (ver planes/perfiles.md): dentro de una cuenta, un nombre y qué ve. Sus links llevan el id en `profile`
@@ -59,6 +61,8 @@ export interface ProfileDef {
   view?: string;
   /** Emoji de las categorías en este perfil: sin dato = lo que decide su cuenta (ver showEmoji). */
   emoji?: boolean;
+  /** Calidad en el nombre en este perfil: sin dato = lo que decide su cuenta (ver showQuality). */
+  quality?: boolean;
   /** Perfil infantil (ver kids.ts): solo programas de estos géneros, nunca publicidad ni lo que no tenga género. */
   kids?: Kids;
 }
@@ -77,7 +81,8 @@ export function parseProfiles(v: unknown): ProfileDef[] {
     const view = typeof r.view === 'string' && VIEW_RE.test(r.view) ? r.view : '';
     const kids = parseKids(r.kids);
     const emoji = typeof r.emoji === 'boolean' ? r.emoji : undefined;
-    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(emoji !== undefined ? { emoji } : {}) });
+    const quality = typeof r.quality === 'boolean' ? r.quality : undefined;
+    out.push({ id: r.id, name: name || 'Perfil', ...(account ? { account } : {}), ...(filter ? { filter } : {}), ...(view ? { view } : {}), ...(kids ? { kids } : {}), ...(emoji !== undefined ? { emoji } : {}), ...(quality !== undefined ? { quality } : {}) });
   }
   return out;
 }
@@ -207,6 +212,7 @@ export function parseConfig(raw: unknown): Config {
   const activeAccount = typeof r.activeAccount === 'string' ? r.activeAccount.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const profiles = parseProfiles(r.profiles);
   const emojiAccounts = [...new Set(strList(r.emojiAccounts, 50).map((a) => a.trim().replace(/\s+/g, ' ').slice(0, 30)))];
+  const qualityAccounts = [...new Set(strList(r.qualityAccounts, 50).map((a) => a.trim().replace(/\s+/g, ' ').slice(0, 30)))];
   const mainName = typeof r.mainName === 'string' ? r.mainName.trim().replace(/\s+/g, ' ').slice(0, 30) : '';
   const separators = strList(g.separators, 2000);
   return {
@@ -218,6 +224,7 @@ export function parseConfig(raw: unknown): Config {
     ...(mainName ? { mainName } : {}),
     ...(profiles.length ? { profiles } : {}),
     ...(emojiAccounts.length ? { emojiAccounts } : {}),
+    ...(qualityAccounts.length ? { qualityAccounts } : {}),
     channels,
     groups: {
       order: strList(g.order, 5000),
@@ -265,3 +272,10 @@ export const accountShowsEmoji = (config: Config, account = ''): boolean => (con
 /** Emoji de un perfil: lo que él eligió, o si no, lo de su cuenta (Proveedor > Cuenta > Perfil). */
 export const showEmoji = (config: Config, profile?: ProfileDef): boolean =>
   profile?.emoji ?? accountShowsEmoji(config, profile?.account ?? '');
+
+/** ¿Pone la calidad medida en el nombre esta cuenta? («» = la principal). Apagado por defecto. */
+export const accountShowsQuality = (config: Config, account = ''): boolean => (config.qualityAccounts ?? []).includes(account);
+
+/** Calidad en el nombre de un perfil: lo que él eligió, o si no, lo de su cuenta (Cuenta > Perfil). */
+export const showQuality = (config: Config, profile?: ProfileDef): boolean =>
+  profile?.quality ?? accountShowsQuality(config, profile?.account ?? '');

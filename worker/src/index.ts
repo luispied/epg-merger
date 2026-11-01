@@ -39,7 +39,7 @@
 //   GET    /l/<código>.m3u8 · /g/<código>.xml.gz · /s/<código>/<id>.<ext>
 //                                              lo mismo con links cortos (short/<código>.json en R2)
 import { authorized, ConfigError, createConfig, isId, loadConfig, MAX_CONFIG_BYTES, parseConfig, parseServers, saveConfig,
-  type Config, type ProfileDef, accountShowsEmoji, showEmoji } from './config.ts';
+  type Config, type ProfileDef, accountShowsEmoji, accountShowsQuality, showEmoji, showQuality } from './config.ts';
 import { ensureAccountKeys, ensureProfiles, findProfile, newProfileId } from './profiles.ts';
 import { accountTokens, addDevice, anyToken, cleanAccount, listDevices, moveDevice, rekeyDevices, readShort, renameAccount, updateRecords, tokenOfAccount, removeAllDevices, removeDevice, SHORT_RE, touchDevice, notePlay, readHistory, readPlay, updateDevice } from './devices.ts';
 import { decryptToken, encryptToken, randomId, sha256Hex, type Credentials } from './crypto.ts';
@@ -51,10 +51,11 @@ import { healthyServer } from './health.ts';
 import { accountKey } from './account.ts';
 import { logoResolver, serveMedia } from './logos.ts';
 import { buildPlaylist, parseFilter, playlistRows, type DeviceFilter } from './playlist.ts';
+import { qualityMap } from './quality.ts';
 import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport, viewManifest } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
-import { checkAllHealth, healthHidden, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
+import { checkAllHealth, healthHidden, healthRes, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, titleAt, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
@@ -228,6 +229,8 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
   const text = buildPlaylist(list.channels, cfg, {
     filter,
     emoji: prof ? showEmoji(cfg, prof) : accountShowsEmoji(cfg, ''),
+    quality: prof ? showQuality(cfg, prof) : accountShowsQuality(cfg, ''),
+    qualities: qualityMap(await healthRes(env, cfgId)),
     logoUrl,
     autoHidden: hidden.autoHidden,
     separatorUrl: `${url.origin}/sep`,
@@ -291,7 +294,7 @@ async function serveView(code: string, url: URL, env: Env): Promise<Response> {
   if (!list) return fail(409, 'todavía no hay canales para mostrar');
   const logos = Object.values(cfg.channels).map((e) => e.logo).filter((u): u is string => !!u);
   const rows = playlistRows((JSON.parse(await list.text()) as LiveList).channels, cfg,
-    { filter: profile.filter, emoji: showEmoji(cfg, profile), logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
+    { filter: profile.filter, emoji: showEmoji(cfg, profile), quality: showQuality(cfg, profile), qualities: qualityMap(await healthRes(env, v.cfgId)), logoUrl: await logoResolver(env, url.origin, logos), providerLogos: false });
   // Como en la web: una categoría decorativa, o una con un solo canal que se llama igual, es un separador.
   const rawGroup = (r: (typeof rows)[number]) => cfg.channels[r.ch!.name]?.group || r.ch!.category;
   const size = new Map<string, number>();
@@ -491,7 +494,7 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       const raw = await readJson(request) as Record<string, unknown>;
       // El perfil activo se cambia con PUT …/active; una web que no lo conoce no lo borra.
       // El perfil activo y el nombre del principal se cambian con sus propias rutas: si la web no los manda, se conservan.
-      const keep = Object.fromEntries((['activeAccount', 'mainName', 'emojiAccounts'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
+      const keep = Object.fromEntries((['activeAccount', 'mainName', 'emojiAccounts', 'qualityAccounts'] as const).filter((k) => !(k in raw) && stored.config[k]).map((k) => [k, stored.config[k]]));
       // Los perfiles los maneja el Worker (rutas …/profiles): siempre quedan los guardados.
       const config = parseConfig({ ...raw, ...keep, profiles: stored.config.profiles });
       await saveConfig(env.BUCKET, cfgId, config, stored.keyHash);
@@ -765,7 +768,8 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (!renamed && !inProfiles) return fail(404, `no hay una cuenta «${from}»`);
       const profiles = stored.config.profiles?.map((p) => (p.account === from ? { ...p, account: to } : p));
       const emojiAccounts = stored.config.emojiAccounts?.map((a) => (a === from ? to : a));
-      await saveConfig(env.BUCKET, cfgId, { ...stored.config, ...(profiles ? { profiles } : {}), ...(emojiAccounts ? { emojiAccounts } : {}), ...(stored.config.activeAccount === from ? { activeAccount: to } : {}) }, stored.keyHash);
+      const qualityAccounts = stored.config.qualityAccounts?.map((a) => (a === from ? to : a));
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, ...(profiles ? { profiles } : {}), ...(emojiAccounts ? { emojiAccounts } : {}), ...(qualityAccounts ? { qualityAccounts } : {}), ...(stored.config.activeAccount === from ? { activeAccount: to } : {}) }, stored.keyHash);
       return json({ ok: true, renamed });
     }
     if (action === 'account-emoji' && method === 'PUT') {
@@ -777,6 +781,16 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
       if (raw.on) set.add(account); else set.delete(account);
       await saveConfig(env.BUCKET, cfgId, { ...stored.config, emojiAccounts: [...set] }, stored.keyHash);
       return json({ ok: true, emojiAccounts: [...set] });
+    }
+    if (action === 'account-quality' && method === 'PUT') {
+      // Calidad medida en el nombre de los canales de una cuenta («» = la principal). Apagado por defecto; los perfiles la heredan.
+      const raw = await readJson(request, 4 * 1024) as Record<string, unknown>;
+      if (typeof raw.on !== 'boolean') return fail(400, 'falta on (sí o no)');
+      const account = cleanAccount(raw.account) ?? '';
+      const set = new Set(stored.config.qualityAccounts ?? []);
+      if (raw.on) set.add(account); else set.delete(account);
+      await saveConfig(env.BUCKET, cfgId, { ...stored.config, qualityAccounts: [...set] }, stored.keyHash);
+      return json({ ok: true, qualityAccounts: [...set] });
     }
     if (action === 'profiles') {
       // Perfiles: dentro de una cuenta, un nombre y qué ve. Sus links llevan una copia del filtro, que se reescribe al
@@ -841,6 +855,12 @@ async function api(request: Request, parts: string[], env: Env, ip: string, ctx:
           if (raw.emoji === null) delete next.emoji;
           else if (typeof raw.emoji === 'boolean') next.emoji = raw.emoji;
           else return fail(400, 'emoji inválido');
+        }
+        // Calidad en el nombre del perfil: true/false lo pisa; null vuelve a lo de la cuenta.
+        if ('quality' in raw) {
+          if (raw.quality === null) delete next.quality;
+          else if (typeof raw.quality === 'boolean') next.quality = raw.quality;
+          else return fail(400, 'quality inválido');
         }
         if ('filter' in raw) {
           const f = parseFilter(raw.filter);

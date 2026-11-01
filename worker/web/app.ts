@@ -48,6 +48,8 @@ interface Config {
   matching?: { minScore?: number; feed?: string | null; categories?: Record<string, { country?: string | null; prefer_sources?: string[] }> };
   /** Cuentas con emoji en las categorías («» = la principal). Apagado por defecto (ver config.ts). */
   emojiAccounts?: string[];
+  /** Cuentas que ponen la calidad medida en el nombre de sus canales (en la playlist). Apagado por defecto (ver config.ts). */
+  qualityAccounts?: string[];
   /** Perfil activo: la cuenta adicional con la que se baja la lista y se prueban los canales (sin dato = la principal).
    *  Se cambia con PUT …/active (ver «perfiles»). */
   activeAccount?: string;
@@ -2026,7 +2028,7 @@ const ago = (iso?: string) => {
 // vencimiento y sus conexiones. La cuenta en uso (config.activeAccount) baja la lista y prueba los canales caídos; su
 // inicial va en la pestaña «Perfil». Perfil: dentro de una cuenta, un nombre y qué ve (config.profiles, los maneja el
 // Worker); sus links llevan su filtro. Un mismo link sirve para varios dispositivos. Ver planes/perfiles.md.
-interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] }; emoji?: boolean }
+interface ProfileDef { id: string; name: string; account?: string; filter?: DeviceFilter; view?: string; kids?: { genres: string[] }; emoji?: boolean; quality?: boolean }
 interface ProfileView extends ProfileDef { devices: Device[] }
 interface AccountView { account: string; name: string; key?: string; profiles: ProfileView[]; devices: Device[] }
 let profileDevices: Device[] = [];

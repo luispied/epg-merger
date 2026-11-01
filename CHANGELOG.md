@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.77.0
+
+- **La calidad medida va en el nombre del canal (TiviMate).** En Cuenta, «Calidad en el nombre» pone la calidad que midió el sistema al final del nombre: **ᴴᴰ**, **ᶠᴴᴰ**, **⁴ᴷ** o **ˢᴰ**. Reemplaza el «HD» o «FHD» que trae el proveedor. Los canales sin medir quedan como vienen. Viene apagado, y cada perfil lo hereda o lo pisa, igual que el emoji. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
+
 ## 1.76.3
 
 - **La línea de «ahora» va por encima de la grilla.** En la Guía, la línea que marca la hora actual pasa por encima de los programas, en vez de quedar debajo de cada bloque. La marca de la hora no se corta contra la columna de canales.
