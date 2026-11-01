@@ -5,7 +5,7 @@
 // De paso, el relay mide la resolución real (ancho × alto del video) de los canales que andan, con el mismo pedido de la
 // prueba: cada canal una vez por semana (si no se pudo saber, se reintenta en la próxima prueba), hasta RES_PER_CHUNK por
 // tanda para no comerse el tiempo de la prueba. Queda en `res` del mismo archivo.
-// Barrido: mientras haya canales sin medir, de 1 a 9 h (hora de Buenos Aires, con pocas conexiones en uso) cada corrida del
+// Barrido: mientras haya canales sin medir, de 1 a 9 h (hora de Montevideo, con pocas conexiones en uso) cada corrida del
 // cron prueba y mide hasta SWEEP_CHUNKS tandas, así que la primera medida completa llega en unos días.
 // Mientras prueba, deja el avance en healthprog/<cfgId>.json después de cada tanda (la web muestra «Probando 50 de 180»
 // arriba de la lista) y mira healthstop/<cfgId>.json, que deja «Detener»: si está, corta y guarda lo que alcanzó a probar.
@@ -28,8 +28,8 @@ export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
 export const RES_PER_CHUNK = 25; // ~100 por día: va en el mismo pedido de la prueba; el relay deja de medir si se queda sin tiempo
 export const SWEEP_CHUNKS = 8; // barrido: 400 canales por corrida, con todas las tandas midiendo
 export const SWEEP_EVERY_MS = 25 * 60 * 1000; // el cron corre cada 30 min: una corrida del barrido por tick
-const SWEEP_HOURS = [1, 9]; // de 1 a 9 h, hora de Buenos Aires
-const LOCAL_TZ = 'America/Argentina/Buenos_Aires';
+const SWEEP_HOURS = [1, 9]; // de 1 a 9 h, hora de Montevideo
+const LOCAL_TZ = 'America/Montevideo';
 const DIVIDER_RE = /[▀-▟]{2,}/;
 // Eventos sueltos (PPV, partidos): la mayor parte del día no emiten y no es que estén caídos.
 const EVENT_RE = /ppv|event/i;
@@ -135,7 +135,7 @@ export function unmeasuredCount(channels: Channel[], seen: Record<string, Entry>
   return channels.filter((c) => !res[c.id] && seen[c.id]?.ok !== false).length;
 }
 
-/** ¿Es hora del barrido? De 1 a 9 de la mañana en Buenos Aires: madrugada y mañana, cuando menos conexiones se usan. */
+/** ¿Es hora del barrido? De 1 a 9 de la mañana en Montevideo: madrugada y mañana, cuando menos conexiones se usan. */
 export function inSweepWindow(now: Date): boolean {
   const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour: 'numeric', hourCycle: 'h23' }).format(now));
   return h >= SWEEP_HOURS[0] && h < SWEEP_HOURS[1];
