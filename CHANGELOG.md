@@ -16,6 +16,11 @@ nombres de código.
 - **Un canal que ocultaste a mano y responde se ve como lo que es.** Sigue oculto en Canales, pero con la marca **Sale en TiviMate: responde**: TiviMate lo recibe igual.
 - Worker: la lista de canales lee `manualOpen` de la prueba de salud (`web/app.ts`, `web/ui/canales.tsx`).
 
+## 1.74.1
+
+- **Zona horaria de eventos:** la opción de Buenos Aires se ve como «Uruguay», con la misma hora.
+- Worker: solo cambia la etiqueta de la lista en `web/ui/perfiles.tsx`; el valor guardado no cambia.
+
 ## 1.74.0
 
 - **Canales caídos en la lista.** Un canal que la prueba ocultó sola aparece en Canales apagado, con «Oculto por caído» y la marca **Caído** a la derecha. No se puede ocultar ni mostrar a mano: vuelve solo cuando responde. Sigue en el filtro **Caídos** y en **Ocultos**.
