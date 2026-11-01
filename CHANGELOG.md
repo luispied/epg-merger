@@ -11,6 +11,9 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.76.2
+
+- **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Su texto dice si coincide con la cuenta («Igual que la cuenta») o si es distinto («Distinto de la cuenta»). Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
 ## 1.76.1
 
 - **Lo que ocultaste a mano queda fuera de TiviMate, responda o no.** Solo vuelven los caídos que la prueba ocultó, cuando responden. Se saca la marca «Sale en TiviMate: responde».
