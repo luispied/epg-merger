@@ -20,9 +20,9 @@ test('calidad: las franjas de alto son las de Canales', () => {
 });
 
 test('calidad: reemplaza el texto del proveedor por la medida en letras pequeñas', () => {
-  assert.equal(nameWithQuality('TNT HD', 'FHD'), 'TNT ᶠᴴᴰ');
+  assert.equal(nameWithQuality('TNT HD', 'FHD'), 'TNT ꜰᴴᴰ');
   assert.equal(nameWithQuality('ESPN 4K', '4K'), 'ESPN ⁴ᴷ');
-  assert.equal(nameWithQuality('Canal 9 (SD)', 'SD'), 'Canal 9 ˢᴰ');
+  assert.equal(nameWithQuality('Canal 9 (SD)', 'SD'), 'Canal 9 ꜱᴰ');
   assert.equal(nameWithQuality('TLC -EN ᵁᴴᴰ', 'HD'), 'TLC -EN ᴴᴰ');
   assert.equal(nameWithQuality('Discovery 1080p', 'HD'), 'Discovery ᴴᴰ');
   assert.equal(nameWithQuality('Discovery', 'HD'), 'Discovery ᴴᴰ');
@@ -30,7 +30,7 @@ test('calidad: reemplaza el texto del proveedor por la medida en letras pequeña
 
 test('calidad: no toca palabras que solo contienen las letras', () => {
   assert.equal(nameWithQuality('Shdow Channel', 'HD'), 'Shdow Channel ᴴᴰ');
-  assert.equal(nameWithQuality('Canal HDMI Plus', 'SD'), 'Canal HDMI Plus ˢᴰ');
+  assert.equal(nameWithQuality('Canal HDMI Plus', 'SD'), 'Canal HDMI Plus ꜱᴰ');
 });
 
 test('calidad: apagada por defecto; sin medida el nombre queda como viene', () => {
@@ -53,7 +53,7 @@ test('calidad: la cuenta la prende, el perfil la hereda o la pisa, y sin medida 
   assert.equal(showQuality(cfg, cfg.profiles!.find((p) => p.id === 'apaga')), false);
   assert.equal(showQuality(cfg, cfg.profiles!.find((p) => p.id === 'otra')), false);
   const on = buildPlaylist(CHANNELS, cfg, { epgUrl: '', streamUrl: (c) => `/s/${c.id}`, quality: true, qualities: Q });
-  assert.deepEqual(names(on), ['TNT ᶠᴴᴰ', 'ESPN ⁴ᴷ', 'Canal 9 ˢᴰ', 'Discovery']);
+  assert.deepEqual(names(on), ['TNT ꜰᴴᴰ', 'ESPN ⁴ᴷ', 'Canal 9 ꜱᴰ', 'Discovery']);
 });
 
 test('calidad: la lista de cuentas se limpia y no repite', () => {
