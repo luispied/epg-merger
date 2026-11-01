@@ -1935,7 +1935,7 @@ test('caídos: se ocultan al caer y se desocultan al responder, también los ocu
   assert.deepEqual(diff.unhide.sort(), ['c', 'd']);
 });
 
-test('lista: lo que oculta la prueba sale de la playlist, y un oculto a mano que responde vuelve a salir', () => {
+test('lista: lo que oculta la prueba sale de la playlist, y lo ocultado a mano queda fuera aunque responda', () => {
   const cfg = parseConfig({
     provider: { type: 'xtream', servers: ['http://s1.example'], username: 'user', password: 'pa ss' },
     channels: { B: { hidden: true }, C: { hidden: true } },
@@ -1944,9 +1944,9 @@ test('lista: lo que oculta la prueba sale de la playlist, y un oculto a mano que
   const ch = (name: string) => ({ name, category: 'G', id: name, ext: 'ts', icon: '', epgId: null });
   const names = (text: string) => [...text.matchAll(/,([^\n]+)\n/g)].map((m) => m[1]);
   const opts = { epgUrl: '', streamUrl: (c: { id: string }) => `/s/${c.id}` };
-  // A cae (lo oculta el sistema); B está oculto a mano y responde; C está oculto a mano y no responde.
-  const text = buildPlaylist([ch('A'), ch('B'), ch('C')], cfg, {
-    ...opts, autoHidden: new Set(['A']), manualOpen: new Set(['B']),
+  // A cae (lo oculta el sistema); B y C están ocultos a mano (aunque B responda); D se ve.
+  const text = buildPlaylist([ch('A'), ch('B'), ch('C'), ch('D')], cfg, {
+    ...opts, autoHidden: new Set(['A']),
   });
-  assert.deepEqual(names(text), ['B']);
+  assert.deepEqual(names(text), ['D']);
 });

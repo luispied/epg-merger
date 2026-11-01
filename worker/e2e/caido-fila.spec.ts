@@ -26,17 +26,3 @@ test('un caído que la prueba ocultó: fila apagada, «Oculto por caído» y chi
   }
 });
 
-test('un oculto a mano que responde: sigue oculto en la app, con «Sale en TiviMate: responde»', async ({ page }, info) => {
-  const now = new Date().toISOString();
-  // ESPN (id 1) lo ocultó a mano; la prueba dice que responde.
-  await fakeWorker(page, { cfgChannels: { ESPN: { hidden: true } }, health: { channels: { 1: { t: now, ok: true, fails: 0 } }, manualOpen: ['1'], total: 7, checked: now, relayOk: now, tested: 1 } });
-  await page.goto('/');
-  const row = page.locator('#cards .card.row-card', { hasText: 'ESPN' }).first();
-  await expect(row).toBeVisible();
-  await expect(row).toContainText('Sale en TiviMate: responde');
-  await expect(row.locator('.caido-chip')).toHaveCount(0);
-  for (const scheme of ['light', 'dark'] as const) {
-    await page.emulateMedia({ colorScheme: scheme });
-    await page.screenshot({ path: `test-results/sale-en-tivi-${info.project.name}-${scheme}.png` });
-  }
-});

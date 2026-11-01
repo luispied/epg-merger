@@ -11,6 +11,11 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.76.1
+
+- **Lo que ocultaste a mano queda fuera de TiviMate, responda o no.** Solo vuelven los caídos que la prueba ocultó, cuando responden. Se saca la marca «Sale en TiviMate: responde».
+- Worker: la playlist ya no lee `manualOpen` (`src/playlist.ts`, `src/index.ts`, `src/streamcheck.ts`).
+
 ## 1.76.0
 
 - **Emoji en las categorías, a elección.** En Perfil, cada cuenta tiene «Emoji en las categorías» (apagado, como hoy). Los perfiles lo heredan y pueden pisarlo con «Mostrar» u «Ocultar» en su sección Categorías. Vale para la app y para la playlist de TiviMate, pero hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.
