@@ -667,31 +667,31 @@ function EmojiAccountRow({ a }: { a: AccountView }) {
   );
 }
 
-/** Un perfil: un interruptor que sigue a la cuenta hasta que se mueve; entonces queda propio del perfil, y «Igual que la
- *  cuenta» lo devuelve a lo de la cuenta (el Worker guarda `emoji` solo cuando hay un valor propio). */
+/** Un perfil: un interruptor que sigue a la cuenta. Si lo que se elige es lo de la cuenta, no se guarda nada (sigue a la
+ *  cuenta); si es distinto, queda como valor propio del perfil (`emoji`, ver config.ts showEmoji). */
 function EmojiProfileRows({ p, a }: { p: ProfileView; a: AccountView }) {
   const cuenta = cuentaMuestraEmoji(a.account);
   const on = p.emoji ?? cuenta;
   const propio = p.emoji !== undefined;
-  const save = async (v: boolean | null) => {
+  const save = async (v: boolean) => {
     try {
-      await profileApi(p.id, 'PUT', { emoji: v });
+      await profileApi(p.id, 'PUT', { emoji: v === cuenta ? null : v });
     } catch (e) {
       toast((e as Error).message, 'bad', 6000);
     }
     void renderLinks();
   };
+  const como = cuenta ? 'con emoji' : 'sin emoji';
   return (
     <>
       <SubTitle>Categorías</SubTitle>
       <div class="menu">
         <label class="menu-row static">
           <span class="menu-icon"><Icon name="sparkles" /></span>
-          <span class="menu-text">Emoji en las categorías<small>{propio ? 'Propio de este perfil' : `Igual que la cuenta: ${cuenta ? 'con emoji' : 'sin emoji'}`}</small></span>
+          <span class="menu-text">Emoji en las categorías<small>{propio ? `Distinto de la cuenta: ${on ? 'con emoji' : 'sin emoji'}` : `Igual que la cuenta: ${como}`}</small></span>
           <input type="checkbox" class="switch" role="switch" aria-label={`Emoji en las categorías de ${p.name}`} checked={on}
             onChange={(ev) => { const v = ev.currentTarget.checked; ev.currentTarget.checked = on; void save(v); }} />
         </label>
-        {propio ? <MenuRow ico="undo-2" title="Igual que la cuenta" chevron={false} sub={`La cuenta lo tiene ${cuenta ? "con emoji" : "sin emoji"}`} onClick={() => void save(null)} /> : null}
       </div>
     </>
   );

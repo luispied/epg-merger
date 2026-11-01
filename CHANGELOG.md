@@ -13,7 +13,7 @@ nombres de código.
 
 ## 1.76.2
 
-- **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Si lo movés, queda propio de ese perfil, y «Igual que la cuenta» lo devuelve a lo de la cuenta. Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
+- **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Su texto dice si coincide con la cuenta («Igual que la cuenta») o si es distinto («Distinto de la cuenta»). Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
 
 ## 1.76.0
 

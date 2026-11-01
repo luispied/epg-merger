@@ -25,7 +25,7 @@ for (const theme of ['light', 'dark'] as const) {
     const body = (page: Page) => page.locator('#linksBody');
     const sw = (page: Page) => body(page).getByRole('switch', { name: 'Emoji en las categorías de Chicos' });
 
-    test('el perfil: sigue a la cuenta, moverlo lo deja propio y «Igual que la cuenta» lo devuelve', async ({ page }, info) => {
+    test('el perfil: sigue a la cuenta; distinto queda propio, y lo igual a la cuenta vuelve a seguirla', async ({ page }, info) => {
       await page.locator('#tabLinks').click();
       await body(page).locator('.profile-row.sub-row', { hasText: 'Chicos' }).click();
       await expect(page.locator('#linksTitle')).toHaveText('Chicos');
@@ -36,11 +36,11 @@ for (const theme of ['light', 'dark'] as const) {
 
       await sw(page).click();
       await expect(sw(page)).toBeChecked();
-      await expect(body(page)).toContainText('Propio de este perfil');
+      await expect(body(page)).toContainText('Distinto de la cuenta: con emoji');
       expect(fake.writes.at(-1)).toMatchObject({ method: 'PUT', path: '/api/cfg/c1/profiles/p2', body: { emoji: true } });
       await page.screenshot({ path: `${process.env.SHOTS ?? 'test-results'}/emoji-${info.project.name}-${theme}-perfil-mostrar.png` });
 
-      await body(page).getByRole('button', { name: /Igual que la cuenta/ }).click();
+      await sw(page).click();
       await expect(sw(page)).not.toBeChecked();
       await expect(body(page)).toContainText('Igual que la cuenta: sin emoji');
       expect(fake.writes.at(-1)).toMatchObject({ method: 'PUT', path: '/api/cfg/c1/profiles/p2', body: { emoji: null } });
