@@ -14,6 +14,10 @@ nombres de código.
 ## 1.76.2
 
 - **Emoji por perfil: un interruptor.** En Perfil, «Emoji en las categorías» es un interruptor que sigue a la cuenta. Su texto dice si coincide con la cuenta («Igual que la cuenta») o si es distinto («Distinto de la cuenta»). Antes eran tres opciones. Los links no cambian; TiviMate necesita refrescar la lista para ver el cambio.
+## 1.76.1
+
+- **Lo que ocultaste a mano queda fuera de TiviMate, responda o no.** Solo vuelven los caídos que la prueba ocultó, cuando responden. Se saca la marca «Sale en TiviMate: responde».
+- Worker: la playlist ya no lee `manualOpen` (`src/playlist.ts`, `src/index.ts`, `src/streamcheck.ts`).
 
 ## 1.76.0
 

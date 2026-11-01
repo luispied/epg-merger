@@ -230,7 +230,6 @@ async function servePlaylist(cfgId: string, token: string, url: URL, env: Env, c
     emoji: prof ? showEmoji(cfg, prof) : accountShowsEmoji(cfg, ''),
     logoUrl,
     autoHidden: hidden.autoHidden,
-    manualOpen: hidden.manualOpen,
     separatorUrl: `${url.origin}/sep`,
     epgUrl: short ? `${url.origin}/g/${short}.xml.gz` : `${url.origin}/p/${cfgId}/epg.xml.gz`,
     streamUrl: (ch) => {
