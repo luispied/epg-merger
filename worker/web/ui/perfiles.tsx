@@ -933,7 +933,7 @@ async function renameProfile(p: ProfileView) {
 
 // ------------------------------------------------------------------ proveedor y hogar
 const EVENT_TZS: [string, string][] = [
-  ['America/Mexico_City', 'México'], ['America/Bogota', 'Colombia / Perú'], ['America/Argentina/Buenos_Aires', 'Argentina / Uruguay'],
+  ['America/Mexico_City', 'México'], ['America/Bogota', 'Colombia / Perú'], ['America/Argentina/Buenos_Aires', 'Uruguay'],
   ['America/Santiago', 'Chile'], ['America/New_York', 'EE. UU. Este'], ['America/Chicago', 'EE. UU. Centro'],
   ['America/Los_Angeles', 'EE. UU. Oeste'], ['Europe/Madrid', 'España'], ['UTC', 'UTC'],
 ];
