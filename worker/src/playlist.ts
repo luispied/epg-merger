@@ -54,6 +54,8 @@ export interface PlaylistOptions {
   /** Lo que decidió la prueba de caídos: los que el sistema oculta, y los ocultos a mano que responden (se muestran). */
   autoHidden?: ReadonlySet<string>;
   manualOpen?: ReadonlySet<string>;
+  /** Mostrar el emoji que el proveedor pone delante de una categoría («🇦🇷 Argentina»). Apagado: sin emoji (ver showEmoji). */
+  emoji?: boolean;
 }
 
 /** Un canal tal como sale en la playlist (y en el modo «solo ver»), ya ordenado. */
@@ -73,7 +75,7 @@ export interface PlaylistRow {
 }
 
 /** Los canales que ve un perfil, con las ediciones y en el orden guardado (lo mismo que la playlist). */
-export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'manualOpen'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
+export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<PlaylistOptions, 'filter' | 'logoUrl' | 'autoHidden' | 'manualOpen' | 'emoji'> & { providerLogos?: boolean } = {}): PlaylistRow[] {
   const hiddenGroups = new Set(cfg.groups?.hidden ?? []);
   const noEpg = new Set(cfg.groups?.noEpg ?? []);
   // Las categorías nuevas del proveedor se ubican solas junto a las que se les parecen.
@@ -82,8 +84,8 @@ export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<Playli
   // Orden propio dentro de la categoría: los listados primero, el resto en el orden del proveedor.
   const within = new Map(Object.entries(cfg.groups?.channels ?? {}).map(([g, names]) => [g, new Map(names.map((n, i) => [n, i]))]));
   const rename = cfg.groups?.rename ?? {};
-  // Sin emoji: TiviMate muestra el group-title tal cual (la clave de la categoría no cambia).
-  const label = (g: string) => sinEmoji(rename[g] || g);
+  // Sin emoji (salvo que la cuenta o el perfil lo pidan): TiviMate muestra el group-title tal cual (la clave no cambia).
+  const label = (g: string) => (opts.emoji ? rename[g] || g : sinEmoji(rename[g] || g));
   const rows: { group: number; pos: number; row: PlaylistRow }[] = [];
   const fGroups = new Set(opts.filter?.groups ?? []);
   const fChannels = new Set(opts.filter?.channels ?? []);

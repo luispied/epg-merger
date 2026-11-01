@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.75.0
+
+- **Emoji en las categorías, a elección.** En Perfil, cada cuenta tiene «Emoji en las categorías» (apagado, como hoy). Los perfiles lo heredan y pueden pisarlo con «Mostrar» u «Ocultar» en su sección Categorías. Vale para la app y para la playlist de TiviMate, pero hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.
+
 ## 1.74.0
 
 - **Canales caídos en la lista.** Un canal que la prueba ocultó sola aparece en Canales apagado, con «Oculto por caído» y la marca **Caído** a la derecha. No se puede ocultar ni mostrar a mano: vuelve solo cuando responde. Sigue en el filtro **Caídos** y en **Ocultos**.

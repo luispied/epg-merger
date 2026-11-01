@@ -11,7 +11,7 @@ export interface Fake {
   writes: { method: string; path: string; body: unknown }[];
   /** Canales marcados desde el modo ver («la guía no coincide»). */
   reports: { id: string; name: string; epg: string | null; title?: string; by: string; at: string }[];
-  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string; kids?: { genres: string[] } }[];
+  profiles: { id: string; name: string; account?: string; filter?: { groups: string[]; channels: string[]; only?: boolean } | null; view?: string; kids?: { genres: string[] }; emoji?: boolean | null }[];
 }
 
 const channels = [
@@ -111,12 +111,22 @@ export async function fakeWorker(page: Page, opts: { extra?: string[][]; health?
     if (m && method === 'PUT') {
       const p = fake.profiles.find((x) => x.id === m[1]);
       if (!p) return json({ error: 'no existe' }, 404);
-      const { kids, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null };
+      const { kids, emoji, ...rest } = req.postDataJSON() as { kids?: { genres: string[] } | null; emoji?: boolean | null };
       Object.assign(p, rest);
+      // Como el Worker: emoji true/false lo pisa; null vuelve a lo de la cuenta.
+      if (emoji === null) delete p.emoji;
+      else if (typeof emoji === 'boolean') p.emoji = emoji;
       // Como el Worker: Infantil y Educativo entran siempre; null lo quita.
       if (kids === null) delete p.kids;
       else if (kids) p.kids = { genres: ['Infantil', 'Educativo', ...kids.genres.filter((g) => ['Documental', 'Cocina', 'Música', 'Deportes', 'Estilo de vida'].includes(g))] };
       return json({});
+    }
+    if (path === '/api/cfg/c1/account-emoji' && method === 'PUT') {
+      const b = req.postDataJSON() as { account: string; on: boolean };
+      const set = new Set(cfg.emojiAccounts ?? []);
+      if (b.on) set.add(b.account); else set.delete(b.account);
+      Object.assign(cfg, { emojiAccounts: [...set] });
+      return json({ ok: true, emojiAccounts: [...set] });
     }
     return json({ error: 'no está en el Worker de prueba' }, 404);
   };

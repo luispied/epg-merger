@@ -35,7 +35,7 @@ Object.assign(window.ICONS, {
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
 });
 
-interface ViewData { name: string; kids?: boolean; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
+interface ViewData { name: string; kids?: boolean; emoji?: boolean; channels: { id: string; name: string; cat: string; epg: string | null; logo: string; quiet?: boolean }[] }
 interface Conn { inUse?: number; max?: number; watching: { name: string; channel: string; t: string }[] }
 interface HourIndex { h: number; t: string[]; c: Record<string, [number, number, number][]> }
 type Entry = [number, number, string, string?];
@@ -523,7 +523,9 @@ function App() {
     fetch(`/api/view/${code}`, { signal: AbortSignal.timeout(15_000) })
       .then(async (r) => {
         if (!r.ok) return setErr({ status: r.status });
-        setData(await r.json() as ViewData);
+        // Sin emoji salvo que el perfil lo muestre (Cuenta > Perfil): la app lo aplica acá, como en la edición.
+        const v = await r.json() as ViewData;
+        setData({ ...v, channels: v.channels.map((c) => ({ ...c, cat: v.emoji ? c.cat : sinEmoji(c.cat) })) });
       })
       .catch(() => setErr({ status: 0 }));
   };
