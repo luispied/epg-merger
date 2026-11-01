@@ -11,9 +11,19 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
-## 1.75.0
+## 1.76.0
 
 - **Emoji en las categorías, a elección.** En Perfil, cada cuenta tiene «Emoji en las categorías» (apagado, como hoy). Los perfiles lo heredan y pueden pisarlo con «Mostrar» u «Ocultar» en su sección Categorías. Vale para la app y para la playlist de TiviMate, pero hay que refrescar la lista de canales en TiviMate para ver el cambio. Los links no cambian.
+
+## 1.75.0
+
+- **Un canal que ocultaste a mano y responde se ve como lo que es.** Sigue oculto en Canales, pero con la marca **Sale en TiviMate: responde**: TiviMate lo recibe igual.
+- Worker: la lista de canales lee `manualOpen` de la prueba de salud (`web/app.ts`, `web/ui/canales.tsx`).
+
+## 1.74.1
+
+- **Zona horaria de eventos:** la opción de Buenos Aires se ve como «Uruguay», con la misma hora.
+- Worker: solo cambia la etiqueta de la lista en `web/ui/perfiles.tsx`; el valor guardado no cambia.
 
 ## 1.74.0
 
