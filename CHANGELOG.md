@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.77.2
+
+- **La calidad va en la misma línea del nombre.** En Canales, la etiqueta (FHD, HD, SD, 4K) queda al lado del nombre del canal, no debajo. Si el nombre es largo, se corta con puntos y la etiqueta se ve igual.
+
 ## 1.77.1
 
 - Worker: el barrido de calidad (1 a 9 h) usa la zona horaria de Montevideo (`src/streamcheck.ts`). El horario no cambia: Montevideo y la otra zona tienen el mismo desfase.
