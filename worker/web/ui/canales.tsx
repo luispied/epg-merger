@@ -256,7 +256,7 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class="card-name">{shown}</div><div class="row-sub">{q && <span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>}{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
+        <div class="card-title"><div class={`card-name${q ? ' has-q' : ''}`}>{q ? <><span class="cn-text">{shown}</span><span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span></> : shown}</div><div class="row-sub">{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
           {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
