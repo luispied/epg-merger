@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.77.3
+
+- **Se saca la flecha de la guía en Canales.** La flecha que va delante del nombre de la guía ya no aparece debajo de cada canal. El nombre de la guía y su código de país quedan igual.
+
 ## 1.77.2
 
 - **La calidad va en la misma línea del nombre.** En Canales, la etiqueta (FHD, HD, SD, 4K) queda al lado del nombre del canal, no debajo. Si el nombre es largo, se corta con puntos y la etiqueta se ve igual.

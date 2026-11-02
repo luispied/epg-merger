@@ -242,7 +242,7 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
   if (sug) {
     guide = <span class="guide sug"><span class={`pct ${sug.score >= GOOD ? 'ok' : 'warn'}`}>{Math.round(Math.min(sug.score, 1) * 100)} %</span> <b>{guideLabel(sug.channelId)}</b></span>;
   } else if (epg) {
-    guide = <span class="guide"><Icon name="arrow-right" class="sm" /><span class="guide-name">{guideName}</span>{cc && <span class="cc">{cc.toUpperCase()}</span>}</span>;
+    guide = <span class="guide"><span class="guide-name">{guideName}</span>{cc && <span class="cc">{cc.toUpperCase()}</span>}</span>;
   } else if (ev && !edit.manual) {
     const l = eventLabel(ev.start);
     guide = <span class={`guide event ${l.cls}`} title="Hora de tu dispositivo (según la zona del proveedor)"><Icon name="clock" class="sm" />{l.text}</span>;
