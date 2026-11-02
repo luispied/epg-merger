@@ -6,7 +6,7 @@
 // Importa de app.ts y app.ts importa de acá, como ui/perfiles.tsx: nada de app.ts se usa al cargar el módulo.
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { stripDisplayPrefix } from '../../../core/src/index.ts';
+import { stripDisplayPrefix, stripQualityText } from '../../../core/src/index.ts';
 import {
   eventLabel, eventOf, GOOD, groupLabel, groupOf, guideLabel, info, PAGE, qualityTitle, render as renderAll, sectionTitle,
   selection, state, viewMode, type Band,
@@ -256,7 +256,7 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class={`card-name${q ? ' has-q' : ''}`}>{q ? <><span class="cn-text">{shown}</span><span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span></> : shown}</div><div class="row-sub">{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
+        <div class="card-title"><div class={`card-name${q ? ' has-q' : ''}`}>{q ? <><span class="cn-text">{stripQualityText(shown)}</span><span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span></> : shown}</div><div class="row-sub">{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
           {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
           {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
