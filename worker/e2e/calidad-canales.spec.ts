@@ -14,6 +14,8 @@ for (const theme of ['light', 'dark'] as const) {
     const names = page.locator('#cards .card .card-name.has-q');
     await expect(names.first()).toBeVisible();
     await expect(names.first().locator('.qtag')).toHaveText('FHD');
+    // Con el chip, el nombre no repite la calidad.
+    for (const n of await names.locator('.cn-text').allTextContents()) expect(n).not.toMatch(/\b(UHD|FHD|QHD|HD|SD|4K)\b|[ᴴᶠˢᵁ⁴ᴰᴷ]/);
     // La etiqueta está en la línea del nombre: misma altura de caja que el nombre.
     const nameBox = await names.first().locator('.cn-text').boundingBox();
     const tagBox = await names.first().locator('.qtag').boundingBox();

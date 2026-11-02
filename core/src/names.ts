@@ -177,3 +177,12 @@ export function flagToCountryCode(text: string | null | undefined, r: MatchingRu
   }
   return null;
 }
+
+/** Texto de calidad que pone el proveedor («HD», «FHD», «1080p»…) y las marcas en letras pequeñas (ᴴᴰ, ᶠᴴᴰ, ⁴ᴷ, ˢᴰ,
+ *  ꜰᴴᴰ, ꜱᴰ, ᵁᴴᴰ). Lo usan la playlist (con la calidad medida) y la web (con el chip de calidad al lado). */
+export const QUALITY_TEXT_RE = /(?:^|\s)[([]?(?:UHD|FHD|QHD|HD|SD|4K|2160p|1440p|1080[pi]|720p|576p|480p|ᵁᴴᴰ|ᶠᴴᴰ|ᴴᴰ|ˢᴰ|ꜰᴴᴰ|ꜱᴰ|⁴ᴷ)[)\]]?(?=\s|$)/gi;
+
+/** El nombre sin el texto de calidad. Si hay un chip de calidad al lado, el nombre no lo repite. */
+export function stripQualityText(name: string): string {
+  return name.replace(QUALITY_TEXT_RE, '').replace(/\s{2,}/g, ' ').trim() || name;
+}

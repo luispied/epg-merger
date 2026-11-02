@@ -3,7 +3,7 @@
 // Python), corregir y copiar los links para el reproductor. Sin cuenta: la configuración vive
 // en el Worker y la clave para editarla, en este navegador (exportable como respaldo).
 import {
-  channelAlias, EpgIndex, flagToCountryCode, MatchingRules, matchStream, sinEmoji, stripDisplayPrefix, variantKey, type Candidate, type GuideChannel,
+  channelAlias, EpgIndex, flagToCountryCode, MatchingRules, matchStream, sinEmoji, stripDisplayPrefix, stripQualityText, variantKey, type Candidate, type GuideChannel,
   type MatchingRulesData, type SourceInfo,
 } from '../../core/src/index.ts';
 import { sourceAlias } from '../src/crypto.ts';
@@ -1343,7 +1343,7 @@ const guideHost: GuideHost = {
       .map(({ ch, i, inf }) => {
         const name = inf.edit.name || eventOf(ch)?.clean || stripDisplayPrefix(ch.name, state.rules!)[0];
         const logo = !logosOn() ? '' : inf.edit.customLogo || (inf.epg ? state.index?.icon.get(inf.epg) ?? '' : '');
-        return { i, name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose', q: inf.q?.label ?? null, qTitle: inf.q ? qualityTitle(inf.q) : '' };
+        return { i, name: inf.q ? stripQualityText(name) : name, cat: groupLabel(groupOf(ch)), epg: inf.epg, logo, quiet: inf.noGuide || inf.band === 'purpose', q: inf.q?.label ?? null, qTitle: inf.q ? qualityTitle(inf.q) : '' };
       });
   },
   openChannel: (i) => openChannel(i),

@@ -2,6 +2,7 @@
 // va al final del nombre con letras pequeñas: «TNT ᶠᴴᴰ». Reemplaza el texto de calidad que puso el proveedor
 // («HD», «FHD», «1080p»…). Sin medida, el nombre queda como viene.
 import type { Res } from './streamcheck.ts';
+import { stripQualityText } from '../../core/src/names.ts';
 
 export type QualityLabel = 'SD' | 'HD' | 'FHD' | '4K';
 
@@ -12,12 +13,10 @@ export function qualityLabel(h: number): QualityLabel {
 
 const SUPERSCRIPT: Record<QualityLabel, string> = { SD: 'ˢᴰ', HD: 'ᴴᴰ', FHD: 'ᶠᴴᴰ', '4K': '⁴ᴷ' };
 
-// Texto de calidad que pone el proveedor, y también las marcas ya en letras pequeñas (ᵁᴴᴰ, ᶠᴴᴰ…), para no duplicar.
-const QUALITY_TOKEN = /(?:^|\s)[([]?(?:UHD|FHD|QHD|HD|SD|4K|2160p|1440p|1080[pi]|720p|576p|480p|ᵁᴴᴰ|ᶠᴴᴰ|ᴴᴰ|ˢᴰ|⁴ᴷ)[)\]]?(?=\s|$)/gi;
 
 /** El nombre con la calidad medida al final, sin el texto de calidad que traía. */
 export function nameWithQuality(name: string, label: QualityLabel): string {
-  const clean = name.replace(QUALITY_TOKEN, '').replace(/\s{2,}/g, ' ').trim();
+  const clean = stripQualityText(name);
   return clean ? `${clean} ${SUPERSCRIPT[label]}` : name;
 }
 

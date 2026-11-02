@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.77.4
+
+- **Sin la calidad repetida en el nombre.** Si el canal muestra el chip de calidad (FHD, HD, SD, 4K), el nombre ya no trae el texto de calidad del proveedor. En Canales y en la Guía el nombre queda limpio y la calidad va solo en el chip, igual que en la lista de TiviMate.
+
 ## 1.77.3
 
 - **Se saca la flecha de la guía en Canales.** La flecha que va delante del nombre de la guía ya no aparece debajo de cada canal. El nombre de la guía y su código de país quedan igual.
