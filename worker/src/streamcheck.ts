@@ -47,7 +47,7 @@ async function putProgress(env: Env, cfgId: string, p: Progress) {
 
 interface Entry { t: string; ok: boolean; fails: number }
 /** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta en la próxima prueba). */
-export interface Res { t: string; w?: number; h?: number }
+export interface Res { t: string; w?: number; h?: number; f?: number }
 export interface HealthState {
   checked?: string;
   /** Canales que ocultó el sistema por caídos (aparte de lo que ocultó la persona a mano). */
@@ -142,7 +142,10 @@ export function inSweepWindow(now: Date): boolean {
 }
 
 const size = (v: unknown): [number, number] | null =>
-  Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= 64 && x <= 8192) ? [v[0], v[1]] : null;
+  Array.isArray(v) && (v.length === 2 || v.length === 3) && v.slice(0, 2).every((x) => Number.isInteger(x) && x >= 64 && x <= 8192) ? [v[0], v[1]] : null;
+/** Cuadros por segundo que midió el relay (el tercer valor de [ancho, alto, fps]); sin dato, undefined. */
+const fpsOf = (v: unknown): number | undefined =>
+  Array.isArray(v) && typeof v[2] === 'number' && v[2] >= 1 && v[2] <= 240 ? v[2] : undefined;
 
 /** ¿Toca probar esta configuración? Cada 20 horas o si hay un pedido a mano más nuevo que la última prueba. */
 export function isDue(state: HealthState | null, requestedAt: string | undefined, now: Date): boolean {
@@ -237,7 +240,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           for (const [id, v] of Object.entries(reply.res ?? {})) {
             if (!measure.has(id)) continue;
             const wh = size(v);
-            res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1] } : { t: now.toISOString() };
+            const f = fpsOf(v);
+            res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1], ...(f !== undefined ? { f } : {}) } : { t: now.toISOString() };
           }
           if (i + CHUNK < batch.length) {
             await putProgress(env, cfgId, { started: now.toISOString(), done: Math.min(i + CHUNK, batch.length), total: batch.length, down });

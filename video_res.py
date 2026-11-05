@@ -52,8 +52,8 @@ def _crop_units(chroma, frame_mbs_only=1):
     return sub_w, sub_h * (2 - frame_mbs_only)
 
 
-def parse_h264_sps(nal):
-    """(ancho, alto) de un SPS H.264 (con el byte de cabecera del NAL)."""
+def _h264_sps(nal):
+    """(ancho, alto, fps o None) de un SPS H.264 (con el byte de cabecera del NAL)."""
     b = _Bits(_rbsp(nal[1:]))
     profile = b.u(8)
     b.u(16)  # restricciones y nivel
@@ -92,7 +92,41 @@ def parse_h264_sps(nal):
         left, right, top, bottom = b.ue(), b.ue(), b.ue(), b.ue()
         width -= cx * (left + right)
         height -= cy * (top + bottom)
-    return width, height
+    fps = None
+    try:
+        if b.u(1):  # vui_parameters_present_flag: la velocidad está ahí, si el encoder la puso
+            fps = _h264_vui_fps(b)
+    except ValueError:
+        fps = None
+    return width, height, fps
+
+
+def parse_h264_sps(nal):
+    """(ancho, alto) de un SPS H.264."""
+    return _h264_sps(nal)[:2]
+
+
+def _h264_vui_fps(b):
+    """Cuadros por segundo del bloque VUI (timing_info): time_scale / (2 × num_units_in_tick). None si no viene."""
+    if b.u(1) and b.u(8) == 255:  # aspect_ratio_info, con el SAR explícito
+        b.u(16); b.u(16)
+    if b.u(1):  # overscan_info_present
+        b.u(1)
+    if b.u(1):  # video_signal_type_present: formato (3), rango (1) y, si viene, los colores (3 × 8)
+        b.u(4)
+        if b.u(1):
+            b.u(24)
+    if b.u(1):  # chroma_loc_info_present
+        b.ue(); b.ue()
+    if not b.u(1):  # timing_info_present
+        return None
+    num_units, time_scale = b.u(32), b.u(32)
+    if not num_units or not time_scale:
+        return None
+    fps = time_scale / (2 * num_units)
+    return fps if 1 <= fps <= 240 else None
+
+
 
 
 def parse_hevc_sps(nal):
@@ -129,8 +163,16 @@ def _sane(wh):
     return (w, h) if 64 <= w <= 8192 and 64 <= h <= 8192 else None
 
 
+def _parse_sps(codec, nal):
+    """(ancho, alto, fps o None) del SPS. El fps solo sale de H.264 con VUI; HEVC da solo el tamaño."""
+    if codec == 'h264':
+        return _h264_sps(nal)
+    width, height = parse_hevc_sps(nal)
+    return width, height, None
+
+
 def find_sps(es, codec):
-    """Busca el primer SPS del video en el flujo elemental y devuelve (ancho, alto), o None."""
+    """Busca el primer SPS del video en el flujo elemental y devuelve (ancho, alto, fps o None), o None."""
     i = 0
     while True:
         i = es.find(b'\x00\x00\x01', i)
@@ -145,11 +187,12 @@ def find_sps(es, codec):
                     return None  # el SPS sigue en lo que todavía no llegó
                 end = len(es)
             try:
-                wh = _sane((parse_h264_sps if codec == 'h264' else parse_hevc_sps)(es[i + 3:end]))
+                got = _parse_sps(codec, es[i + 3:end])
             except (ValueError, IndexError):
-                wh = None
+                got = None
+            wh = _sane(got[:2]) if got else None
             if wh:
-                return wh
+                return wh[0], wh[1], got[2]
         i += 3
 
 
@@ -241,7 +284,7 @@ def _first_segment(text, base):
 
 
 def _from_response(session, r, head, clock, deadline):
-    """Sigue desde una respuesta ya abierta (con sus primeros bytes leídos): ((ancho, alto) o None, URL siguiente o None)."""
+    """Sigue desde una respuesta ya abierta (con sus primeros bytes leídos): ((ancho, alto, fps) o None, URL siguiente o None)."""
     if head[:1] == b'\x47':
         demux = TsDemuxer()
         demux.feed(head)
@@ -252,13 +295,13 @@ def _from_response(session, r, head, clock, deadline):
     text = text[:256 * 1024]
     sizes = [(int(w), int(h)) for w, h in _RESOLUTION_RE.findall(text)]
     if sizes:
-        return max(sizes, key=lambda wh: wh[1]), None
+        return (*max(sizes, key=lambda wh: wh[1]), None), None
     nxt = _first_segment(text.decode('utf-8', 'replace'), r.url)
     return None, (nxt if clock() <= deadline else None)
 
 
 def measure(session, url, clock=time.monotonic, first=None):
-    """(ancho, alto) del video del canal, o None si no se pudo saber (caído, otro códec, sin SPS en lo leído).
+    """(ancho, alto, fps o None) del video del canal, o None si no se pudo saber (caído, otro códec, sin SPS en lo leído).
 
     `first`: (respuesta, primeros bytes) de un pedido ya abierto al canal, para no abrir otra conexión (el proveedor
     cuenta las conexiones y una segunda enseguida puede rebotar)."""
