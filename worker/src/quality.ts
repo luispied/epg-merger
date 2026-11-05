@@ -12,17 +12,30 @@ export function qualityLabel(h: number): QualityLabel {
 }
 
 const SUPERSCRIPT: Record<QualityLabel, string> = { SD: 'ˢᴰ', HD: 'ᴴᴰ', FHD: 'ᶠᴴᴰ', '4K': '⁴ᴷ' };
+const SUPERDIGIT: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
 
-
-/** El nombre con la calidad medida al final, sin el texto de calidad que traía. */
-export function nameWithQuality(name: string, label: QualityLabel): string {
-  const clean = stripQualityText(name);
-  return clean ? `${clean} ${SUPERSCRIPT[label]}` : name;
+/** Los fps en un número entero (59,94 queda en 60) y en superíndices, con la marca «ᶠᵖˢ» al final. */
+export function fpsSuffix(fps: number): string {
+  return `${String(Math.round(fps)).replace(/\d/g, (d) => SUPERDIGIT[d])}ᶠᵖˢ`;
 }
 
-/** Calidad por canal (id), a partir de lo que midió el relay. Sin medida con ancho y alto, no entra. */
-export function qualityMap(res: Record<string, Res> | undefined): Map<string, QualityLabel> {
-  const out = new Map<string, QualityLabel>();
-  for (const [id, r] of Object.entries(res ?? {})) if (r.w && r.h) out.set(id, qualityLabel(r.h));
+/** El nombre con la calidad medida al final, sin el texto de calidad que traía: «TNT ᴴᴰ ⁵⁰ᶠᵖˢ». */
+export function nameWithQuality(name: string, label: QualityLabel, fps?: number): string {
+  const clean = stripQualityText(name);
+  if (!clean) return name;
+  return `${clean} ${SUPERSCRIPT[label]}${fps ? ` ${fpsSuffix(fps)}` : ''}`;
+}
+
+/** Lo que midió el relay por canal: la etiqueta de calidad y, si lo dio, los cuadros por segundo. */
+export interface Measured { label: QualityLabel; fps?: number }
+
+/** Calidad y fps por canal (id), a partir de lo que midió el relay. Sin medida con ancho y alto, no entra. */
+export function qualityMap(res: Record<string, Res> | undefined): Map<string, Measured> {
+  const out = new Map<string, Measured>();
+  for (const [id, r] of Object.entries(res ?? {})) {
+    if (!r.w || !r.h) continue;
+    const fps = r.f && r.f >= 1 && r.f <= 240 ? Math.round(r.f) : undefined;
+    out.set(id, { label: qualityLabel(r.h), fps });
+  }
   return out;
 }

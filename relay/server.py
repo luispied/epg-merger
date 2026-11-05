@@ -10,7 +10,7 @@ Se autentica con un secret compartido con el Worker (RELAY_SECRET, mínimo 32 ca
   POST /v1/list     {servers, username, password}            -> {server, channels}
   POST /v1/account  {servers, username, password}            -> {server, account}
   POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, res, aborted}
-                    (los canales con "res": true que anden también se miden, con el mismo pedido: res[id] = [ancho, alto] o null)
+                    (los canales con "res": true que anden también se miden, con el mismo pedido: res[id] = [ancho, alto, fps o null] o null)
   GET  /health                                              -> {ok: true}   (sin autenticar)
 
 Cuidados:

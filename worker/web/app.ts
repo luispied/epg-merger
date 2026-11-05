@@ -905,7 +905,7 @@ function computeInfo(ch: Channel) {
 // Una vez por día el cron del Worker prueba una tanda de streams por el relay y deja el resultado
 // (src/streamcheck.ts). «Caído» = falló dos pruebas seguidas. Es solo un aviso: no oculta nada.
 interface Account { status?: string; expires?: string | null; trial?: boolean; maxConnections?: number; activeConnections?: number; timezone?: string }
-interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; autoHidden?: string[]; manualOpen?: string[]; res?: Record<string, { t: string; w?: number; h?: number }>; progress?: { done: number; total: number; down: number } }
+interface StreamHealth { checked?: string; requested?: string; relayOk?: string; relayFail?: string; listAt?: string; listOkAt?: string; listFailAt?: string; tested?: number; total?: number; account?: Account; accounts?: Record<string, Account>; channels: Record<string, { t: string; ok: boolean; fails: number }>; autoHidden?: string[]; manualOpen?: string[]; res?: Record<string, { t: string; w?: number; h?: number; f?: number }>; progress?: { done: number; total: number; down: number } }
 const DOWN_AFTER = 2;
 let streamHealth: StreamHealth | null = null;
 
@@ -934,14 +934,16 @@ const isDown = (ch: Channel) => {
 };
 /** La resolución real del canal (la mide el relay una vez por semana, junto con la prueba de caídos): la etiqueta
  *  corta (SD, HD, FHD, 4K) y el detalle. Sin medir todavía, null. */
-export interface Quality { label: 'SD' | 'HD' | 'FHD' | '4K'; w: number; h: number; t: string }
+export interface Quality { label: 'SD' | 'HD' | 'FHD' | '4K'; w: number; h: number; t: string; fps?: number }
 function qualityOf(ch: Channel): Quality | null {
   const r = streamHealth?.res?.[ch.id];
   if (!r?.w || !r.h) return null;
   const label = r.h >= 1800 ? '4K' : r.h >= 1000 ? 'FHD' : r.h >= 700 ? 'HD' : 'SD';
-  return { label, w: r.w, h: r.h, t: r.t };
+  // Los cuadros por segundo que midió el relay (si el video los declara), en entero: 59,94 queda en 60.
+  const fps = r.f && r.f >= 1 && r.f <= 240 ? Math.round(r.f) : undefined;
+  return { label, w: r.w, h: r.h, t: r.t, fps };
 }
-export const qualityTitle = (q: Quality) => `Resolución: ${q.w} × ${q.h}`;
+export const qualityTitle = (q: Quality) => `Resolución: ${q.w} × ${q.h}${q.fps ? `, ${q.fps} fps` : ''}`;
 async function loadStreamHealth() {
   if (!state.local) return;
   try {

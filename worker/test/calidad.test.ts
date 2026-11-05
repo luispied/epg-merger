@@ -8,14 +8,14 @@ const ch = (name: string, id = name) => ({ name, category: 'Noticias', id, ext: 
 const CHANNELS = [ch('TNT HD', 'a'), ch('ESPN 4K', 'b'), ch('Canal 9 SD', 'c'), ch('Discovery', 'd')];
 const names = (text: string) => [...text.matchAll(/tvg-name="([^"]*)"/g)].map((m) => m[1]);
 const cfgWith = (extra: Record<string, unknown>) => parseConfig({ provider: { type: 'm3u' }, channels: {}, ...extra });
-const Q = new Map([['a', 'FHD'], ['b', '4K'], ['c', 'SD']] as const);
+const Q = new Map([['a', { label: 'FHD' }], ['b', { label: '4K' }], ['c', { label: 'SD' }]] as const);
 
 test('calidad: las franjas de alto son las de Canales', () => {
   assert.equal(qualityLabel(480), 'SD');
   assert.equal(qualityLabel(720), 'HD');
   assert.equal(qualityLabel(1080), 'FHD');
   assert.equal(qualityLabel(2160), '4K');
-  assert.equal(qualityMap({ x: { t: '', w: 1920, h: 1080 }, y: { t: '' } }).get('x'), 'FHD');
+  assert.equal(qualityMap({ x: { t: '', w: 1920, h: 1080 }, y: { t: '' } }).get('x')?.label, 'FHD');
   assert.equal(qualityMap({ y: { t: '' } }).size, 0);
 });
 
@@ -26,6 +26,20 @@ test('calidad: reemplaza el texto del proveedor por la medida en letras pequeña
   assert.equal(nameWithQuality('TLC -EN ᵁᴴᴰ', 'HD'), 'TLC -EN ᴴᴰ');
   assert.equal(nameWithQuality('Discovery 1080p', 'HD'), 'Discovery ᴴᴰ');
   assert.equal(nameWithQuality('Discovery', 'HD'), 'Discovery ᴴᴰ');
+});
+
+test('calidad: el fps va después de la calidad, como número entero en superíndice', () => {
+  assert.equal(nameWithQuality('TNT Sports', 'HD', 50), 'TNT Sports ᴴᴰ ⁵⁰ᶠᵖˢ');
+  assert.equal(nameWithQuality('ESPN 4K', '4K', 60), 'ESPN ⁴ᴷ ⁶⁰ᶠᵖˢ');
+  assert.equal(nameWithQuality('Canal 9', 'SD', 25), 'Canal 9 ˢᴰ ²⁵ᶠᵖˢ');
+  assert.equal(nameWithQuality('Canal 9', 'SD'), 'Canal 9 ˢᴰ');
+});
+
+test('calidad: el fps medido llega al mapa; 59,94 se muestra como 60; sin dato no sale', () => {
+  const m = qualityMap({ x: { t: '', w: 1920, h: 1080, f: 59.94 }, y: { t: '', w: 1280, h: 720 }, z: { t: '', w: 1280, h: 720, f: 999 } });
+  assert.deepEqual(m.get('x'), { label: 'FHD', fps: 60 });
+  assert.deepEqual(m.get('y'), { label: 'HD', fps: undefined });
+  assert.equal(m.get('z')?.fps, undefined);
 });
 
 test('calidad: no toca palabras que solo contienen las letras', () => {

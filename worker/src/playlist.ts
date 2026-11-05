@@ -5,7 +5,7 @@ import type { Config } from './config.ts';
 import { placeNewGroups } from './groups.ts';
 import { sinEmoji } from '../../core/src/names.ts';
 import type { Channel } from './provider.ts';
-import { nameWithQuality, type QualityLabel } from './quality.ts';
+import { nameWithQuality, type Measured } from './quality.ts';
 
 // Sin mecanismo de escape en M3U: un '"' literal rompería el atributo (ver _m3u_attr).
 const attr = (v: string | null | undefined) => (v ?? '').replace(/"/g, "'").replace(/[\r\n]/g, ' ');
@@ -59,7 +59,7 @@ export interface PlaylistOptions {
   /** Poner la calidad medida al final del nombre («TNT ᶠᴴᴰ»). Apagado: el nombre queda como viene (ver showQuality). */
   quality?: boolean;
   /** La calidad medida por canal (id), de la prueba de caídos (ver quality.ts). */
-  qualities?: ReadonlyMap<string, QualityLabel>;
+  qualities?: ReadonlyMap<string, Measured>;
 }
 
 /** Un canal tal como sale en la playlist (y en el modo «solo ver»), ya ordenado. */
@@ -104,7 +104,7 @@ export function playlistRows(channels: Channel[], cfg: Config, opts: Pick<Playli
     const base = edit.name || (ch.name === group && rename[group]) || ch.name;
     // La calidad medida reemplaza el texto de calidad del proveedor; sin medida, el nombre queda igual.
     const q = opts.quality ? opts.qualities?.get(ch.id) : undefined;
-    const name = q ? nameWithQuality(base, q) : base;
+    const name = q ? nameWithQuality(base, q.label, q.fps) : base;
     const epg = edit.epg ?? null;
     // Sin EPG elegido, sin logo (el del proveedor suele ser genérico o de otro canal), salvo
     // que la persona haya puesto uno propio.

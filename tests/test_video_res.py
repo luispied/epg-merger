@@ -24,7 +24,20 @@ def test_saca_la_resolucion_del_sps(name, size):
     data = ts(name)
     for k in range(0, len(data), 500):  # llega en pedazos que cortan paquetes
         demux.feed(data[k:k + 500])
-    assert demux.result() == size
+    assert demux.result()[:2] == size
+
+
+@pytest.mark.parametrize('name, fps', [
+    ('h264_1080', 25.0),  # VUI con timing_info: time_scale / (2 × num_units_in_tick)
+    ('h264_720', 25.0),
+    ('h264_576i', 25.0),
+    ('h264_422', 25.0),
+    ('hevc_2160', None),  # HEVC: todavía sin fps, solo el tamaño
+])
+def test_saca_los_fps_del_vui(name, fps):
+    demux = video_res.TsDemuxer()
+    demux.feed(ts(name))
+    assert demux.result()[2] == fps
 
 
 def test_basura_o_sin_video_no_rompe():
@@ -60,12 +73,12 @@ class Session:
 
 
 def test_mide_ts_directo_hls_maestro_y_hls_con_segmento():
-    assert video_res.measure(Session({'http://p/1.ts': (200, ts('h264_720'))}), 'http://p/1.ts') == (1280, 720)
+    assert video_res.measure(Session({'http://p/1.ts': (200, ts('h264_720'))}), 'http://p/1.ts') == (1280, 720, 25.0)
     master = b'#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1280x720\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080\nb.m3u8\n'
-    assert video_res.measure(Session({'http://p/2.m3u8': (200, master)}), 'http://p/2.m3u8') == (1920, 1080)
+    assert video_res.measure(Session({'http://p/2.m3u8': (200, master)}), 'http://p/2.m3u8') == (1920, 1080, None)
     media = b'#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10,\nseg/1.ts\n'
     s = Session({'http://p/live/3.m3u8': (200, media), 'http://p/live/seg/1.ts': (200, ts('hevc_2160'))})
-    assert video_res.measure(s, 'http://p/live/3.m3u8') == (3840, 2160)
+    assert video_res.measure(s, 'http://p/live/3.m3u8') == (3840, 2160, None)
     assert s.asked == ['http://p/live/3.m3u8', 'http://p/live/seg/1.ts']
 
 
@@ -83,12 +96,12 @@ def test_probar_y_medir_usa_un_solo_pedido():
     import xtream_client
     s = Session({'http://p/1.ts': (200, ts('h264_1080'))})
     measure = lambda r, head: video_res.measure(s, 'http://p/1.ts', first=(r, head))  # noqa: E731
-    assert xtream_client.probe(s, 'http://p/1.ts', measure) == ('up', (1920, 1080))
+    assert xtream_client.probe(s, 'http://p/1.ts', measure) == ('up', (1920, 1080, 25.0))
     assert s.asked == ['http://p/1.ts']
     media = b'#EXTM3U\n#EXTINF:10,\nseg/1.ts\n'
     s = Session({'http://p/2.m3u8': (200, media), 'http://p/seg/1.ts': (200, ts('h264_720'))})
     measure = lambda r, head: video_res.measure(s, 'http://p/2.m3u8', first=(r, head))  # noqa: E731
-    assert xtream_client.probe(s, 'http://p/2.m3u8', measure) == ('up', (1280, 720))
+    assert xtream_client.probe(s, 'http://p/2.m3u8', measure) == ('up', (1280, 720, 25.0))
     assert s.asked == ['http://p/2.m3u8', 'http://p/seg/1.ts']
     assert xtream_client.probe(Session({}), 'http://p/3.ts', measure) == ('down', None)
     assert xtream_client.probe(Session({'http://p/1.ts': (403, b'')}), 'http://p/1.ts', measure) == ('rejected', None)

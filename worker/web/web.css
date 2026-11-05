@@ -532,6 +532,8 @@ body { overflow-anchor: none; }
 /* Resolución real del canal (la mide el relay): SD, HD, FHD, 4K */
 .qtag { flex: none; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; line-height: 16px; color: var(--text); background: color-mix(in srgb, var(--text) 12%, var(--surface)); border-radius: var(--radius-xs); padding: 0 5px; font-variant-numeric: tabular-nums; }
 .qtag.k4 { background: var(--accent-soft); color: var(--on-accent-soft); }
+/* Los cuadros por segundo, al lado de la calidad: una etiqueta contorneada, sin relleno, como dato aparte */
+.fps { flex: none; font-size: var(--fs-xs); font-weight: 600; line-height: 16px; color: var(--muted); border-radius: var(--radius-xs); box-shadow: inset 0 0 0 1px var(--hairline); padding: 0 5px; font-variant-numeric: tabular-nums; }
 /* La calidad va en la misma línea del nombre (Canales): el nombre se corta con ellipsis y la etiqueta no se achica. */
 .cards.rows:not(.grid) .card-name.has-q { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cards.rows:not(.grid) .card-name.has-q .cn-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
