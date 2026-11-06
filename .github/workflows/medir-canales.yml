@@ -1,0 +1,39 @@
+name: Medir canales a mano
+
+# Pide a mano la prueba de canales (caídos y calidad/fps por el relay): escribe healthreq/ en R2, igual que el botón
+# «Probar canales» de la app. El cron del Worker (cada 30 minutos) la toma. No toca short/ ni devices/.
+# Sin «cfg» pide todas las configuraciones con dispositivos; con «cfg» (id o comienzo del id), solo esa.
+on:
+  workflow_dispatch:
+    inputs:
+      cfg:
+        description: 'Configuración (id o comienzo del id). Vacío = todas las que tienen dispositivos'
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: medir-canales
+  cancel-in-progress: false
+
+jobs:
+  pedir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      CFG: ${{ inputs.cfg }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install boto3
+    - name: Pedir la medición
+      run: |
+        set -o pipefail
+        python tools/pedir_medicion.py | tee -a "$GITHUB_STEP_SUMMARY"
