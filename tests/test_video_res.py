@@ -82,6 +82,11 @@ def test_mide_ts_directo_hls_maestro_y_hls_con_segmento():
     assert s.asked == ['http://p/live/3.m3u8', 'http://p/live/seg/1.ts']
 
 
+def test_playlist_maestro_trae_los_fps_de_la_variante_mas_alta():
+    master = b'#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=1280x720,FRAME-RATE=50.000\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080,FRAME-RATE=25.000\nb.m3u8\n'
+    assert video_res.measure(Session({'http://p/3.m3u8': (200, master)}), 'http://p/3.m3u8') == (1920, 1080, 25.0)
+
+
 def test_si_no_se_puede_saber_devuelve_none():
     assert video_res.measure(Session({}), 'http://p/x.ts') is None
     assert video_res.measure(Session({'http://p/x.ts': (200, b'<html>')}), 'http://p/x.ts') is None
