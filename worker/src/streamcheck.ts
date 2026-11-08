@@ -47,7 +47,9 @@ async function putProgress(env: Env, cfgId: string, p: Progress) {
 
 interface Entry { t: string; ok: boolean; fails: number }
 /** Resolución medida: sin w/h es que se intentó y no se pudo saber (se reintenta en la próxima prueba). */
-export interface Res { t: string; w?: number; h?: number; f?: number }
+/** Versión de la medida: 2 desde que también trae los fps (f). Las medidas viejas (sin v) se vuelven a medir una vez. */
+export const RES_VERSION = 2;
+export interface Res { t: string; w?: number; h?: number; f?: number; v?: number }
 export interface HealthState {
   checked?: string;
   /** Canales que ocultó el sistema por caídos (aparte de lo que ocultó la persona a mano). */
@@ -126,7 +128,13 @@ async function readJson<T>(env: Env, key: string): Promise<T | null> {
 /** Los canales de la tanda a los que toca medirles la resolución: los que no están caídos y no se midieron en la semana
  *  (o no se pudo saber en la última prueba). */
 export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, now: Date, n = RES_PER_CHUNK): Set<string> {
-  const due = (id: string) => !res[id] || now.getTime() - (Date.parse(res[id].t) || 0) >= (res[id].w ? RES_EVERY_MS : CHECK_EVERY_MS);
+  const due = (id: string) => {
+    const r = res[id];
+    if (!r) return true;
+    // Medida de antes de los fps: se mide una vez más ahora, sin esperar la semana.
+    if (r.w && !r.v) return true;
+    return now.getTime() - (Date.parse(r.t) || 0) >= (r.w ? RES_EVERY_MS : CHECK_EVERY_MS);
+  };
   return new Set(chunk.filter((c) => seen[c.id]?.ok !== false && due(c.id)).slice(0, n).map((c) => c.id));
 }
 
@@ -241,7 +249,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
             if (!measure.has(id)) continue;
             const wh = size(v);
             const f = fpsOf(v);
-            res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1], ...(f !== undefined ? { f } : {}) } : { t: now.toISOString() };
+            res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1], v: RES_VERSION, ...(f !== undefined ? { f } : {}) } : { t: now.toISOString() };
           }
           if (i + CHUNK < batch.length) {
             await putProgress(env, cfgId, { started: now.toISOString(), done: Math.min(i + CHUNK, batch.length), total: batch.length, down });

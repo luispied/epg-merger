@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.1
+
+- **Los fps llegan sin esperar una semana.** Los canales que ya tenían calidad medida antes de los fps se vuelven a medir una vez en la próxima prueba, así el fps aparece sin esperar la medición semanal. Si un canal no declara sus fps, sigue sin mostrarlos.
+
 ## 1.78.0
 
 - **Los fps, junto a la calidad.** En Canales, al lado de la etiqueta de calidad aparece la velocidad del video (por ejemplo, «50 fps»), cuando el stream la declara. En la playlist de TiviMate, el nombre suma los fps después de la calidad: «TNT Sports ᴴᴰ ⁵⁰ᶠᵖˢ». 59,94 se muestra como 60. Sale con la próxima medición de cada canal.
