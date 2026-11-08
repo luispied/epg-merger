@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.2
+
+- **Los fps también con playlists maestros.** Si el proveedor sirve el video como playlist maestro (HLS) y declara el FRAME-RATE de cada variante, ese dato ahora cuenta como fps, sin bajar más datos del canal.
+
 ## 1.78.1
 
 - **Los fps llegan sin esperar una semana.** Los canales que ya tenían calidad medida antes de los fps se vuelven a medir una vez en la próxima prueba, así el fps aparece sin esperar la medición semanal. Si un canal no declara sus fps, sigue sin mostrarlos.

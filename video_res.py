@@ -13,6 +13,7 @@ DEADLINE_S = 8
 TIMEOUT = (8, 8)
 TS_PACKET = 188
 _RESOLUTION_RE = re.compile(rb'RESOLUTION=(\d{2,5})x(\d{2,5})')
+_FRAME_RATE_RE = re.compile(rb'FRAME-RATE=([\d.]+)')
 
 
 class _Bits:
@@ -293,9 +294,16 @@ def _from_response(session, r, head, clock, deadline):
         return None, None
     text = head + b''.join(r.iter_content(16 * 1024)) if len(head) == 4096 else head
     text = text[:256 * 1024]
-    sizes = [(int(w), int(h)) for w, h in _RESOLUTION_RE.findall(text)]
-    if sizes:
-        return (*max(sizes, key=lambda wh: wh[1]), None), None
+    # Playlist maestro: cada variante trae su RESOLUTION y, si el proveedor lo pone, su FRAME-RATE (los fps).
+    variants = []
+    for line in text.splitlines():
+        m = _RESOLUTION_RE.search(line)
+        if m:
+            fr = _FRAME_RATE_RE.search(line)
+            fps = float(fr.group(1)) if fr else None
+            variants.append((int(m.group(1)), int(m.group(2)), fps if fps and 1 <= fps <= 240 else None))
+    if variants:
+        return max(variants, key=lambda v: v[1]), None
     nxt = _first_segment(text.decode('utf-8', 'replace'), r.url)
     return None, (nxt if clock() <= deadline else None)
 
