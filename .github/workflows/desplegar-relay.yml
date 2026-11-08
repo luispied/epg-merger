@@ -1,0 +1,41 @@
+name: Desplegar relay
+
+# Redespliega el relay (relay/) en Fly.io a mano. Hace falta el secreto FLY_API_TOKEN (un token de deploy de la app:
+# `fly tokens create deploy -a <app>`) y el nombre de la app, en «app» o en la variable del repo FLY_APP.
+# Toma la configuración que ya tiene la app en Fly (puertos, secretos, región), así que no hace falta un fly.toml
+# en el repo. No toca el Worker, ni R2, ni los links de reproducción.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Nombre de la app del relay en Fly (vacío = variable FLY_APP del repo)'
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desplegar-relay
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ inputs.app || vars.FLY_APP }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: superfly/flyctl-actions/setup-flyctl@master
+    - name: Comprobar el token y la app
+      run: |
+        if [ -z "$FLY_API_TOKEN" ]; then echo '❌ Falta el secreto FLY_API_TOKEN'; exit 1; fi
+        if [ -z "$APP" ]; then echo '❌ Falta el nombre de la app: pasalo en «app» o cargá la variable FLY_APP'; exit 1; fi
+    - name: Traer la configuración de la app
+      run: flyctl config save -a "$APP"
+    - name: Desplegar
+      run: flyctl deploy --remote-only --dockerfile relay/Dockerfile -a "$APP"
+    - name: Estado
+      run: flyctl status -a "$APP" | tee -a "$GITHUB_STEP_SUMMARY"
