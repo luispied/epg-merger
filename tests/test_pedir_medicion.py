@@ -54,3 +54,11 @@ def test_prefijo_ambiguo_o_corto_es_error_y_no_escribe():
 def test_sin_configuraciones_es_error():
     with pytest.raises(ValueError):
         pedir_medicion(MemR2({}), AHORA)
+
+
+def test_remedir_marca_el_pedido_y_sin_remedir_no():
+    r2 = MemR2({'devices/aaa111.json': b'{}'})
+    pedir_medicion(r2, AHORA)
+    assert json.loads(r2.d['healthreq/aaa111.json']) == {'at': '2026-11-06T01:00:00Z'}
+    pedir_medicion(r2, AHORA, remedir=True)
+    assert json.loads(r2.d['healthreq/aaa111.json']) == {'at': '2026-11-06T01:00:00Z', 'remedir': True}

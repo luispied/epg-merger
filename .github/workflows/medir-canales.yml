@@ -3,6 +3,7 @@ name: Medir canales a mano
 # Pide a mano la prueba de canales (caídos y calidad/fps por el relay): escribe healthreq/ en R2, igual que el botón
 # «Probar canales» de la app. El cron del Worker (cada 30 minutos) la toma. No toca short/ ni devices/.
 # Sin «cfg» pide todas las configuraciones con dispositivos; con «cfg» (id o comienzo del id), solo esa.
+# Con «remedir» vuelve a medir todos los canales (resolución y fps), no solo los que les toca por la semana.
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +11,10 @@ on:
         description: 'Configuración (id o comienzo del id). Vacío = todas las que tienen dispositivos'
         default: ''
         required: false
+      remedir:
+        description: 'Volver a medir todos los canales (resolución y fps), no solo los que les toca'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,6 +32,7 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       CFG: ${{ inputs.cfg }}
+      REMEDIR: ${{ inputs.remedir }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
