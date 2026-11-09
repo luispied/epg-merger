@@ -9,7 +9,7 @@ import { MAX_REMINDERS } from '../src/remind.ts';
 import { b64urlDecode, b64urlEncode, decryptToken, encryptToken, sourceAlias } from '../src/crypto.ts';
 import { handle, rateLimited, routeKind } from '../src/index.ts';
 import { accountKey } from '../src/account.ts';
-import { autoHideDiff, checkAllHealth, inSweepWindow, isDue, needsRes, pickBatch, RES_EVERY_MS, RES_VERSION, runHealthCheck, unmeasuredCount, visibleChannels } from '../src/streamcheck.ts';
+import { autoHideDiff, checkAllHealth, inSweepWindow, isDue, needsRes, pickBatch, remedirLeft, RES_EVERY_MS, RES_VERSION, runHealthCheck, unmeasuredCount, visibleChannels } from '../src/streamcheck.ts';
 import { buildPlaylist } from '../src/playlist.ts';
 import { scheduleFile } from '../src/again.ts';
 import { gunzip } from '../src/schedule.ts';
@@ -1275,6 +1275,14 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
   assert.equal(needsRes(Array.from({ length: 40 }, (_, k) => ch(String(k))), {}, {}, now).size, 25);
   // Una medida de antes de los fps (sin v) se vuelve a medir enseguida, aunque sea reciente.
   assert.deepEqual([...needsRes([ch('p'), ch('q')], {}, { p: { t: now.toISOString(), w: 1280, h: 720 }, q: { t: now.toISOString(), w: 1280, h: 720, v: RES_VERSION } }, now)], ['p']);
+  // «Remedir todo»: lo medido antes del pedido vuelve a medirse (aunque sea de la versión nueva y de hoy); lo medido después, no.
+  const pedido = now.getTime() - 3600_000;
+  const antes = { t: new Date(pedido - 1000).toISOString(), w: 1280, h: 720, v: RES_VERSION };
+  const despues = { t: new Date(pedido + 1000).toISOString(), w: 1280, h: 720, v: RES_VERSION };
+  assert.deepEqual([...needsRes([ch('m'), ch('n'), ch('o'), ch('z')], { z: { t: '', ok: false, fails: 2 } }, { m: antes, n: despues, z: antes }, now, 25, pedido)], ['m', 'o']);
+  assert.deepEqual([...needsRes([ch('m')], {}, { m: antes }, now)], []);
+  assert.equal(remedirLeft([ch('m'), ch('n'), ch('o'), ch('z')], { z: { t: '', ok: false, fails: 2 } }, { m: antes, n: despues, z: antes }, pedido), 2);
+  assert.equal(remedirLeft([ch('n')], {}, { n: despues }, pedido), 0);
   // Lo que no se pudo saber se reintenta en la próxima prueba diaria, no a la semana.
   assert.deepEqual([...needsRes([ch('x'), ch('y')], {}, { x: { t: new Date(now.getTime() - 21 * 3600_000).toISOString() }, y: { t: new Date(now.getTime() - 19 * 3600_000).toISOString() } }, now)], ['x']);
   assert.equal(isDue({ checked: now.toISOString() }, undefined, new Date(now.getTime() + 19 * 3600_000)), false);

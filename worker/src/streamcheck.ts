@@ -28,6 +28,8 @@ export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
 export const RES_PER_CHUNK = 25; // ~100 por día: va en el mismo pedido de la prueba; el relay deja de medir si se queda sin tiempo
 export const SWEEP_CHUNKS = 8; // barrido: 400 canales por corrida, con todas las tandas midiendo
 export const SWEEP_EVERY_MS = 25 * 60 * 1000; // el cron corre cada 30 min: una corrida del barrido por tick
+/** «Remedir todo» a pedido: sigue en cada tick del cron hasta medir de nuevo todos los canales, y se da por vencido a las 24 horas. */
+export const REMEDIR_MAX_MS = 24 * 3600 * 1000;
 const SWEEP_HOURS = [1, 9]; // de 1 a 9 h, hora de Montevideo
 const LOCAL_TZ = 'America/Montevideo';
 const DIVIDER_RE = /[▀-▟]{2,}/;
@@ -127,15 +129,22 @@ async function readJson<T>(env: Env, key: string): Promise<T | null> {
 
 /** Los canales de la tanda a los que toca medirles la resolución: los que no están caídos y no se midieron en la semana
  *  (o no se pudo saber en la última prueba). */
-export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, now: Date, n = RES_PER_CHUNK): Set<string> {
+export function needsRes(chunk: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, now: Date, n = RES_PER_CHUNK, since = 0): Set<string> {
   const due = (id: string) => {
     const r = res[id];
     if (!r) return true;
+    // «Remedir todo»: lo medido antes del pedido vuelve a medirse.
+    if (since && (Date.parse(r.t) || 0) < since) return true;
     // Medida de antes de los fps: se mide una vez más ahora, sin esperar la semana.
     if (r.w && !r.v) return true;
     return now.getTime() - (Date.parse(r.t) || 0) >= (r.w ? RES_EVERY_MS : CHECK_EVERY_MS);
   };
   return new Set(chunk.filter((c) => seen[c.id]?.ok !== false && due(c.id)).slice(0, n).map((c) => c.id));
+}
+
+/** Canales que faltan para un «Remedir todo»: sin medida, o medidos antes del pedido. Los caídos no cuentan: no se miden. */
+export function remedirLeft(channels: Channel[], seen: Record<string, Entry>, res: Record<string, Res>, since: number): number {
+  return channels.filter((c) => seen[c.id]?.ok !== false && (!res[c.id] || (Date.parse(res[c.id].t) || 0) < since)).length;
 }
 
 /** Canales que todavía no tienen medida de resolución. Los caídos no cuentan: no se miden. */
@@ -172,15 +181,19 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const stored = await loadConfig(env.BUCKET, cfgId);
   if (!stored || stored.config.provider.type !== 'xtream') return false;
   const prev = await readJson<HealthState>(env, `health/${cfgId}.json`);
-  const req = await readJson<{ at?: string }>(env, `healthreq/${cfgId}.json`);
+  const req = await readJson<{ at?: string; remedir?: boolean }>(env, `healthreq/${cfgId}.json`);
   const dueNow = force || isDue(prev, req?.at, now);
+  // «Remedir todo»: el pedido trae remedir y vale 24 horas; mientras queden canales, se sigue en cada tick.
+  const reqAt = Date.parse(req?.at ?? '') || 0;
+  const remedirSince = req?.remedir && reqAt && now.getTime() - reqAt < REMEDIR_MAX_MS ? reqAt : 0;
   // En la ventana del barrido se vuelve a mirar en cada tanda (aunque la prueba diaria ya haya corrido), si quedan canales sin medir.
   const inWindow = inSweepWindow(now);
   const sweepAgain = inWindow && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= SWEEP_EVERY_MS;
   // Entre pruebas, los caídos se vuelven a probar cada 3 horas (solo ellos, en una tanda chica).
   const hadDown = Object.values(prev?.channels ?? {}).some((e) => !e.ok);
   const recheck = hadDown && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= RECHECK_DOWN_MS;
-  if (!dueNow && !sweepAgain && !recheck) return false;
+  const remedirAgain = remedirSince > 0 && now.getTime() - (Date.parse(prev?.attempted ?? '') || 0) >= SWEEP_EVERY_MS;
+  if (!dueNow && !sweepAgain && !recheck && !remedirAgain) return false;
   const tokens = await accountTokens(env.BUCKET, cfgId, stored.config.activeAccount);
   if (!tokens.length) return false;
   const servers = stored.config.provider.servers;
@@ -198,7 +211,8 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
   // Barrido: en la ventana, si quedan canales sin medir, esta corrida prueba y mide todo lo que alcance.
-  const sweep = inWindow && unmeasuredCount(channels, seen, res) > 0;
+  const remedir = remedirSince > 0 && remedirLeft(channels, seen, res, remedirSince) > 0;
+  const sweep = (inWindow && unmeasuredCount(channels, seen, res) > 0) || remedir;
   const onlyDown = !dueNow && !sweep;
   if (onlyDown && !recheck) return false;
   let probedBy = prev?.probedBy;
@@ -224,7 +238,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
         for (let i = 0; i < batch.length; i += CHUNK) {
           if (i && await env.BUCKET.head(stopKey(cfgId))) break;
           const chunk = batch.slice(i, i + CHUNK);
-          const measure = needsRes(chunk.filter((c) => !manualIds.has(c.id)), seen, res, now, sweep ? CHUNK : RES_PER_CHUNK);
+          const measure = needsRes(chunk.filter((c) => !manualIds.has(c.id)), seen, res, now, sweep ? CHUNK : RES_PER_CHUNK, remedir ? remedirSince : 0);
           const reply = await relayPost<ProbeResponse>(env, '/v1/probe', {
             servers, username: u, password: p, channels: chunk.map((c) => ({ id: c.id, ext: c.ext, ...(measure.has(c.id) ? { res: true } : {}) })),
           }, 60_000);

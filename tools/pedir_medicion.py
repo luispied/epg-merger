@@ -5,6 +5,8 @@ por el relay, sin esperar las 20 horas.
 
 Sin `CFG` pide la medición de todas las configuraciones con dispositivos (las de devices/). Con `CFG` (un id o
 el comienzo del id, como en «Borrar configuración») pide solo esa, y tiene que coincidir con una sola.
+Con `REMEDIR=true` el pedido trae `remedir`: el Worker vuelve a medir (resolución y fps) todos los canales, no solo
+los que les toca por la semana. Sigue en cada corrida del cron hasta terminar, con un máximo de 24 horas.
 
 No toca short/ ni devices/, no rota TOKEN_KEY y no cambia la configuración: solo escribe healthreq/.
 
@@ -21,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from r2 import R2  # noqa: E402
 
 
-def pedir_medicion(r2, ahora, prefijo=''):
+def pedir_medicion(r2, ahora, prefijo='', remedir=False):
     """Escribe healthreq/ para las configuraciones que correspondan. Devuelve la lista de cfgId pedidos.
     Error si el prefijo (con texto) no identifica una sola configuración."""
     prefijo = prefijo.strip()
@@ -34,7 +36,10 @@ def pedir_medicion(r2, ahora, prefijo=''):
             raise ValueError(f'"{prefijo}" coincide con {len(ids)} configuraciones (tiene que ser una)')
     if not ids:
         raise ValueError('no hay configuraciones con dispositivos (devices/)')
-    cuerpo = json.dumps({'at': ahora.isoformat().replace('+00:00', 'Z')})
+    pedido = {'at': ahora.isoformat().replace('+00:00', 'Z')}
+    if remedir:
+        pedido['remedir'] = True
+    cuerpo = json.dumps(pedido)
     for cfg_id in ids:
         r2.put(f'healthreq/{cfg_id}.json', cuerpo.encode('utf-8'))
     return ids
@@ -42,6 +47,7 @@ def pedir_medicion(r2, ahora, prefijo=''):
 
 def main():
     prefijo = os.environ.get('CFG', '')
+    remedir = os.environ.get('REMEDIR', '').strip().lower() == 'true'
     necesarias = ('R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY')
     if not all(os.environ.get(k) for k in necesarias):
         print('❌ Faltan las credenciales de R2')
@@ -53,11 +59,12 @@ def main():
         region_name='auto')
     try:
         ids = pedir_medicion(R2(cliente, os.environ.get('R2_BUCKET') or 'grilla'),
-                             datetime.datetime.now(datetime.timezone.utc), prefijo)
+                             datetime.datetime.now(datetime.timezone.utc), prefijo, remedir)
     except ValueError as e:
         print(f'❌ {e}')
         return 1
-    print(f'✅ Medición pedida para {len(ids)} configuración(es). El cron del Worker la toma en hasta 30 minutos.')
+    todo = ' (remedir todos los canales)' if remedir else ''
+    print(f'✅ Medición pedida para {len(ids)} configuración(es){todo}. El cron del Worker la toma en hasta 30 minutos.')
     for cfg_id in ids:
         print(f'- {cfg_id}')
     return 0

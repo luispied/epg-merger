@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.3
+
+- Worker: «Remedir todo» a pedido. El pedido de medición puede traer `remedir`: el Worker vuelve a medir la resolución y los fps de todos los canales visibles que andan, 400 por corrida del cron, hasta terminar o hasta las 24 horas. Se pide desde el workflow «Medir canales a mano» (opción «remedir»). Sin esa opción, nada cambia.
+
 ## 1.78.2
 
 - **Los fps también con playlists maestros.** Si el proveedor sirve el video como playlist maestro (HLS) y declara el FRAME-RATE de cada variante, ese dato ahora cuenta como fps, sin bajar más datos del canal.
