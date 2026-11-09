@@ -1,0 +1,45 @@
+name: Estado del relay
+
+# Diagnóstico de solo lectura del relay en Fly: estado de las máquinas, si /health responde, los códigos de las últimas
+# respuestas (el relay no registra cuerpos ni URLs con datos de cuentas: solo método, ruta y código) y la IP pública de
+# salida. No despliega, no cambia secretos y no toca el Worker, R2 ni los links de reproducción.
+# Hace falta el secreto FLY_API_TOKEN y el nombre de la app, en «app» o en la variable del repo FLY_APP.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Nombre de la app del relay en Fly (vacío = variable FLY_APP del repo)'
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  estado:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ inputs.app || vars.FLY_APP }}
+    steps:
+    - uses: superfly/flyctl-actions/setup-flyctl@master
+    - name: Comprobar el token y la app
+      run: |
+        if [ -z "$FLY_API_TOKEN" ]; then echo '❌ Falta el secreto FLY_API_TOKEN'; exit 1; fi
+        if [ -z "$APP" ]; then echo '❌ Falta el nombre de la app: pasalo en «app» o cargá la variable FLY_APP'; exit 1; fi
+    - name: Estado de las máquinas
+      run: flyctl status -a "$APP" | tee -a "$GITHUB_STEP_SUMMARY"
+    - name: Responde /health
+      run: |
+        echo "### /health" | tee -a "$GITHUB_STEP_SUMMARY"
+        curl -sS -m 15 -o /dev/null -w 'HTTP %{http_code} en %{time_total}s\n' "https://$APP.fly.dev/health" | tee -a "$GITHUB_STEP_SUMMARY" || true
+    - name: Códigos de las últimas respuestas
+      run: |
+        echo "### Últimas respuestas del relay (método, ruta, código)" | tee -a "$GITHUB_STEP_SUMMARY"
+        flyctl logs -a "$APP" --no-tail 2>&1 | grep -E '(POST|GET) /' | grep -oE '(POST|GET) /[a-z0-9/]* [0-9]*' | sort | uniq -c | sort -rn | head -20 | tee -a "$GITHUB_STEP_SUMMARY" || true
+    - name: IP pública de salida del relay
+      continue-on-error: true
+      run: |
+        echo "### IP de salida" | tee -a "$GITHUB_STEP_SUMMARY"
+        flyctl ssh console -a "$APP" -C "python -c \"import urllib.request as u;print(u.urlopen('https://api.ipify.org',timeout=10).read().decode())\"" 2>&1 | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
