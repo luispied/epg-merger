@@ -6,7 +6,7 @@ import { noStreak, tasteGenres } from '../../core/src/taste.ts';
 import { scheduleFile } from '../src/again.ts';
 import { channelAlias } from '../../core/src/alias.ts';
 import { b64urlEncode } from '../src/crypto.ts';
-import { addSub, autoOffGenre, getTaste, notifyTaste, setTaste, profileGuideChannels, type PushSub } from '../src/push.ts';
+import { addSub, autoOffGenre, checkAllPush, getTaste, notifyTaste, setTaste, profileGuideChannels, type PushSub } from '../src/push.ts';
 import { feedbackHabit } from '../src/habits.ts';
 import {
   allowedGenres, emptyTaste, hasQuota, inWindow, localHm, localParts, parseTaste, pickProgram, seenGenres, setGenre, type TasteChannel, type TasteSent, type TasteState,
@@ -287,4 +287,27 @@ test('tres «No me interesa» seguidos del mismo género apagan ese género para
   assert.equal(await notifyTaste(w.env, w.cfgId, at), 0);
   // Ya apagado: otro «No me interesa» del mismo género no vuelve a avisar.
   assert.equal(await pedir('Película cuatro', 'Documental'), null);
+});
+
+test('checkAllPush: una corrida lee cada canal una sola vez aunque haya varios perfiles (cupo de pedidos de R2)', async () => {
+  const w = await world({ tz: BA });
+  const n = 300;
+  const channels = Array.from({ length: n }, (_, i) => ({ name: `Canal ${i}`, category: 'Cultura' }));
+  const cfgChannels = Object.fromEntries(channels.map((c, i) => [c.name, { epg: `x${i}` }]));
+  await w.bucket.put(`list/${w.cfgId}.json`, JSON.stringify({ channels }));
+  await w.bucket.put(`cfg/${w.cfgId}.json`, JSON.stringify({
+    provider: { type: 'm3u' }, channels: cfgChannels, profiles: [{ id: 'luis', name: 'Luis' }, { id: 'mama', name: 'Mamá' }],
+  }));
+  const files = await Promise.all(Array.from({ length: n }, (_, i) => scheduleFile(channelAlias(`x${i}`))));
+  await Promise.all(files.map((f) => w.bucket.put(`ui/schedule/${f}.json`, JSON.stringify([prog('Planeta Tierra', 2, 90, 'Documental')]))));
+  await w.bucket.put(`habits/${w.cfgId}.json`, JSON.stringify({ luis: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t }, mama: { ch: {}, no: {}, more: {}, mg: {}, t: baseHabits().t } }));
+  await setTaste(w.bucket, w.cfgId, { profile: 'luis', endpoint: w.endpoint, on: true, tz: BA });
+  await setTaste(w.bucket, w.cfgId, { profile: 'mama', endpoint: w.endpoint, on: true, tz: BA });
+  let gets = 0;
+  const counting = Object.create(w.bucket, { get: { value: (...a: unknown[]) => { gets++; return (w.bucket.get as (...x: unknown[]) => unknown)(...a); } } });
+  await checkAllPush({ ...w.env, BUCKET: counting } as typeof w.env, new Date(NOW));
+  assert.ok(gets > n, 'la corrida tiene que leer los canales');
+  // Un pedido por cada encabezado (uno por prefijo de archivo) y uno por canal, sin repetir por perfil.
+  const prefixes = new Set(files.map((f) => f.slice(0, 2))).size;
+  assert.ok(gets <= prefixes + n + 20, `R2 leyó ${gets} veces; el tope es ${prefixes} + ${n} + 20`);
 });
