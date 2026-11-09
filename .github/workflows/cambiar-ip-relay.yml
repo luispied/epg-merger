@@ -1,0 +1,74 @@
+name: Cambiar la IP del relay
+
+# Cambia la IP pública de salida del relay en Fly: crea una máquina nueva igual a la actual (misma imagen, región,
+# puertos y secretos), comprueba que /health responde y recién entonces borra la vieja. La IP de salida depende de
+# la máquina, así que la nueva suele salir con otra; no está garantizado, y se puede volver a correr.
+# No cuesta nada, no cambia secretos y no toca el Worker, R2 ni los links de reproducción.
+# Hace falta el secreto FLY_API_TOKEN y el nombre de la app, en «app» o en la variable del repo FLY_APP.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Nombre de la app del relay en Fly (vacío = variable FLY_APP del repo)'
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desplegar-relay
+  cancel-in-progress: false
+
+jobs:
+  cambiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: ${{ inputs.app || vars.FLY_APP }}
+    steps:
+    - uses: superfly/flyctl-actions/setup-flyctl@master
+    - name: Comprobar el token y la app
+      run: |
+        if [ -z "$FLY_API_TOKEN" ]; then echo '❌ Falta el secreto FLY_API_TOKEN'; exit 1; fi
+        if [ -z "$APP" ]; then echo '❌ Falta el nombre de la app: pasalo en «app» o cargá la variable FLY_APP'; exit 1; fi
+    - name: Máquina actual
+      id: vieja
+      run: |
+        ids=$(flyctl machines list -a "$APP" --json | jq -r '.[].id')
+        if [ "$(echo "$ids" | grep -c .)" != "1" ]; then echo "❌ Esperaba una sola máquina y hay: $(echo "$ids" | grep -c .)"; exit 1; fi
+        echo "id=$ids" >> "$GITHUB_OUTPUT"
+        region=$(flyctl machines list -a "$APP" --json | jq -r '.[0].region')
+        echo "region=$region" >> "$GITHUB_OUTPUT"
+    - name: IP de antes
+      continue-on-error: true
+      run: |
+        echo "### IP de antes" | tee -a "$GITHUB_STEP_SUMMARY"
+        flyctl ssh console -a "$APP" -C "python -c \"import urllib.request as u;print(u.urlopen('https://api.ipify.org',timeout=10).read().decode())\"" 2>&1 | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+    - name: Crear la máquina nueva
+      run: flyctl machine clone "${{ steps.vieja.outputs.id }}" -a "$APP" --region "${{ steps.vieja.outputs.region }}"
+    - name: Comprobar la nueva y borrar la vieja
+      run: |
+        nueva=$(flyctl machines list -a "$APP" --json | jq -r --arg v "${{ steps.vieja.outputs.id }}" '.[] | select(.id != $v) | .id')
+        if [ "$(echo "$nueva" | grep -c .)" != "1" ]; then echo '❌ No encuentro la máquina nueva: no borro nada'; exit 1; fi
+        flyctl machine stop "${{ steps.vieja.outputs.id }}" -a "$APP" || true
+        ok=''
+        for i in 1 2 3 4 5 6; do
+          if [ "$(curl -sS -m 15 -o /dev/null -w '%{http_code}' "https://$APP.fly.dev/health")" = "200" ]; then ok=1; break; fi
+          sleep 5
+        done
+        if [ -z "$ok" ]; then
+          echo '❌ La máquina nueva no responde /health: dejo la vieja y borro la nueva'
+          flyctl machine start "${{ steps.vieja.outputs.id }}" -a "$APP" || true
+          flyctl machine destroy "$nueva" -a "$APP" --force
+          exit 1
+        fi
+        flyctl machine destroy "${{ steps.vieja.outputs.id }}" -a "$APP" --force
+    - name: Estado
+      run: flyctl status -a "$APP" | tee -a "$GITHUB_STEP_SUMMARY"
+    - name: IP de ahora
+      continue-on-error: true
+      run: |
+        echo "### IP de ahora" | tee -a "$GITHUB_STEP_SUMMARY"
+        flyctl ssh console -a "$APP" -C "python -c \"import urllib.request as u;print(u.urlopen('https://api.ipify.org',timeout=10).read().decode())\"" 2>&1 | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
