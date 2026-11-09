@@ -139,6 +139,8 @@ def pick_server(servers, username, password):
 
 
 REJECT_STATUS = (401, 403, 407, 429, 458, 884)
+# Para diagnóstico: si se define, recibe el código HTTP de cada prueba de stream (0 si no hubo respuesta). Solo el número.
+ON_STATUS = None
 
 
 def probe(session, url, measure=None):
@@ -147,6 +149,8 @@ def probe(session, url, measure=None):
     Con `measure(response, head)`, si el canal anda se le pasa la misma conexión abierta y devuelve (resultado, medida)."""
     try:
         with session.get(url, stream=True, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), allow_redirects=True) as r:
+            if ON_STATUS:
+                ON_STATUS(r.status_code)
             if r.status_code in REJECT_STATUS:
                 return ('rejected', None) if measure else 'rejected'
             if r.status_code != 200:
@@ -157,4 +161,6 @@ def probe(session, url, measure=None):
                 return 'up' if up else 'down'
             return ('up', measure(r, head)) if up else ('down', None)
     except requests.RequestException:
+        if ON_STATUS:
+            ON_STATUS(0)
         return ('down', None) if measure else 'down'
