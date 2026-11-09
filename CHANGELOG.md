@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.5
+
+- Worker: los avisos por gusto leen cada canal una sola vez por corrida, aunque haya varios perfiles o configuraciones. Antes la corrida de cada 30 minutos se cortaba por el cupo de pedidos de R2 y, con eso, los avisos push no salían en las horas con avisos por gusto.
+
 ## 1.78.4
 
 - **La prueba de canales vuelve a correr a toda hora.** A la tarde y a la noche la prueba de canales (caídos, calidad y fps) no llegaba a correr, porque compartía la corrida con los avisos y esa corrida se cortaba. Ahora corre aparte, a los 10 y 40 de cada hora.

@@ -12,7 +12,7 @@ import { readReminders, REMIND_AHEAD_S, REMIND_GRACE_S, writeReminders } from '.
 import { readHabits } from './habits.ts';
 import { type Habits, noStreak, NO_STREAK_OFF } from '../../core/src/taste.ts';
 import { scheduleFile } from './again.ts';
-import { readEntries, scheduleReader } from './schedule.ts';
+import { type Entry, readEntries, scheduleReader } from './schedule.ts';
 import { playlistRows, type DeviceFilter } from './playlist.ts';
 import { parseConfig, parseProfiles, type Config, type ProfileDef } from './config.ts';
 import type { Channel } from './provider.ts';
@@ -355,7 +355,20 @@ const tasteOf = (st: PushState, profile: string): TasteState => st.tastes?.[prof
 /** Aviso por gusto de un perfil (taste.ts): con el interruptor prendido, dentro de la ventana y con cupo, el mejor
  *  programa de sus canales y de su gusto que empieza pronto; si ninguno es bueno, no manda nada. Solo a los
  *  dispositivos suscritos a ese perfil. */
-export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Promise<number> {
+/** La programación de un canal por su alias, leída una sola vez por corrida: cada lectura es un pedido a R2 y una
+ *  corrida tiene un cupo de pedidos. Sin esto, cada perfil (y cada configuración) volvía a leer los encabezados y los
+ *  canales, y la corrida de cada 30 minutos se cortaba con «Too many API requests by single Worker invocation». */
+export function scheduleCache(bucket: R2Bucket): (epg: string) => Promise<Entry[] | null> {
+  const read = scheduleReader(bucket);
+  const memo = new Map<string, Promise<Entry[] | null>>();
+  return (epg) => {
+    let entries = memo.get(epg);
+    if (!entries) memo.set(epg, (entries = scheduleFile(epg).then((f) => readEntries(read, f))));
+    return entries;
+  };
+}
+
+export async function notifyTaste(env: Env, cfgId: string, now = new Date(), entriesOf = scheduleCache(env.BUCKET)): Promise<number> {
   const { st, profiles } = await loadTastes(env.BUCKET, cfgId);
   if (!st.tastes || !st.subs.some((s) => s.profiles?.length)) return 0;
   const [listObj, cfgObj] = await Promise.all([env.BUCKET.get(`list/${cfgId}.json`), env.BUCKET.get(cfgKey(cfgId))]);
@@ -371,12 +384,13 @@ export async function notifyTaste(env: Env, cfgId: string, now = new Date()): Pr
   let sent = 0;
   for (const p of profiles) {
     if (!tasteOf(st, p.id).on) continue;
-    sent += await notifyProfileTaste(env, cfgId, p, st, list, cfg, now);
+    sent += await notifyProfileTaste(env, cfgId, p, st, list, cfg, now, entriesOf);
   }
   return sent;
 }
 
-async function notifyProfileTaste(env: Env, cfgId: string, p: ProfileDef, st: PushState, list: { channels?: Channel[] }, cfg: Config, now: Date): Promise<number> {
+async function notifyProfileTaste(env: Env, cfgId: string, p: ProfileDef, st: PushState, list: { channels?: Channel[] }, cfg: Config, now: Date,
+  entriesOf: (epg: string) => Promise<Entry[] | null>): Promise<number> {
   const bucket = env.BUCKET;
   const t = tasteOf(st, p.id);
   const member = (s: PushSub) => !!s.profiles?.includes(p.id);
@@ -386,11 +400,9 @@ async function notifyProfileTaste(env: Env, cfgId: string, p: ProfileDef, st: Pu
   const genres = allowedGenres(habits, t, now.getTime()).filter((g) => !kids || kids.has(g));
   if (!genres.length) return 0;
   const channels = profileGuideChannels(list, cfg, p.filter);
-  const read = scheduleReader(bucket);
-  const schedules = new Map<string, Awaited<ReturnType<typeof readEntries>>>();
-  const files = await Promise.all(channels.map((c) => scheduleFile(c.epg)));
+  const schedules = new Map<string, Entry[] | null>();
   for (let k = 0; k < channels.length; k += 25) {
-    const part = await Promise.all(files.slice(k, k + 25).map((f) => readEntries(read, f)));
+    const part = await Promise.all(channels.slice(k, k + 25).map((c) => entriesOf(c.epg)));
     part.forEach((e, i) => schedules.set(channels[k + i].epg, e));
   }
   const marks = new Set((await readReminders(bucket, cfgId)).map((r) => `${channelAlias(r.epg)}|${r.start}`));
@@ -483,8 +495,9 @@ export async function setTaste(bucket: R2Bucket, cfgId: string, body: Record<str
 }
 
 /** Corrida programada: revisa cada configuración con avisos. */
-export async function checkAllPush(env: Env): Promise<void> {
+export async function checkAllPush(env: Env, now = new Date()): Promise<void> {
   if (!pushConfigured(env)) return;
+  const entriesOf = scheduleCache(env.BUCKET); // una sola para toda la corrida: el cupo de pedidos es por corrida
   let cursor: string | undefined;
   do {
     const page = await env.BUCKET.list({ prefix: 'push/', cursor });
@@ -493,7 +506,7 @@ export async function checkAllPush(env: Env): Promise<void> {
       try { await notifyNewChannels(env, cfgId); } catch { /* una configuración no frena a las demás */ }
       try { await notifyExpiry(env, cfgId); } catch { /* idem */ }
       try { await notifyReminders(env, cfgId); } catch { /* idem */ }
-      try { await notifyTaste(env, cfgId); } catch { /* idem */ }
+      try { await notifyTaste(env, cfgId, now, entriesOf); } catch { /* idem */ }
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
