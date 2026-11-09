@@ -1,0 +1,41 @@
+name: Ver el cron del Worker
+
+# Diagnóstico de solo lectura: escucha unos minutos lo que hacen las corridas programadas del Worker (wrangler tail) y
+# muestra de cada una la hora, el resultado (ok, exceededCpu, excepción…) y sus mensajes, con ids y claves tapados.
+# No muestra los pedidos web, no despliega y no toca R2 ni los links de reproducción.
+# Para ver la corrida de cada 30 minutos, lanzarlo un minuto antes de la hora en punto o de la media.
+on:
+  workflow_dispatch:
+    inputs:
+      minutos:
+        description: 'Cuántos minutos escuchar'
+        default: '4'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  ver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      MINUTOS: ${{ inputs.minutos || '4' }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Install dependencies
+      working-directory: worker
+      run: npm ci
+    - name: Escuchar
+      working-directory: worker
+      run: |
+        case "$MINUTOS" in ''|*[!0-9]*) echo '❌ «minutos» tiene que ser un número'; exit 1;; esac
+        timeout "$((MINUTOS * 60))" npx wrangler tail --format json > "$RUNNER_TEMP/tail.json" 2> "$RUNNER_TEMP/tail.err" || true
+        grep -iE 'error|denied|permission|auth' "$RUNNER_TEMP/tail.err" | head -5 || true
+    - name: Resumir
+      run: python3 tools/ver_cron.py "$RUNNER_TEMP/tail.json" | tee -a "$GITHUB_STEP_SUMMARY"
