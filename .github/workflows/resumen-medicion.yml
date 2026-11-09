@@ -1,0 +1,29 @@
+name: Resumen de medición
+
+# Muestra en la corrida, en cantidades, cómo está la medición de canales (health/ en R2): cuántos tienen resolución y
+# fps, cuántos se midieron de nuevo desde el último pedido y cómo se reparten. Solo lee: no escribe en R2, no toca
+# short/ ni devices/ y no imprime nombres de canales ni cuentas.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resumen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install boto3
+    - name: Resumir
+      run: |
+        set -o pipefail
+        python tools/resumen_medicion.py | tee -a "$GITHUB_STEP_SUMMARY"
