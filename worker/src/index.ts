@@ -1125,6 +1125,9 @@ export function routeKind(pathname: string): string {
   return 'otro';
 }
 
+/** El cron de la prueba de canales (wrangler.toml → [triggers]). */
+export const HEALTH_CRON = '10,40 * * * *';
+
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     // JSON en el mensaje: Workers Logs lo lee como campo `route` (consumo.py agrupa por ese campo).
@@ -1140,6 +1143,12 @@ export default {
       return;
     }
     console.log(JSON.stringify({ route: 'cron' }));
-    ctx.waitUntil(checkAllPush(env).catch(() => {}).then(() => checkAllHealth(env)));
+    // La prueba de canales corre en su propia corrida (a los 10 y 40): así, si los avisos push gastan el cupo de
+    // pedidos a R2 de una corrida, la prueba no se queda sin correr.
+    if (event.cron === HEALTH_CRON) {
+      ctx.waitUntil(checkAllHealth(env).catch(() => 0));
+      return;
+    }
+    ctx.waitUntil(checkAllPush(env).catch(() => {}));
   },
 };
