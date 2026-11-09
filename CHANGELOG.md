@@ -15,6 +15,10 @@ nombres de código.
 
 - Worker: los avisos por gusto leen cada canal una sola vez por corrida, aunque haya varios perfiles o configuraciones. Antes la corrida de cada 30 minutos se cortaba por el cupo de pedidos de R2 y, con eso, los avisos push no salían en las horas con avisos por gusto.
 
+## 1.78.4
+
+- **La prueba de canales vuelve a correr a toda hora.** A la tarde y a la noche la prueba de canales (caídos, calidad y fps) no llegaba a correr, porque compartía la corrida con los avisos y esa corrida se cortaba. Ahora corre aparte, a los 10 y 40 de cada hora.
+
 ## 1.78.3
 
 - Worker: «Remedir todo» a pedido. El pedido de medición puede traer `remedir`: el Worker vuelve a medir la resolución y los fps de todos los canales visibles que andan, 400 por corrida del cron, hasta terminar o hasta las 24 horas. Se pide desde el workflow «Medir canales a mano» (opción «remedir»). Sin esa opción, nada cambia.
