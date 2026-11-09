@@ -199,3 +199,34 @@ def test_probe_no_mide_si_queda_poco_tiempo():
     out = server.do_probe(['http://s1'], 'u', 'p', [{'id': '1', 'ext': 'ts', 'res': True}], pick=lambda *a: ('http://s1', None),
                           prober=lambda u: 'up', measurer=lambda u: ('up', (1, 1)), clock=lambda: next(ticks), budget_s=45)
     assert out['results'] == {'1': 'up'} and out['res'] == {}
+
+
+def test_los_codigos_del_proveedor_se_cuentan_por_pedido_y_sin_datos():
+    import xtream_client
+
+    class R:
+        def __init__(self, code):
+            self.status_code = code
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def iter_content(self, n):
+            return iter([b'#EXTM3U'])
+
+    class S:
+        def __init__(self, codes):
+            self.codes = list(codes)
+
+        def get(self, url, **kw):
+            return R(self.codes.pop(0))
+
+    server._statuses.counts = {}
+    s = S([200, 403, 403])
+    assert [xtream_client.probe(s, 'http://x/u/p/1') for _ in range(3)] == ['up', 'rejected', 'rejected']
+    counts, server._statuses.counts = server._statuses.counts, None
+    assert server.status_summary(counts) == '403x2 200x1'
+    assert xtream_client.probe(S([200]), 'http://x/u/p/1') == 'up'  # fuera de un pedido no se cuenta ni falla

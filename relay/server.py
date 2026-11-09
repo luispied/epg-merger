@@ -43,6 +43,24 @@ from xtream_client import (REJECTS_TO_ABORT, XtreamError, build_stream_url, get_
 # Sin avisos de progreso del cliente Xtream: sus errores pueden llevar la URL con usuario y contraseña.
 xtream_client.LOG = lambda *args, **kwargs: None
 
+# Códigos HTTP con que el proveedor contestó las pruebas de stream de cada pedido (por hilo): van al registro como
+# «sondeo 200x12 403x4», sin canales ni datos de la cuenta, para saber por qué rechaza cuando rechaza.
+_statuses = threading.local()
+
+
+def _note_status(code):
+    counts = getattr(_statuses, 'counts', None)
+    if counts is not None:
+        counts[code] = counts.get(code, 0) + 1
+
+
+xtream_client.ON_STATUS = _note_status
+
+
+def status_summary(counts):
+    """'200x12 403x4' (0 = sin respuesta), de más a menos visto."""
+    return ' '.join(f'{code}x{n}' for code, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
 MIN_SECRET_LEN = 32
 MAX_BODY = 64 * 1024
 MAX_SERVERS = 20
@@ -214,7 +232,13 @@ class Handler(BaseHTTPRequestHandler):
                 elif route == 'account':
                     out = do_account(servers, user, password)
                 else:
-                    out = do_probe(servers, user, password, body.get('channels'))
+                    _statuses.counts = {}
+                    try:
+                        out = do_probe(servers, user, password, body.get('channels'))
+                    finally:
+                        counts, _statuses.counts = _statuses.counts, None
+                        if counts:
+                            sys.stderr.write(f'sondeo {status_summary(counts)}\n')
             self._send(200, out)
         except BadRequest as e:
             self._send(400, {'error': str(e)})
