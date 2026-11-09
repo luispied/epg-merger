@@ -37,3 +37,9 @@ def test_muestra_la_prueba_a_medias_y_cuando_se_guardo():
     assert r['prueba_a_medias'] == {'started': 'a', 'at': 'b', 'done': 50, 'total': 400, 'down': 1}
     assert (r['health_guardado'], r['probados_en_la_ultima']) == ('c', 12)
     assert resumen({}, None)['prueba_a_medias'] is None
+
+
+def test_muestra_las_conexiones_de_la_cuenta_de_la_ultima_prueba():
+    r = resumen({'account': {'status': 'Active', 'activeConnections': 2, 'maxConnections': 2, 'expires': 'x'}}, None)
+    assert (r['cuenta_estado'], r['conexiones_en_uso'], r['conexiones_maximas']) == ('Active', 2, 2)
+    assert resumen({'account': 'raro'}, None)['conexiones_en_uso'] is None

@@ -29,6 +29,7 @@ def resumen(health, pedido, progreso=None, guardado=None):
     health = health or {}
     pedido = pedido or {}
     progreso = progreso or {}
+    cuenta = health.get('account') if isinstance(health.get('account'), dict) else {}
     res = health.get('res') or {}
     desde = _t(pedido.get('at')) if pedido.get('remedir') else 0.0
     con_medida = [r for r in res.values() if r.get('w') and r.get('h')]
@@ -39,6 +40,9 @@ def resumen(health, pedido, progreso=None, guardado=None):
         'ultima_prueba_completa': health.get('checked'),
         'relay_respondio': health.get('relayOk'),
         'relay_fallo': health.get('relayFail'),
+        'cuenta_estado': cuenta.get('status'),
+        'conexiones_en_uso': cuenta.get('activeConnections'),
+        'conexiones_maximas': cuenta.get('maxConnections'),
         'health_guardado': guardado,
         'probados_en_la_ultima': health.get('tested'),
         'prueba_a_medias': ({k: progreso.get(k) for k in ('started', 'at', 'done', 'total', 'down')} if progreso else None),
