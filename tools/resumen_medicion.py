@@ -23,10 +23,12 @@ def _t(valor):
         return 0.0
 
 
-def resumen(health, pedido):
-    """Cantidades de una configuración. `health` y `pedido` son los JSON ya leídos (o None)."""
+def resumen(health, pedido, progreso=None, guardado=None):
+    """Cantidades de una configuración. `health`, `pedido` y `progreso` (healthprog/, que queda solo si una prueba
+    se cortó a medias) son los JSON ya leídos (o None); `guardado` es cuándo se escribió health/ por última vez."""
     health = health or {}
     pedido = pedido or {}
+    progreso = progreso or {}
     res = health.get('res') or {}
     desde = _t(pedido.get('at')) if pedido.get('remedir') else 0.0
     con_medida = [r for r in res.values() if r.get('w') and r.get('h')]
@@ -37,6 +39,9 @@ def resumen(health, pedido):
         'ultima_prueba_completa': health.get('checked'),
         'relay_respondio': health.get('relayOk'),
         'relay_fallo': health.get('relayFail'),
+        'health_guardado': guardado,
+        'probados_en_la_ultima': health.get('tested'),
+        'prueba_a_medias': ({k: progreso.get(k) for k in ('started', 'at', 'done', 'total', 'down')} if progreso else None),
         'pedido': pedido.get('at'),
         'pedido_remedir': bool(pedido.get('remedir')),
         'canales_probados': len(health.get('channels') or {}),
@@ -69,7 +74,10 @@ def main():
     for n, cfg_id in enumerate(ids, 1):
         got = r2.get(f'health/{cfg_id}.json')
         req = r2.get(f'healthreq/{cfg_id}.json')
-        datos = resumen(json.loads(got[0]) if got else None, json.loads(req[0]) if req else None)
+        prog = r2.get(f'healthprog/{cfg_id}.json')
+        datos = resumen(json.loads(got[0]) if got else None, json.loads(req[0]) if req else None,
+                        json.loads(prog[0]) if prog else None,
+                        got[1].isoformat(timespec='seconds') if got else None)
         print(f'### Configuración {n}' + ('' if got else ' (sin health/)'))
         for k, v in datos.items():
             print(f'- {k}: {v}')
