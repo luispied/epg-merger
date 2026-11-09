@@ -30,3 +30,10 @@ def test_sin_remedir_no_cuenta_antes_ni_despues_y_sin_datos_no_falla():
     r = resumen({'res': {'a': {'t': '2026-11-09T01:00:00Z', 'w': 1, 'h': 2}}}, {'at': '2026-11-09T00:12:00Z'})
     assert (r['medidos_desde_el_pedido'], r['medidos_antes_del_pedido'], r['pedido_remedir']) == (0, 0, False)
     assert resumen(None, None)['con_resolucion'] == 0
+
+
+def test_muestra_la_prueba_a_medias_y_cuando_se_guardo():
+    r = resumen({'tested': 12}, None, {'started': 'a', 'at': 'b', 'done': 50, 'total': 400, 'down': 1, 'otro': 9}, 'c')
+    assert r['prueba_a_medias'] == {'started': 'a', 'at': 'b', 'done': 50, 'total': 400, 'down': 1}
+    assert (r['health_guardado'], r['probados_en_la_ultima']) == ('c', 12)
+    assert resumen({}, None)['prueba_a_medias'] is None

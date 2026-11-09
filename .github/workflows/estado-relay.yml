@@ -38,6 +38,10 @@ jobs:
       run: |
         echo "### Últimas respuestas del relay (método, ruta, código)" | tee -a "$GITHUB_STEP_SUMMARY"
         flyctl logs -a "$APP" --no-tail 2>&1 | grep -E '(POST|GET) /' | grep -oE '(POST|GET) /[a-z0-9/]* [0-9]*' | sort | uniq -c | sort -rn | head -20 | tee -a "$GITHUB_STEP_SUMMARY" || true
+    - name: Últimos pedidos con su hora
+      run: |
+        echo "### Últimos pedidos (hora UTC, método, ruta, código)" | tee -a "$GITHUB_STEP_SUMMARY"
+        flyctl logs -a "$APP" --no-tail 2>&1 | sed -nE 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}).*((POST|GET) \/[a-z0-9\/]* [0-9]+).*/\1 \2/p' | tail -80 | sed 's/^/    /' | tee -a "$GITHUB_STEP_SUMMARY" || true
     - name: IP pública de salida del relay
       continue-on-error: true
       run: |
