@@ -60,10 +60,19 @@ def test_probe_prueba_en_orden_y_corta_si_la_cuenta_rechaza():
 
     out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': '1', 'ext': 'ts'}, {'id': '2', 'ext': 'ts'}],
                           pick=lambda *a: ('http://s1', {'status': 'Active'}), prober=prober)
-    assert out == {'server': 'http://s1', 'account': {'status': 'Active'}, 'results': {'1': 'up', '2': 'down'}, 'res': {}, 'aborted': False}
+    assert out == {'server': 'http://s1', 'account': {'status': 'Active'}, 'results': {'1': 'up', '2': 'down'}, 'res': {}, 'aborted': False, 'rejected': []}
     out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': str(i), 'ext': 'ts'} for i in range(10)],
                           pick=lambda *a: ('http://s1', None), prober=lambda u: 'rejected')
     assert out['aborted'] is True and out['results'] == {}
+    # Los rechazados se informan siempre: el Worker los pasa al final de la fila para que no traben la prueba.
+    assert out['rejected'] == ['0', '1', '2', '3']
+    out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': str(i), 'ext': 'ts'} for i in range(3)],
+                          pick=lambda *a: ('http://s1', None), prober=lambda u: 'rejected' if u.endswith('/1.ts') else 'up')
+    assert out['aborted'] is False and out['results'] == {'0': 'up', '2': 'up'} and out['rejected'] == ['1']
+    # Lo que contestó antes del corte se conserva.
+    out = server.do_probe(['http://s1'], 'user', 'secreta', [{'id': str(i), 'ext': 'ts'} for i in range(8)],
+                          pick=lambda *a: ('http://s1', None), prober=lambda u: 'up' if u.endswith('/0.ts') else 'rejected')
+    assert out['aborted'] is True and out['results'] == {'0': 'up'} and out['rejected'] == ['1', '2', '3', '4']
     for bad in ([], [{'id': ''}], [{'id': '1', 'ext': '../x'}], [{'id': str(i)} for i in range(server.MAX_PROBE_CHANNELS + 1)]):
         with pytest.raises(server.BadRequest):
             server.do_probe(['http://s1'], 'u', 'p', bad, pick=lambda *a: ('http://s1', None))

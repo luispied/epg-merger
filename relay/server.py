@@ -9,7 +9,7 @@ pedido, los usa y los descarta. Nunca los escribe en el log.
 Se autentica con un secret compartido con el Worker (RELAY_SECRET, mínimo 32 caracteres):
   POST /v1/list     {servers, username, password}            -> {server, channels}
   POST /v1/account  {servers, username, password}            -> {server, account}
-  POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, res, aborted}
+  POST /v1/probe    {servers, username, password, channels}  -> {server, account, results, res, aborted, rejected}
                     (los canales con "res": true que anden también se miden, con el mismo pedido: res[id] = [ancho, alto, fps o null] o null)
   GET  /health                                              -> {ok: true}   (sin autenticar)
 
@@ -156,6 +156,7 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, measurer
     # Probar y medir con un solo pedido: una segunda conexión enseguida puede rebotar por el límite de conexiones.
     measurer = measurer or (lambda url: probe(session, url, lambda r, head: video_res.measure(session, url, first=(r, head))))
     results, res, rejects, started = {}, {}, 0, clock()
+    rejected = []  # los que el proveedor rechazó: el Worker los manda al final de la fila
     aborted = False
     for cid, ext, want_res in items:
         if clock() - started > budget_s:
@@ -169,16 +170,16 @@ def do_probe(servers, user, password, channels, pick=None, prober=None, measurer
             result = prober(url)
         if result == 'rejected':
             rejects += 1
+            rejected.append(cid)
             if rejects >= REJECTS_TO_ABORT:
-                aborted = True  # la cuenta rechaza: no es el canal
-                results = {}
+                aborted = True  # la cuenta rechaza: no es el canal; lo que ya contestó antes vale
                 break
             continue
         rejects = 0
         results[cid] = result
         if measuring and result == 'up':
             res[cid] = list(wh) if wh else None
-    return {**info, 'results': results, 'res': {} if aborted else res, 'aborted': aborted}
+    return {**info, 'results': results, 'res': res, 'aborted': aborted, 'rejected': rejected}
 
 
 def authorized(header, secret):

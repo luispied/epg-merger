@@ -1166,6 +1166,56 @@ test('prueba de canales: deja su avance para la franja de la web y «Detener» l
   }
 });
 
+test('prueba de canales: cuatro canales que el proveedor rechaza no traban la fila', async () => {
+  const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' } } as Partial<typeof CONFIG>);
+  const channels = Array.from({ length: 60 }, (_, i) => ({ name: `Canal ${i}`, category: 'Aire', id: `a${String(i).padStart(2, '0')}`, ext: 'ts', icon: '', epgId: null }));
+  const bucket = t.env.BUCKET as unknown as { data: Map<string, { value: string; uploaded?: Date }> };
+  bucket.data.set(`list/${t.cfgId}.json`, { value: JSON.stringify({ channels }), uploaded: new Date() });
+  const bad = new Set(['a00', 'a01', 'a02', 'a03']);
+  const asked: string[][] = [];
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.origin !== 'https://relay.example') return base(input, init);
+    const ids = ((JSON.parse(String(init?.body)).channels ?? []) as { id: string }[]).map((c) => c.id);
+    asked.push(ids);
+    // Como el relay: cuatro rechazos seguidos cortan la tanda, y los rechazados se informan igual.
+    const results: Record<string, string> = {};
+    const rejected: string[] = [];
+    let run = 0;
+    let aborted = false;
+    for (const id of ids) {
+      if (!bad.has(id)) { results[id] = 'up'; run = 0; continue; }
+      rejected.push(id);
+      if (++run >= 4) { aborted = true; break; }
+    }
+    return new Response(JSON.stringify({ server: S1, account: { status: 'Active' }, results, res: {}, aborted, rejected }));
+  }) as typeof fetch;
+  const health = () => JSON.parse(bucket.data.get(`health/${t.cfgId}.json`)!.value) as { tested?: number; channels: Record<string, { ok: boolean }>; rejected?: Record<string, string> };
+  const now = new Date('2026-10-07T10:00:00Z');
+  try {
+    t.env.RELAY_URL = 'https://relay.example';
+    t.env.RELAY_SECRET = 'r'.repeat(40);
+    // La primera tanda empieza por los cuatro rechazados y se corta; la prueba sigue con la tanda siguiente.
+    assert.equal(await runHealthCheck(t.env, t.cfgId, now), true);
+    assert.equal(asked.length, 2);
+    assert.equal(health().tested, 10);
+    assert.deepEqual(Object.keys(health().rejected ?? {}).sort(), [...bad].sort());
+    // La próxima prueba deja a los rechazados para el final y prueba todos los demás.
+    asked.length = 0;
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 30 * 3600_000)), true);
+    assert.equal(asked[0][0], 'a04');
+    assert.equal(Object.keys(health().channels).length, 56);
+    // Si un rechazado vuelve a responder, sale de la lista de rechazados.
+    bad.delete('a00');
+    assert.equal(await runHealthCheck(t.env, t.cfgId, new Date(now.getTime() + 60 * 3600_000)), true);
+    assert.equal(health().channels.a00.ok, true);
+    assert.deepEqual(Object.keys(health().rejected ?? {}).sort(), ['a01', 'a02', 'a03']);
+  } finally {
+    globalThis.fetch = base;
+  }
+});
+
 test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el vencimiento de cada cuenta', async () => {
   const t = await setup({ provider: { type: 'xtream', servers: [S1], list: 'upload' }, channels: { Oculto: { hidden: true } } } as Partial<typeof CONFIG>);
   const ch = (id: string, name = `Canal ${id}`, category = 'Aire') => ({ name, category, id, ext: 'ts', icon: '', epgId: null });
@@ -1268,6 +1318,8 @@ test('prueba de canales por el relay: tandas, una por día, pedido a mano, y el 
   // Piezas sueltas.
   const old = (t_: string) => ({ t: t_, ok: true, fails: 0 });
   assert.deepEqual(pickBatch([ch('b'), ch('a'), ch('c')], { a: old('2026-01-02'), c: old('2026-01-01') }, 2).map((c) => c.id), ['b', 'c']);
+  // Un canal rechazado cuenta como intentado a esa hora: no queda primero en la fila.
+  assert.deepEqual(pickBatch([ch('b'), ch('a'), ch('c')], { a: old('2026-01-02'), c: old('2026-01-01') }, 2, { b: '2026-01-03' }).map((c) => c.id), ['c', 'a']);
   assert.deepEqual(visibleChannels(channels, parseConfig({ provider: { type: 'xtream', servers: [S1] }, channels: { Canal_: {} }, groups: { hidden: ['Aire'] } })).length, 0);
   assert.equal(isDue(null, undefined, now), true);
   const week = (ms: number) => ({ t: new Date(now.getTime() - ms).toISOString(), w: 1280, h: 720, v: RES_VERSION });

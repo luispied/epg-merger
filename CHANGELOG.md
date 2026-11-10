@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.6
+
+- **La prueba de canales ya no se traba con los canales que el proveedor rechaza.** Si los primeros cuatro canales de la fila eran rechazados por el proveedor, la prueba se cortaba ahí y no medía ningún otro (ni caídos, ni calidad, ni fps), una y otra vez. Ahora esos canales pasan al final de la fila, lo que contestó antes del corte se anota y la prueba sigue con la tanda siguiente.
+
 ## 1.78.5
 
 - Worker: los avisos por gusto leen cada canal una sola vez por corrida, aunque haya varios perfiles o configuraciones. Antes la corrida de cada 30 minutos se cortaba por el cupo de pedidos de R2 y, con eso, los avisos push no salían en las horas con avisos por gusto.

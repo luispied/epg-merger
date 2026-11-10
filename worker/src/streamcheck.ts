@@ -63,6 +63,8 @@ export interface HealthState {
   total?: number;
   channels?: Record<string, Entry>;
   res?: Record<string, Res>;
+  /** Canales que el proveedor rechazó (403 y parecidos) y cuándo: van al final de la fila de la próxima prueba. */
+  rejected?: Record<string, string>;
   account?: unknown;
   accounts?: Record<string, unknown>;
   /** Huella de la cuenta que probó los canales (el perfil activo de ese momento). */
@@ -111,9 +113,14 @@ export function manualHiddenChannels(channels: Channel[], cfg: Config | null): C
   });
 }
 
-/** Los n canales que hace más que no se prueban (los que nunca se probaron, primero). */
-export function pickBatch(channels: Channel[], seen: Record<string, Entry>, n: number): Channel[] {
-  const key = (ch: Channel) => seen[ch.id]?.t ?? '';
+/** Los n canales que hace más que no se prueban (los que nunca se probaron, primero). Un canal que el proveedor rechazó
+ *  cuenta como intentado a esa hora: si quedara primero en la fila, cuatro rechazados seguidos cortarían todas las pruebas. */
+export function pickBatch(channels: Channel[], seen: Record<string, Entry>, n: number, rejected: Record<string, string> = {}): Channel[] {
+  const key = (ch: Channel) => {
+    const t = seen[ch.id]?.t ?? '';
+    const r = rejected[ch.id] ?? '';
+    return r > t ? r : t;
+  };
   return [...channels].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, n);
 }
 
@@ -172,7 +179,9 @@ export function isDue(state: HealthState | null, requestedAt: string | undefined
   return now.getTime() - last >= CHECK_EVERY_MS;
 }
 
-interface ProbeResponse { account?: unknown; results?: Record<string, string>; res?: Record<string, unknown>; aborted?: boolean }
+interface ProbeResponse { account?: unknown; results?: Record<string, string>; res?: Record<string, unknown>; aborted?: boolean; rejected?: string[] }
+/** Tandas seguidas que el proveedor rechaza enteras para dar la prueba por cortada: ahí es la cuenta, no los canales. */
+const ABORTS_TO_STOP = 2;
 type Creds = { u: string; p: string };
 
 /** Prueba una configuración con el relay y deja health/<cfgId>.json. Devuelve false si no hacía falta o no se pudo. */
@@ -210,6 +219,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
   const manualIds = new Set(manual.map((c) => c.id));
   let seen: Record<string, Entry> = Object.fromEntries(Object.entries(prev?.channels ?? {}).filter(([id]) => known.has(id)));
   const res: Record<string, Res> = Object.fromEntries(Object.entries(prev?.res ?? {}).filter(([id]) => known.has(id)));
+  const rejected: Record<string, string> = Object.fromEntries(Object.entries(prev?.rejected ?? {}).filter(([id]) => known.has(id)));
   // Barrido: en la ventana, si quedan canales sin medir, esta corrida prueba y mide todo lo que alcance.
   const remedir = remedirSince > 0 && remedirLeft(channels, seen, res, remedirSince) > 0;
   const sweep = (inWindow && unmeasuredCount(channels, seen, res) > 0) || remedir;
@@ -228,13 +238,14 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
       if (first && channels.length) {
         // El perfil activo prueba los canales (en tandas) y, de paso, trae sus datos. Si cambió de perfil, lo que probó
         // la cuenta anterior no vale para esta: se empieza de cero.
-        if (probedBy !== key) { seen = {}; probedBy = key; }
+        if (probedBy !== key) { seen = {}; probedBy = key; for (const id of Object.keys(rejected)) delete rejected[id]; }
         const pool = onlyDown ? probeList.filter((c) => seen[c.id] && !seen[c.id].ok) : probeList;
-        const batch = pickBatch(pool, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS));
+        const batch = pickBatch(pool, seen, CHUNK * (sweep ? SWEEP_CHUNKS : MAX_CHUNKS), rejected);
         // Un «Detener» de antes de empezar no vale para esta prueba.
         await env.BUCKET.delete(stopKey(cfgId));
         await putProgress(env, cfgId, { started: now.toISOString(), done: 0, total: batch.length, down: 0 });
         let down = 0;
+        let aborts = 0;
         for (let i = 0; i < batch.length; i += CHUNK) {
           if (i && await env.BUCKET.head(stopKey(cfgId))) break;
           const chunk = batch.slice(i, i + CHUNK);
@@ -244,9 +255,9 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           }, 60_000);
           relayOk = true;
           if (reply.account) { accounts[key] = reply.account; primaryAccount ??= reply.account; }
-          if (reply.aborted) break; // la cuenta rechaza: no es el canal, no se anota nada de esta tanda
+          for (const id of reply.rejected ?? []) if (known.has(id)) rejected[id] = now.toISOString();
           // Un corte de red no es un canal caído: los que dieron «down» se piden otra vez, una sola vez, en un pedido aparte.
-          const again = Object.keys(reply.results ?? {}).filter((id) => reply.results?.[id] === 'down');
+          const again = reply.aborted ? [] : Object.keys(reply.results ?? {}).filter((id) => reply.results?.[id] === 'down');
           if (again.length) {
             const retry = await relayPost<ProbeResponse>(env, '/v1/probe', {
               servers, username: u, password: p, channels: chunk.filter((c) => again.includes(c.id)).map((c) => ({ id: c.id, ext: c.ext })),
@@ -256,6 +267,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
           for (const [id, r] of Object.entries(reply.results ?? {})) {
             const ok = r === 'up';
             seen[id] = { t: now.toISOString(), ok, fails: ok ? 0 : (seen[id]?.fails ?? 0) + 1 };
+            delete rejected[id];
             if (seen[id].fails >= DOWN_AFTER) down++;
             tested++;
           }
@@ -265,6 +277,9 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
             const f = fpsOf(v);
             res[id] = wh ? { t: now.toISOString(), w: wh[0], h: wh[1], v: RES_VERSION, ...(f !== undefined ? { f } : {}) } : { t: now.toISOString() };
           }
+          // Tanda cortada por rechazos: lo que contestó antes del corte ya se anotó. Pueden ser cuatro canales que el
+          // proveedor rechaza y cayeron juntos, así que se sigue con la tanda siguiente; si también se corta, es la cuenta.
+          if (reply.aborted) { if (++aborts >= ABORTS_TO_STOP) break; } else aborts = 0;
           if (i + CHUNK < batch.length) {
             await putProgress(env, cfgId, { started: now.toISOString(), done: Math.min(i + CHUNK, batch.length), total: batch.length, down });
           }
@@ -281,6 +296,7 @@ export async function runHealthCheck(env: Env, cfgId: string, now = new Date(), 
     first = false;
   }
   const out: HealthState = { ...state, channels: seen, res, total: channels.length, accounts, ...(probedBy ? { probedBy } : {}) };
+  if (Object.keys(rejected).length) out.rejected = rejected; else delete out.rejected;
   if (tested) { out.checked = now.toISOString(); out.tested = tested; }
   if (primaryAccount) out.account = primaryAccount;
   if (relayOk) out.relayOk = now.toISOString();
