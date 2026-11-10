@@ -33,14 +33,15 @@ async function pickState(page: Page, name: string) {
   await sheet.getByRole('button', { name: 'Listo' }).click();
 }
 
-test('las filas con su categoría y su guía', async ({ page }) => {
+test('las filas: nombre y calidad en una línea, la guía solo en el nombre accesible, «Sin guía» donde falta', async ({ page }) => {
   await expect(cards(page).locator('.cat-head')).toHaveText(['Deportes3', 'Noticias2', 'Infantiles2']);
   await expect(cards(page).locator('.card-name')).toHaveText(['ESPN', 'Fox Sports', 'TyC Sports', 'CNN', 'TN', 'Disney Channel', 'Cartoon Network']);
-  await expect(row(page, 'ESPN').locator('.guide-name')).toHaveText('ESPN');
-  await expect(row(page, 'ESPN').locator('.cc')).toHaveText('AR');
+  // La fila ya no repite la guía asignada (se ve al editar el canal): no hay segundo renglón con su nombre ni su país.
+  await expect(row(page, 'ESPN').locator('.guide-name')).toHaveCount(0);
+  await expect(row(page, 'ESPN').locator('.cc')).toHaveCount(0);
   await expect(row(page, 'ESPN')).toHaveAttribute('aria-label', 'ESPN, guía ESPN');
-  await expect(row(page, 'Fox Sports').locator('.guide')).toHaveText('Sin guía asignada');
-  await expect(row(page, 'Fox Sports').locator('.tag.bad')).toHaveText('Sin guía');
+  await expect(row(page, 'Fox Sports').locator('.miss')).toHaveText('Sin guía');
+  await expect(row(page, 'ESPN').locator('.miss')).toHaveCount(0);
   await expect(row(page, 'ESPN').locator('.mono')).toHaveText('ES');
   await expect(cards(page).locator('.where')).toHaveCount(0);
 });

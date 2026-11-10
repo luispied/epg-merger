@@ -234,21 +234,11 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
     );
   }
   const guideName = epg ? guideLabel(epg) : '';
-  const cc = epg ? state.index?.country.get(epg) : undefined;
   const sug = !epg && !edit.manual ? suggestion : null;
   const marks = [state.newNames.has(ch.name) ? 'nuevo' : '', edit.group ? 'movido' : '', hidden && !caido ? 'oculto' : '']
     .filter(Boolean).map((m) => <span key={m} class="mark">{m}</span>);
-  let guide;
-  if (sug) {
-    guide = <span class="guide sug"><span class={`pct ${sug.score >= GOOD ? 'ok' : 'warn'}`}>{Math.round(Math.min(sug.score, 1) * 100)} %</span> <b>{guideLabel(sug.channelId)}</b></span>;
-  } else if (epg) {
-    guide = <span class="guide"><span class="guide-name">{guideName}</span>{cc && <span class="cc">{cc.toUpperCase()}</span>}</span>;
-  } else if (ev && !edit.manual) {
-    const l = eventLabel(ev.start);
-    guide = <span class={`guide event ${l.cls}`} title="Hora de tu dispositivo (según la zona del proveedor)"><Icon name="clock" class="sm" />{l.text}</span>;
-  } else {
-    guide = <span class="guide none">{edit.manual ? 'Sin guía' : 'Sin guía asignada'}</span>;
-  }
+  // La fila no repite la guía asignada (eso se ve al editar el canal): solo marca los canales sin guía.
+  const noGuide = !caido && !epg && !sug;
   const label = `${shown}${q ? `, ${q.label}${q.fps ? `, ${q.fps} fps` : ''}` : ''}, ${caido ? 'oculto por caído' : epg ? `guía ${guideName}` : 'sin guía'}${hidden && !caido ? ', oculto' : ''}`;
   return (
     <article class={`card row-card${cls}${edge ? ` ${edge}` : ''}`} data-i={i} tabindex={0} role="button" aria-label={label} style={fixedStyle(false)}>
@@ -256,12 +246,14 @@ function Card({ i, edge = '' }: { i: number; edge?: string }) {
       <div class="row-in">
         {selBox}
         <Logo id={epg} custom={edit.customLogo} label={shown} />
-        <div class="card-title"><div class={`card-name${q ? ' has-q' : ''}`}>{q ? <><span class="cn-text">{stripQualityText(shown)}</span><span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>{q.fps && <span class="fps" title={qualityTitle(q)}>{q.fps} fps</span>}</> : shown}</div><div class="row-sub">{caido ? <span class="caido-sub">Oculto por caído</span> : guide}{marks}
+        <div class="card-title"><div class={`card-name${q ? ' has-q' : ''}`}>{q ? <><span class="cn-text">{stripQualityText(shown)}</span><span class={`qtag${q.label === '4K' ? ' k4' : ''}`} title={qualityTitle(q)}>{q.label}</span>{q.fps && <span class="fps" title={qualityTitle(q)}>{q.fps} fps</span>}</> : shown}</div>
+          {(caido || marks.length > 0 || state.search.trim()) && <div class="row-sub">{caido && <span class="caido-sub">Oculto por caído</span>}{marks}
           {/* Con búsqueda la lista queda plana (sin encabezados de categoría): se muestra de cuál es. */}
-          {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>
+          {state.search.trim() && <span class="where">{groupLabel(groupOf(ch))}</span>}</div>}
           {viewMode() === 'detail' && epg && <RowNow id={epg} />}</div>
+        {noGuide && <span class="miss">Sin guía</span>}
         {caido && <button class="chip-btn caido-chip" type="button" disabled tabindex={-1}>Caído</button>}
-        {sug ? <button type="button" class="btn btn-gray sm" data-use={i}>Usar</button> : <StatusMark band={band} score={auto?.score} />}
+        {sug ? <button type="button" class="btn btn-gray sm" data-use={i}>Usar</button> : !noGuide && <StatusMark band={band} score={auto?.score} />}
         <button type="button" class="icon-btn sm row-more" data-more={i} aria-label={`Más acciones: ${shown}`} aria-haspopup="menu"><Icon name="ellipsis" /></button>
       </div>
     </article>

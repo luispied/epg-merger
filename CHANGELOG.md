@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.8
+
+- **Canales: una sola línea por canal.** Se quitó el segundo renglón que mostraba la guía de cada canal (esa guía se ve al editar el canal). El nombre se agranda y la calidad (HD, FHD, 4K) y los fps van a la derecha del nombre. Solo los canales sin guía muestran «Sin guía» a la derecha.
+
 ## 1.78.7
 
 - Interno: el horario de la prueba de canales se define fuera del módulo de entrada del Worker, que solo puede exportar manejadores. Con eso vuelve a arrancar el Worker local de los tests completos.
