@@ -28,6 +28,9 @@ export const RES_EVERY_MS = 7 * 24 * 3600 * 1000;
 export const RES_PER_CHUNK = 25; // ~100 por día: va en el mismo pedido de la prueba; el relay deja de medir si se queda sin tiempo
 export const SWEEP_CHUNKS = 8; // barrido: 400 canales por corrida, con todas las tandas midiendo
 export const SWEEP_EVERY_MS = 25 * 60 * 1000; // el cron corre cada 30 min: una corrida del barrido por tick
+/** El cron de la prueba de canales (wrangler.toml → [triggers]). Vive acá y no en index.ts: el módulo de entrada del
+ *  Worker solo puede exportar manejadores. */
+export const HEALTH_CRON = '10,40 * * * *';
 /** «Remedir todo» a pedido: sigue en cada tick del cron hasta medir de nuevo todos los canales, y se da por vencido a las 24 horas. */
 export const REMEDIR_MAX_MS = 24 * 3600 * 1000;
 const SWEEP_HOURS = [1, 9]; // de 1 a 9 h, hora de Montevideo

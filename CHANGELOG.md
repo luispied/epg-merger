@@ -11,6 +11,10 @@ Lo que va acá también se muestra en la app («Novedades»), así que conviene 
 las viñetas que empiezan con «Worker:» o «Interno:» ni las que hablan de tests, y se sacan los paréntesis con rutas o
 nombres de código.
 
+## 1.78.7
+
+- Interno: el horario de la prueba de canales se define fuera del módulo de entrada del Worker, que solo puede exportar manejadores. Con eso vuelve a arrancar el Worker local de los tests completos.
+
 ## 1.78.6
 
 - **La prueba de canales ya no se traba con los canales que el proveedor rechaza.** Si los primeros cuatro canales de la fila eran rechazados por el proveedor, la prueba se cortaba ahí y no medía ningún otro (ni caídos, ni calidad, ni fps), una y otra vez. Ahora esos canales pasan al final de la fila, lo que contestó antes del corte se anota y la prueba sigue con la tanda siguiente.

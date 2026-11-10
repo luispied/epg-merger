@@ -55,7 +55,7 @@ import { qualityMap } from './quality.ts';
 import { addReport, createView, deleteReports, deleteView, readReports, readView, removeReport, viewManifest } from './view.ts';
 import { refreshViaRelay } from './refresh.ts';
 import { relayConfigured, relayList, relayPost } from './relay.ts';
-import { checkAllHealth, healthHidden, healthRes, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
+import { checkAllHealth, HEALTH_CRON, healthHidden, healthRes, liveAccounts, progressKey, stopKey } from './streamcheck.ts';
 import { deleteHabits, feedbackHabit, noteHabit, readHabits, titleAt, validFeedback } from './habits.ts';
 import { createHome, loadHome, MAX_HOME_BYTES, parseHome, saveHome } from './home.ts';
 import { againFor, validAgainIds } from './again.ts';
@@ -1125,8 +1125,6 @@ export function routeKind(pathname: string): string {
   return 'otro';
 }
 
-/** El cron de la prueba de canales (wrangler.toml → [triggers]). */
-export const HEALTH_CRON = '10,40 * * * *';
 
 export default {
   fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {

@@ -2015,7 +2015,8 @@ test('lista: lo que oculta la prueba sale de la playlist, y lo ocultado a mano q
 
 test('cron: la prueba de canales tiene su propia corrida, aparte de los avisos push', async () => {
   const { readFileSync } = await import('node:fs');
-  const { default: worker, HEALTH_CRON } = await import('../src/index.ts');
+  const { default: worker } = await import('../src/index.ts');
+  const { HEALTH_CRON } = await import('../src/streamcheck.ts');
   const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
   assert.ok(toml.includes(`"${HEALTH_CRON}"`), 'wrangler.toml tiene que programar HEALTH_CRON');
   // Sin relay ni avisos configurados no hace nada, pero cada cron tiene que encolar su trabajo sin tirar.
