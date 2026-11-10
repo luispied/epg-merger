@@ -49,7 +49,7 @@ test('buscar una guía para varios', async ({ page }) => {
   await expect(sheet(page)).toBeHidden();
   await expect(page.locator('.toast .msg').last()).toContainText('Guía elegida para 2 canales');
   await expect(page.locator('#bulkBar')).toBeHidden();
-  await expect(row(page, 'Fox Sports').locator('.guide-name')).toHaveText('Canal Rural');
+  await expect(row(page, 'Fox Sports')).toHaveAttribute('aria-label', /guía Canal Rural/);
   await expect.poll(() => savedEdit(fake, 'TyC Sports')).toMatchObject({ epg: 'g00000000000003.ar', manual: true });
 });
 

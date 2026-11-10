@@ -403,7 +403,10 @@ body:has(#netPill:not([hidden])) .toasts { top: calc(56px + env(safe-area-inset-
 @media (hover: hover) { .cards.rows .card.row-card:hover { background: var(--surface-2); } }
 .cards.rows .card.row-card .logo { width: 36px; height: 36px; flex: none; }
 .cards.rows .card.row-card .card-title { flex: 1; min-width: 0; }
-.cards.rows .card.row-card .card-name { font-size: var(--fs-base); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cards.rows .card.row-card .card-name { font-size: var(--fs-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* «Sin guía»: la única marca de guía en la fila (pastilla suave del rojo, a la derecha, solo si falta la guía). */
+.cards.rows .card.row-card .miss { flex: none; margin-left: auto; font-size: var(--fs-xs); font-weight: 600; line-height: 16px; color: var(--danger-ink); background: var(--danger-soft); border-radius: var(--radius-full); padding: 2px 8px; white-space: nowrap; }
+.cards.grid .miss { display: none; } /* la vista de logos no muestra la marca (como no muestra la guía) */
 .cards.rows .row-sub { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-md); color: var(--muted); min-width: 0; margin-top: 1px; }
 .cards.rows .row-sub .cat { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cards.rows .row-sub .epg-now { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); }
